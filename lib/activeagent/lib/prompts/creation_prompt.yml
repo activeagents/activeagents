@@ -1,0 +1,5 @@
+# Creation
+creation:
+  instruction: "Create a {type} based on the following input."
+  context: "Make sure to follow the specified guidelines."
+  prompt_template: "Input: {{input}}\n{type}:"
