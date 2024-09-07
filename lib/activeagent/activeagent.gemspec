@@ -6,6 +6,7 @@ Gem::Specification.new do |s|
   s.authors     = ["Justin Bowen"]
   s.email       = "jusbowen@gmail.com"
   s.files       = ["lib/active_agent.rb"]
+  s.require_paths = ["lib"]
   s.homepage    =
     "https://rubygems.org/gems/activeagent"
   s.license       = "MIT"

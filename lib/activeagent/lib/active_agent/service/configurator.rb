@@ -22,13 +22,13 @@ module ActiveAgent
     private
       def config_for(name)
         configurations.fetch name do
-          raise "Missing configuration for the #{name.inspect} Active Agent service. Configurations available for #{configurations.keys.inspect}"
+          raise "Missing configuration for the #{name.inspect} Active Storage service. Configurations available for #{configurations.keys.inspect}"
         end
       end
 
       def resolve(class_name)
-        require "active_agent/service/#{class_name.to_s.underscore}_service"
-        ActiveAgent::Service.const_get(:"#{class_name.camelize}Service")
+        require "active_storage/service/#{class_name.to_s.underscore}_service"
+        ActiveAgent::Provider.const_get(:"#{class_name.camelize}Provider")
       rescue LoadError
         raise "Missing service adapter for #{class_name.inspect}"
       end

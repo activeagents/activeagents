@@ -1,5 +1,0 @@
-# Classification
-classification:
-  instruction: "Classify the following text into one of the predefined categories."
-  context: "The categories are: {categories}"
-  prompt_template: "Text: {{prompt_input}}\nCategory:"
