@@ -51,22 +51,24 @@ jobs:
           PR_COMMITS_ESCAPED=$(echo "$PR_COMMITS" | jq -Rs .)
           PR_DIFF_ESCAPED=$(echo "$PR_DIFF" | jq -Rs .)
 
-          # Construct the prompt, ensuring it starts exactly with "\n\nHuman:" without escaping it further
-          PROMPT="\n\nHuman: Write a blog post summarizing the following contribution:\nTitle: $PR_TITLE_ESCAPED\nDescription: $PR_BODY_ESCAPED\nCommits: $PR_COMMITS_ESCAPED\nCode changes:\n$PR_DIFF_ESCAPED\n\nAssistant:"
+          # Manually construct the JSON payload with the prompt and escaped content
+          JSON_PAYLOAD=$(jq -n --arg title "$PR_TITLE_ESCAPED" --arg body "$PR_BODY_ESCAPED" --arg commits "$PR_COMMITS_ESCAPED" --arg diff "$PR_DIFF_ESCAPED" \
+          '{
+              model: "claude-3-5-sonnet-20240620",
+              prompt: "\n\nHuman: Write a blog post summarizing the following contribution:\nTitle: \($title)\nDescription: \($body)\nCommits: \($commits)\nCode changes:\n\($diff)\n\nAssistant:",
+              max_tokens_to_sample: 1000,
+              stream: false
+          }')
 
-          # Create the JSON payload using printf to ensure proper formatting
-          JSON_PAYLOAD=$(printf '{"model": "claude-3-5-sonnet-20240620", "prompt": %s, "max_tokens_to_sample": 1000, "stream": false}' "$PROMPT")
-
-          # Debug: print the prompt and JSON payload to verify its structure
-          echo "Final Prompt sent to Claude: $PROMPT"
+          # Debug: print the JSON payload to verify its structure
           echo "JSON Payload: $JSON_PAYLOAD"
 
           # Make API call to Claude with the correct headers and body structure
           FULL_RESPONSE=$(curl -X POST $CLAUDE_API_URL \
-        --header "anthropic-version: 2023-06-01" \
-        --header "content-type: application/json" \
-        --header "x-api-key: ${{ secrets.CLAUDE_API_KEY }}" \
-        --data "$JSON_PAYLOAD")
+            --header "anthropic-version: 2023-06-01" \
+            --header "content-type: application/json" \
+            --header "x-api-key: ${{ secrets.CLAUDE_API_KEY }}" \
+            --data "$JSON_PAYLOAD")
 
           # Debug: print the full response from the API
           echo "Full API Response: $FULL_RESPONSE"
