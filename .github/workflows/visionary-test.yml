@@ -43,10 +43,10 @@ jobs:
 
       # Step 4: Save the blog post as an issue comment (optional)
       - name: Post Blog Summary as Comment
-        uses: actions/github-script@v6
-        with:
-          script: |
-            github.rest.issues.createComment({
-              issue_number: context.issue.number,
-              body: `### Blog Post:\n${{ env.BLOG_POST }}`
-            })
+        run: |
+          curl -X POST \
+            -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+            -H "Content-Type: application/json" \
+            -d "{\"body\": \"### Blog Post:\n${{ env.BLOG_POST }}\"}" \
+            https://api.github.com/repos/${{ github.repository }}/issues/${{ github.event.pull_request.number }}/comments
+
