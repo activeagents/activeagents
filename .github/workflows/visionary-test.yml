@@ -42,25 +42,33 @@ jobs:
         run: |
           CLAUDE_API_URL="https://api.anthropic.com/v1/completions"
           
-          # Read the PR diff from the file
           PR_DIFF=$(cat pr_diff.txt)
-          
           PROMPT="Write a blog post summarizing the following contribution: \nTitle: $PR_TITLE \nDescription: $PR_BODY \nCommits: $PR_COMMITS \nCode changes:\n$PR_DIFF"
 
+          # Debug: print the prompt to verify structure
           echo "Prompt sent to Claude: $PROMPT"
 
-          # Make API call to Claude
-          BLOG_POST=$(curl -X POST $CLAUDE_API_URL \
+          FULL_RESPONSE=$(curl -X POST $CLAUDE_API_URL \
             -H "Authorization: Bearer ${{ secrets.CLAUDE_API_KEY }}" \
             -H "Content-Type: application/json" \
             -d '{
               "prompt": "'"$PROMPT"'",
               "max_tokens": 1000,
               "temperature": 0.7
-            }' | jq -r '.completion')
+            }')
 
-          echo "Blog Post: $BLOG_POST"
-          echo "BLOG_POST=$BLOG_POST" >> $GITHUB_ENV
+          echo "Full API Response: $FULL_RESPONSE"
+
+          # Check if response contains the 'completion' field
+          if echo "$FULL_RESPONSE" | jq -e '.completion' > /dev/null; then
+            BLOG_POST=$(echo "$FULL_RESPONSE" | jq -r '.completion')
+            echo "Blog Post: $BLOG_POST"
+            echo "BLOG_POST=$BLOG_POST" >> $GITHUB_ENV
+          else
+            echo "Error: Could not extract 'completion' from response."
+            exit 1
+          fi
+
 
 
       # Step 4: Post Blog Summary as Comment
