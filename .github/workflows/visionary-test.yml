@@ -1,5 +1,10 @@
 name: Blog Post Generator for PRs
 
+permissions:
+  contents: write
+  pull-requests: write
+  issues: write
+
 on:
   pull_request:
     types: [opened, edited, synchronize]
