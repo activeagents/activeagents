@@ -28,8 +28,14 @@ jobs:
 
           # Fetch all branches and do the diff
           git fetch --all
-          echo "PR_DIFF=$(git diff origin/${{ github.event.pull_request.base.ref }}..origin/${{ github.event.pull_request.head.ref }})" >> $GITHUB_ENV
           
+          # Save the diff to a file instead of trying to put it into an environment variable
+          git diff origin/${{ github.event.pull_request.base.ref }}..origin/${{ github.event.pull_request.head.ref }} > pr_diff.txt
+
+          # Check the content of the diff file for debugging
+          echo "Git diff output saved to pr_diff.txt:"
+          cat pr_diff.txt
+
       # Step 3: Send data to Claude API
       - name: Generate Blog Post with Claude
         id: call_claude
