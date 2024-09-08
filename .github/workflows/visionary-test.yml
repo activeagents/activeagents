@@ -35,8 +35,15 @@ jobs:
         id: call_claude
         run: |
           CLAUDE_API_URL="https://api.anthropic.com/v1/completions"
-          PROMPT="Write a blog post summarizing the following contribution: \nTitle: $PR_TITLE \nDescription: $PR_BODY \nCommits: $PR_COMMITS \nCode changes:\n$PR_DIFF"
           
+          # Read the PR diff from the file
+          PR_DIFF=$(cat pr_diff.txt)
+          
+          PROMPT="Write a blog post summarizing the following contribution: \nTitle: $PR_TITLE \nDescription: $PR_BODY \nCommits: $PR_COMMITS \nCode changes:\n$PR_DIFF"
+
+          echo "Prompt sent to Claude: $PROMPT"
+
+          # Make API call to Claude
           BLOG_POST=$(curl -X POST $CLAUDE_API_URL \
             -H "Authorization: Bearer ${{ secrets.CLAUDE_API_KEY }}" \
             -H "Content-Type: application/json" \
@@ -48,6 +55,7 @@ jobs:
 
           echo "Blog Post: $BLOG_POST"
           echo "BLOG_POST=$BLOG_POST" >> $GITHUB_ENV
+
 
       # Step 4: Post Blog Summary as Comment
       - name: Post Blog Summary as Comment
