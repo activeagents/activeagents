@@ -48,5 +48,5 @@ jobs:
             -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
             -H "Content-Type: application/json" \
             -d "{\"body\": \"### Blog Post:\n${{ env.BLOG_POST }}\"}" \
-            https://api.github.com/repos/${{ github.repository }}/issues/${{ github.event.pull_request.number }}/comments
+            https://api.github.com/repos/${{ github.repository }}/pulls/${{ github.event.pull_request.number }}/comments
 
