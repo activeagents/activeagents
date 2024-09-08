@@ -44,15 +44,9 @@ jobs:
           
           # Read the diff from the file
           PR_DIFF=$(cat pr_diff.txt)
-
-          # Escape the PR title, body, commits, and diff properly
-          PR_TITLE_ESCAPED=$(echo "$PR_TITLE" | jq -Rs .)
-          PR_BODY_ESCAPED=$(echo "$PR_BODY" | jq -Rs .)
-          PR_COMMITS_ESCAPED=$(echo "$PR_COMMITS" | jq -Rs .)
-          PR_DIFF_ESCAPED=$(echo "$PR_DIFF" | jq -Rs .)
           
           # Construct the prompt, ensuring it starts exactly with "\n\nHuman:"
-          PROMPT="\n\nHuman: Write a blog post summarizing the following contribution: \nTitle: $PR_TITLE_ESCAPED \nDescription: $PR_BODY_ESCAPED \nCommits: $PR_COMMITS_ESCAPED \nCode changes:\n$PR_DIFF_ESCAPED\n\nAssistant:"
+          PROMPT="\n\nHuman: Write a blog post summarizing the following contribution: \nTitle: $PR_TITLE \nDescription: $PR_BODY \nCommits: $PR_COMMITS \nCode changes:\n$PR_DIFF\n\nAssistant:"
 
           # Use jq to properly escape the prompt for JSON
           PROMPT_ESCAPED=$(echo "$PROMPT" | jq -Rs .)
