@@ -45,17 +45,20 @@ jobs:
           # Read the diff from the file
           PR_DIFF=$(cat pr_diff.txt)
 
-          # Escape only the PR title, body, commits, and diff properly using jq for safe JSON embedding
-          PR_TITLE_ESCAPED=$(echo "$PR_TITLE" | jq -Rsa .)
-          PR_BODY_ESCAPED=$(echo "$PR_BODY" | jq -Rsa .)
-          PR_COMMITS_ESCAPED=$(echo "$PR_COMMITS" | jq -Rsa .)
-          PR_DIFF_ESCAPED=$(echo "$PR_DIFF" | jq -Rsa .)
+          # Escape the PR title, body, commits, and diff properly using jq for safe JSON embedding
+          PR_TITLE_ESCAPED=$(echo "$PR_TITLE" | jq -Rs .)
+          PR_BODY_ESCAPED=$(echo "$PR_BODY" | jq -Rs .)
+          PR_COMMITS_ESCAPED=$(echo "$PR_COMMITS" | jq -Rs .)
+          PR_DIFF_ESCAPED=$(echo "$PR_DIFF" | jq -Rs .)
 
-          # Construct the prompt, ensuring it starts exactly with "\n\nHuman:" without escaping
+          # Construct the prompt, ensuring it starts exactly with "\n\nHuman:" without escaping it further
           PROMPT="\n\nHuman: Write a blog post summarizing the following contribution:\nTitle: $PR_TITLE_ESCAPED\nDescription: $PR_BODY_ESCAPED\nCommits: $PR_COMMITS_ESCAPED\nCode changes:\n$PR_DIFF_ESCAPED\n\nAssistant:"
 
-          # Create the JSON body using printf to ensure proper formatting
-          JSON_PAYLOAD=$(printf '{"model": "claude-3-5-sonnet-20240620", "prompt": "%s", "max_tokens_to_sample": 1000, "stream": false}' "$PROMPT")
+          # Escape the entire prompt properly for JSON embedding
+          PROMPT_ESCAPED=$(echo "$PROMPT" | jq -Rs .)
+
+          # Create the JSON payload using printf to ensure proper formatting
+          JSON_PAYLOAD=$(printf '{"model": "claude-3-5-sonnet-20240620", "prompt": %s, "max_tokens_to_sample": 1000, "stream": false}' "$PROMPT_ESCAPED")
 
           # Debug: print the prompt and JSON payload to verify its structure
           echo "Final Prompt sent to Claude: $PROMPT"
@@ -79,7 +82,6 @@ jobs:
           
           # Store the blog post in the environment variable
           echo "BLOG_POST=$BLOG_POST" >> $GITHUB_ENV
-
 
       # Step 4: Post Blog Summary as Comment
       - name: Post Blog Summary as Comment
