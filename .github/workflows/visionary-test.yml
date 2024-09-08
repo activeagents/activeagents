@@ -83,8 +83,8 @@ jobs:
           # Debug: print the full response from the API
           echo "Full API Response: $FULL_RESPONSE"
 
-          # Extract the blog post (completion field) from the response
-          BLOG_POST=$(echo "$FULL_RESPONSE" | jq -r '.completion')
+          # Extract the blog post (content inside 'text' field in the response)
+          BLOG_POST=$(echo "$FULL_RESPONSE" | jq -r '.content[] | select(.type=="text") | .text')
 
           # Debug: print the extracted blog post
           echo "Extracted Blog Post: $BLOG_POST"
