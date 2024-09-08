@@ -13,7 +13,7 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v3
 
-      # Step 2: Collect PR details
+      # Step 2: Collect PR information
       - name: Collect PR information
         id: pr_info
         run: |
@@ -41,7 +41,7 @@ jobs:
           echo "Blog Post: $BLOG_POST"
           echo "BLOG_POST=$BLOG_POST" >> $GITHUB_ENV
 
-      # Step 4: Save the blog post as an issue comment (optional)
+      # Step 4: Post Blog Summary as Comment
       - name: Post Blog Summary as Comment
         uses: actions/github-script@v6
         with:
