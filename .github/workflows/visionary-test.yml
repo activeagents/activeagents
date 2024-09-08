@@ -51,7 +51,7 @@ jobs:
           PR_COMMITS_ESCAPED=$(echo "$PR_COMMITS" | jq -Rs .)
           PR_DIFF_ESCAPED=$(echo "$PR_DIFF" | jq -Rs .)
           
-          # Construct the prompt, ensuring all parts are properly escaped
+          # Construct the prompt, ensuring it starts exactly with "\n\nHuman:"
           PROMPT="\n\nHuman: Write a blog post summarizing the following contribution: \nTitle: $PR_TITLE_ESCAPED \nDescription: $PR_BODY_ESCAPED \nCommits: $PR_COMMITS_ESCAPED \nCode changes:\n$PR_DIFF_ESCAPED\n\nAssistant:"
 
           # Use jq to properly escape the prompt for JSON
