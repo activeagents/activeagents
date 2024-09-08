@@ -55,7 +55,7 @@ jobs:
           PROMPT="\n\nHuman: Write a blog post summarizing the following contribution:\nTitle: $PR_TITLE_ESCAPED\nDescription: $PR_BODY_ESCAPED\nCommits: $PR_COMMITS_ESCAPED\nCode changes:\n$PR_DIFF_ESCAPED\n\nAssistant:"
 
           # Create the JSON payload using printf to ensure proper formatting
-          JSON_PAYLOAD=$(printf '{"model": "claude-3-5-sonnet-20240620", "prompt": %s, "max_tokens_to_sample": 1000, "stream": false}' "$PROMPT_ESCAPED")
+          JSON_PAYLOAD=$(printf '{"model": "claude-3-5-sonnet-20240620", "prompt": %s, "max_tokens_to_sample": 1000, "stream": false}' "$PROMPT")
 
           # Debug: print the prompt and JSON payload to verify its structure
           echo "Final Prompt sent to Claude: $PROMPT"
@@ -63,10 +63,10 @@ jobs:
 
           # Make API call to Claude with the correct headers and body structure
           FULL_RESPONSE=$(curl -X POST $CLAUDE_API_URL \
-            --header "anthropic-version: 2023-06-01" \
-            --header "content-type: application/json" \
-            --header "x-api-key: ${{ secrets.CLAUDE_API_KEY }}" \
-            --data "$JSON_PAYLOAD")
+        --header "anthropic-version: 2023-06-01" \
+        --header "content-type: application/json" \
+        --header "x-api-key: ${{ secrets.CLAUDE_API_KEY }}" \
+        --data "$JSON_PAYLOAD")
 
           # Debug: print the full response from the API
           echo "Full API Response: $FULL_RESPONSE"
