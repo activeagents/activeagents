@@ -25,8 +25,11 @@ jobs:
           echo "PR_TITLE=$(jq -r .pull_request.title < $GITHUB_EVENT_PATH)" >> $GITHUB_ENV
           echo "PR_BODY=$(jq -r .pull_request.body < $GITHUB_EVENT_PATH)" >> $GITHUB_ENV
           echo "PR_COMMITS=$(curl -s -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" ${{ github.event.pull_request.commits_url }} | jq -r '.[] | .commit.message' | tr '\n' ' ')" >> $GITHUB_ENV
-          echo "PR_DIFF=$(git diff origin/${{ github.event.pull_request.base.ref }}..HEAD)" >> $GITHUB_ENV
 
+          # Fetch all branches and do the diff
+          git fetch --all
+          echo "PR_DIFF=$(git diff origin/${{ github.event.pull_request.base.ref }}..origin/${{ github.event.pull_request.head.ref }})" >> $GITHUB_ENV
+          
       # Step 3: Send data to Claude API
       - name: Generate Blog Post with Claude
         id: call_claude
