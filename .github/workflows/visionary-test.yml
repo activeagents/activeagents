@@ -44,18 +44,21 @@ jobs:
           
           # Read the diff from the file
           PR_DIFF=$(cat pr_diff.txt)
-          
-          # Construct the prompt with proper escaping
-          PR_DIFF_ESCAPED=$(echo "$PR_DIFF" | jq -Rs .)
+
+          # Escape the PR title, body, commits, and diff properly
+          PR_TITLE_ESCAPED=$(echo "$PR_TITLE" | jq -Rs .)
           PR_BODY_ESCAPED=$(echo "$PR_BODY" | jq -Rs .)
           PR_COMMITS_ESCAPED=$(echo "$PR_COMMITS" | jq -Rs .)
-          PR_TITLE_ESCAPED=$(echo "$PR_TITLE" | jq -Rs .)
+          PR_DIFF_ESCAPED=$(echo "$PR_DIFF" | jq -Rs .)
           
-          # Create the prompt, ensure all parts are properly escaped
+          # Construct the prompt, ensuring all parts are properly escaped
           PROMPT="\n\nHuman: Write a blog post summarizing the following contribution: \nTitle: $PR_TITLE_ESCAPED \nDescription: $PR_BODY_ESCAPED \nCommits: $PR_COMMITS_ESCAPED \nCode changes:\n$PR_DIFF_ESCAPED\n\nAssistant:"
 
+          # Use jq to properly escape the prompt for JSON
+          PROMPT_ESCAPED=$(echo "$PROMPT" | jq -Rs .)
+
           # Debug: print the escaped prompt to verify its structure
-          echo "Prompt sent to Claude: $PROMPT"
+          echo "Escaped Prompt sent to Claude: $PROMPT_ESCAPED"
 
           # Make API call to Claude with the correct headers and body structure
           FULL_RESPONSE=$(curl -X POST $CLAUDE_API_URL \
@@ -64,7 +67,7 @@ jobs:
             --header "x-api-key: ${{ secrets.CLAUDE_API_KEY }}" \
             --data '{
               "model": "claude-3-5-sonnet-20240620",
-              "prompt": '"$PROMPT"',
+              "prompt": '"$PROMPT_ESCAPED"',
               "max_tokens_to_sample": 1000,
               "stream": false
             }')
@@ -80,8 +83,6 @@ jobs:
           
           # Store the blog post in the environment variable
           echo "BLOG_POST=$BLOG_POST" >> $GITHUB_ENV
-
-
 
       # Step 4: Post Blog Summary as Comment
       - name: Post Blog Summary as Comment
