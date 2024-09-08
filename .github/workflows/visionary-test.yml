@@ -40,35 +40,40 @@ jobs:
       - name: Generate Blog Post with Claude
         id: call_claude
         run: |
-          CLAUDE_API_URL="https://api.anthropic.com/v1/completions"
+          CLAUDE_API_URL="https://api.anthropic.com/v1/complete"
           
+          # Read the diff from the file
           PR_DIFF=$(cat pr_diff.txt)
-          PROMPT="Write a blog post summarizing the following contribution: \nTitle: $PR_TITLE \nDescription: $PR_BODY \nCommits: $PR_COMMITS \nCode changes:\n$PR_DIFF"
+          
+          # Construct the prompt
+          PROMPT="\n\nHuman: Write a blog post summarizing the following contribution: \nTitle: $PR_TITLE \nDescription: $PR_BODY \nCommits: $PR_COMMITS \nCode changes:\n$PR_DIFF\n\nAssistant:"
 
-          # Debug: print the prompt to verify structure
+          # Debug: print the prompt to verify its structure
           echo "Prompt sent to Claude: $PROMPT"
 
+          # Make API call to Claude with the correct headers and body structure
           FULL_RESPONSE=$(curl -X POST $CLAUDE_API_URL \
-            -H "Authorization: Bearer ${{ secrets.CLAUDE_API_KEY }}" \
-            -H "Content-Type: application/json" \
-            -d '{
+            --header "anthropic-version: 2023-06-01" \
+            --header "content-type: application/json" \
+            --header "x-api-key: ${{ secrets.CLAUDE_API_KEY }}" \
+            --data '{
+              "model": "claude-3-5-sonnet-20240620",
               "prompt": "'"$PROMPT"'",
-              "max_tokens": 1000,
-              "temperature": 0.7
+              "max_tokens_to_sample": 1000,
+              "stream": false
             }')
 
+          # Debug: print the full response from the API
           echo "Full API Response: $FULL_RESPONSE"
 
-          # Check if response contains the 'completion' field
-          if echo "$FULL_RESPONSE" | jq -e '.completion' > /dev/null; then
-            BLOG_POST=$(echo "$FULL_RESPONSE" | jq -r '.completion')
-            echo "Blog Post: $BLOG_POST"
-            echo "BLOG_POST=$BLOG_POST" >> $GITHUB_ENV
-          else
-            echo "Error: Could not extract 'completion' from response."
-            exit 1
-          fi
+          # Extract the blog post (completion field) from the response
+          BLOG_POST=$(echo "$FULL_RESPONSE" | jq -r '.completion')
 
+          # Debug: print the extracted blog post
+          echo "Extracted Blog Post: $BLOG_POST"
+          
+          # Store the blog post in the environment variable
+          echo "BLOG_POST=$BLOG_POST" >> $GITHUB_ENV
 
 
       # Step 4: Post Blog Summary as Comment
