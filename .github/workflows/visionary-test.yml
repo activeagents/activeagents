@@ -1,0 +1,52 @@
+name: Blog Post Generator for PRs
+
+on:
+  pull_request:
+    types: [opened, edited, synchronize]
+
+jobs:
+  generate_blog_post:
+    runs-on: ubuntu-latest
+
+    steps:
+      # Step 1: Checkout the code
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      # Step 2: Collect PR details
+      - name: Collect PR information
+        id: pr_info
+        run: |
+          echo "PR_TITLE=$(jq -r .pull_request.title < $GITHUB_EVENT_PATH)" >> $GITHUB_ENV
+          echo "PR_BODY=$(jq -r .pull_request.body < $GITHUB_EVENT_PATH)" >> $GITHUB_ENV
+          echo "PR_COMMITS=$(curl -s -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" ${{ github.event.pull_request.commits_url }} | jq -r '.[] | .commit.message' | tr '\n' ' ')" >> $GITHUB_ENV
+          echo "PR_DIFF=$(git diff origin/${{ github.event.pull_request.base.ref }}..HEAD)" >> $GITHUB_ENV
+
+      # Step 3: Send data to Claude API
+      - name: Generate Blog Post with Claude
+        id: call_claude
+        run: |
+          CLAUDE_API_URL="https://api.anthropic.com/v1/completions"
+          PROMPT="Write a blog post summarizing the following contribution: \nTitle: $PR_TITLE \nDescription: $PR_BODY \nCommits: $PR_COMMITS \nCode changes:\n$PR_DIFF"
+          
+          BLOG_POST=$(curl -X POST $CLAUDE_API_URL \
+            -H "Authorization: Bearer ${{ secrets.CLAUDE_API_KEY }}" \
+            -H "Content-Type: application/json" \
+            -d '{
+              "prompt": "'"$PROMPT"'",
+              "max_tokens": 1000,
+              "temperature": 0.7
+            }' | jq -r '.completion')
+
+          echo "Blog Post: $BLOG_POST"
+          echo "BLOG_POST=$BLOG_POST" >> $GITHUB_ENV
+
+      # Step 4: Save the blog post as an issue comment (optional)
+      - name: Post Blog Summary as Comment
+        uses: actions/github-script@v6
+        with:
+          script: |
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              body: `### Blog Post:\n${{ env.BLOG_POST }}`
+            })
