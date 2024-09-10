@@ -1,8 +1,16 @@
 # lib/active_agent/base.rb
 module ActiveAgent
   class Base
+    include ActiveModel::Model
+    include ActiveModel::Callbacks
+    
+    define_model_callbacks :generate
+    after_generate :perform_action
+    after_generate :broadcast_stream
+
     class << self
       attr_accessor :provider, :model
+
       def generate_with(provider_name = :default, options = {})
         config = ActiveAgent.config[provider_name.to_s] || ActiveAgent.config[ENV['RAILS_ENV']]
         @provider = load_provider(config)
