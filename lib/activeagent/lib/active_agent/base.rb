@@ -4,59 +4,73 @@ module ActiveAgent
     include ActiveModel::Model
     extend ActiveModel::Callbacks
     
+    attr_accessor :reponse, :messages
+
     define_model_callbacks :generate
+
+    before_generate :handle_stream
     after_generate :perform_action
     after_generate :broadcast_stream
 
     class << self
-      attr_accessor :provider, :model
+      attr_accessor :generation_provider
 
       def generate_with(provider_name = :default, options = {})
         config = ActiveAgent.config[provider_name.to_s] || ActiveAgent.config[ENV['RAILS_ENV']]
-        @provider = load_provider(config)
-        @model = options[:model] || config['model']
+        @generation_provider = configure_provider(config)
+        self
       end
 
       def generate(prompt:, **options)
-        run_callbacks :generate do
-          @provider.generate(prompt:, **options)
-        end
+        options[:stream] = handle_stream if options[:stream]
+        new.generate(prompt:, **options)
       end
 
       private
 
-      def load_provider(config)
-        case config['service']
-        when 'OpenAI'
-          ActiveAgent::Provider::OpenAIProvider.new(config)
-        else
-          raise "Unknown service provider: #{config['service']}"
-        end
+      def configure_provider(config)
+        require "active_agent/generation_provider/#{config['service'].underscore}_provider"
+        ActiveAgent::GenerationProvider.const_get(:"#{config['service'].camelize}Provider").new(config)
+      rescue LoadError
+        raise "Missing generation provider for #{config['service'].inspect}"
       end
     end
 
-    def generate(prompt:, **options)
-      self.class.run_callbacks :generate do
-        self.class.provider.generate(prompt:, **options)
+    def handle_stream(&block)
+      proc do |chunk, _bytesize|
+        new_content = provider_stream_handler
+        block.call(new_content) if block_given? && new_content
       end
-    end
-
-    def generate_stream(prompt:, **options)
-      content = ""
-      stream = proc do |chunk, _bytesize|
-        content_change = chunk.dig("choices", 0, "delta", "content")
-        content += content_change
-        puts content
-      end
-      self.class.provider.generate(prompt: prompt, stream: stream, **options)
     end
     
     def perform_action
       Rails.logger.info "Action performed"
+      prerform_provider_action(@response)
     end
 
     def broadcast_stream
-      Rails.logger.info "Action performed"
+      Rails.logger.info "Broadcasting stream"
+    end    
+    
+    def generate(prompt:, **options)
+      run_callbacks :generate do
+        @response = provider_generate(prompt: prompt, **options)
+      end
+
+      @response.dig("choices", 0, "message", "content")
     end
+
+    private
+      def provider_stream_handler(&block)
+        self.class.generation_provider.handle_stream
+      end
+
+      def prerform_provider_action(response)
+        self.class.generation_provider.perform_action(response)
+      end
+
+      def provider_generate(prompt:, **options)
+        self.class.generation_provider.generate(prompt:, **options)
+      end
   end
 end
