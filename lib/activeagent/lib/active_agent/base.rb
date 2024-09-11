@@ -2,7 +2,7 @@
 module ActiveAgent
   class Base
     include ActiveModel::Model
-    include ActiveModel::Callbacks
+    extend ActiveModel::Callbacks
     
     define_model_callbacks :generate
     after_generate :perform_action
@@ -18,7 +18,9 @@ module ActiveAgent
       end
 
       def generate(prompt:, **options)
-        @provider.generate(prompt:, **options)
+        run_callbacks :generate do
+          @provider.generate(prompt:, **options)
+        end
       end
 
       private
@@ -33,6 +35,12 @@ module ActiveAgent
       end
     end
 
+    def generate(prompt:, **options)
+      self.class.run_callbacks :generate do
+        self.class.provider.generate(prompt:, **options)
+      end
+    end
+
     def generate_stream(prompt:, **options)
       content = ""
       stream = proc do |chunk, _bytesize|
@@ -40,7 +48,15 @@ module ActiveAgent
         content += content_change
         puts content
       end
-      @provider.generate(prompt: prompt, stream: stream, **options)
+      self.class.provider.generate(prompt: prompt, stream: stream, **options)
+    end
+    
+    def perform_action
+      Rails.logger.info "Action performed"
+    end
+
+    def broadcast_stream
+      Rails.logger.info "Action performed"
     end
   end
 end
