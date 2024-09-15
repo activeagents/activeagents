@@ -10,12 +10,23 @@ Active Agent provides an interface to define Agents that can load context take p
 ### Define Agents
 Agents are the core of Active Agent. An agent takes instructions and can perform actions augment responses by providing data used for generation. Agents are defined by a simple Ruby class that inherits from `ActiveAgent::base` located in the `app/agents` directory.
 
+#### Set your Generative AI provider and model
+```ruby
+class ModerationAgent < ActiveAgent::Base
+  generate_with :openai, model: 'gpt-3.5-turbo'
+end
 
+class SummarizationAgent < ActiveAgent::Base
+  generate_with :openai, model: 'gpt-4o'
+end
+```
 
+### Define instructions and actions
+Instructions are the context provided to the agent to generate content. Actions are the methods that the agent can call to perform tasks. Instructions are defined in the agent class and actions are defined in the `app/agents/operations` `config/operations.rb` file.
 ```ruby
 # app/agents/inventory_agent.rb
 class InventoryAgent < ActiveAgent::Base
-  generate_with :openai, model: :gpt4o, temperature: 0.5, max_tokens: 100, instructions: :inventory_operations
+  generate_with :openai, model: 'gpt-4o'
 
   # Define the agent's default instructions to use the inventory_operations action
   default instructions: :inventory_operations
@@ -81,3 +92,24 @@ openai:
 
 ### How can agents be used?
 Agents can be used to perform actions 
+
+### Configuration
+Active Agent uses a configuration file to define the service provider and model to use for generation. The configuration file is located in the `config/agents.yml` file.
+
+```yaml
+default: &default
+  model: "gpt-4o"
+  temperature: 0.8
+  n: 1
+
+openai: &open_ai
+  <<: *default
+  service: OpenAI
+  project: your_project_name
+  organization: your_organization
+  api_key: <%= Rails.application.credentials.dig(:openai, :api_key) %>
+
+development:
+  <<: *open_ai
+  model: "gpt-3.5-turbo"
+```

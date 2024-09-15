@@ -2,8 +2,8 @@
 require 'yaml'
 require "active_support"
 require 'active_agent/base'
-require 'active_agent/provider'
-require 'active_agent/provider/openai_provider'
+require 'active_agent/generation_provider'
+require 'active_agent/generation_provider/open_ai_provider'
 
 module ActiveAgent
   extend ActiveSupport::Autoload
