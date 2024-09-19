@@ -1,15 +1,20 @@
 # lib/active_agent.rb
 require 'yaml'
-require "active_support"
-require 'active_agent/base'
-require 'active_agent/generation_provider'
-require 'active_agent/generation_provider/open_ai_provider'
+require 'active_agent/version'
+require 'active_support'
 
 module ActiveAgent
   extend ActiveSupport::Autoload
 
-  autoload :Service
-  
+  autoload :Base
+  autoload :Callbacks
+  autoload :ActionPrompt
+  autoload :Parameterized
+  autoload :Generation
+  autoload :GenerationProvider
+  autoload :GenerationJob
+  autoload :QueuedGeneration
+
   class << self
     attr_accessor :config
 
@@ -18,9 +23,9 @@ module ActiveAgent
     end
 
     def load_configuration(file)
-      @config = config_file = YAML.load_file(file, aliases: true)
-      # env = ENV['RAILS_ENV'] || ENV['ENV'] || 'development'
-      # @config = config_file[env]
+      config_file = YAML.load_file(file, aliases: true)
+      env = ENV['RAILS_ENV'] || ENV['ENV'] || 'development'
+      @config = config_file[env] || config_file
     end
   end
 end
