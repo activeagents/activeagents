@@ -1,4 +1,6 @@
 class ApplicationAgent < ActiveAgent::Base
-  # ApplicationAgent is able to perform ApplicationOperation actions by default
-  # Configuration for this Agent comes from the defaults found in config/agents.yml
+  RESPONSES_PER_MESSAGE = 1
+  
+  generate_with :openai, 
+    model: 'gpt-4o-mini'
 end

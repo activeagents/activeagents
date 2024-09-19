@@ -33,20 +33,20 @@ end
 Agents generate content by calling the `generate_now` method with a prompt. The `generate_now` method returns a message object that contains the generated content.
 
 ```ruby
-ModerationAgent.generate_now("Is this content appropriate? #{content}")
+ModerationAgent.prompt("Is this content appropriate? #{content}").generate_now
 ```
 
 Agents can also generate content asynchronously by calling the `generate_later` method with a prompt. The `generate_later` method enqueues an Active Job using the GenerationJob.
 
 ```ruby
-ModerationAgent.generate_later("Is this content appropriate? #{content}")
+ModerationAgent.prompt("Is this content appropriate? #{content}").generate_later
 ```
 
 #### Generate content with context
 Agents can generate content with context by calling the `generate_now` method with a prompt and context. The context is used to augment the prompt and provide additional information to the generative AI model.
 
 ```ruby
-ModerationAgent.generate_now("Is this content appropriate? #{content}", content: content, messages: messages )
+ModerationAgent.prompt("Is this content appropriate? #{content}", content: content, messages: messages ).generate_now
 ```
 
 ### Action Prompts
@@ -64,7 +64,6 @@ class InventoryAgent < ActiveAgent::Base
 
   def inventory_operations
     @organization = Organization.find(params[:account_id])
-    message(:inventory_operation, role: :system)
   end
 end
 ```
@@ -97,11 +96,27 @@ class InventoryAgent < ActiveAgent::Base
   end
 
   def search
-    @inventory = Inventory.find(params[:inventory_id])
+    @inventory = Inventory.search(params[:query])
     # message(:search, role: :assistant, content: @inventory)
   end
 end
 ```
+
+ActiveAgent::Message is a class that represents a message that is sent to an agent. The message contains the content of the message, the role of the message, and the agent used to generate the response. The message is used to communicate with the agent and provide additional context to the agent.
+```ruby
+InventoryAgent.prompt(content: content).message
+=> #<ActiveAgent::Message:0x00007f9b1b1b3d20 @agent=#<InventoryAgent:0x00007f9b1b1b3d48>, @content="How many apples do we have?", @role="user">
+```
+
+
+```ruby
+InventoryAgent.search(query: query).message
+=> #<ActiveAgent::Message:0x00007f9b1b1b3d20 @agent=#<InventoryAgent:0x00007f9b1b1b3d48>, @content="How many apples do we have?", @role="tool">
+```
+
+```ruby
+```
+
 
 By default the actions will have a basic schema without any additional information. The schema can be customized by defining a JSON schema in the action view. 
 
