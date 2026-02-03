@@ -1,6 +1,6 @@
 class DashboardController < ApplicationController
   def index
-    render inertia: 'Dashboard', props: {
+    render inertia: "Dashboard", props: {
       user: current_user_props
     }
   end
@@ -9,6 +9,6 @@ class DashboardController < ApplicationController
 
   def current_user_props
     # Placeholder for user data
-    { name: 'Developer' }
+    { name: "Developer" }
   end
 end

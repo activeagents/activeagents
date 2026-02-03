@@ -81,18 +81,20 @@ test:
 production:
   primary: &primary_production
     <<: *default
-    database: activeagents_temp_production
-    username: activeagents_temp
-    password: <%= ENV["ACTIVEAGENTS_TEMP_DATABASE_PASSWORD"] %>
+    database: <%= ENV.fetch("DB_NAME", "activeagents_temp_production") %>
+    username: <%= ENV.fetch("DB_USER", "activeagents_temp") %>
+    password: <%= ENV["DB_PASSWORD"] %>
+    host: <%= ENV.fetch("DB_HOST", "localhost") %>
+    port: <%= ENV.fetch("DB_PORT", "5432") %>
   cache:
     <<: *primary_production
-    database: activeagents_temp_production_cache
+    database: <%= ENV.fetch("DB_NAME", "activeagents_temp_production") %>_cache
     migrations_paths: db/cache_migrate
   queue:
     <<: *primary_production
-    database: activeagents_temp_production_queue
+    database: <%= ENV.fetch("DB_NAME", "activeagents_temp_production") %>_queue
     migrations_paths: db/queue_migrate
   cable:
     <<: *primary_production
-    database: activeagents_temp_production_cable
+    database: <%= ENV.fetch("DB_NAME", "activeagents_temp_production") %>_cable
     migrations_paths: db/cable_migrate
