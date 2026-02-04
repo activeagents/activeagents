@@ -72,3 +72,23 @@
   padding-bottom: var(--space-button-m-vertical);
   border-bottom: 1px solid var(--color-border-level-2);
 }
+
+.feature-card.highlighted {
+  box-shadow: 0 0 0 2px var(--color-accent);
+  background-color: var(--color-accent-b);
+}
+
+.service-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 48px;
+  height: 48px;
+  background-color: var(--color-accent-b);
+  border-radius: var(--radius-m);
+  margin-bottom: 16px;
+}
+
+.service-icon .icon {
+  color: var(--color-accent);
+}

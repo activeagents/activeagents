@@ -1,3 +1,44 @@
+<!DOCTYPE html>
+<html lang="en" class="theme-light">
+
+<head>
+  <meta charset="utf-8" />
+  <title>Active Agent | The AI Framework For Ruby on Rails</title>
+  <meta content="Build AI in Rails - Now Agents are Controllers. The Ruby-native way to build AI features." name="description" />
+  <meta content="width=device-width, initial-scale=1" name="viewport" />
+  <link href="vendor/font-awesome-6.7.2/css/all.min.css" rel="stylesheet" />
+  <link href="css/index.css" rel="stylesheet" type="text/css" />
+  <link href="css/pricing.css" rel="stylesheet" type="text/css" />
+  <link href="css/tablet.css" rel="stylesheet" type="text/css" />
+  <link href="css/mobile.css" rel="stylesheet" type="text/css" />
+</head>
+
+<body>
+  <div class="background-gradient"></div>
+  <div class="page-container">
+    <header class="nav-container">
+      <a href="/" class="nav-brand" style="display: flex; align-items: center; gap: 8px;">
+        <img src="images/activeagent-logo.png" alt="Active Agent" style="height: 32px; width: 32px;" />
+        <span style="font-size: 1.25rem; font-weight: 600;">Active Agent</span>
+      </a>
+      <nav role="navigation" class="nav-menu" data-navigation>
+        <a href="https://docs.activeagents.ai" class="nav-link">Docs</a>
+        <a href="#pricing" class="nav-link">Pricing</a>
+        <a href="#services" class="nav-link">Services</a>
+        <a href="https://github.com/activeagents/activeagent" class="nav-link">GitHub</a>
+      </nav>
+      <div class="button-group">
+        <a href="https://github.com/activeagents/activeagent" class="button ghost compact hide-on-mobile">
+          <div class="fa-brands fa-github icon l"></div>
+        </a>
+        <a href="https://discord.gg/activeagent" class="button ghost compact hide-on-mobile">
+          <div class="fa-brands fa-discord icon l"></div>
+        </a>
+        <a href="/dashboard" class="button tertiary compact hide-on-mobile">Sign In</a>
+        <a href="https://docs.activeagents.ai/getting-started" class="button primary compact">Getting Started</a>
+      </div>
+    </header>
+    <main>
 <section>
   <div class="heading hero centered">
     <h1 class="balanced">
@@ -15,7 +56,7 @@
     </div>
   </div>
   <div style="display: flex; justify-content: center; margin-top: 2rem;">
-    <img src="/landing/images/activeagent-logo.png" alt="Active Agent" style="max-width: 280px; height: auto;" />
+    <img src="images/activeagent-logo.png" alt="Active Agent" style="max-width: 280px; height: auto;" />
   </div>
 </section>
 
@@ -132,26 +173,9 @@
           </div>
           <div class="feature-item paragraph s">
             <div class="fa-regular fa-square-check icon m"></div>
-            <div>Multi-provider support (OpenAI, Anthropic, Ollama, OpenRouter)</div>
-          </div>
-          <div class="feature-item paragraph s">
-            <div class="fa-regular fa-square-check icon m"></div>
-            <div>Basic local Web UI Rails engine</div>
-          </div>
-          <div class="feature-item paragraph s">
-            <div class="fa-regular fa-square-check icon m"></div>
-            <div>Community support (Discord, GitHub)</div>
-          </div>
-          <div class="feature-item paragraph s">
-            <div class="fa-regular fa-square-check icon m"></div>
-            <div>Self-hosted (unlimited)</div>
-          </div>
-          <div class="feature-item paragraph s">
-            <div class="fa-regular fa-square-check icon m"></div>
-            <div>MIT License</div>
+            <div>Multi-provider support</div>
           </div>
         </div>
-        <p class="paragraph xs secondary" style="margin-top: 1rem;">Best for: Individual developers, startups validating ideas, open-source projects</p>
       </div>
       <a href="https://github.com/activeagents/activeagent" class="button tertiary full-width margin-top-l">Get Started</a>
     </div>
@@ -172,42 +196,13 @@
           </div>
           <div class="feature-item paragraph s">
             <div class="fa-regular fa-square-check icon m"></div>
-            <div>Hosted dashboard at app.activeagent.pro</div>
-          </div>
-          <div class="feature-item paragraph s">
-            <div class="fa-regular fa-square-check icon m"></div>
-            <div>3 managed agent deployments</div>
-          </div>
-          <div class="feature-item paragraph s">
-            <div class="fa-regular fa-square-check icon m"></div>
-            <div>10,000 executions/month</div>
-          </div>
-          <div class="feature-item paragraph s">
-            <div class="fa-regular fa-square-check icon m"></div>
-            <div>25,000 traces/month (14-day retention)</div>
+            <div>Hosted dashboard</div>
           </div>
           <div class="feature-item paragraph s">
             <div class="fa-regular fa-square-check icon m"></div>
             <div>Cost & latency analytics</div>
           </div>
-          <div class="feature-item paragraph s">
-            <div class="fa-regular fa-square-check icon m"></div>
-            <div>5 prebuilt LLM-as-judge evaluators</div>
-          </div>
-          <div class="feature-item paragraph s">
-            <div class="fa-regular fa-square-check icon m"></div>
-            <div>A/B prompt testing</div>
-          </div>
-          <div class="feature-item paragraph s">
-            <div class="fa-regular fa-square-check icon m"></div>
-            <div>5 team seats, 1 workspace</div>
-          </div>
-          <div class="feature-item paragraph s">
-            <div class="fa-regular fa-square-check icon m"></div>
-            <div>48-hour email support SLA</div>
-          </div>
         </div>
-        <p class="paragraph xs secondary" style="margin-top: 1rem;">Best for: Small teams, Rails consultants, startups moving to production</p>
       </div>
       <a href="/dashboard" class="button primary full-width margin-top-l">Start 14-Day Free Trial</a>
     </div>
@@ -228,101 +223,15 @@
           </div>
           <div class="feature-item paragraph s">
             <div class="fa-regular fa-square-check icon m"></div>
-            <div>Unlimited agent deployments & executions</div>
+            <div>Unlimited deployments</div>
           </div>
           <div class="feature-item paragraph s">
             <div class="fa-regular fa-square-check icon m"></div>
-            <div>500,000+ traces/month (400-day retention)</div>
-          </div>
-          <div class="feature-item paragraph s">
-            <div class="fa-regular fa-square-check icon m"></div>
-            <div>Advanced anomaly detection (ML-powered)</div>
-          </div>
-          <div class="feature-item paragraph s">
-            <div class="fa-regular fa-square-check icon m"></div>
-            <div>Unlimited custom evaluators & datasets</div>
-          </div>
-          <div class="feature-item paragraph s">
-            <div class="fa-regular fa-square-check icon m"></div>
-            <div>SOC 2 Type II & HIPAA compliance</div>
-          </div>
-          <div class="feature-item paragraph s">
-            <div class="fa-regular fa-square-check icon m"></div>
-            <div>SSO/SAML & RBAC</div>
-          </div>
-          <div class="feature-item paragraph s">
-            <div class="fa-regular fa-square-check icon m"></div>
-            <div>Private VPC / on-premise deployment</div>
-          </div>
-          <div class="feature-item paragraph s">
-            <div class="fa-regular fa-square-check icon m"></div>
-            <div>Dedicated Slack channel</div>
-          </div>
-          <div class="feature-item paragraph s">
-            <div class="fa-regular fa-square-check icon m"></div>
-            <div>4-hour email SLA</div>
+            <div>SOC 2 & HIPAA compliance</div>
           </div>
         </div>
-        <p class="paragraph xs secondary" style="margin-top: 1rem;">Best for: Large enterprises, regulated industries, compliance-heavy environments</p>
       </div>
       <a href="mailto:sales@activeagents.ai" class="button tertiary full-width margin-top-l">Contact Sales</a>
-    </div>
-  </div>
-  <div class="feature-card" style="margin-top: 2rem;">
-    <div class="feature-heading">
-      <p class="paragraph l bold no-top-margin">Add-On Pricing</p>
-    </div>
-    <div class="grid columns-2" style="margin-top: 1rem;">
-      <div>
-        <p class="paragraph s bold">Pro Add-Ons</p>
-        <div class="feature-list">
-          <div class="feature-item paragraph s">
-            <div class="fa-regular fa-circle icon m"></div>
-            <div>Additional traces: $2.00/1k</div>
-          </div>
-          <div class="feature-item paragraph s">
-            <div class="fa-regular fa-circle icon m"></div>
-            <div>Additional executions: $0.01/exec</div>
-          </div>
-          <div class="feature-item paragraph s">
-            <div class="fa-regular fa-circle icon m"></div>
-            <div>Extended retention (400 days): $2.50/1k</div>
-          </div>
-          <div class="feature-item paragraph s">
-            <div class="fa-regular fa-circle icon m"></div>
-            <div>Additional team seats: $19/seat/mo</div>
-          </div>
-          <div class="feature-item paragraph s">
-            <div class="fa-regular fa-circle icon m"></div>
-            <div>Additional workspaces: $49/workspace/mo</div>
-          </div>
-        </div>
-      </div>
-      <div>
-        <p class="paragraph s bold">Enterprise Add-Ons</p>
-        <div class="feature-list">
-          <div class="feature-item paragraph s">
-            <div class="fa-regular fa-circle icon m"></div>
-            <div>Additional traces: $1.50/1k</div>
-          </div>
-          <div class="feature-item paragraph s">
-            <div class="fa-regular fa-circle icon m"></div>
-            <div>Additional executions: $0.005/exec</div>
-          </div>
-          <div class="feature-item paragraph s">
-            <div class="fa-regular fa-circle icon m"></div>
-            <div>Extended retention: Included</div>
-          </div>
-          <div class="feature-item paragraph s">
-            <div class="fa-regular fa-circle icon m"></div>
-            <div>Additional seats & workspaces: Included</div>
-          </div>
-          <div class="feature-item paragraph s">
-            <div class="fa-regular fa-circle icon m"></div>
-            <div>Appliance/embedded license: $14,995/yr</div>
-          </div>
-        </div>
-      </div>
     </div>
   </div>
 </section>
@@ -461,79 +370,6 @@
       <div class="accordion-content">
         <p>
           Add <code>gem 'activeagent'</code> to your Gemfile and run <code>bundle install</code>.
-          Then run <code>rails generate active_agent:install</code> to set up the initial configuration.
-        </p>
-      </div>
-    </details>
-
-    <details class="accordion-item" name="faq">
-      <summary class="accordion-toggle">
-        <p class="paragraph m bold">Which LLM providers are supported?</p>
-        <span class="accordion-chevron fa-solid fa-chevron-down"></span>
-      </summary>
-      <div class="accordion-content">
-        <p>
-          Active Agent supports OpenAI, Anthropic, Ollama, and OpenRouter. Switch providers with one line of code.
-        </p>
-      </div>
-    </details>
-
-    <details class="accordion-item" name="faq">
-      <summary class="accordion-toggle">
-        <p class="paragraph m bold">Can I use Active Agent with existing Rails apps?</p>
-        <span class="accordion-chevron fa-solid fa-chevron-down"></span>
-      </summary>
-      <div class="accordion-content">
-        <p>
-          Yes! Active Agent is designed to integrate seamlessly with existing Rails applications. It works alongside your existing models, controllers, and services.
-        </p>
-      </div>
-    </details>
-
-    <details class="accordion-item" name="faq">
-      <summary class="accordion-toggle">
-        <p class="paragraph m bold">What's the difference between Community and Pro?</p>
-        <span class="accordion-chevron fa-solid fa-chevron-down"></span>
-      </summary>
-      <div class="accordion-content">
-        <p>
-          The Community tier gives you full access to the open-source framework (ActiveAgent + SolidAgent gems) with all core features and community support. Pro ($99/mo or $995/yr) adds hosted observability with trace dashboards, managed agent deployments, cost & latency analytics, LLM-as-judge evaluators, A/B prompt testing, and 48-hour email support SLA.
-        </p>
-      </div>
-    </details>
-
-    <details class="accordion-item" name="faq">
-      <summary class="accordion-toggle">
-        <p class="paragraph m bold">What does Enterprise include?</p>
-        <span class="accordion-chevron fa-solid fa-chevron-down"></span>
-      </summary>
-      <div class="accordion-content">
-        <p>
-          Enterprise (starting at $2,995/yr) is for large organizations and regulated industries. It includes everything in Pro plus unlimited deployments and executions, 500,000+ traces with 400-day retention, advanced ML-powered anomaly detection, unlimited custom evaluators, SOC 2 Type II & HIPAA compliance, SSO/SAML & RBAC, private VPC deployment options, dedicated Slack channel, 4-hour email SLA, onboarding workshop, and quarterly architecture consultations.
-        </p>
-      </div>
-    </details>
-
-    <details class="accordion-item" name="faq">
-      <summary class="accordion-toggle">
-        <p class="paragraph m bold">Is there a free trial for Pro?</p>
-        <span class="accordion-chevron fa-solid fa-chevron-down"></span>
-      </summary>
-      <div class="accordion-content">
-        <p>
-          Yes! Pro includes a 14-day free trial with no credit card required. You can explore all Pro features before committing.
-        </p>
-      </div>
-    </details>
-
-    <details class="accordion-item" name="faq">
-      <summary class="accordion-toggle">
-        <p class="paragraph m bold">Can I self-host Active Agent?</p>
-        <span class="accordion-chevron fa-solid fa-chevron-down"></span>
-      </summary>
-      <div class="accordion-content">
-        <p>
-          Absolutely! The core framework is MIT licensed and can be self-hosted without limits on any tier. The hosted services (observability, evaluation, collaboration) are what differentiate the paid tiers.
         </p>
       </div>
     </details>
@@ -549,3 +385,38 @@
     </div>
   </div>
 </section>
+    </main>
+    <footer class="footer">
+      <div class="footer-menu">
+        <div>
+          <p class="paragraph s">
+            &copy; 2026 Active Agent<br />
+            The AI Framework for Ruby on Rails
+          </p>
+        </div>
+        <div>
+          <div class="link-list">
+            <a href="https://docs.activeagents.ai" class="ui s">Documentation</a>
+            <a href="#pricing" class="ui s">Pricing</a>
+            <a href="#services" class="ui s">Services</a>
+            <a href="https://github.com/activeagents/activeagent" class="ui s" target="_blank">GitHub</a>
+          </div>
+        </div>
+        <div>
+          <div class="link-list">
+            <a href="https://github.com/activeagents/activeagent" class="icon-link ui s" target="_blank">
+              <div class="fa-brands fa-github icon m color-accent"></div>
+              <div class="pseudo-link">GitHub</div>
+            </a>
+            <a href="https://discord.gg/activeagent" class="icon-link ui s" target="_blank">
+              <div class="fa-brands fa-discord icon m color-accent"></div>
+              <div class="pseudo-link">Discord</div>
+            </a>
+          </div>
+        </div>
+      </div>
+    </footer>
+  </div>
+</body>
+
+</html>
