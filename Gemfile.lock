@@ -1,6 +1,6 @@
 GIT
   remote: https://github.com/activeagents/activeagent.git
-  revision: b641710eeef76022e6fe9886e4759d759567a90b
+  revision: 169d69a95d07264f8b38ee30bb2a0547705c959b
   branch: main
   specs:
     activeagent (1.0.1)
