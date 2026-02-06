@@ -27,7 +27,12 @@ class LanderBuilder
   OUTPUT_FILE = File.join(DOCS_DIR, 'index.html')
 
   def initialize
-    @config = YAML.load_file(CONFIG_FILE)
+    @config = YAML.safe_load_file(
+      CONFIG_FILE,
+      permitted_classes: [],
+      permitted_symbols: [],
+      aliases: true
+    )
   end
 
   def build
