@@ -884,31 +884,224 @@ section {
   margin-bottom: 4px;
 }
 
-/* Draft Highlight Styles */
+/* Content Review Highlight System
+ *
+ * hl-outline (BLUE)    = Content from user's outline/draft
+ * hl-generated (PURPLE) = AI-generated content without direct outline reference
+ * hl-diff-add (GREEN)  = Recommended addition (with data-reason attribute)
+ * hl-diff-remove (RED) = Recommended removal (with data-reason attribute)
+ */
 
-.draft-highlight {
-  position: relative;
-  border: 2px dashed var(--color-accent-b);
-  background: linear-gradient(
-    135deg,
-    var(--color-surface) 0%,
-    oklch(from var(--color-accent) l c h / 0.04) 100%
-  );
+/* --- Inline text highlights (like Google Docs suggestions) --- */
+
+.hl-outline {
+  background-color: rgba(66, 133, 244, 0.18);
+  border-radius: 2px;
+  padding: 1px 0;
+  text-decoration-color: rgba(66, 133, 244, 0.5);
 }
 
-.draft-highlight::before {
-  content: "DRAFT";
+.hl-generated {
+  background-color: rgba(142, 68, 230, 0.18);
+  border-radius: 2px;
+  padding: 1px 0;
+  text-decoration-color: rgba(142, 68, 230, 0.5);
+}
+
+.hl-diff-add {
+  background-color: rgba(52, 168, 83, 0.18);
+  border-radius: 2px;
+  padding: 1px 0;
+  text-decoration: none;
+}
+
+.hl-diff-remove {
+  background-color: rgba(234, 67, 53, 0.18);
+  border-radius: 2px;
+  padding: 1px 0;
+  text-decoration: line-through;
+  text-decoration-color: rgba(234, 67, 53, 0.6);
+}
+
+/* --- Card-level highlights (border + subtle background) --- */
+
+.hl-outline-card {
+  position: relative;
+  border: 2px solid rgba(66, 133, 244, 0.35);
+  background: rgba(66, 133, 244, 0.04);
+}
+
+.hl-outline-card::before {
+  content: "FROM OUTLINE";
   position: absolute;
   top: 8px;
   right: 8px;
-  font-size: 10px;
+  font-size: 9px;
   font-weight: 700;
-  letter-spacing: 1px;
-  color: var(--color-accent);
-  background-color: var(--color-accent-b);
+  letter-spacing: 0.5px;
+  color: #4285F4;
+  background-color: rgba(66, 133, 244, 0.12);
   padding: 2px 8px;
   border-radius: var(--radius-xs);
-  line-height: 16px;
+  line-height: 14px;
+}
+
+.hl-generated-card {
+  position: relative;
+  border: 2px dashed rgba(142, 68, 230, 0.35);
+  background: rgba(142, 68, 230, 0.04);
+}
+
+.hl-generated-card::before {
+  content: "GENERATED";
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  color: #8E44E6;
+  background-color: rgba(142, 68, 230, 0.12);
+  padding: 2px 8px;
+  border-radius: var(--radius-xs);
+  line-height: 14px;
+}
+
+.hl-diff-add-card {
+  position: relative;
+  border: 2px solid rgba(52, 168, 83, 0.35);
+  background: rgba(52, 168, 83, 0.04);
+}
+
+.hl-diff-add-card::before {
+  content: "+ SUGGESTED";
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  color: #34A853;
+  background-color: rgba(52, 168, 83, 0.12);
+  padding: 2px 8px;
+  border-radius: var(--radius-xs);
+  line-height: 14px;
+}
+
+.hl-diff-remove-card {
+  position: relative;
+  border: 2px solid rgba(234, 67, 53, 0.35);
+  background: rgba(234, 67, 53, 0.04);
+  opacity: 0.7;
+}
+
+.hl-diff-remove-card::before {
+  content: "- REMOVE";
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  color: #EA4335;
+  background-color: rgba(234, 67, 53, 0.12);
+  padding: 2px 8px;
+  border-radius: var(--radius-xs);
+  line-height: 14px;
+}
+
+/* --- Row-level highlights for tables --- */
+
+.pricing-table-row.hl-diff-add-row td {
+  background: rgba(52, 168, 83, 0.08);
+}
+
+.pricing-table-row.hl-outline-row td {
+  background: rgba(66, 133, 244, 0.08);
+}
+
+.pricing-table-row.hl-generated-row td {
+  background: rgba(142, 68, 230, 0.08);
+}
+
+/* --- Feature items with highlights --- */
+
+.feature-item.hl-outline {
+  background-color: rgba(66, 133, 244, 0.10);
+  border-radius: 4px;
+  padding: 2px 4px;
+  margin: -2px -4px;
+}
+
+.feature-item.hl-generated {
+  background-color: rgba(142, 68, 230, 0.10);
+  border-radius: 4px;
+  padding: 2px 4px;
+  margin: -2px -4px;
+}
+
+.feature-item.hl-diff-add {
+  background-color: rgba(52, 168, 83, 0.10);
+  border-radius: 4px;
+  padding: 2px 4px;
+  margin: -2px -4px;
+}
+
+/* --- Review legend (sticky at bottom) --- */
+
+.review-legend {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  background: var(--color-background);
+  border-top: 1px solid var(--color-border-level-2);
+  padding: 8px 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 24px;
+  z-index: 1000;
+  font-size: var(--font-size-s);
+  box-shadow: 0 -2px 8px rgba(0, 0, 0, 0.05);
+}
+
+.review-legend-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.review-legend-swatch {
+  width: 14px;
+  height: 14px;
+  border-radius: 3px;
+  display: inline-block;
+}
+
+.review-legend-swatch.blue {
+  background-color: rgba(66, 133, 244, 0.30);
+  border: 1px solid rgba(66, 133, 244, 0.5);
+}
+
+.review-legend-swatch.purple {
+  background-color: rgba(142, 68, 230, 0.30);
+  border: 1px solid rgba(142, 68, 230, 0.5);
+}
+
+.review-legend-swatch.green {
+  background-color: rgba(52, 168, 83, 0.30);
+  border: 1px solid rgba(52, 168, 83, 0.5);
+}
+
+.review-legend-swatch.red {
+  background-color: rgba(234, 67, 53, 0.30);
+  border: 1px solid rgba(234, 67, 53, 0.5);
+}
+
+/* Ensure body has padding for fixed legend */
+body {
+  padding-bottom: 48px;
 }
 
 .color-bg-secondary {

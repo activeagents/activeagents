@@ -61,6 +61,7 @@ class LanderBuilder
           </main>
           #{render_footer}
         </div>
+        #{render_review_legend}
       </body>
 
       </html>
@@ -388,17 +389,38 @@ class LanderBuilder
     end
     plans << current_plan if current_plan && !in_comparison
 
+    # Features added based on user's outline (blue) vs generated summaries (green suggestion)
+    new_outline_features = [
+      'Action Prompt for structured prompt management',
+      'All core framework features & modules',
+      'Generation Providers (RubyLLM, OpenAI, Anthropic)',
+      'Instrumentation, error handling & retries',
+      'Reasonable Reasons gems (evaluations, compliance)',
+      'Parallel tasks & retries',
+      'HITL generative UI (async triggers, webhooks)',
+      'Agentic workflows (multi-agent orchestration)'
+    ]
+
     # Render plans
     plan_cards = plans.map do |plan|
       highlighted_class = plan[:highlighted] ? ' highlighted' : ''
 
       features_html = plan[:features].map do |feature|
-        <<~HTML
-          <div class="feature-item paragraph s">
-                    <div class="fa-regular fa-square-check icon m"></div>
-                    <div>#{h feature}</div>
-                  </div>
-        HTML
+        if new_outline_features.include?(feature)
+          <<~HTML
+            <div class="feature-item paragraph s hl-diff-add" data-reason="Added to reflect new gems from outline. The feature name references the outline item but the description is a generated summary for the pricing card context.">
+                      <div class="fa-regular fa-square-check icon m"></div>
+                      <div>#{h feature}</div>
+                    </div>
+          HTML
+        else
+          <<~HTML
+            <div class="feature-item paragraph s">
+                      <div class="fa-regular fa-square-check icon m"></div>
+                      <div>#{h feature}</div>
+                    </div>
+          HTML
+        end
       end.join
 
       price_html = if plan[:price_period].to_s.empty?
@@ -499,47 +521,47 @@ class LanderBuilder
               <td><div class="fa-regular fa-square-check icon m"></div></td>
               <td><div class="fa-regular fa-square-check icon m"></div></td>
             </tr>
-            <tr class="pricing-table-row">
-              <td class="paragraph s">Action Prompt</td>
+            <tr class="pricing-table-row hl-diff-add-row" data-reason="New row: Action Prompt is from the outline's free tier gems list.">
+              <td class="paragraph s"><span class="hl-outline">Action Prompt</span></td>
               <td><div class="fa-regular fa-square-check icon m"></div></td>
               <td><div class="fa-regular fa-square-check icon m"></div></td>
               <td><div class="fa-regular fa-square-check icon m"></div></td>
             </tr>
-            <tr class="pricing-table-row">
-              <td class="paragraph s">Generation Providers (RubyLLM, OpenAI, Anthropic)</td>
+            <tr class="pricing-table-row hl-diff-add-row" data-reason="New row: Generation Providers with specific gems (RubyLLM, OpenAI, Anthropic) from the outline's Modules section.">
+              <td class="paragraph s"><span class="hl-outline">Generation Providers</span> <span class="hl-generated">(RubyLLM, OpenAI, Anthropic)</span></td>
               <td><div class="fa-regular fa-square-check icon m"></div></td>
               <td><div class="fa-regular fa-square-check icon m"></div></td>
               <td><div class="fa-regular fa-square-check icon m"></div></td>
             </tr>
-            <tr class="pricing-table-row">
-              <td class="paragraph s">Instrumentation, error handling & retries</td>
+            <tr class="pricing-table-row hl-diff-add-row" data-reason="New row: Combines Instrumentation, Error handling, and Retries from the outline's Modules section into a single comparison row.">
+              <td class="paragraph s"><span class="hl-outline">Instrumentation</span>, <span class="hl-outline">error handling</span> &amp; <span class="hl-outline">retries</span></td>
               <td><div class="fa-regular fa-square-check icon m"></div></td>
               <td><div class="fa-regular fa-square-check icon m"></div></td>
               <td><div class="fa-regular fa-square-check icon m"></div></td>
             </tr>
-            <tr class="pricing-table-row">
-              <td class="paragraph s bold" colspan="4" style="background: var(--color-bg-secondary);">Pro Gems & Modules</td>
+            <tr class="pricing-table-row hl-diff-add-row" data-reason="New category header: Groups the Pro tier gems from the outline into a dedicated comparison section.">
+              <td class="paragraph s bold" colspan="4" style="background: var(--color-bg-secondary);"><span class="hl-generated">Pro Gems &amp; Modules</span></td>
             </tr>
-            <tr class="pricing-table-row">
-              <td class="paragraph s">Reasonable Reasons gems</td>
+            <tr class="pricing-table-row hl-diff-add-row" data-reason="New row: Reasonable Reasons Gems from the outline's Pro tier section.">
+              <td class="paragraph s"><span class="hl-outline">Reasonable Reasons gems</span></td>
               <td></td>
               <td><div class="fa-regular fa-square-check icon m"></div></td>
               <td><div class="fa-regular fa-square-check icon m"></div></td>
             </tr>
-            <tr class="pricing-table-row">
-              <td class="paragraph s">Parallel tasks & retries</td>
+            <tr class="pricing-table-row hl-diff-add-row" data-reason="New row: Parallel tasks & retries from the outline's Pro tier section.">
+              <td class="paragraph s"><span class="hl-outline">Parallel tasks &amp; retries</span></td>
               <td></td>
               <td><div class="fa-regular fa-square-check icon m"></div></td>
               <td><div class="fa-regular fa-square-check icon m"></div></td>
             </tr>
-            <tr class="pricing-table-row">
-              <td class="paragraph s">HITL generative UI</td>
+            <tr class="pricing-table-row hl-diff-add-row" data-reason="New row: HITL generative UI from the outline's Pro tier section.">
+              <td class="paragraph s"><span class="hl-outline">HITL generative UI</span></td>
               <td></td>
               <td><div class="fa-regular fa-square-check icon m"></div></td>
               <td><div class="fa-regular fa-square-check icon m"></div></td>
             </tr>
-            <tr class="pricing-table-row">
-              <td class="paragraph s">Agentic workflows</td>
+            <tr class="pricing-table-row hl-diff-add-row" data-reason="New row: Agentic workflows from the outline's Pro tier section.">
+              <td class="paragraph s"><span class="hl-outline">Agentic workflows</span></td>
               <td></td>
               <td><div class="fa-regular fa-square-check icon m"></div></td>
               <td><div class="fa-regular fa-square-check icon m"></div></td>
@@ -1164,15 +1186,15 @@ class LanderBuilder
     <<~HTML
       <section id="#{h section_id}">
         <div class="heading centered">
-          <h2 class="no-top-margin">#{h title}</h2>
+          <h2 class="no-top-margin"><span class="hl-generated">#{h title}</span></h2>
           <p class="paragraph m secondary">
-            #{h subtitle}
+            <span class="hl-outline">#{h subtitle}</span>
           </p>
         </div>
         <div class="gems-tier">
           <div class="gems-tier-header">
-            <span class="gems-tier-badge free">Free Tier</span>
-            <span class="paragraph s secondary">Included with ActiveAgent.dev</span>
+            <span class="gems-tier-badge free"><span class="hl-outline">Free Tier</span></span>
+            <span class="paragraph s secondary hl-generated">Included with ActiveAgent.dev</span>
           </div>
           <div class="grid columns-2">
             #{free_cards.strip}
@@ -1180,8 +1202,8 @@ class LanderBuilder
         </div>
         <div class="gems-tier">
           <div class="gems-tier-header">
-            <span class="gems-tier-badge pro">Pro Tier</span>
-            <span class="paragraph s secondary">Included with ActiveAgent.pro</span>
+            <span class="gems-tier-badge pro"><span class="hl-outline">Pro Tier</span></span>
+            <span class="paragraph s secondary hl-generated">Included with ActiveAgent.pro</span>
           </div>
           <div class="grid columns-2">
             #{pro_cards.strip}
@@ -1191,24 +1213,61 @@ class LanderBuilder
     HTML
   end
 
+  # Content origin tracking for review highlights.
+  # Names/items directly from the user's outline get "hl-outline" (blue).
+  # Subtitles, descriptions, icons generated by AI get "hl-generated" (purple).
+  OUTLINE_NAMES = [
+    'Active Agent', 'Gems', 'Action Prompt', 'Modules',
+    'Generation Providers', 'Instrumentation', 'Error Handling', 'Retries',
+    'Reasonable Reasons Gems', 'Parallel Tasks & Retries',
+    'HITL Generative UI', 'Agentic Workflows'
+  ].freeze
+
+  OUTLINE_ITEMS = [
+    'RubyLLM', "OpenAI (OpenAI's gem)", "OpenAI (community's gem)",
+    "Anthropic (Anthropic's gem)", "Anthropic (community's gem)",
+    'Observable Evaluations', 'Observable Compliance',
+    'Deterministically Generative', 'Generally Deterministic',
+    'Generative UI', 'Generative Generators (Self prescribed / self healing)',
+    'Async tasks with external triggers (e.g. webhook, human approval, timeout)',
+    "Can be broken up into many agents' actions which can be paused between tasks"
+  ].freeze
+
+  def content_origin(text)
+    OUTLINE_NAMES.include?(text) || OUTLINE_ITEMS.include?(text) ? 'hl-outline' : 'hl-generated'
+  end
+
   def render_gem_card(item, tier)
+    name_class = content_origin(item[:name])
+    # Card border: outline-sourced names get blue card, else purple
+    card_class = name_class == 'hl-outline' ? 'hl-outline-card' : 'hl-generated-card'
+
     icon_html = if item[:icon]
       %(<div class="#{h item[:icon]} icon l color-accent"></div>)
     else
       ''
     end
 
-    description_html = if !item[:description].strip.empty?
-      %(<p class="paragraph s secondary">#{h item[:description].strip}</p>)
+    # Subtitle is always generated
+    subtitle_html = if !item[:subtitle].strip.empty?
+      %(<p class="paragraph s secondary hl-generated" style="margin: 0;">#{h item[:subtitle]}</p>)
     else
       ''
     end
 
-    # Render sub-items (bullet points)
+    # Description is always generated
+    description_html = if !item[:description].strip.empty?
+      %(<p class="paragraph s secondary hl-generated">#{h item[:description].strip}</p>)
+    else
+      ''
+    end
+
+    # Render sub-items (bullet points) - check each item's origin
     items_html = if item[:items].any?
       list = item[:items].map do |li|
+        item_class = content_origin(li)
         <<~HTML
-          <div class="feature-item paragraph s">
+          <div class="feature-item paragraph s #{item_class}">
                     <div class="fa-regular fa-square-check icon m"></div>
                     <div>#{h li}</div>
                   </div>
@@ -1222,21 +1281,27 @@ class LanderBuilder
     # Render submodules
     submodules_html = if item[:submodules].any?
       mods = item[:submodules].map do |submod|
-        sub_icon = submod[:icon] ? %(<div class="#{h submod[:icon]} icon m color-accent" style="margin-right: 4px;"></div>) : ''
+        sub_name_class = content_origin(submod[:name])
+        sub_icon = submod[:icon] ? %(<div class="#{h submod[:icon]} icon m color-accent"></div>) : ''
         sub_items = submod[:items].map do |si|
+          si_class = content_origin(si)
           <<~HTML
-            <div class="feature-item paragraph s">
+            <div class="feature-item paragraph s #{si_class}">
                         <div class="fa-regular fa-circle icon m"></div>
                         <div>#{h si}</div>
                       </div>
           HTML
         end.join
-        sub_desc = submod[:description].strip.empty? ? '' : %(<p class="paragraph s secondary" style="margin: 4px 0 8px;">#{h submod[:description].strip}</p>)
+        sub_desc = if submod[:description].strip.empty?
+          ''
+        else
+          %(<p class="paragraph s secondary hl-generated" style="margin: 4px 0 8px;">#{h submod[:description].strip}</p>)
+        end
 
         <<~HTML
           <div class="gem-submodule">
                     <div class="gem-submodule-header">
-                      #{sub_icon}<span class="paragraph s bold">#{h submod[:name]}</span>
+                      #{sub_icon}<span class="paragraph s bold #{sub_name_class}">#{h submod[:name]}</span>
                     </div>
                     #{sub_desc}
                     #{sub_items.strip}
@@ -1248,15 +1313,13 @@ class LanderBuilder
       ''
     end
 
-    draft_class = ' draft-highlight'
-
     <<~HTML
-      <div class="feature-card gem-card#{draft_class}">
+      <div class="feature-card gem-card #{card_class}">
             <div class="gem-card-header">
               #{icon_html}
               <div>
-                <p class="paragraph m bold no-top-margin">#{h item[:name]}</p>
-                <p class="paragraph s secondary" style="margin: 0;">#{h item[:subtitle]}</p>
+                <p class="paragraph m bold no-top-margin #{name_class}">#{h item[:name]}</p>
+                #{subtitle_html}
               </div>
             </div>
             #{description_html}
@@ -1265,6 +1328,17 @@ class LanderBuilder
           </div>
     HTML
   end
+
+  # New FAQ questions added for the gems content
+  NEW_FAQ_QUESTIONS = [
+    'What gems are included in the free tier?',
+    'What are the Pro tier gems?'
+  ].freeze
+
+  # Existing FAQ questions whose answers were modified
+  MODIFIED_FAQ_QUESTIONS = [
+    "What's the difference between Community and Pro?"
+  ].freeze
 
   def render_faq_section(content)
     body = content[:body]
@@ -1300,19 +1374,51 @@ class LanderBuilder
     end
 
     accordion_items = questions.map do |q|
-      <<~HTML
-        <details class="accordion-item" name="faq">
-              <summary class="accordion-toggle">
-                <p class="paragraph m bold">#{h q[:question]}</p>
-                <span class="accordion-chevron fa-solid fa-chevron-down"></span>
-              </summary>
-              <div class="accordion-content">
-                <p>
-                  #{q[:answer]}
-                </p>
-              </div>
-            </details>
-      HTML
+      if NEW_FAQ_QUESTIONS.include?(q[:question])
+        # Entirely new Q&A: question references outline, answer is generated
+        <<~HTML
+          <details class="accordion-item hl-diff-add-card" name="faq" data-reason="New FAQ entry added to explain the gems from the outline. Question references outline items; answer is generated.">
+                <summary class="accordion-toggle">
+                  <p class="paragraph m bold"><span class="hl-generated">#{h q[:question]}</span></p>
+                  <span class="accordion-chevron fa-solid fa-chevron-down"></span>
+                </summary>
+                <div class="accordion-content">
+                  <p class="hl-generated">
+                    #{q[:answer]}
+                  </p>
+                </div>
+              </details>
+        HTML
+      elsif MODIFIED_FAQ_QUESTIONS.include?(q[:question])
+        # Existing Q with modified answer
+        <<~HTML
+          <details class="accordion-item" name="faq" data-reason="Existing FAQ answer updated to reference new gems from outline: Reasonable Reasons, parallel tasks, HITL, agentic workflows.">
+                <summary class="accordion-toggle">
+                  <p class="paragraph m bold">#{h q[:question]}</p>
+                  <span class="accordion-chevron fa-solid fa-chevron-down"></span>
+                </summary>
+                <div class="accordion-content">
+                  <p class="hl-diff-add">
+                    #{q[:answer]}
+                  </p>
+                </div>
+              </details>
+        HTML
+      else
+        <<~HTML
+          <details class="accordion-item" name="faq">
+                <summary class="accordion-toggle">
+                  <p class="paragraph m bold">#{h q[:question]}</p>
+                  <span class="accordion-chevron fa-solid fa-chevron-down"></span>
+                </summary>
+                <div class="accordion-content">
+                  <p>
+                    #{q[:answer]}
+                  </p>
+                </div>
+              </details>
+        HTML
+      end
     end.join("\n    ")
 
     <<~HTML
@@ -1418,6 +1524,31 @@ class LanderBuilder
               #{legal_html}
             </div>
           </footer>
+    HTML
+  end
+
+  def render_review_legend
+    <<~HTML
+      <div class="review-legend">
+          <strong style="font-size: 12px; margin-right: 4px;">Content Review:</strong>
+          <div class="review-legend-item">
+            <span class="review-legend-swatch blue"></span>
+            <span>From outline (yours)</span>
+          </div>
+          <div class="review-legend-item">
+            <span class="review-legend-swatch purple"></span>
+            <span>Generated (AI)</span>
+          </div>
+          <div class="review-legend-item">
+            <span class="review-legend-swatch green"></span>
+            <span>+ Suggested addition</span>
+          </div>
+          <div class="review-legend-item">
+            <span class="review-legend-swatch red"></span>
+            <span>&minus; Suggested removal</span>
+          </div>
+          <span style="font-size: 11px; color: var(--color-text-secondary); margin-left: 8px;">Hover data-reason attributes in DevTools for reasoning</span>
+        </div>
     HTML
   end
 
