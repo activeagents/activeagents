@@ -22,9 +22,17 @@ Active Agent supports OpenAI, Anthropic, Ollama, and OpenRouter. Switch provider
 
 Yes! Active Agent is designed to integrate seamlessly with existing Rails applications. It works alongside your existing models, controllers, and services.
 
+### What gems are included in the free tier?
+
+The free tier includes the core `activeagent` and `solidagent` gems, `Action Prompt` for structured prompt management, generation provider modules (RubyLLM, OpenAI, Anthropic), plus built-in instrumentation, error handling, and retries. All free-tier gems are MIT licensed.
+
+### What are the Pro tier gems?
+
+Pro tier includes the Reasonable Reasons gems (Observable Evaluations, Observable Compliance, Deterministically Generative, Generally Deterministic, Generative UI, and Generative Generators), parallel tasks & retries, HITL generative UI with async triggers, and agentic workflows for multi-agent orchestration.
+
 ### What's the difference between Community and Pro?
 
-The Community tier gives you full access to the open-source framework (ActiveAgent + SolidAgent gems) with all core features and community support. Pro ($99/mo or $995/yr) adds hosted observability with trace dashboards, managed agent deployments, cost & latency analytics, LLM-as-judge evaluators, A/B prompt testing, and 48-hour email support SLA.
+The Community tier gives you full access to the open-source framework (ActiveAgent + SolidAgent gems) with all core features, modules, and community support. Pro ($99/mo or $995/yr) adds the Reasonable Reasons gem suite, parallel tasks, HITL generative UI, agentic workflows, hosted observability with trace dashboards, managed agent deployments, cost & latency analytics, LLM-as-judge evaluators, A/B prompt testing, and 48-hour email support SLA.
 
 ### What does Enterprise include?
 

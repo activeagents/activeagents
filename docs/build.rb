@@ -177,6 +177,8 @@ class LanderBuilder
       render_services_section(content)
     when 'add-ons'
       render_addons_section(content)
+    when 'gems'
+      render_gems_section(content)
     when 'faq'
       render_faq_section(content)
     when 'cta'
@@ -494,6 +496,51 @@ class LanderBuilder
             <tr class="pricing-table-row">
               <td class="paragraph s">Local Web UI engine</td>
               <td><div class="fa-regular fa-square-check icon m"></div></td>
+              <td><div class="fa-regular fa-square-check icon m"></div></td>
+              <td><div class="fa-regular fa-square-check icon m"></div></td>
+            </tr>
+            <tr class="pricing-table-row">
+              <td class="paragraph s">Action Prompt</td>
+              <td><div class="fa-regular fa-square-check icon m"></div></td>
+              <td><div class="fa-regular fa-square-check icon m"></div></td>
+              <td><div class="fa-regular fa-square-check icon m"></div></td>
+            </tr>
+            <tr class="pricing-table-row">
+              <td class="paragraph s">Generation Providers (RubyLLM, OpenAI, Anthropic)</td>
+              <td><div class="fa-regular fa-square-check icon m"></div></td>
+              <td><div class="fa-regular fa-square-check icon m"></div></td>
+              <td><div class="fa-regular fa-square-check icon m"></div></td>
+            </tr>
+            <tr class="pricing-table-row">
+              <td class="paragraph s">Instrumentation, error handling & retries</td>
+              <td><div class="fa-regular fa-square-check icon m"></div></td>
+              <td><div class="fa-regular fa-square-check icon m"></div></td>
+              <td><div class="fa-regular fa-square-check icon m"></div></td>
+            </tr>
+            <tr class="pricing-table-row">
+              <td class="paragraph s bold" colspan="4" style="background: var(--color-bg-secondary);">Pro Gems & Modules</td>
+            </tr>
+            <tr class="pricing-table-row">
+              <td class="paragraph s">Reasonable Reasons gems</td>
+              <td></td>
+              <td><div class="fa-regular fa-square-check icon m"></div></td>
+              <td><div class="fa-regular fa-square-check icon m"></div></td>
+            </tr>
+            <tr class="pricing-table-row">
+              <td class="paragraph s">Parallel tasks & retries</td>
+              <td></td>
+              <td><div class="fa-regular fa-square-check icon m"></div></td>
+              <td><div class="fa-regular fa-square-check icon m"></div></td>
+            </tr>
+            <tr class="pricing-table-row">
+              <td class="paragraph s">HITL generative UI</td>
+              <td></td>
+              <td><div class="fa-regular fa-square-check icon m"></div></td>
+              <td><div class="fa-regular fa-square-check icon m"></div></td>
+            </tr>
+            <tr class="pricing-table-row">
+              <td class="paragraph s">Agentic workflows</td>
+              <td></td>
               <td><div class="fa-regular fa-square-check icon m"></div></td>
               <td><div class="fa-regular fa-square-check icon m"></div></td>
             </tr>
@@ -1027,6 +1074,195 @@ class LanderBuilder
           </div>
         </div>
       </section>
+    HTML
+  end
+
+  def render_gems_section(content)
+    fm = content[:front_matter]
+    body = content[:body]
+    section_id = fm['id'] || 'gems'
+
+    # Parse the body into two tiers with their items
+    lines = body.lines
+    title = ''
+    subtitle = ''
+    current_tier = nil
+    current_item = nil
+    current_submodule = nil
+    tiers = {} # { 'Free Tier' => [items], 'Pro Tier' => [items] }
+
+    lines.each do |line|
+      line = line.rstrip
+
+      if line.start_with?('# ') && !line.start_with?('## ') && !line.start_with?('### ') && !line.start_with?('#### ')
+        title = line.sub(/^# /, '')
+      elsif line.start_with?('## ')
+        current_tier = line.sub(/^## /, '')
+        tiers[current_tier] = []
+        current_item = nil
+        current_submodule = nil
+      elsif line.start_with?('### ')
+        current_submodule = nil
+        current_item = {
+          name: line.sub(/^### /, ''),
+          subtitle: '',
+          icon: nil,
+          description: '',
+          submodules: [],
+          items: []
+        }
+        tiers[current_tier] << current_item if current_tier
+      elsif line.start_with?('#### ') && current_item
+        current_submodule = {
+          name: line.sub(/^#### /, ''),
+          icon: nil,
+          items: [],
+          description: ''
+        }
+        current_item[:submodules] << current_submodule
+      elsif current_submodule
+        if line.start_with?('*') && line.end_with?('*') && !line.start_with?('**')
+          text = line.gsub('*', '')
+          if text.start_with?('icon:')
+            current_submodule[:icon] = text.sub('icon:', '').strip
+          end
+        elsif line.start_with?('- ')
+          current_submodule[:items] << line.sub(/^- /, '')
+        elsif !line.empty?
+          current_submodule[:description] += line + ' '
+        end
+      elsif current_item
+        if line.start_with?('**') && line.end_with?('**')
+          current_item[:subtitle] = line.gsub('**', '')
+        elsif line.start_with?('*') && line.end_with?('*') && !line.start_with?('**')
+          text = line.gsub('*', '')
+          if text.start_with?('icon:')
+            current_item[:icon] = text.sub('icon:', '').strip
+          end
+        elsif line.start_with?('- ')
+          current_item[:items] << line.sub(/^- /, '')
+        elsif !line.empty?
+          current_item[:description] += line + ' '
+        end
+      elsif subtitle.empty? && !line.empty? && title != ''
+        subtitle = line
+      end
+    end
+
+    # Render free tier
+    free_items = tiers['Free Tier'] || []
+    pro_items = tiers['Pro Tier'] || []
+
+    free_cards = free_items.map do |item|
+      render_gem_card(item, 'free')
+    end.join("\n    ")
+
+    pro_cards = pro_items.map do |item|
+      render_gem_card(item, 'pro')
+    end.join("\n    ")
+
+    <<~HTML
+      <section id="#{h section_id}">
+        <div class="heading centered">
+          <h2 class="no-top-margin">#{h title}</h2>
+          <p class="paragraph m secondary">
+            #{h subtitle}
+          </p>
+        </div>
+        <div class="gems-tier">
+          <div class="gems-tier-header">
+            <span class="gems-tier-badge free">Free Tier</span>
+            <span class="paragraph s secondary">Included with ActiveAgent.dev</span>
+          </div>
+          <div class="grid columns-2">
+            #{free_cards.strip}
+          </div>
+        </div>
+        <div class="gems-tier">
+          <div class="gems-tier-header">
+            <span class="gems-tier-badge pro">Pro Tier</span>
+            <span class="paragraph s secondary">Included with ActiveAgent.pro</span>
+          </div>
+          <div class="grid columns-2">
+            #{pro_cards.strip}
+          </div>
+        </div>
+      </section>
+    HTML
+  end
+
+  def render_gem_card(item, tier)
+    icon_html = if item[:icon]
+      %(<div class="#{h item[:icon]} icon l color-accent"></div>)
+    else
+      ''
+    end
+
+    description_html = if !item[:description].strip.empty?
+      %(<p class="paragraph s secondary">#{h item[:description].strip}</p>)
+    else
+      ''
+    end
+
+    # Render sub-items (bullet points)
+    items_html = if item[:items].any?
+      list = item[:items].map do |li|
+        <<~HTML
+          <div class="feature-item paragraph s">
+                    <div class="fa-regular fa-square-check icon m"></div>
+                    <div>#{h li}</div>
+                  </div>
+        HTML
+      end.join
+      %(<div class="feature-list">\n#{list.strip}\n</div>)
+    else
+      ''
+    end
+
+    # Render submodules
+    submodules_html = if item[:submodules].any?
+      mods = item[:submodules].map do |submod|
+        sub_icon = submod[:icon] ? %(<div class="#{h submod[:icon]} icon m color-accent" style="margin-right: 4px;"></div>) : ''
+        sub_items = submod[:items].map do |si|
+          <<~HTML
+            <div class="feature-item paragraph s">
+                        <div class="fa-regular fa-circle icon m"></div>
+                        <div>#{h si}</div>
+                      </div>
+          HTML
+        end.join
+        sub_desc = submod[:description].strip.empty? ? '' : %(<p class="paragraph s secondary" style="margin: 4px 0 8px;">#{h submod[:description].strip}</p>)
+
+        <<~HTML
+          <div class="gem-submodule">
+                    <div class="gem-submodule-header">
+                      #{sub_icon}<span class="paragraph s bold">#{h submod[:name]}</span>
+                    </div>
+                    #{sub_desc}
+                    #{sub_items.strip}
+                  </div>
+        HTML
+      end.join("\n")
+      %(<div class="gem-submodules">\n#{mods.strip}\n</div>)
+    else
+      ''
+    end
+
+    draft_class = ' draft-highlight'
+
+    <<~HTML
+      <div class="feature-card gem-card#{draft_class}">
+            <div class="gem-card-header">
+              #{icon_html}
+              <div>
+                <p class="paragraph m bold no-top-margin">#{h item[:name]}</p>
+                <p class="paragraph s secondary" style="margin: 0;">#{h item[:subtitle]}</p>
+              </div>
+            </div>
+            #{description_html}
+            #{items_html}
+            #{submodules_html}
+          </div>
     HTML
   end
 

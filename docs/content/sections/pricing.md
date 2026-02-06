@@ -17,7 +17,10 @@ Rails-native AI framework with hosted observability, evaluation, and collaborati
 **Free**
 
 - Full ActiveAgent + SolidAgent gems
-- All core framework features
+- Action Prompt for structured prompt management
+- All core framework features & modules
+- Generation Providers (RubyLLM, OpenAI, Anthropic)
+- Instrumentation, error handling & retries
 - Multi-provider support (OpenAI, Anthropic, Ollama, OpenRouter)
 - Basic local Web UI Rails engine
 - Community support (Discord, GitHub)
@@ -37,6 +40,10 @@ Rails-native AI framework with hosted observability, evaluation, and collaborati
 **$99** /month or $995/yr
 
 - Everything in Community
+- Reasonable Reasons gems (evaluations, compliance)
+- Parallel tasks & retries
+- HITL generative UI (async triggers, webhooks)
+- Agentic workflows (multi-agent orchestration)
 - Hosted dashboard at app.activeagent.pro
 - 3 managed agent deployments
 - 10,000 executions/month

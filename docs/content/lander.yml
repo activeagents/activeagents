@@ -36,6 +36,8 @@ navigation:
   links:
     - text: Docs
       url: https://docs.activeagents.ai
+    - text: Gems
+      url: "#gems"
     - text: Pricing
       url: "#pricing"
     - text: GitHub
@@ -64,6 +66,9 @@ sections:
 
   - id: features
     file: sections/features.md
+
+  - id: gems
+    file: sections/gems.md
 
   - id: pricing
     file: sections/pricing.md
