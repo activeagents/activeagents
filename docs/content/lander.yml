@@ -1,0 +1,115 @@
+# Active Agent Landing Page Configuration
+# This file defines the structure and metadata for the landing page.
+# Section content is stored in separate markdown files in the sections/ directory.
+
+meta:
+  title: "Active Agent | The AI Framework For Ruby on Rails"
+  description: "Build AI in Rails - Now Agents are Controllers. The Ruby-native way to build AI features."
+
+  # Open Graph
+  og:
+    type: website
+    site_name: Active Agent
+    locale: en_US
+    title: "Active Agent | The AI Framework For Ruby on Rails"
+    description: "Build AI in Rails - Now Agents are Controllers. Makes code tons of fun!"
+    url: https://activeagents.ai
+
+  # Twitter/X
+  twitter:
+    site: "@activeagents"
+    card: summary_large_image
+    title: "Active Agent | The AI Framework For Ruby on Rails"
+    description: "Build AI in Rails - Now Agents are Controllers."
+
+  # Favicon
+  favicon: images/activeagent-logo.png
+
+# Brand information
+brand:
+  name: Active Agent
+  logo: images/activeagent-logo.png
+  tagline: "The AI Framework for Ruby on Rails"
+
+# Navigation links
+navigation:
+  links:
+    - text: Docs
+      url: https://docs.activeagents.ai
+    - text: Pricing
+      url: "#pricing"
+    - text: GitHub
+      url: https://github.com/activeagents/activeagent
+
+  social:
+    - icon: fa-brands fa-github
+      url: https://github.com/activeagents/activeagent
+      label: GitHub
+    - icon: fa-brands fa-discord
+      url: https://discord.gg/activeagent
+      label: Discord
+
+  cta:
+    sign_in:
+      text: Sign In
+      url: https://activeagents.ai/dashboard
+    primary:
+      text: Getting Started
+      url: https://docs.activeagents.ai/getting-started
+
+# Page sections - each references a markdown file
+sections:
+  - id: hero
+    file: sections/hero.md
+
+  - id: features
+    file: sections/features.md
+
+  - id: pricing
+    file: sections/pricing.md
+
+  - id: services
+    file: sections/services.md
+
+  - id: add-ons
+    file: sections/add-ons.md
+
+  - id: faq
+    file: sections/faq.md
+
+  - id: cta
+    file: sections/cta.md
+
+# Footer configuration
+footer:
+  copyright: "2026 Active Agent"
+  tagline: "The AI Framework for Ruby on Rails"
+
+  links:
+    - text: Documentation
+      url: https://docs.activeagents.ai
+    - text: Pricing
+      url: "#pricing"
+    - text: GitHub
+      url: https://github.com/activeagents/activeagent
+      external: true
+
+  social:
+    - icon: fa-brands fa-github
+      url: https://github.com/activeagents/activeagent
+      label: GitHub
+    - icon: fa-brands fa-discord
+      url: https://discord.gg/activeagent
+      label: Discord
+    - icon: fa-brands fa-x-twitter
+      url: https://x.com/activeagents
+      label: Twitter
+    - icon: fa-brands fa-bluesky
+      url: https://bsky.app/profile/activeagent.dev
+      label: Bluesky
+
+  legal:
+    - text: Privacy Policy
+      url: "#"
+    - text: Terms of Service
+      url: "#"
