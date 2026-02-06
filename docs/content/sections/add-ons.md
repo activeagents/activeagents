@@ -36,14 +36,16 @@ Software licensing for the Ruby gems
 **Open Source**
 
 - **MIT License**
+- Includes Active Agent, Action Prompt, Generation Providers, Modules
 - Free forever, no restrictions
 - Commercial use allowed
 - Public GitHub repo
 
 ### activeagent-pro
-**Commercial**
+**Commercial (Reasonable Reasons gems)**
 
 - **Commercial License**
+- Includes Observable Evaluations, Observable Compliance, Generative UI, Generative Generators, and more
 - Private repo access for subscribers
 - License tied to subscription
 - Bundler credentials provided
@@ -52,6 +54,7 @@ Software licensing for the Ruby gems
 **Commercial**
 
 - **Commercial License**
+- Everything in Pro
 - Private repo access for customers
 - Multi-app & embedded licensing
 - Custom terms available
