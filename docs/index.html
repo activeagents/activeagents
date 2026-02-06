@@ -337,63 +337,168 @@
       <a href="mailto:sales@activeagents.ai" class="button tertiary full-width margin-top-l">Contact Sales</a>
     </div>
   </div>
-  <div class="feature-card" style="margin-top: 2rem;">
-    <div class="feature-heading">
-      <p class="paragraph l bold no-top-margin">Add-On Pricing</p>
-    </div>
-    <div class="grid columns-2" style="margin-top: 1rem;">
-      <div>
-        <p class="paragraph s bold">Pro Add-Ons</p>
-        <div class="feature-list">
-          <div class="feature-item paragraph s">
-            <div class="fa-regular fa-circle icon m"></div>
-            <div>Additional traces: $2.00/1k</div>
-          </div>
-          <div class="feature-item paragraph s">
-            <div class="fa-regular fa-circle icon m"></div>
-            <div>Additional executions: $0.01/exec</div>
-          </div>
-          <div class="feature-item paragraph s">
-            <div class="fa-regular fa-circle icon m"></div>
-            <div>Extended retention (400 days): $2.50/1k</div>
-          </div>
-          <div class="feature-item paragraph s">
-            <div class="fa-regular fa-circle icon m"></div>
-            <div>Additional team seats: $19/seat/mo</div>
-          </div>
-          <div class="feature-item paragraph s">
-            <div class="fa-regular fa-circle icon m"></div>
-            <div>Additional workspaces: $49/workspace/mo</div>
-          </div>
-        </div>
-      </div>
-      <div>
-        <p class="paragraph s bold">Enterprise Add-Ons</p>
-        <div class="feature-list">
-          <div class="feature-item paragraph s">
-            <div class="fa-regular fa-circle icon m"></div>
-            <div>Additional traces: $1.50/1k</div>
-          </div>
-          <div class="feature-item paragraph s">
-            <div class="fa-regular fa-circle icon m"></div>
-            <div>Additional executions: $0.005/exec</div>
-          </div>
-          <div class="feature-item paragraph s">
-            <div class="fa-regular fa-circle icon m"></div>
-            <div>Extended retention: Included</div>
-          </div>
-          <div class="feature-item paragraph s">
-            <div class="fa-regular fa-circle icon m"></div>
-            <div>Additional seats & workspaces: Included</div>
-          </div>
-          <div class="feature-item paragraph s">
-            <div class="fa-regular fa-circle icon m"></div>
-            <div>Appliance/embedded license: $14,995/yr</div>
-          </div>
-        </div>
-      </div>
-    </div>
+  <div class="text-centered full-width margin-top-xl">
+    <h3 class="no-top-margin">Feature Comparison</h3>
   </div>
+  <table class="pricing-table">
+    <thead>
+      <tr class="pricing-table-row">
+        <th class="paragraph s bold"></th>
+        <th class="paragraph s bold">Dev</th>
+        <th class="paragraph s bold">Pro</th>
+        <th class="paragraph s bold">Enterprise</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr class="pricing-table-row">
+        <td class="paragraph s bold" colspan="4" style="background: var(--color-bg-secondary);">Framework</td>
+      </tr>
+      <tr class="pricing-table-row">
+        <td class="paragraph s">ActiveAgent + SolidAgent gems</td>
+        <td><div class="fa-regular fa-square-check icon m"></div></td>
+        <td><div class="fa-regular fa-square-check icon m"></div></td>
+        <td><div class="fa-regular fa-square-check icon m"></div></td>
+      </tr>
+      <tr class="pricing-table-row">
+        <td class="paragraph s">Multi-provider support</td>
+        <td><div class="fa-regular fa-square-check icon m"></div></td>
+        <td><div class="fa-regular fa-square-check icon m"></div></td>
+        <td><div class="fa-regular fa-square-check icon m"></div></td>
+      </tr>
+      <tr class="pricing-table-row">
+        <td class="paragraph s">Tool calling & structured output</td>
+        <td><div class="fa-regular fa-square-check icon m"></div></td>
+        <td><div class="fa-regular fa-square-check icon m"></div></td>
+        <td><div class="fa-regular fa-square-check icon m"></div></td>
+      </tr>
+      <tr class="pricing-table-row">
+        <td class="paragraph s">Streaming & embeddings</td>
+        <td><div class="fa-regular fa-square-check icon m"></div></td>
+        <td><div class="fa-regular fa-square-check icon m"></div></td>
+        <td><div class="fa-regular fa-square-check icon m"></div></td>
+      </tr>
+      <tr class="pricing-table-row">
+        <td class="paragraph s">Local Web UI engine</td>
+        <td><div class="fa-regular fa-square-check icon m"></div></td>
+        <td><div class="fa-regular fa-square-check icon m"></div></td>
+        <td><div class="fa-regular fa-square-check icon m"></div></td>
+      </tr>
+      <tr class="pricing-table-row">
+        <td class="paragraph s bold" colspan="4" style="background: var(--color-bg-secondary);">Hosted Platform</td>
+      </tr>
+      <tr class="pricing-table-row">
+        <td class="paragraph s">Hosted dashboard</td>
+        <td></td>
+        <td><div class="fa-regular fa-square-check icon m"></div></td>
+        <td><div class="fa-regular fa-square-check icon m"></div></td>
+      </tr>
+      <tr class="pricing-table-row">
+        <td class="paragraph s">Managed agent deployments</td>
+        <td></td>
+        <td class="paragraph s">3</td>
+        <td class="paragraph s">Unlimited</td>
+      </tr>
+      <tr class="pricing-table-row">
+        <td class="paragraph s">Executions / month</td>
+        <td class="paragraph s">Self-hosted</td>
+        <td class="paragraph s">10,000</td>
+        <td class="paragraph s">Unlimited</td>
+      </tr>
+      <tr class="pricing-table-row">
+        <td class="paragraph s">Traces / month</td>
+        <td class="paragraph s">Self-hosted</td>
+        <td class="paragraph s">25,000</td>
+        <td class="paragraph s">500,000+</td>
+      </tr>
+      <tr class="pricing-table-row">
+        <td class="paragraph s">Trace retention</td>
+        <td></td>
+        <td class="paragraph s">14 days</td>
+        <td class="paragraph s">400 days</td>
+      </tr>
+      <tr class="pricing-table-row">
+        <td class="paragraph s bold" colspan="4" style="background: var(--color-bg-secondary);">Observability & Evaluation</td>
+      </tr>
+      <tr class="pricing-table-row">
+        <td class="paragraph s">Cost & latency analytics</td>
+        <td></td>
+        <td><div class="fa-regular fa-square-check icon m"></div></td>
+        <td><div class="fa-regular fa-square-check icon m"></div></td>
+      </tr>
+      <tr class="pricing-table-row">
+        <td class="paragraph s">LLM-as-judge evaluators</td>
+        <td></td>
+        <td class="paragraph s">5 prebuilt</td>
+        <td class="paragraph s">Unlimited custom</td>
+      </tr>
+      <tr class="pricing-table-row">
+        <td class="paragraph s">A/B prompt testing</td>
+        <td></td>
+        <td><div class="fa-regular fa-square-check icon m"></div></td>
+        <td><div class="fa-regular fa-square-check icon m"></div></td>
+      </tr>
+      <tr class="pricing-table-row">
+        <td class="paragraph s">Anomaly detection (ML)</td>
+        <td></td>
+        <td></td>
+        <td><div class="fa-regular fa-square-check icon m"></div></td>
+      </tr>
+      <tr class="pricing-table-row">
+        <td class="paragraph s bold" colspan="4" style="background: var(--color-bg-secondary);">Team & Security</td>
+      </tr>
+      <tr class="pricing-table-row">
+        <td class="paragraph s">Team seats</td>
+        <td class="paragraph s">1</td>
+        <td class="paragraph s">5</td>
+        <td class="paragraph s">Unlimited</td>
+      </tr>
+      <tr class="pricing-table-row">
+        <td class="paragraph s">Workspaces</td>
+        <td></td>
+        <td class="paragraph s">1</td>
+        <td class="paragraph s">Unlimited</td>
+      </tr>
+      <tr class="pricing-table-row">
+        <td class="paragraph s">SSO / SAML & RBAC</td>
+        <td></td>
+        <td></td>
+        <td><div class="fa-regular fa-square-check icon m"></div></td>
+      </tr>
+      <tr class="pricing-table-row">
+        <td class="paragraph s">SOC 2 Type II & HIPAA</td>
+        <td></td>
+        <td></td>
+        <td><div class="fa-regular fa-square-check icon m"></div></td>
+      </tr>
+      <tr class="pricing-table-row">
+        <td class="paragraph s">Private VPC / on-premise</td>
+        <td></td>
+        <td></td>
+        <td><div class="fa-regular fa-square-check icon m"></div></td>
+      </tr>
+      <tr class="pricing-table-row">
+        <td class="paragraph s bold" colspan="4" style="background: var(--color-bg-secondary);">Support</td>
+      </tr>
+      <tr class="pricing-table-row">
+        <td class="paragraph s">Community (Discord, GitHub)</td>
+        <td><div class="fa-regular fa-square-check icon m"></div></td>
+        <td><div class="fa-regular fa-square-check icon m"></div></td>
+        <td><div class="fa-regular fa-square-check icon m"></div></td>
+      </tr>
+      <tr class="pricing-table-row">
+        <td class="paragraph s">Email support SLA</td>
+        <td></td>
+        <td class="paragraph s">48 hours</td>
+        <td class="paragraph s">4 hours</td>
+      </tr>
+      <tr class="pricing-table-row">
+        <td class="paragraph s">Dedicated Slack channel</td>
+        <td></td>
+        <td></td>
+        <td><div class="fa-regular fa-square-check icon m"></div></td>
+      </tr>
+    </tbody>
+  </table>
 </section>
 
 <section id="services">
@@ -510,6 +615,129 @@
         <p class="paragraph xs secondary" style="margin-top: 1rem;">Perfect for: Teams with specific projects or needing extra hands for AI implementation</p>
       </div>
       <a href="mailto:dev@activeagents.ai?subject=Development%20Services%20Inquiry" class="button tertiary full-width margin-top-l">Get in Touch</a>
+    </div>
+  </div>
+</section>
+
+<section id="add-ons">
+  <div class="text-centered full-width">
+    <h2>Add-Ons & Licensing</h2>
+    <p class="paragraph m secondary">Scale beyond your plan with transparent usage-based pricing</p>
+  </div>
+  <div class="grid columns-2 margin-top-xl">
+    <div class="feature-card">
+      <div class="feature-heading">
+        <p class="paragraph l bold no-top-margin">Pro Add-Ons</p>
+        <p class="paragraph s secondary">Pay-as-you-grow pricing</p>
+      </div>
+      <div class="feature-list">
+        <div class="feature-item paragraph s">
+          <div class="fa-regular fa-circle icon m"></div>
+          <div>Additional traces: $2.00/1k</div>
+        </div>
+        <div class="feature-item paragraph s">
+          <div class="fa-regular fa-circle icon m"></div>
+          <div>Additional executions: $0.01/exec</div>
+        </div>
+        <div class="feature-item paragraph s">
+          <div class="fa-regular fa-circle icon m"></div>
+          <div>Extended retention (400 days): $2.50/1k</div>
+        </div>
+        <div class="feature-item paragraph s">
+          <div class="fa-regular fa-circle icon m"></div>
+          <div>Additional team seats: $19/seat/mo</div>
+        </div>
+        <div class="feature-item paragraph s">
+          <div class="fa-regular fa-circle icon m"></div>
+          <div>Additional workspaces: $49/workspace/mo</div>
+        </div>
+      </div>
+    </div>
+    <div class="feature-card">
+      <div class="feature-heading">
+        <p class="paragraph l bold no-top-margin">Enterprise Add-Ons</p>
+        <p class="paragraph s secondary">Volume discounts included</p>
+      </div>
+      <div class="feature-list">
+        <div class="feature-item paragraph s">
+          <div class="fa-regular fa-circle icon m"></div>
+          <div>Additional traces: $1.50/1k</div>
+        </div>
+        <div class="feature-item paragraph s">
+          <div class="fa-regular fa-circle icon m"></div>
+          <div>Additional executions: $0.005/exec</div>
+        </div>
+        <div class="feature-item paragraph s">
+          <div class="fa-regular fa-circle icon m"></div>
+          <div>Extended retention: Included</div>
+        </div>
+        <div class="feature-item paragraph s">
+          <div class="fa-regular fa-circle icon m"></div>
+          <div>Additional seats & workspaces: Included</div>
+        </div>
+        <div class="feature-item paragraph s">
+          <div class="fa-regular fa-circle icon m"></div>
+          <div>Appliance/embedded license: $14,995/yr</div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="feature-card" style="margin-top: 2rem;">
+    <div class="feature-heading">
+      <p class="paragraph l bold no-top-margin">Licensing & Policies</p>
+    </div>
+    <div class="grid columns-3" style="margin-top: 1rem;">
+      <div>
+        <p class="paragraph s bold">Community (Dev)</p>
+        <div class="feature-list">
+          <div class="feature-item paragraph s">
+            <div class="fa-regular fa-square-check icon m"></div>
+            <div>MIT License - use freely</div>
+          </div>
+          <div class="feature-item paragraph s">
+            <div class="fa-regular fa-square-check icon m"></div>
+            <div>No restrictions on commercial use</div>
+          </div>
+          <div class="feature-item paragraph s">
+            <div class="fa-regular fa-square-check icon m"></div>
+            <div>Self-host unlimited instances</div>
+          </div>
+        </div>
+      </div>
+      <div>
+        <p class="paragraph s bold">Pro License</p>
+        <div class="feature-list">
+          <div class="feature-item paragraph s">
+            <div class="fa-regular fa-square-check icon m"></div>
+            <div>14-day free trial, no credit card</div>
+          </div>
+          <div class="feature-item paragraph s">
+            <div class="fa-regular fa-square-check icon m"></div>
+            <div>Cancel anytime, no commitments</div>
+          </div>
+          <div class="feature-item paragraph s">
+            <div class="fa-regular fa-square-check icon m"></div>
+            <div>Prorated refunds for annual plans</div>
+          </div>
+        </div>
+      </div>
+      <div>
+        <p class="paragraph s bold">Enterprise License</p>
+        <div class="feature-list">
+          <div class="feature-item paragraph s">
+            <div class="fa-regular fa-square-check icon m"></div>
+            <div>Custom contract terms available</div>
+          </div>
+          <div class="feature-item paragraph s">
+            <div class="fa-regular fa-square-check icon m"></div>
+            <div>Volume licensing discounts</div>
+          </div>
+          <div class="feature-item paragraph s">
+            <div class="fa-regular fa-square-check icon m"></div>
+            <div>Dedicated onboarding included</div>
+          </div>
+        </div>
+      </div>
     </div>
   </div>
 </section>
