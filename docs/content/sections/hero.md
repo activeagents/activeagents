@@ -8,8 +8,7 @@ image_max_width: 280px
 # **Active Agent**
 # Build AI in Rails
 
-Now Agents are Controllers
-Makes code tons of fun!
+New gems for the future of product analytics and development
 
 <!-- buttons -->
 - [Getting Started](https://docs.activeagents.ai/getting-started){.button.primary}
