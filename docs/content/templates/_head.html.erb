@@ -1,0 +1,33 @@
+<head>
+  <meta charset="utf-8" />
+  <title><%= data["meta"]["title"] %></title>
+  <meta content="<%= data["meta"]["description"] %>" name="description" />
+  <meta content="width=device-width, initial-scale=1" name="viewport" />
+
+  <!-- Open Graph -->
+  <meta property="og:type" content="<%= data["meta"]["og"]["type"] %>" />
+  <meta property="og:site_name" content="<%= data["meta"]["og"]["site_name"] %>" />
+  <meta property="og:locale" content="<%= data["meta"]["og"]["locale"] %>" />
+  <meta property="og:title" content="<%= data["meta"]["og"]["title"] %>" />
+  <meta property="og:description" content="<%= data["meta"]["og"]["description"] %>" />
+  <meta property="og:url" content="<%= data["meta"]["og"]["url"] %>" />
+  <meta name="twitter:site" content="<%= data["meta"]["twitter"]["site"] %>" />
+  <meta name="twitter:card" content="<%= data["meta"]["twitter"]["card"] %>" />
+  <meta name="twitter:title" content="<%= data["meta"]["twitter"]["title"] %>" />
+  <meta name="twitter:description" content="<%= data["meta"]["twitter"]["description"] %>" />
+
+  <!-- Favicon and icons -->
+  <link rel="icon" href="<%= asset_path(data["meta"]["favicon"]) %>" sizes="32x32" />
+  <link rel="apple-touch-icon" href="<%= asset_path(data["meta"]["favicon"]) %>" />
+
+  <!-- Preload fonts -->
+  <link rel="preload" href="<%= asset_path("fonts/InterVariable.woff2") %>" as="font" type="font/woff2" crossorigin />
+
+  <!-- Styles -->
+  <link href="<%= asset_path("vendor/font-awesome-6.7.2/css/all.min.css") %>" rel="stylesheet" />
+  <link href="<%= asset_path("css/index.css") %>" rel="stylesheet" type="text/css" />
+  <link href="<%= asset_path("css/pricing.css") %>" rel="stylesheet" type="text/css" />
+  <link href="<%= asset_path("css/tablet.css") %>" rel="stylesheet" type="text/css" />
+  <link href="<%= asset_path("css/mobile.css") %>" rel="stylesheet" type="text/css" />
+  <script src="<%= asset_path("js/main.js") %>" type="text/javascript" defer></script>
+</head>

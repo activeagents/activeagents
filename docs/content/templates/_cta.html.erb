@@ -1,0 +1,11 @@
+<% cta = data["cta"] -%>
+<section class="promo-cta">
+  <div class="heading centered">
+    <h2><%= cta["heading"] %></h2>
+    <div class="button-group margin-paragraph centered">
+<% cta["buttons"].each do |btn| -%>
+      <a href="<%= btn["href"] %>" class="<%= btn["class"] %>"><%= btn["text"] %></a>
+<% end -%>
+    </div>
+  </div>
+</section>

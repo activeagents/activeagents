@@ -1,0 +1,20 @@
+<% hero = data["hero"] -%>
+<section>
+  <div class="heading hero centered">
+    <h1 class="balanced">
+      <span class="color-accent"><%= hero["title_accent"] %></span><br />
+      <%= hero["title"] %>
+    </h1>
+    <p class="paragraph l secondary balanced">
+      <%= hero["subtitle"] %>
+    </p>
+    <div class="button-group margin-paragraph centered">
+<% hero["buttons"].each do |btn| -%>
+      <a href="<%= btn["href"] %>" class="<%= btn["class"] %>"><%= btn["text"] %></a>
+<% end -%>
+    </div>
+  </div>
+  <div style="display: flex; justify-content: center; margin-top: 2rem;">
+    <img src="<%= asset_path(hero["image"]) %>" alt="<%= data["nav"]["brand"]["name"] %>" style="max-width: <%= hero["image_max_width"] %>; height: auto;" />
+  </div>
+</section>
