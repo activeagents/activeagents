@@ -1,0 +1,33 @@
+<% footer = data["footer"] -%>
+    <footer class="footer">
+      <div class="footer-menu">
+        <div>
+          <p class="paragraph s">
+            &copy; <%= footer["copyright"] %><br />
+            <%= footer["tagline"] %>
+          </p>
+        </div>
+        <div>
+          <div class="link-list">
+<% footer["links"].each do |link| -%>
+            <a href="<%= link["href"] %>" class="ui s"<%= link["external"] ? ' target="_blank"' : "" %>><%= link["text"] %></a>
+<% end -%>
+          </div>
+        </div>
+        <div>
+          <div class="link-list">
+<% footer["social"].each do |social| -%>
+            <a href="<%= social["href"] %>" class="icon-link ui s" target="_blank">
+          <div class="<%= social["icon"] %> icon m color-accent"></div>
+          <div class="pseudo-link"><%= social["label"] %></div>
+        </a>
+<% end -%>
+          </div>
+        </div>
+      </div>
+      <div class="link-list-horizontal">
+<% footer["legal"].each do |legal| -%>
+        <a href="<%= legal["href"] %>" class="ui s tertiary"><%= legal["text"] %></a>
+<% end -%>
+      </div>
+    </footer>

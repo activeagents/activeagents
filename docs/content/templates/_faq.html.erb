@@ -1,0 +1,27 @@
+<% faq = data["faq"] -%>
+<section>
+  <div class="heading centered">
+    <h2 class="no-top-margin"><%= faq["heading"] %></h2>
+    <p class="paragraph m secondary">
+      <%= faq["subheading"] %>
+    </p>
+  </div>
+  <div class="accordion-container">
+<% faq["items"].each_with_index do |item, i| -%>
+    <details class="accordion-item" name="faq">
+      <summary class="accordion-toggle">
+        <p class="paragraph m bold"><%= h(item["question"]) %></p>
+        <span class="accordion-chevron fa-solid fa-chevron-down"></span>
+      </summary>
+      <div class="accordion-content">
+        <p>
+          <%= render_markdown(item["answer"]) %>
+        </p>
+      </div>
+    </details>
+<% if i < faq["items"].length - 1 -%>
+
+<% end -%>
+<% end -%>
+  </div>
+</section>
