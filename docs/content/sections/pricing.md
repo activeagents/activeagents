@@ -16,13 +16,14 @@ Rails-native AI framework with hosted observability, evaluation, and collaborati
 
 **Free**
 
-- Full ActiveAgent + SolidAgent gems
-- All core framework features
-- Multi-provider support (OpenAI, Anthropic, Ollama, OpenRouter)
+- Active Agent gem (MIT License)
+- Action Prompt gem
+- Generation Providers (RubyLLM, OpenAI, Anthropic — official & community)
+- Modules: Instrumentation, Error Handling, Retries
+- Streaming & Structured Output
 - Basic local Web UI Rails engine
 - Community support (Discord, GitHub)
 - Self-hosted (unlimited)
-- MIT License
 
 *Best for: Individual developers, startups validating ideas, open-source projects*
 
@@ -37,10 +38,13 @@ Rails-native AI framework with hosted observability, evaluation, and collaborati
 **$99** /month or $995/yr
 
 - Everything in Community
+- Reasonable Reasons gems (Observable Evaluations, Observable Compliance, Deterministically Generative, Generally Deterministic)
+- Generative UI & Generative Generators (self-healing)
+- Parallel tasks & retries
+- HITL generative UI
+- Async tasks with external triggers (webhook, human approval, timeout)
+- Agentic workflows (pausable multi-agent actions)
 - Hosted dashboard at app.activeagent.pro
-- 3 managed agent deployments
-- 10,000 executions/month
-- 25,000 traces/month (14-day retention)
 - Cost & latency analytics
 - 5 prebuilt LLM-as-judge evaluators
 - A/B prompt testing
@@ -78,11 +82,18 @@ Rails-native AI framework with hosted observability, evaluation, and collaborati
 | Feature | Dev | Pro | Enterprise |
 |---------|-----|-----|------------|
 | **Framework** | | | |
-| ActiveAgent + SolidAgent gems | ✓ | ✓ | ✓ |
-| Multi-provider support | ✓ | ✓ | ✓ |
-| Tool calling & structured output | ✓ | ✓ | ✓ |
-| Streaming & embeddings | ✓ | ✓ | ✓ |
+| Active Agent + Action Prompt gems | ✓ | ✓ | ✓ |
+| Generation Providers (RubyLLM, OpenAI, Anthropic) | ✓ | ✓ | ✓ |
+| Modules (Instrumentation, Error Handling, Retries) | ✓ | ✓ | ✓ |
+| Streaming & Structured Output | ✓ | ✓ | ✓ |
 | Local Web UI engine | ✓ | ✓ | ✓ |
+| **Pro Gems & Modules** | | | |
+| Reasonable Reasons gems | | ✓ | ✓ |
+| Observable Evaluations & Compliance | | ✓ | ✓ |
+| Generative UI & Generative Generators | | ✓ | ✓ |
+| Parallel tasks & retries | | ✓ | ✓ |
+| HITL generative UI | | ✓ | ✓ |
+| Agentic workflows (pausable multi-agent) | | ✓ | ✓ |
 | **Hosted Platform** | | | |
 | Hosted dashboard | | ✓ | ✓ |
 | Managed agent deployments | | 3 | Unlimited |

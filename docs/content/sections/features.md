@@ -4,44 +4,44 @@ layout: features
 columns: 3
 ---
 
-# Features
+# Free Tier Gems
 
-Everything you need to build AI-powered Rails applications
+Everything you need to build AI-powered Rails applications — free and open source
 
 ## Features Grid
 
-### Agents
+### Active Agent
 
 Controllers for AI. Define actions, use callbacks, render views. Rails conventions for LLM interactions.
 
-### Tool Calling
+### Action Prompt
 
-AI calls Ruby methods to fetch data and make decisions. Works like RPC for agents.
+Composable prompt templates for your agents. Build, chain, and reuse prompts with Rails conventions.
 
-### Structured Output
+### Generation Providers
 
-Extract typed data with JSON schemas. Validated responses for forms and APIs.
+RubyLLM, OpenAI (official & community), Anthropic (official & community). Switch providers with one line of code.
 
-### Providers
+### Modules
 
-OpenAI, Anthropic, Ollama, OpenRouter. Switch providers with one line of code.
+Extend your agents with pluggable modules for generation, instrumentation, error handling, and retries.
+
+### Instrumentation
+
+Built-in observability hooks for tracing, logging, and monitoring your agent interactions.
+
+### Error Handling
+
+Automatic retries with exponential backoff. Graceful degradation for production.
+
+### Retries
+
+Configurable retry strategies with backoff policies. Keep your agents resilient under load.
 
 ### Streaming
 
 Real-time response streaming with callbacks for dynamic UIs and live updates.
 
-### Embeddings
+### Structured Output
 
-Generate vectors for semantic search, RAG, and clustering applications.
-
-### Testing
-
-Test with fixtures and VCR cassettes. Mock providers for fast tests.
-
-### Background Jobs
-
-Process generations async with Active Job. Scale AI operations in the background.
-
-### Error Handling
-
-Automatic retries with exponential backoff. Graceful degradation for production.
+Extract typed data with JSON schemas. Validated responses for forms and APIs.

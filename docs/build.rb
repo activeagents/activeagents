@@ -468,25 +468,25 @@ class LanderBuilder
               <td class="paragraph s bold" colspan="4" style="background: var(--color-bg-secondary);">Framework</td>
             </tr>
             <tr class="pricing-table-row">
-              <td class="paragraph s">ActiveAgent + SolidAgent gems</td>
+              <td class="paragraph s">Active Agent + Action Prompt gems</td>
               <td><div class="fa-regular fa-square-check icon m"></div></td>
               <td><div class="fa-regular fa-square-check icon m"></div></td>
               <td><div class="fa-regular fa-square-check icon m"></div></td>
             </tr>
             <tr class="pricing-table-row">
-              <td class="paragraph s">Multi-provider support</td>
+              <td class="paragraph s">Generation Providers (RubyLLM, OpenAI, Anthropic)</td>
               <td><div class="fa-regular fa-square-check icon m"></div></td>
               <td><div class="fa-regular fa-square-check icon m"></div></td>
               <td><div class="fa-regular fa-square-check icon m"></div></td>
             </tr>
             <tr class="pricing-table-row">
-              <td class="paragraph s">Tool calling & structured output</td>
+              <td class="paragraph s">Modules (Instrumentation, Error Handling, Retries)</td>
               <td><div class="fa-regular fa-square-check icon m"></div></td>
               <td><div class="fa-regular fa-square-check icon m"></div></td>
               <td><div class="fa-regular fa-square-check icon m"></div></td>
             </tr>
             <tr class="pricing-table-row">
-              <td class="paragraph s">Streaming & embeddings</td>
+              <td class="paragraph s">Streaming & Structured Output</td>
               <td><div class="fa-regular fa-square-check icon m"></div></td>
               <td><div class="fa-regular fa-square-check icon m"></div></td>
               <td><div class="fa-regular fa-square-check icon m"></div></td>
@@ -494,6 +494,45 @@ class LanderBuilder
             <tr class="pricing-table-row">
               <td class="paragraph s">Local Web UI engine</td>
               <td><div class="fa-regular fa-square-check icon m"></div></td>
+              <td><div class="fa-regular fa-square-check icon m"></div></td>
+              <td><div class="fa-regular fa-square-check icon m"></div></td>
+            </tr>
+            <tr class="pricing-table-row">
+              <td class="paragraph s bold" colspan="4" style="background: var(--color-bg-secondary);">Pro Gems & Modules</td>
+            </tr>
+            <tr class="pricing-table-row">
+              <td class="paragraph s">Reasonable Reasons gems</td>
+              <td></td>
+              <td><div class="fa-regular fa-square-check icon m"></div></td>
+              <td><div class="fa-regular fa-square-check icon m"></div></td>
+            </tr>
+            <tr class="pricing-table-row">
+              <td class="paragraph s">Observable Evaluations & Compliance</td>
+              <td></td>
+              <td><div class="fa-regular fa-square-check icon m"></div></td>
+              <td><div class="fa-regular fa-square-check icon m"></div></td>
+            </tr>
+            <tr class="pricing-table-row">
+              <td class="paragraph s">Generative UI & Generative Generators</td>
+              <td></td>
+              <td><div class="fa-regular fa-square-check icon m"></div></td>
+              <td><div class="fa-regular fa-square-check icon m"></div></td>
+            </tr>
+            <tr class="pricing-table-row">
+              <td class="paragraph s">Parallel tasks & retries</td>
+              <td></td>
+              <td><div class="fa-regular fa-square-check icon m"></div></td>
+              <td><div class="fa-regular fa-square-check icon m"></div></td>
+            </tr>
+            <tr class="pricing-table-row">
+              <td class="paragraph s">HITL generative UI</td>
+              <td></td>
+              <td><div class="fa-regular fa-square-check icon m"></div></td>
+              <td><div class="fa-regular fa-square-check icon m"></div></td>
+            </tr>
+            <tr class="pricing-table-row">
+              <td class="paragraph s">Agentic workflows (pausable multi-agent)</td>
+              <td></td>
               <td><div class="fa-regular fa-square-check icon m"></div></td>
               <td><div class="fa-regular fa-square-check icon m"></div></td>
             </tr>
@@ -854,6 +893,10 @@ class LanderBuilder
               </div>
               <div class="feature-item paragraph s">
                 <div class="fa-regular fa-square-check icon m"></div>
+                <div>Includes Active Agent, Action Prompt, Generation Providers, Modules</div>
+              </div>
+              <div class="feature-item paragraph s">
+                <div class="fa-regular fa-square-check icon m"></div>
                 <div>Free forever, no restrictions</div>
               </div>
               <div class="feature-item paragraph s">
@@ -869,12 +912,16 @@ class LanderBuilder
           <div class="feature-card">
             <div class="feature-heading">
               <p class="paragraph m bold no-top-margin">activeagent-pro</p>
-              <p class="paragraph s secondary">Commercial</p>
+              <p class="paragraph s secondary">Commercial (Reasonable Reasons gems)</p>
             </div>
             <div class="feature-list">
               <div class="feature-item paragraph s">
                 <div class="fa-solid fa-scale-balanced icon m color-accent"></div>
                 <div><strong>Commercial License</strong></div>
+              </div>
+              <div class="feature-item paragraph s">
+                <div class="fa-regular fa-square-check icon m"></div>
+                <div>Includes Observable Evaluations, Observable Compliance, Generative UI, Generative Generators, and more</div>
               </div>
               <div class="feature-item paragraph s">
                 <div class="fa-regular fa-square-check icon m"></div>
@@ -899,6 +946,10 @@ class LanderBuilder
               <div class="feature-item paragraph s">
                 <div class="fa-solid fa-scale-balanced icon m color-accent"></div>
                 <div><strong>Commercial License</strong></div>
+              </div>
+              <div class="feature-item paragraph s">
+                <div class="fa-regular fa-square-check icon m"></div>
+                <div>Everything in Pro</div>
               </div>
               <div class="feature-item paragraph s">
                 <div class="fa-regular fa-square-check icon m"></div>
