@@ -66,6 +66,7 @@
         </button>
       </div>
     </header>
+
     <main>
       <section>
   <div class="heading hero centered">
@@ -74,8 +75,7 @@
       Build AI in Rails
     </h1>
     <p class="paragraph l secondary balanced">
-      Now Agents are Controllers<br />
-      Makes code tons of fun!
+      New gems for the future of product analytics and development
     </p>
     <div class="button-group margin-paragraph centered">
       <a href="https://docs.activeagents.ai/getting-started" class="button primary">Getting Started</a>
@@ -90,80 +90,58 @@
 
 <section>
   <div class="heading centered">
-    <h2 class="no-top-margin">Features</h2>
+    <h2 class="no-top-margin">Free Tier Gems</h2>
     <p class="paragraph m secondary">
-      Everything you need to build AI-powered Rails applications
+      Everything you need to build AI-powered Rails applications — free and open source
     </p>
   </div>
   <div class="grid columns-3">
     <div class="feature-card">
       <div class="feature-heading">
-        <h3 class="color-accent no-top-margin">Agents</h3>
+        <h3 class="color-accent no-top-margin">Active Agent</h3>
         <p class="paragraph s secondary">
           Controllers for AI. Define actions, use callbacks, render views. Rails conventions for LLM interactions.
         </p>
       </div>
     </div>
+
     <div class="feature-card">
       <div class="feature-heading">
-        <h3 class="color-accent no-top-margin">Tool Calling</h3>
+        <h3 class="color-accent no-top-margin">Action Prompt</h3>
         <p class="paragraph s secondary">
-          AI calls Ruby methods to fetch data and make decisions. Works like RPC for agents.
+          Composable prompt templates for your agents. Build, chain, and reuse prompts with Rails conventions.
         </p>
       </div>
     </div>
+
     <div class="feature-card">
       <div class="feature-heading">
-        <h3 class="color-accent no-top-margin">Structured Output</h3>
+        <h3 class="color-accent no-top-margin">Generation Providers</h3>
         <p class="paragraph s secondary">
-          Extract typed data with JSON schemas. Validated responses for forms and APIs.
+          RubyLLM, OpenAI (official &amp; community), Anthropic (official &amp; community). Switch providers with one line of code.
         </p>
       </div>
     </div>
-  </div>
+</div>
   <div class="grid columns-3">
     <div class="feature-card">
       <div class="feature-heading">
-        <h3 class="color-accent no-top-margin">Providers</h3>
+        <h3 class="color-accent no-top-margin">Modules</h3>
         <p class="paragraph s secondary">
-          OpenAI, Anthropic, Ollama, OpenRouter. Switch providers with one line of code.
+          Extend your agents with pluggable modules for generation, instrumentation, error handling, and retries.
         </p>
       </div>
     </div>
+
     <div class="feature-card">
       <div class="feature-heading">
-        <h3 class="color-accent no-top-margin">Streaming</h3>
+        <h3 class="color-accent no-top-margin">Instrumentation</h3>
         <p class="paragraph s secondary">
-          Real-time response streaming with callbacks for dynamic UIs and live updates.
+          Built-in observability hooks for tracing, logging, and monitoring your agent interactions.
         </p>
       </div>
     </div>
-    <div class="feature-card">
-      <div class="feature-heading">
-        <h3 class="color-accent no-top-margin">Embeddings</h3>
-        <p class="paragraph s secondary">
-          Generate vectors for semantic search, RAG, and clustering applications.
-        </p>
-      </div>
-    </div>
-  </div>
-  <div class="grid columns-3">
-    <div class="feature-card">
-      <div class="feature-heading">
-        <h3 class="color-accent no-top-margin">Testing</h3>
-        <p class="paragraph s secondary">
-          Test with fixtures and VCR cassettes. Mock providers for fast tests.
-        </p>
-      </div>
-    </div>
-    <div class="feature-card">
-      <div class="feature-heading">
-        <h3 class="color-accent no-top-margin">Background Jobs</h3>
-        <p class="paragraph s secondary">
-          Process generations async with Active Job. Scale AI operations in the background.
-        </p>
-      </div>
-    </div>
+
     <div class="feature-card">
       <div class="feature-heading">
         <h3 class="color-accent no-top-margin">Error Handling</h3>
@@ -172,7 +150,35 @@
         </p>
       </div>
     </div>
-  </div>
+</div>
+  <div class="grid columns-3">
+    <div class="feature-card">
+      <div class="feature-heading">
+        <h3 class="color-accent no-top-margin">Retries</h3>
+        <p class="paragraph s secondary">
+          Configurable retry strategies with backoff policies. Keep your agents resilient under load.
+        </p>
+      </div>
+    </div>
+
+    <div class="feature-card">
+      <div class="feature-heading">
+        <h3 class="color-accent no-top-margin">Streaming</h3>
+        <p class="paragraph s secondary">
+          Real-time response streaming with callbacks for dynamic UIs and live updates.
+        </p>
+      </div>
+    </div>
+
+    <div class="feature-card">
+      <div class="feature-heading">
+        <h3 class="color-accent no-top-margin">Structured Output</h3>
+        <p class="paragraph s secondary">
+          Extract typed data with JSON schemas. Validated responses for forms and APIs.
+        </p>
+      </div>
+    </div>
+</div>
 </section>
 
 <section id="pricing">
@@ -192,43 +198,48 @@
         </div>
         <div class="feature-list">
           <div class="feature-item paragraph s">
-            <div class="fa-regular fa-square-check icon m"></div>
-            <div>Full ActiveAgent + SolidAgent gems</div>
-          </div>
+          <div class="fa-regular fa-square-check icon m"></div>
+          <div>Active Agent gem (MIT License)</div>
+        </div>
           <div class="feature-item paragraph s">
-            <div class="fa-regular fa-square-check icon m"></div>
-            <div>All core framework features</div>
-          </div>
+          <div class="fa-regular fa-square-check icon m"></div>
+          <div>Action Prompt gem</div>
+        </div>
           <div class="feature-item paragraph s">
-            <div class="fa-regular fa-square-check icon m"></div>
-            <div>Multi-provider support (OpenAI, Anthropic, Ollama, OpenRouter)</div>
-          </div>
+          <div class="fa-regular fa-square-check icon m"></div>
+          <div>Generation Providers (RubyLLM, OpenAI, Anthropic — official &amp; community)</div>
+        </div>
           <div class="feature-item paragraph s">
-            <div class="fa-regular fa-square-check icon m"></div>
-            <div>Basic local Web UI Rails engine</div>
-          </div>
+          <div class="fa-regular fa-square-check icon m"></div>
+          <div>Modules: Instrumentation, Error Handling, Retries</div>
+        </div>
           <div class="feature-item paragraph s">
-            <div class="fa-regular fa-square-check icon m"></div>
-            <div>Community support (Discord, GitHub)</div>
-          </div>
+          <div class="fa-regular fa-square-check icon m"></div>
+          <div>Streaming &amp; Structured Output</div>
+        </div>
           <div class="feature-item paragraph s">
-            <div class="fa-regular fa-square-check icon m"></div>
-            <div>Self-hosted (unlimited)</div>
-          </div>
+          <div class="fa-regular fa-square-check icon m"></div>
+          <div>Basic local Web UI Rails engine</div>
+        </div>
           <div class="feature-item paragraph s">
-            <div class="fa-regular fa-square-check icon m"></div>
-            <div>MIT License</div>
-          </div>
+          <div class="fa-regular fa-square-check icon m"></div>
+          <div>Community support (Discord, GitHub)</div>
+        </div>
+          <div class="feature-item paragraph s">
+          <div class="fa-regular fa-square-check icon m"></div>
+          <div>Self-hosted (unlimited)</div>
+        </div>
         </div>
         <p class="paragraph xs secondary" style="margin-top: 1rem;">Best for: Individual developers, startups validating ideas, open-source projects</p>
       </div>
       <a href="https://github.com/activeagents/activeagent" class="button tertiary full-width margin-top-l">Get Started</a>
     </div>
+
     <div class="feature-card justified-vertically highlighted">
       <div>
         <div class="feature-heading">
           <p class="paragraph l bold no-top-margin">ActiveAgent.pro</p>
-          <p class="paragraph s secondary">For small/medium teams & consultants</p>
+          <p class="paragraph s secondary">For small/medium teams &amp; consultants</p>
           <div class="price-line">
             <div class="paragraph l bold">$99</div>
             <div class="paragraph m secondary">/month or $995/yr</div>
@@ -236,55 +247,68 @@
         </div>
         <div class="feature-list">
           <div class="feature-item paragraph s">
-            <div class="fa-regular fa-square-check icon m"></div>
-            <div>Everything in Community</div>
-          </div>
+          <div class="fa-regular fa-square-check icon m"></div>
+          <div>Everything in Community</div>
+        </div>
           <div class="feature-item paragraph s">
-            <div class="fa-regular fa-square-check icon m"></div>
-            <div>Hosted dashboard at app.activeagent.pro</div>
-          </div>
+          <div class="fa-regular fa-square-check icon m"></div>
+          <div>Reasonable Reasons gems (Observable Evaluations, Observable Compliance, Deterministically Generative, Generally Deterministic)</div>
+        </div>
           <div class="feature-item paragraph s">
-            <div class="fa-regular fa-square-check icon m"></div>
-            <div>3 managed agent deployments</div>
-          </div>
+          <div class="fa-regular fa-square-check icon m"></div>
+          <div>Generative UI &amp; Generative Generators (self-healing)</div>
+        </div>
           <div class="feature-item paragraph s">
-            <div class="fa-regular fa-square-check icon m"></div>
-            <div>10,000 executions/month</div>
-          </div>
+          <div class="fa-regular fa-square-check icon m"></div>
+          <div>Parallel tasks &amp; retries</div>
+        </div>
           <div class="feature-item paragraph s">
-            <div class="fa-regular fa-square-check icon m"></div>
-            <div>25,000 traces/month (14-day retention)</div>
-          </div>
+          <div class="fa-regular fa-square-check icon m"></div>
+          <div>HITL generative UI</div>
+        </div>
           <div class="feature-item paragraph s">
-            <div class="fa-regular fa-square-check icon m"></div>
-            <div>Cost & latency analytics</div>
-          </div>
+          <div class="fa-regular fa-square-check icon m"></div>
+          <div>Async tasks with external triggers (webhook, human approval, timeout)</div>
+        </div>
           <div class="feature-item paragraph s">
-            <div class="fa-regular fa-square-check icon m"></div>
-            <div>5 prebuilt LLM-as-judge evaluators</div>
-          </div>
+          <div class="fa-regular fa-square-check icon m"></div>
+          <div>Agentic workflows (pausable multi-agent actions)</div>
+        </div>
           <div class="feature-item paragraph s">
-            <div class="fa-regular fa-square-check icon m"></div>
-            <div>A/B prompt testing</div>
-          </div>
+          <div class="fa-regular fa-square-check icon m"></div>
+          <div>Hosted dashboard at app.activeagent.pro</div>
+        </div>
           <div class="feature-item paragraph s">
-            <div class="fa-regular fa-square-check icon m"></div>
-            <div>5 team seats, 1 workspace</div>
-          </div>
+          <div class="fa-regular fa-square-check icon m"></div>
+          <div>Cost &amp; latency analytics</div>
+        </div>
           <div class="feature-item paragraph s">
-            <div class="fa-regular fa-square-check icon m"></div>
-            <div>48-hour email support SLA</div>
-          </div>
+          <div class="fa-regular fa-square-check icon m"></div>
+          <div>5 prebuilt LLM-as-judge evaluators</div>
+        </div>
+          <div class="feature-item paragraph s">
+          <div class="fa-regular fa-square-check icon m"></div>
+          <div>A/B prompt testing</div>
+        </div>
+          <div class="feature-item paragraph s">
+          <div class="fa-regular fa-square-check icon m"></div>
+          <div>5 team seats, 1 workspace</div>
+        </div>
+          <div class="feature-item paragraph s">
+          <div class="fa-regular fa-square-check icon m"></div>
+          <div>48-hour email support SLA</div>
+        </div>
         </div>
         <p class="paragraph xs secondary" style="margin-top: 1rem;">Best for: Small teams, Rails consultants, startups moving to production</p>
       </div>
       <a href="https://activeagents.ai/dashboard" class="button primary full-width margin-top-l">Start 14-Day Free Trial</a>
     </div>
+
     <div class="feature-card justified-vertically">
       <div>
         <div class="feature-heading">
           <p class="paragraph l bold no-top-margin">ActiveAgent.enterprise</p>
-          <p class="paragraph s secondary">For large orgs & regulated industries</p>
+          <p class="paragraph s secondary">For large orgs &amp; regulated industries</p>
           <div class="price-line">
             <div class="paragraph l bold">$2,995+</div>
             <div class="paragraph m secondary">/year</div>
@@ -292,103 +316,634 @@
         </div>
         <div class="feature-list">
           <div class="feature-item paragraph s">
-            <div class="fa-regular fa-square-check icon m"></div>
-            <div>Everything in Pro</div>
-          </div>
+          <div class="fa-regular fa-square-check icon m"></div>
+          <div>Everything in Pro</div>
+        </div>
           <div class="feature-item paragraph s">
-            <div class="fa-regular fa-square-check icon m"></div>
-            <div>Unlimited agent deployments & executions</div>
-          </div>
+          <div class="fa-regular fa-square-check icon m"></div>
+          <div>Unlimited agent deployments &amp; executions</div>
+        </div>
           <div class="feature-item paragraph s">
-            <div class="fa-regular fa-square-check icon m"></div>
-            <div>500,000+ traces/month (400-day retention)</div>
-          </div>
+          <div class="fa-regular fa-square-check icon m"></div>
+          <div>500,000+ traces/month (400-day retention)</div>
+        </div>
           <div class="feature-item paragraph s">
-            <div class="fa-regular fa-square-check icon m"></div>
-            <div>Advanced anomaly detection (ML-powered)</div>
-          </div>
+          <div class="fa-regular fa-square-check icon m"></div>
+          <div>Advanced anomaly detection (ML-powered)</div>
+        </div>
           <div class="feature-item paragraph s">
-            <div class="fa-regular fa-square-check icon m"></div>
-            <div>Unlimited custom evaluators & datasets</div>
-          </div>
+          <div class="fa-regular fa-square-check icon m"></div>
+          <div>Unlimited custom evaluators &amp; datasets</div>
+        </div>
           <div class="feature-item paragraph s">
-            <div class="fa-regular fa-square-check icon m"></div>
-            <div>SOC 2 Type II & HIPAA compliance</div>
-          </div>
+          <div class="fa-regular fa-square-check icon m"></div>
+          <div>SOC 2 Type II &amp; HIPAA compliance</div>
+        </div>
           <div class="feature-item paragraph s">
-            <div class="fa-regular fa-square-check icon m"></div>
-            <div>SSO/SAML & RBAC</div>
-          </div>
+          <div class="fa-regular fa-square-check icon m"></div>
+          <div>SSO/SAML &amp; RBAC</div>
+        </div>
           <div class="feature-item paragraph s">
-            <div class="fa-regular fa-square-check icon m"></div>
-            <div>Private VPC / on-premise deployment</div>
-          </div>
+          <div class="fa-regular fa-square-check icon m"></div>
+          <div>Private VPC / on-premise deployment</div>
+        </div>
           <div class="feature-item paragraph s">
-            <div class="fa-regular fa-square-check icon m"></div>
-            <div>Dedicated Slack channel</div>
-          </div>
+          <div class="fa-regular fa-square-check icon m"></div>
+          <div>Dedicated Slack channel</div>
+        </div>
           <div class="feature-item paragraph s">
-            <div class="fa-regular fa-square-check icon m"></div>
-            <div>4-hour email SLA</div>
-          </div>
+          <div class="fa-regular fa-square-check icon m"></div>
+          <div>4-hour email SLA</div>
+        </div>
         </div>
         <p class="paragraph xs secondary" style="margin-top: 1rem;">Best for: Large enterprises, regulated industries, compliance-heavy environments</p>
       </div>
       <a href="mailto:sales@activeagents.ai" class="button tertiary full-width margin-top-l">Contact Sales</a>
     </div>
   </div>
-  <div class="feature-card" style="margin-top: 2rem;">
-    <div class="feature-heading">
-      <p class="paragraph l bold no-top-margin">Add-On Pricing</p>
-    </div>
-    <div class="grid columns-2" style="margin-top: 1rem;">
+  <div class="text-centered full-width margin-top-xl">
+    <h3 class="no-top-margin">Feature Comparison</h3>
+  </div>
+  <table class="pricing-table">
+    <thead>
+      <tr class="pricing-table-row">
+        <th class="paragraph s bold"></th>
+        <th class="paragraph s bold">Dev</th>
+        <th class="paragraph s bold">Pro</th>
+        <th class="paragraph s bold">Enterprise</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr class="pricing-table-row">
+        <td class="paragraph s bold" colspan="4" style="background: var(--color-bg-secondary);">Framework</td>
+      </tr>
+      <tr class="pricing-table-row">
+        <td class="paragraph s">Active Agent + Action Prompt gems</td>
+        <td><div class="fa-regular fa-square-check icon m"></div></td>
+        <td><div class="fa-regular fa-square-check icon m"></div></td>
+        <td><div class="fa-regular fa-square-check icon m"></div></td>
+      </tr>
+      <tr class="pricing-table-row">
+        <td class="paragraph s">Generation Providers (RubyLLM, OpenAI, Anthropic)</td>
+        <td><div class="fa-regular fa-square-check icon m"></div></td>
+        <td><div class="fa-regular fa-square-check icon m"></div></td>
+        <td><div class="fa-regular fa-square-check icon m"></div></td>
+      </tr>
+      <tr class="pricing-table-row">
+        <td class="paragraph s">Modules (Instrumentation, Error Handling, Retries)</td>
+        <td><div class="fa-regular fa-square-check icon m"></div></td>
+        <td><div class="fa-regular fa-square-check icon m"></div></td>
+        <td><div class="fa-regular fa-square-check icon m"></div></td>
+      </tr>
+      <tr class="pricing-table-row">
+        <td class="paragraph s">Streaming & Structured Output</td>
+        <td><div class="fa-regular fa-square-check icon m"></div></td>
+        <td><div class="fa-regular fa-square-check icon m"></div></td>
+        <td><div class="fa-regular fa-square-check icon m"></div></td>
+      </tr>
+      <tr class="pricing-table-row">
+        <td class="paragraph s">Local Web UI engine</td>
+        <td><div class="fa-regular fa-square-check icon m"></div></td>
+        <td><div class="fa-regular fa-square-check icon m"></div></td>
+        <td><div class="fa-regular fa-square-check icon m"></div></td>
+      </tr>
+      <tr class="pricing-table-row">
+        <td class="paragraph s bold" colspan="4" style="background: var(--color-bg-secondary);">Pro Gems & Modules</td>
+      </tr>
+      <tr class="pricing-table-row">
+        <td class="paragraph s">Reasonable Reasons gems</td>
+        <td></td>
+        <td><div class="fa-regular fa-square-check icon m"></div></td>
+        <td><div class="fa-regular fa-square-check icon m"></div></td>
+      </tr>
+      <tr class="pricing-table-row">
+        <td class="paragraph s">Observable Evaluations & Compliance</td>
+        <td></td>
+        <td><div class="fa-regular fa-square-check icon m"></div></td>
+        <td><div class="fa-regular fa-square-check icon m"></div></td>
+      </tr>
+      <tr class="pricing-table-row">
+        <td class="paragraph s">Generative UI & Generative Generators</td>
+        <td></td>
+        <td><div class="fa-regular fa-square-check icon m"></div></td>
+        <td><div class="fa-regular fa-square-check icon m"></div></td>
+      </tr>
+      <tr class="pricing-table-row">
+        <td class="paragraph s">Parallel tasks & retries</td>
+        <td></td>
+        <td><div class="fa-regular fa-square-check icon m"></div></td>
+        <td><div class="fa-regular fa-square-check icon m"></div></td>
+      </tr>
+      <tr class="pricing-table-row">
+        <td class="paragraph s">HITL generative UI</td>
+        <td></td>
+        <td><div class="fa-regular fa-square-check icon m"></div></td>
+        <td><div class="fa-regular fa-square-check icon m"></div></td>
+      </tr>
+      <tr class="pricing-table-row">
+        <td class="paragraph s">Agentic workflows (pausable multi-agent)</td>
+        <td></td>
+        <td><div class="fa-regular fa-square-check icon m"></div></td>
+        <td><div class="fa-regular fa-square-check icon m"></div></td>
+      </tr>
+      <tr class="pricing-table-row">
+        <td class="paragraph s bold" colspan="4" style="background: var(--color-bg-secondary);">Hosted Platform</td>
+      </tr>
+      <tr class="pricing-table-row">
+        <td class="paragraph s">Hosted dashboard</td>
+        <td></td>
+        <td><div class="fa-regular fa-square-check icon m"></div></td>
+        <td><div class="fa-regular fa-square-check icon m"></div></td>
+      </tr>
+      <tr class="pricing-table-row">
+        <td class="paragraph s">Managed agent deployments</td>
+        <td></td>
+        <td class="paragraph s">3</td>
+        <td class="paragraph s">Unlimited</td>
+      </tr>
+      <tr class="pricing-table-row">
+        <td class="paragraph s">Executions / month</td>
+        <td class="paragraph s">Self-hosted</td>
+        <td class="paragraph s">10,000</td>
+        <td class="paragraph s">Unlimited</td>
+      </tr>
+      <tr class="pricing-table-row">
+        <td class="paragraph s">Traces / month</td>
+        <td class="paragraph s">Self-hosted</td>
+        <td class="paragraph s">25,000</td>
+        <td class="paragraph s">500,000+</td>
+      </tr>
+      <tr class="pricing-table-row">
+        <td class="paragraph s">Trace retention</td>
+        <td></td>
+        <td class="paragraph s">14 days</td>
+        <td class="paragraph s">400 days</td>
+      </tr>
+      <tr class="pricing-table-row">
+        <td class="paragraph s bold" colspan="4" style="background: var(--color-bg-secondary);">Observability & Evaluation</td>
+      </tr>
+      <tr class="pricing-table-row">
+        <td class="paragraph s">Cost & latency analytics</td>
+        <td></td>
+        <td><div class="fa-regular fa-square-check icon m"></div></td>
+        <td><div class="fa-regular fa-square-check icon m"></div></td>
+      </tr>
+      <tr class="pricing-table-row">
+        <td class="paragraph s">LLM-as-judge evaluators</td>
+        <td></td>
+        <td class="paragraph s">5 prebuilt</td>
+        <td class="paragraph s">Unlimited custom</td>
+      </tr>
+      <tr class="pricing-table-row">
+        <td class="paragraph s">A/B prompt testing</td>
+        <td></td>
+        <td><div class="fa-regular fa-square-check icon m"></div></td>
+        <td><div class="fa-regular fa-square-check icon m"></div></td>
+      </tr>
+      <tr class="pricing-table-row">
+        <td class="paragraph s">Anomaly detection (ML)</td>
+        <td></td>
+        <td></td>
+        <td><div class="fa-regular fa-square-check icon m"></div></td>
+      </tr>
+      <tr class="pricing-table-row">
+        <td class="paragraph s bold" colspan="4" style="background: var(--color-bg-secondary);">Team & Security</td>
+      </tr>
+      <tr class="pricing-table-row">
+        <td class="paragraph s">Team seats</td>
+        <td class="paragraph s">1</td>
+        <td class="paragraph s">5</td>
+        <td class="paragraph s">Unlimited</td>
+      </tr>
+      <tr class="pricing-table-row">
+        <td class="paragraph s">Workspaces</td>
+        <td></td>
+        <td class="paragraph s">1</td>
+        <td class="paragraph s">Unlimited</td>
+      </tr>
+      <tr class="pricing-table-row">
+        <td class="paragraph s">SSO / SAML & RBAC</td>
+        <td></td>
+        <td></td>
+        <td><div class="fa-regular fa-square-check icon m"></div></td>
+      </tr>
+      <tr class="pricing-table-row">
+        <td class="paragraph s">SOC 2 Type II & HIPAA</td>
+        <td></td>
+        <td></td>
+        <td><div class="fa-regular fa-square-check icon m"></div></td>
+      </tr>
+      <tr class="pricing-table-row">
+        <td class="paragraph s">Private VPC / on-premise</td>
+        <td></td>
+        <td></td>
+        <td><div class="fa-regular fa-square-check icon m"></div></td>
+      </tr>
+      <tr class="pricing-table-row">
+        <td class="paragraph s bold" colspan="4" style="background: var(--color-bg-secondary);">Support</td>
+      </tr>
+      <tr class="pricing-table-row">
+        <td class="paragraph s">Community (Discord, GitHub)</td>
+        <td><div class="fa-regular fa-square-check icon m"></div></td>
+        <td><div class="fa-regular fa-square-check icon m"></div></td>
+        <td><div class="fa-regular fa-square-check icon m"></div></td>
+      </tr>
+      <tr class="pricing-table-row">
+        <td class="paragraph s">Email support SLA</td>
+        <td></td>
+        <td class="paragraph s">48 hours</td>
+        <td class="paragraph s">4 hours</td>
+      </tr>
+      <tr class="pricing-table-row">
+        <td class="paragraph s">Dedicated Slack channel</td>
+        <td></td>
+        <td></td>
+        <td><div class="fa-regular fa-square-check icon m"></div></td>
+      </tr>
+    </tbody>
+  </table>
+
+</section>
+
+<section id="services">
+  <div class="text-centered full-width">
+    <h2>Training &amp; Consulting</h2>
+    <p class="paragraph m secondary">White-glove services to accelerate your AI journey</p>
+  </div>
+  <div class="grid columns-3 margin-top-xl">
+    <div class="feature-card justified-vertically">
       <div>
-        <p class="paragraph s bold">Pro Add-Ons</p>
+        <div class="feature-heading">
+          <div class="service-icon">
+          <div class="fa-solid fa-graduation-cap icon l color-accent"></div>
+        </div>
+          <p class="paragraph l bold no-top-margin">Workshops</p>
+          <p class="paragraph s secondary">For indie developers &amp; small teams</p>
+        </div>
+        <div class="feature-list">
+          <div class="feature-item paragraph s">
+          <div class="fa-regular fa-square-check icon m"></div>
+          <div>Half-day or full-day intensive sessions</div>
+        </div>
+          <div class="feature-item paragraph s">
+          <div class="fa-regular fa-square-check icon m"></div>
+          <div>Hands-on coding with Active Agent</div>
+        </div>
+          <div class="feature-item paragraph s">
+          <div class="fa-regular fa-square-check icon m"></div>
+          <div>Build your first AI agent in Rails</div>
+        </div>
+          <div class="feature-item paragraph s">
+          <div class="fa-regular fa-square-check icon m"></div>
+          <div>Best practices &amp; architecture patterns</div>
+        </div>
+          <div class="feature-item paragraph s">
+          <div class="fa-regular fa-square-check icon m"></div>
+          <div>Q&amp;A and code review</div>
+        </div>
+        </div>
+        <p class="paragraph xs secondary" style="margin-top: 1rem;">Perfect for: Indie hackers, freelancers, and developers looking to add AI capabilities</p>
+      </div>
+      <a href="mailto:workshops@activeagents.ai?subject=Workshop%20Inquiry" class="button tertiary full-width margin-top-l">Join a Workshop</a>
+    </div>
+
+    <div class="feature-card justified-vertically highlighted">
+      <div>
+        <div class="feature-heading">
+          <div class="service-icon">
+          <div class="fa-solid fa-compass icon l color-accent"></div>
+        </div>
+          <p class="paragraph l bold no-top-margin">Strategic Leadership</p>
+          <p class="paragraph s secondary">For startups &amp; agencies</p>
+        </div>
+        <div class="feature-list">
+          <div class="feature-item paragraph s">
+          <div class="fa-regular fa-square-check icon m"></div>
+          <div>Ongoing AI strategy &amp; architecture guidance</div>
+        </div>
+          <div class="feature-item paragraph s">
+          <div class="fa-regular fa-square-check icon m"></div>
+          <div>Monthly retainer with dedicated advisor</div>
+        </div>
+          <div class="feature-item paragraph s">
+          <div class="fa-regular fa-square-check icon m"></div>
+          <div>Code reviews &amp; pull request feedback</div>
+        </div>
+          <div class="feature-item paragraph s">
+          <div class="fa-regular fa-square-check icon m"></div>
+          <div>Team training &amp; mentorship</div>
+        </div>
+          <div class="feature-item paragraph s">
+          <div class="fa-regular fa-square-check icon m"></div>
+          <div>Roadmap planning &amp; prioritization</div>
+        </div>
+          <div class="feature-item paragraph s">
+          <div class="fa-regular fa-square-check icon m"></div>
+          <div>Slack access for async questions</div>
+        </div>
+        </div>
+        <p class="paragraph xs secondary" style="margin-top: 1rem;">Perfect for: Growing teams needing ongoing expert guidance to ship AI features faster</p>
+      </div>
+      <a href="mailto:consulting@activeagents.ai?subject=Strategic%20Leadership%20Inquiry" class="button primary full-width margin-top-l">Schedule a Call</a>
+    </div>
+
+    <div class="feature-card justified-vertically">
+      <div>
+        <div class="feature-heading">
+          <div class="service-icon">
+          <div class="fa-solid fa-code icon l color-accent"></div>
+        </div>
+          <p class="paragraph l bold no-top-margin">Development Services</p>
+          <p class="paragraph s secondary">Hourly or project-based</p>
+        </div>
+        <div class="feature-list">
+          <div class="feature-item paragraph s">
+          <div class="fa-regular fa-square-check icon m"></div>
+          <div>Custom agent development</div>
+        </div>
+          <div class="feature-item paragraph s">
+          <div class="fa-regular fa-square-check icon m"></div>
+          <div>Integration with existing Rails apps</div>
+        </div>
+          <div class="feature-item paragraph s">
+          <div class="fa-regular fa-square-check icon m"></div>
+          <div>Performance optimization</div>
+        </div>
+          <div class="feature-item paragraph s">
+          <div class="fa-regular fa-square-check icon m"></div>
+          <div>Production deployment support</div>
+        </div>
+          <div class="feature-item paragraph s">
+          <div class="fa-regular fa-square-check icon m"></div>
+          <div>Flexible engagement models</div>
+        </div>
+        </div>
+        <p class="paragraph xs secondary" style="margin-top: 1rem;">Perfect for: Teams with specific projects or needing extra hands for AI implementation</p>
+      </div>
+      <a href="mailto:dev@activeagents.ai?subject=Development%20Services%20Inquiry" class="button tertiary full-width margin-top-l">Get in Touch</a>
+    </div>
+  </div>
+</section>
+
+<section id="add-ons">
+  <div class="text-centered full-width">
+    <h2>Add-Ons &amp; Licensing</h2>
+    <p class="paragraph m secondary">Scale beyond your plan with transparent usage-based pricing</p>
+  </div>
+  <div class="grid columns-2 margin-top-xl">
+    <div class="feature-card">
+      <div class="feature-heading">
+        <p class="paragraph l bold no-top-margin">Pro Add-Ons</p>
+        <p class="paragraph s secondary">Pay-as-you-grow pricing</p>
+      </div>
+      <div class="feature-list">
+        <div class="feature-item paragraph s">
+          <div class="fa-regular fa-circle icon m"></div>
+          <div>Additional traces: $2.00/1k</div>
+        </div>
+        <div class="feature-item paragraph s">
+          <div class="fa-regular fa-circle icon m"></div>
+          <div>Additional executions: $0.01/exec</div>
+        </div>
+        <div class="feature-item paragraph s">
+          <div class="fa-regular fa-circle icon m"></div>
+          <div>Extended retention (400 days): $2.50/1k</div>
+        </div>
+        <div class="feature-item paragraph s">
+          <div class="fa-regular fa-circle icon m"></div>
+          <div>Additional team seats: $19/seat/mo</div>
+        </div>
+        <div class="feature-item paragraph s">
+          <div class="fa-regular fa-circle icon m"></div>
+          <div>Additional workspaces: $49/workspace/mo</div>
+        </div>
+      </div>
+    </div>
+    <div class="feature-card">
+      <div class="feature-heading">
+        <p class="paragraph l bold no-top-margin">Enterprise Add-Ons</p>
+        <p class="paragraph s secondary">Volume discounts included</p>
+      </div>
+      <div class="feature-list">
+        <div class="feature-item paragraph s">
+          <div class="fa-regular fa-circle icon m"></div>
+          <div>Additional traces: $1.50/1k</div>
+        </div>
+        <div class="feature-item paragraph s">
+          <div class="fa-regular fa-circle icon m"></div>
+          <div>Additional executions: $0.005/exec</div>
+        </div>
+        <div class="feature-item paragraph s">
+          <div class="fa-regular fa-circle icon m"></div>
+          <div>Extended retention: Included</div>
+        </div>
+        <div class="feature-item paragraph s">
+          <div class="fa-regular fa-circle icon m"></div>
+          <div>Additional seats &amp; workspaces: Included</div>
+        </div>
+        <div class="feature-item paragraph s">
+          <div class="fa-regular fa-circle icon m"></div>
+          <div>Appliance/embedded license: $14,995/yr</div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="text-centered full-width margin-top-xl">
+    <h3 class="no-top-margin">Gem Licenses</h3>
+    <p class="paragraph s secondary">Software licensing for the Ruby gems</p>
+  </div>
+  <div class="grid columns-3" style="margin-top: 1rem;">
+    <div class="feature-card">
+      <div class="feature-heading">
+        <p class="paragraph m bold no-top-margin">activeagent</p>
+        <p class="paragraph s secondary">Open Source</p>
+      </div>
+      <div class="feature-list">
+        <div class="feature-item paragraph s">
+          <div class="fa-solid fa-scale-balanced icon m color-accent"></div>
+          <div><strong>MIT License</strong></div>
+        </div>
+        <div class="feature-item paragraph s">
+          <div class="fa-regular fa-square-check icon m"></div>
+          <div>Includes Active Agent, Action Prompt, Generation Providers, Modules</div>
+        </div>
+        <div class="feature-item paragraph s">
+          <div class="fa-regular fa-square-check icon m"></div>
+          <div>Free forever, no restrictions</div>
+        </div>
+        <div class="feature-item paragraph s">
+          <div class="fa-regular fa-square-check icon m"></div>
+          <div>Commercial use allowed</div>
+        </div>
+        <div class="feature-item paragraph s">
+          <div class="fa-regular fa-square-check icon m"></div>
+          <div>Public GitHub repo</div>
+        </div>
+      </div>
+    </div>
+    <div class="feature-card">
+      <div class="feature-heading">
+        <p class="paragraph m bold no-top-margin">activeagent-pro</p>
+        <p class="paragraph s secondary">Commercial (Reasonable Reasons gems)</p>
+      </div>
+      <div class="feature-list">
+        <div class="feature-item paragraph s">
+          <div class="fa-solid fa-scale-balanced icon m color-accent"></div>
+          <div><strong>Commercial License</strong></div>
+        </div>
+        <div class="feature-item paragraph s">
+          <div class="fa-regular fa-square-check icon m"></div>
+          <div>Includes Observable Evaluations, Observable Compliance, Generative UI, Generative Generators, and more</div>
+        </div>
+        <div class="feature-item paragraph s">
+          <div class="fa-regular fa-square-check icon m"></div>
+          <div>Private repo access for subscribers</div>
+        </div>
+        <div class="feature-item paragraph s">
+          <div class="fa-regular fa-square-check icon m"></div>
+          <div>License tied to subscription</div>
+        </div>
+        <div class="feature-item paragraph s">
+          <div class="fa-regular fa-square-check icon m"></div>
+          <div>Bundler credentials provided</div>
+        </div>
+      </div>
+    </div>
+    <div class="feature-card">
+      <div class="feature-heading">
+        <p class="paragraph m bold no-top-margin">activeagent-enterprise</p>
+        <p class="paragraph s secondary">Commercial</p>
+      </div>
+      <div class="feature-list">
+        <div class="feature-item paragraph s">
+          <div class="fa-solid fa-scale-balanced icon m color-accent"></div>
+          <div><strong>Commercial License</strong></div>
+        </div>
+        <div class="feature-item paragraph s">
+          <div class="fa-regular fa-square-check icon m"></div>
+          <div>Everything in Pro</div>
+        </div>
+        <div class="feature-item paragraph s">
+          <div class="fa-regular fa-square-check icon m"></div>
+          <div>Private repo access for customers</div>
+        </div>
+        <div class="feature-item paragraph s">
+          <div class="fa-regular fa-square-check icon m"></div>
+          <div>Multi-app & embedded licensing</div>
+        </div>
+        <div class="feature-item paragraph s">
+          <div class="fa-regular fa-square-check icon m"></div>
+          <div>Custom terms available</div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="text-centered full-width margin-top-xl">
+    <h3 class="no-top-margin">Service Subscriptions</h3>
+    <p class="paragraph s secondary">Hosted platform and support terms</p>
+  </div>
+  <div class="grid columns-2" style="margin-top: 1rem;">
+    <div class="feature-card">
+      <div class="feature-heading">
+        <p class="paragraph m bold no-top-margin">Pro Subscription</p>
+      </div>
+      <div class="feature-list">
+        <div class="feature-item paragraph s">
+          <div class="fa-regular fa-square-check icon m"></div>
+          <div>14-day free trial, no credit card required</div>
+        </div>
+        <div class="feature-item paragraph s">
+          <div class="fa-regular fa-square-check icon m"></div>
+          <div>Cancel anytime, no long-term commitment</div>
+        </div>
+        <div class="feature-item paragraph s">
+          <div class="fa-regular fa-square-check icon m"></div>
+          <div>Annual plans: prorated refund if canceled</div>
+        </div>
+        <div class="feature-item paragraph s">
+          <div class="fa-regular fa-square-check icon m"></div>
+          <div>Gem access active while subscribed</div>
+        </div>
+      </div>
+    </div>
+    <div class="feature-card">
+      <div class="feature-heading">
+        <p class="paragraph m bold no-top-margin">Enterprise Subscription</p>
+      </div>
+      <div class="feature-list">
+        <div class="feature-item paragraph s">
+          <div class="fa-regular fa-square-check icon m"></div>
+          <div>Custom contract terms &amp; invoicing</div>
+        </div>
+        <div class="feature-item paragraph s">
+          <div class="fa-regular fa-square-check icon m"></div>
+          <div>Volume discounts for large teams</div>
+        </div>
+        <div class="feature-item paragraph s">
+          <div class="fa-regular fa-square-check icon m"></div>
+          <div>Dedicated onboarding &amp; architecture review</div>
+        </div>
+        <div class="feature-item paragraph s">
+          <div class="fa-regular fa-square-check icon m"></div>
+          <div>Quarterly business reviews included</div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="text-centered full-width margin-top-xl">
+    <h3 class="no-top-margin">Professional Services</h3>
+    <p class="paragraph s secondary">Consulting, training &amp; custom development</p>
+  </div>
+  <div class="feature-card" style="margin-top: 1rem;">
+    <div class="grid columns-3">
+      <div>
+        <p class="paragraph s bold">Workshops</p>
         <div class="feature-list">
           <div class="feature-item paragraph s">
             <div class="fa-regular fa-circle icon m"></div>
-            <div>Additional traces: $2.00/1k</div>
+            <div>Half-day: $2,500</div>
           </div>
           <div class="feature-item paragraph s">
             <div class="fa-regular fa-circle icon m"></div>
-            <div>Additional executions: $0.01/exec</div>
+            <div>Full-day: $4,500</div>
           </div>
           <div class="feature-item paragraph s">
             <div class="fa-regular fa-circle icon m"></div>
-            <div>Extended retention (400 days): $2.50/1k</div>
-          </div>
-          <div class="feature-item paragraph s">
-            <div class="fa-regular fa-circle icon m"></div>
-            <div>Additional team seats: $19/seat/mo</div>
-          </div>
-          <div class="feature-item paragraph s">
-            <div class="fa-regular fa-circle icon m"></div>
-            <div>Additional workspaces: $49/workspace/mo</div>
+            <div>Custom curriculum available</div>
           </div>
         </div>
       </div>
       <div>
-        <p class="paragraph s bold">Enterprise Add-Ons</p>
+        <p class="paragraph s bold">Advisory Retainers</p>
         <div class="feature-list">
           <div class="feature-item paragraph s">
             <div class="fa-regular fa-circle icon m"></div>
-            <div>Additional traces: $1.50/1k</div>
+            <div>Monthly retainers from $3,000/mo</div>
           </div>
           <div class="feature-item paragraph s">
             <div class="fa-regular fa-circle icon m"></div>
-            <div>Additional executions: $0.005/exec</div>
+            <div>Includes async Slack access</div>
           </div>
           <div class="feature-item paragraph s">
             <div class="fa-regular fa-circle icon m"></div>
-            <div>Extended retention: Included</div>
+            <div>Cancel with 30-day notice</div>
+          </div>
+        </div>
+      </div>
+      <div>
+        <p class="paragraph s bold">Development</p>
+        <div class="feature-list">
+          <div class="feature-item paragraph s">
+            <div class="fa-regular fa-circle icon m"></div>
+            <div>Hourly: $250/hr</div>
           </div>
           <div class="feature-item paragraph s">
             <div class="fa-regular fa-circle icon m"></div>
-            <div>Additional seats & workspaces: Included</div>
+            <div>Project-based quotes available</div>
           </div>
           <div class="feature-item paragraph s">
             <div class="fa-regular fa-circle icon m"></div>
-            <div>Appliance/embedded license: $14,995/yr</div>
+            <div>SOW with milestones &amp; deliverables</div>
           </div>
         </div>
       </div>
@@ -411,20 +966,67 @@
       </summary>
       <div class="accordion-content">
         <p>
-          Add <code>gem 'activeagent'</code> to your Gemfile and run <code>bundle install</code>.
-          Then run <code>rails generate active_agent:install</code> to set up the initial configuration.
+          Add <code>gem 'activeagent'</code> to your Gemfile and run <code>bundle install</code>. Then run <code>rails generate active_agent:install</code> to set up the initial configuration.
         </p>
       </div>
     </details>
 
     <details class="accordion-item" name="faq">
       <summary class="accordion-toggle">
-        <p class="paragraph m bold">Which LLM providers are supported?</p>
+        <p class="paragraph m bold">What gems are included in the free tier?</p>
         <span class="accordion-chevron fa-solid fa-chevron-down"></span>
       </summary>
       <div class="accordion-content">
         <p>
-          Active Agent supports OpenAI, Anthropic, Ollama, and OpenRouter. Switch providers with one line of code.
+          The free tier includes the Active Agent gem, Action Prompt, and all Generation Provider modules (RubyLLM, OpenAI, Anthropic — both official and community gems). You also get Instrumentation, Error Handling, and Retries modules at no cost.
+        </p>
+      </div>
+    </details>
+
+    <details class="accordion-item" name="faq">
+      <summary class="accordion-toggle">
+        <p class="paragraph m bold">Which Generation Providers are supported?</p>
+        <span class="accordion-chevron fa-solid fa-chevron-down"></span>
+      </summary>
+      <div class="accordion-content">
+        <p>
+          Active Agent supports multiple providers through its Generation Providers module: RubyLLM, OpenAI (official and community gems), Anthropic (official and community gems), Ollama, and OpenRouter. Switch providers with one line of code.
+        </p>
+      </div>
+    </details>
+
+    <details class="accordion-item" name="faq">
+      <summary class="accordion-toggle">
+        <p class="paragraph m bold">What are the Reasonable Reasons gems in Pro?</p>
+        <span class="accordion-chevron fa-solid fa-chevron-down"></span>
+      </summary>
+      <div class="accordion-content">
+        <p>
+          The Reasonable Reasons gems are Pro-tier modules that include Observable Evaluations, Observable Compliance, Deterministically Generative, Generally Deterministic, Generative UI, and Generative Generators (with self-healing capabilities). These gems add advanced analytics and generative capabilities to your agents.
+        </p>
+      </div>
+    </details>
+
+    <details class="accordion-item" name="faq">
+      <summary class="accordion-toggle">
+        <p class="paragraph m bold">What&#39;s the difference between Community and Pro?</p>
+        <span class="accordion-chevron fa-solid fa-chevron-down"></span>
+      </summary>
+      <div class="accordion-content">
+        <p>
+          The Community (Dev) tier gives you full access to the open-source Active Agent gem, Action Prompt, all Generation Providers, and core modules (Instrumentation, Error Handling, Retries) — free forever. Pro ($99/mo or $995/yr) adds the Reasonable Reasons gems, HITL generative UI, parallel tasks & retries, agentic workflows with pausable multi-agent actions, async tasks with external triggers, hosted observability, and 48-hour email support SLA.
+        </p>
+      </div>
+    </details>
+
+    <details class="accordion-item" name="faq">
+      <summary class="accordion-toggle">
+        <p class="paragraph m bold">What are agentic workflows?</p>
+        <span class="accordion-chevron fa-solid fa-chevron-down"></span>
+      </summary>
+      <div class="accordion-content">
+        <p>
+          Agentic workflows in the Pro tier allow you to break complex tasks into many agents' actions, which can be paused between tasks. Combined with HITL generative UI and async tasks with external triggers (webhooks, human approval, timeouts), you can build sophisticated human-in-the-loop AI systems.
         </p>
       </div>
     </details>
@@ -443,48 +1045,12 @@
 
     <details class="accordion-item" name="faq">
       <summary class="accordion-toggle">
-        <p class="paragraph m bold">What's the difference between Community and Pro?</p>
-        <span class="accordion-chevron fa-solid fa-chevron-down"></span>
-      </summary>
-      <div class="accordion-content">
-        <p>
-          The Community tier gives you full access to the open-source framework (ActiveAgent + SolidAgent gems) with all core features and community support. Pro ($99/mo or $995/yr) adds hosted observability with trace dashboards, managed agent deployments, cost & latency analytics, LLM-as-judge evaluators, A/B prompt testing, and 48-hour email support SLA.
-        </p>
-      </div>
-    </details>
-
-    <details class="accordion-item" name="faq">
-      <summary class="accordion-toggle">
-        <p class="paragraph m bold">What does Enterprise include?</p>
-        <span class="accordion-chevron fa-solid fa-chevron-down"></span>
-      </summary>
-      <div class="accordion-content">
-        <p>
-          Enterprise (starting at $2,995/yr) is for large organizations and regulated industries. It includes everything in Pro plus unlimited deployments and executions, 500,000+ traces with 400-day retention, advanced ML-powered anomaly detection, unlimited custom evaluators, SOC 2 Type II & HIPAA compliance, SSO/SAML & RBAC, private VPC deployment options, dedicated Slack channel, 4-hour email SLA, onboarding workshop, and quarterly architecture consultations.
-        </p>
-      </div>
-    </details>
-
-    <details class="accordion-item" name="faq">
-      <summary class="accordion-toggle">
-        <p class="paragraph m bold">Is there a free trial for Pro?</p>
-        <span class="accordion-chevron fa-solid fa-chevron-down"></span>
-      </summary>
-      <div class="accordion-content">
-        <p>
-          Yes! Pro includes a 14-day free trial with no credit card required. You can explore all Pro features before committing.
-        </p>
-      </div>
-    </details>
-
-    <details class="accordion-item" name="faq">
-      <summary class="accordion-toggle">
         <p class="paragraph m bold">Can I self-host Active Agent?</p>
         <span class="accordion-chevron fa-solid fa-chevron-down"></span>
       </summary>
       <div class="accordion-content">
         <p>
-          Absolutely! The core framework is MIT licensed and can be self-hosted without limits on any tier. The hosted services (observability, evaluation, collaboration) are what differentiate the paid tiers.
+          Absolutely! The core framework is MIT licensed and can be self-hosted without limits on any tier. The hosted services (observability, evaluation, collaboration) and Pro gems are what differentiate the paid tiers.
         </p>
       </div>
     </details>
@@ -500,6 +1066,7 @@
     </div>
   </div>
 </section>
+
     </main>
     <footer class="footer">
       <div class="footer-menu">
@@ -519,21 +1086,21 @@
         <div>
           <div class="link-list">
             <a href="https://github.com/activeagents/activeagent" class="icon-link ui s" target="_blank">
-              <div class="fa-brands fa-github icon m color-accent"></div>
-              <div class="pseudo-link">GitHub</div>
-            </a>
+          <div class="fa-brands fa-github icon m color-accent"></div>
+          <div class="pseudo-link">GitHub</div>
+        </a>
             <a href="https://discord.gg/activeagent" class="icon-link ui s" target="_blank">
-              <div class="fa-brands fa-discord icon m color-accent"></div>
-              <div class="pseudo-link">Discord</div>
-            </a>
+          <div class="fa-brands fa-discord icon m color-accent"></div>
+          <div class="pseudo-link">Discord</div>
+        </a>
             <a href="https://x.com/activeagents" class="icon-link ui s" target="_blank">
-              <div class="fa-brands fa-x-twitter icon m color-accent"></div>
-              <div class="pseudo-link">Twitter</div>
-            </a>
+          <div class="fa-brands fa-x-twitter icon m color-accent"></div>
+          <div class="pseudo-link">Twitter</div>
+        </a>
             <a href="https://bsky.app/profile/activeagent.dev" class="icon-link ui s" target="_blank">
-              <div class="fa-brands fa-bluesky icon m color-accent"></div>
-              <div class="pseudo-link">Bluesky</div>
-            </a>
+          <div class="fa-brands fa-bluesky icon m color-accent"></div>
+          <div class="pseudo-link">Bluesky</div>
+        </a>
           </div>
         </div>
       </div>
@@ -542,6 +1109,7 @@
         <a href="#" class="ui s tertiary">Terms of Service</a>
       </div>
     </footer>
+
   </div>
 </body>
 

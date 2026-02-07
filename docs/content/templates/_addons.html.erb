@@ -1,0 +1,93 @@
+<% addons = data["addons"] -%>
+<section id="add-ons">
+  <div class="text-centered full-width">
+    <h2><%= h(addons["heading"]) %></h2>
+    <p class="paragraph m secondary"><%= addons["subheading"] %></p>
+  </div>
+  <div class="grid columns-2 margin-top-xl">
+<% addons["platform"].each do |addon| -%>
+    <div class="feature-card">
+      <div class="feature-heading">
+        <p class="paragraph l bold no-top-margin"><%= addon["name"] %></p>
+        <p class="paragraph s secondary"><%= addon["subtitle"] %></p>
+      </div>
+      <div class="feature-list">
+<% addon["items"].each do |item| -%>
+        <div class="feature-item paragraph s">
+          <div class="fa-regular fa-circle icon m"></div>
+          <div><%= h(item) %></div>
+        </div>
+<% end -%>
+      </div>
+    </div>
+<% end -%>
+  </div>
+  <div class="text-centered full-width margin-top-xl">
+    <h3 class="no-top-margin"><%= addons["gem_licenses"]["heading"] %></h3>
+    <p class="paragraph s secondary"><%= addons["gem_licenses"]["subheading"] %></p>
+  </div>
+  <div class="grid columns-3" style="margin-top: 1rem;">
+<% addons["gem_licenses"]["items"].each do |gem_license| -%>
+    <div class="feature-card">
+      <div class="feature-heading">
+        <p class="paragraph m bold no-top-margin"><%= gem_license["name"] %></p>
+        <p class="paragraph s secondary"><%= gem_license["subtitle"] %></p>
+      </div>
+      <div class="feature-list">
+        <div class="feature-item paragraph s">
+          <div class="fa-solid fa-scale-balanced icon m color-accent"></div>
+          <div><strong><%= gem_license["license"] %></strong></div>
+        </div>
+<% gem_license["features"].each do |feature| -%>
+        <div class="feature-item paragraph s">
+          <div class="fa-regular fa-square-check icon m"></div>
+          <div><%= feature %></div>
+        </div>
+<% end -%>
+      </div>
+    </div>
+<% end -%>
+  </div>
+  <div class="text-centered full-width margin-top-xl">
+    <h3 class="no-top-margin"><%= addons["service_subscriptions"]["heading"] %></h3>
+    <p class="paragraph s secondary"><%= addons["service_subscriptions"]["subheading"] %></p>
+  </div>
+  <div class="grid columns-2" style="margin-top: 1rem;">
+<% addons["service_subscriptions"]["items"].each do |sub| -%>
+    <div class="feature-card">
+      <div class="feature-heading">
+        <p class="paragraph m bold no-top-margin"><%= sub["name"] %></p>
+      </div>
+      <div class="feature-list">
+<% sub["features"].each do |feature| -%>
+        <div class="feature-item paragraph s">
+          <div class="fa-regular fa-square-check icon m"></div>
+          <div><%= h(feature) %></div>
+        </div>
+<% end -%>
+      </div>
+    </div>
+<% end -%>
+  </div>
+  <div class="text-centered full-width margin-top-xl">
+    <h3 class="no-top-margin"><%= addons["professional_services"]["heading"] %></h3>
+    <p class="paragraph s secondary"><%= h(addons["professional_services"]["subheading"]) %></p>
+  </div>
+  <div class="feature-card" style="margin-top: 1rem;">
+    <div class="grid columns-3">
+<% addons["professional_services"]["columns"].each do |col| -%>
+      <div>
+        <p class="paragraph s bold"><%= col["name"] %></p>
+        <div class="feature-list">
+<% col["items"].each do |item| -%>
+          <div class="feature-item paragraph s">
+            <div class="fa-regular fa-circle icon m"></div>
+            <div><%= h(item) %></div>
+          </div>
+<% end -%>
+        </div>
+      </div>
+<% end -%>
+    </div>
+  </div>
+</section>

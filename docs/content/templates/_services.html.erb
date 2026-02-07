@@ -1,0 +1,35 @@
+<% services = data["services"] -%>
+<section id="services">
+  <div class="text-centered full-width">
+    <h2><%= h(services["heading"]) %></h2>
+    <p class="paragraph m secondary"><%= services["subheading"] %></p>
+  </div>
+  <div class="grid columns-3 margin-top-xl">
+<% services["items"].each_with_index do |service, i| -%>
+    <div class="feature-card justified-vertically<%= service["highlighted"] ? " highlighted" : "" %>">
+      <div>
+        <div class="feature-heading">
+          <div class="service-icon">
+          <div class="<%= service["icon"] %> icon l color-accent"></div>
+        </div>
+          <p class="paragraph l bold no-top-margin"><%= service["name"] %></p>
+          <p class="paragraph s secondary"><%= h(service["subtitle"]) %></p>
+        </div>
+        <div class="feature-list">
+<% service["features"].each do |feature| -%>
+          <div class="feature-item paragraph s">
+          <div class="fa-regular fa-square-check icon m"></div>
+          <div><%= h(feature) %></div>
+        </div>
+<% end -%>
+        </div>
+        <p class="paragraph xs secondary" style="margin-top: 1rem;"><%= service["perfect_for"] %></p>
+      </div>
+      <a href="<%= service["button"]["href"] %>" class="<%= service["button"]["class"] %>"><%= service["button"]["text"] %></a>
+    </div>
+<% if i < services["items"].length - 1 -%>
+
+<% end -%>
+<% end -%>
+  </div>
+</section>
