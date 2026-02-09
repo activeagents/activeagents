@@ -666,6 +666,22 @@ section {
   max-width: 672px;
 }
 
+.benefit-card {
+  flex-direction: row;
+  align-items: flex-start;
+}
+
+.benefit-icon {
+  flex-shrink: 0;
+  width: 40px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-color: var(--color-accent-b);
+  border-radius: var(--radius-s);
+}
+
 /* Grid */
 
 .grid {
