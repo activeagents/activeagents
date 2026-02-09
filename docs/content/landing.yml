@@ -63,7 +63,7 @@ hero:
       class: button tertiary
 
 features:
-  heading: Free Tier Gems
+  heading: Open Source Gems
   subheading: "Everything you need to build AI-powered Rails applications \u2014 free and open source"
   items:
     - title: Active Agent
@@ -366,8 +366,8 @@ faq:
   items:
     - question: How do I install Active Agent?
       answer: "Add `gem 'activeagent'` to your Gemfile and run `bundle install`. Then run `rails generate active_agent:install` to set up the initial configuration."
-    - question: What gems are included in the free tier?
-      answer: "The free tier includes the Active Agent gem, Action Prompt, and all Generation Provider modules (RubyLLM, OpenAI, Anthropic \u2014 both official and community gems). You also get Instrumentation, Error Handling, and Retries modules at no cost."
+    - question: What open source gems are included?
+      answer: "The open source gems include Active Agent, Action Prompt, and all Generation Provider modules (RubyLLM, OpenAI, Anthropic \u2014 both official and community gems). You also get Instrumentation, Error Handling, and Retries modules \u2014 all MIT licensed."
     - question: Which Generation Providers are supported?
       answer: "Active Agent supports multiple providers through its Generation Providers module: RubyLLM, OpenAI (official and community gems), Anthropic (official and community gems), Ollama, and OpenRouter. Switch providers with one line of code."
     - question: What are the Reasonable Reasons gems in Pro?
