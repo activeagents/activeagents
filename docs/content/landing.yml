@@ -85,6 +85,29 @@ features:
     - title: Structured Output
       description: Extract typed data with JSON schemas. Validated responses for forms and APIs.
 
+benefits:
+  heading: Why Go Pro?
+  subheading: The open source gems get you started. Pro gives you the tools to ship AI features with confidence.
+  items:
+    - icon: fa-solid fa-eye
+      title: See What Your Agents Are Doing
+      description: "Traces, cost analytics, and latency dashboards out of the box. Stop guessing why an agent gave a bad response — replay the full execution and find the issue in seconds."
+    - icon: fa-solid fa-vial
+      title: Evaluate Before You Ship
+      description: "LLM-as-judge evaluators and A/B prompt testing catch regressions before your users do. Know that your prompt change actually improved quality, not just passed vibes-based review."
+    - icon: fa-solid fa-arrows-split-up-and-left
+      title: Build Multi-Step Workflows
+      description: "Pausable agentic workflows with human-in-the-loop approval, webhooks, and timeouts. Break complex tasks into composable agent actions that can wait for real-world events."
+    - icon: fa-solid fa-wand-magic-sparkles
+      title: Generate UI From Your Agents
+      description: "Generative UI and self-healing generators turn agent output into real Rails views. Ship dynamic interfaces that adapt to your data without writing templates by hand."
+    - icon: fa-solid fa-shield-halved
+      title: Stay Compliant Without the Overhead
+      description: "Observable Compliance tracks every generation for audit trails. SOC 2, HIPAA, and regulatory requirements handled at the framework level, not bolted on after the fact."
+    - icon: fa-solid fa-users
+      title: Collaborate Across Your Team
+      description: "Shared workspaces, team seats, and a hosted dashboard at app.activeagent.pro. Everyone sees the same traces, evals, and analytics — no more 'works on my machine' for AI features."
+
 pricing:
   heading: Choose Your Plan
   subheading: Rails-native AI framework with hosted observability, evaluation, and collaboration tools
