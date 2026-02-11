@@ -104,10 +104,10 @@
   /** Base color
   By default it's blue ≈ #0289ff
   Usually it's your brand color. Simply provide your value and the whole theme will be recalculated automatically.
-  Default value is in OKLCH because it produces richer P3 colors, however you can use any color format. 
+  Default value is in OKLCH because it produces richer P3 colors, however you can use any color format.
   */
   /* --color-accent: #00bc81; */
-  --color-accent: oklch(0.64 0.21 var(--theme-hue));
+  --color-accent: rgb(250, 52, 59);
 
   /* Relative colors 
   These colors are calculated based on the accent color and saturation/contrast values.
