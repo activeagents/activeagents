@@ -71,6 +71,25 @@
   }
 }
 
+@media screen and (max-width: 767px) {
+  /* Flip cards - disable hover, use tap */
+  .flip-card:hover .flip-card-inner {
+    transform: none;
+  }
+
+  .flip-card.flipped .flip-card-inner {
+    transform: rotateY(180deg);
+  }
+
+  .flip-card {
+    height: 160px;
+  }
+
+  .flip-card-back pre {
+    font-size: 10px;
+  }
+}
+
 @media screen and (max-width: 479px) {
   .page-container {
     padding: 0 16px;
