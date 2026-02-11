@@ -723,6 +723,86 @@ section {
   }
 }
 
+/* Flip Cards */
+
+.flip-card {
+  perspective: 1000px;
+  height: 180px;
+}
+
+.flip-card-inner {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  transition: transform 0.5s ease;
+  transform-style: preserve-3d;
+}
+
+.flip-card:hover .flip-card-inner,
+.flip-card.flipped .flip-card-inner {
+  transform: rotateY(180deg);
+}
+
+.flip-card-front,
+.flip-card-back {
+  position: absolute;
+  width: 100%;
+  height: 100%;
+  backface-visibility: hidden;
+  border-radius: var(--radius-l);
+  padding: var(--space-card-m);
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-start;
+}
+
+.flip-card-front {
+  background-color: var(--color-surface);
+}
+
+.flip-card-back {
+  background-color: #1e1e1e;
+  transform: rotateY(180deg);
+  overflow: hidden;
+}
+
+.flip-card-back pre {
+  margin: 0;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  line-height: 1.4;
+  color: #d4d4d4;
+  white-space: pre;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.flip-card-back code {
+  font-family: inherit;
+}
+
+/* Syntax highlighting */
+.flip-card-back .keyword { color: #569cd6; }
+.flip-card-back .class-name { color: #4ec9b0; }
+.flip-card-back .method { color: #dcdcaa; }
+.flip-card-back .symbol { color: #9cdcfe; }
+.flip-card-back .string { color: #ce9178; }
+.flip-card-back .comment { color: #6a9955; }
+.flip-card-back .number { color: #b5cea8; }
+
+.flip-hint {
+  position: absolute;
+  bottom: 8px;
+  right: 12px;
+  font-size: 10px;
+  color: var(--color-text-tertiary);
+  opacity: 0.6;
+}
+
+.flip-card-back .flip-hint {
+  color: #6a6a6a;
+}
+
 /* Accordion */
 
 .accordion-container {

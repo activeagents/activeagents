@@ -96,58 +96,140 @@
     </p>
   </div>
   <div class="grid columns-3">
-    <div class="feature-card">
-      <div class="feature-heading">
-        <h3 class="color-accent no-top-margin">Agents are Controllers</h3>
-        <p class="paragraph s secondary">
-          Actions, callbacks, views. Your agents speak Rails.
-        </p>
+    <div class="flip-card" tabindex="0">
+      <div class="flip-card-inner">
+        <div class="flip-card-front">
+          <h3 class="color-accent no-top-margin">Agents are Controllers</h3>
+          <p class="paragraph s secondary">
+            Actions, callbacks, views. Your agents speak Rails.
+          </p>
+          <span class="flip-hint">hover for code</span>
+        </div>
+        <div class="flip-card-back">
+          <pre><code><span class="keyword">class</span> <span class="class-name">TranslationAgent</span> &lt; <span class="class-name">ApplicationAgent</span>
+  <span class="method">generate_with</span> <span class="symbol">:openai</span>, <span class="symbol">model:</span> <span class="string">"gpt-4o"</span>
+
+  <span class="keyword">def</span> <span class="method">translate</span>
+    prompt <span class="symbol">message:</span> <span class="string">"Translate to </span>#{params[<span class="symbol">:lang</span>]}<span class="string">"</span>
+  <span class="keyword">end</span>
+<span class="keyword">end</span></code></pre>
+          <span class="flip-hint">tap to flip back</span>
+        </div>
       </div>
     </div>
 
-    <div class="feature-card">
-      <div class="feature-heading">
-        <h3 class="color-accent no-top-margin">Action Prompt</h3>
-        <p class="paragraph s secondary">
-          Composable prompts. Like Action Mailer, but for AI.
-        </p>
+    <div class="flip-card" tabindex="0">
+      <div class="flip-card-inner">
+        <div class="flip-card-front">
+          <h3 class="color-accent no-top-margin">Action Prompt</h3>
+          <p class="paragraph s secondary">
+            Composable prompts. Like Action Mailer, but for AI.
+          </p>
+          <span class="flip-hint">hover for code</span>
+        </div>
+        <div class="flip-card-back">
+          <pre><code><span class="keyword">def</span> <span class="method">summarize</span>
+  prompt(
+    <span class="symbol">instructions:</span> <span class="string">"Summarize in 2-3 sentences"</span>,
+    <span class="symbol">message:</span> params[<span class="symbol">:text</span>],
+    <span class="symbol">temperature:</span> <span class="number">0.3</span>
+  )
+<span class="keyword">end</span>
+
+<span class="class-name">SummaryAgent</span>.with(<span class="symbol">text:</span>).summarize.generate_now</code></pre>
+          <span class="flip-hint">tap to flip back</span>
+        </div>
       </div>
     </div>
 
-    <div class="feature-card">
-      <div class="feature-heading">
-        <h3 class="color-accent no-top-margin">Any LLM</h3>
-        <p class="paragraph s secondary">
-          OpenAI, Anthropic, RubyLLM. Switch with one line.
-        </p>
+    <div class="flip-card" tabindex="0">
+      <div class="flip-card-inner">
+        <div class="flip-card-front">
+          <h3 class="color-accent no-top-margin">Any LLM</h3>
+          <p class="paragraph s secondary">
+            OpenAI, Anthropic, RubyLLM. Switch with one line.
+          </p>
+          <span class="flip-hint">hover for code</span>
+        </div>
+        <div class="flip-card-back">
+          <pre><code><span class="comment"># OpenAI</span>
+<span class="method">generate_with</span> <span class="symbol">:openai</span>, <span class="symbol">model:</span> <span class="string">"gpt-4o"</span>
+
+<span class="comment"># Anthropic</span>
+<span class="method">generate_with</span> <span class="symbol">:anthropic</span>, <span class="symbol">model:</span> <span class="string">"claude-sonnet-4-5-20250929"</span>
+
+<span class="comment"># RubyLLM (any provider)</span>
+<span class="method">generate_with</span> <span class="symbol">:ruby_llm</span>, <span class="symbol">model:</span> <span class="string">"llama3"</span></code></pre>
+          <span class="flip-hint">tap to flip back</span>
+        </div>
       </div>
     </div>
 </div>
   <div class="grid columns-3">
-    <div class="feature-card">
-      <div class="feature-heading">
-        <h3 class="color-accent no-top-margin">Resilient by Default</h3>
-        <p class="paragraph s secondary">
-          Retries, backoff, graceful failures. Agents that don't give up.
-        </p>
+    <div class="flip-card" tabindex="0">
+      <div class="flip-card-inner">
+        <div class="flip-card-front">
+          <h3 class="color-accent no-top-margin">Resilient by Default</h3>
+          <p class="paragraph s secondary">
+            Retries, backoff, graceful failures. Agents that don't give up.
+          </p>
+          <span class="flip-hint">hover for code</span>
+        </div>
+        <div class="flip-card-back">
+          <pre><code><span class="keyword">class</span> <span class="class-name">ReliableAgent</span> &lt; <span class="class-name">ApplicationAgent</span>
+  <span class="method">generate_with</span> <span class="symbol">:openai</span>,
+    <span class="symbol">model:</span> <span class="string">"gpt-4o"</span>,
+    <span class="symbol">retries:</span> <span class="number">3</span>,
+    <span class="symbol">backoff:</span> <span class="symbol">:exponential</span>
+
+  <span class="method">on_error</span> <span class="symbol">:handle_failure</span>
+<span class="keyword">end</span></code></pre>
+          <span class="flip-hint">tap to flip back</span>
+        </div>
       </div>
     </div>
 
-    <div class="feature-card">
-      <div class="feature-heading">
-        <h3 class="color-accent no-top-margin">Streaming</h3>
-        <p class="paragraph s secondary">
-          Real-time responses. Your agents think out loud.
-        </p>
+    <div class="flip-card" tabindex="0">
+      <div class="flip-card-inner">
+        <div class="flip-card-front">
+          <h3 class="color-accent no-top-margin">Streaming</h3>
+          <p class="paragraph s secondary">
+            Real-time responses. Your agents think out loud.
+          </p>
+          <span class="flip-hint">hover for code</span>
+        </div>
+        <div class="flip-card-back">
+          <pre><code><span class="method">generate_with</span> <span class="symbol">:openai</span>, <span class="symbol">stream:</span> <span class="keyword">true</span>
+
+<span class="method">on_stream</span> <span class="symbol">:handle_chunk</span>
+
+<span class="keyword">def</span> <span class="method">handle_chunk</span>(chunk)
+  print chunk.delta <span class="keyword">if</span> chunk.delta
+<span class="keyword">end</span></code></pre>
+          <span class="flip-hint">tap to flip back</span>
+        </div>
       </div>
     </div>
 
-    <div class="feature-card">
-      <div class="feature-heading">
-        <h3 class="color-accent no-top-margin">Structured Output</h3>
-        <p class="paragraph s secondary">
-          JSON schemas, typed data. Agents that follow instructions.
-        </p>
+    <div class="flip-card" tabindex="0">
+      <div class="flip-card-inner">
+        <div class="flip-card-front">
+          <h3 class="color-accent no-top-margin">Structured Output</h3>
+          <p class="paragraph s secondary">
+            JSON schemas, typed data. Agents that follow instructions.
+          </p>
+          <span class="flip-hint">hover for code</span>
+        </div>
+        <div class="flip-card-back">
+          <pre><code><span class="keyword">def</span> <span class="method">parse_resume</span>
+  prompt(
+    <span class="symbol">message:</span> <span class="string">"Extract: </span>#{params[<span class="symbol">:data</span>]}<span class="string">"</span>,
+    <span class="symbol">response_format:</span> <span class="symbol">:json_schema</span>
+  )
+<span class="keyword">end</span>
+<span class="comment"># Loads schema from views/agents/*/parse_resume.json</span></code></pre>
+          <span class="flip-hint">tap to flip back</span>
+        </div>
       </div>
     </div>
 </div>
