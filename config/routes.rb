@@ -13,6 +13,33 @@ Rails.application.routes.draw do
   root to: "pages#home"
   get "pricing", to: "pages#pricing"
 
+  # Authentication
+  resource :session, only: [:new, :create, :destroy]
+  resource :registration, only: [:new, :create]
+
   # App dashboard (Inertia)
   get "dashboard", to: "dashboard#index"
+
+  # Plans (public)
+  resources :plans, only: [:index]
+
+  # Subscriptions (requires auth + account)
+  resources :subscriptions, only: [:index, :destroy] do
+    collection do
+      post :checkout
+      post :billing_portal
+      patch :change_plan
+      post :resume
+    end
+  end
+
+  # API
+  namespace :api do
+    namespace :v1 do
+      resources :plans, only: [:index]
+    end
+  end
+
+  # Pay webhooks are auto-mounted at /pay/webhooks/stripe
+  # via Pay::Engine (configured in config/initializers/pay.rb)
 end

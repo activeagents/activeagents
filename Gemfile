@@ -28,7 +28,11 @@ gem "inertia_rails"
 gem "activeagent", github: "activeagents/activeagent", branch: "main"
 
 # Use Active Model has_secure_password [https://guides.rubyonrails.org/active_model_basics.html#securepassword]
-# gem "bcrypt", "~> 3.1.7"
+gem "bcrypt", "~> 3.1.7"
+
+# Payments and subscriptions [https://github.com/pay-rails/pay]
+gem "pay", "~> 7.3"
+gem "stripe", "~> 12.0"
 
 # Windows does not include zoneinfo files, so bundle the tzinfo-data gem
 gem "tzinfo-data"
