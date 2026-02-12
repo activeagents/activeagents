@@ -16,6 +16,13 @@ namespace :static do
       assigns: {}
     )
 
+    # Convert absolute paths to relative for GitHub Pages subdirectory deployment
+    # This handles /images/, /fonts/, /vendor/, /css/ paths
+    html = html.gsub('href="/', 'href="')
+    html = html.gsub('src="/', 'src="')
+    # Fix the root link to be relative
+    html = html.gsub('href=""', 'href="."')
+
     # Write the HTML file
     File.write(output_dir.join("index.html"), html)
     puts "Generated: _site/index.html"
