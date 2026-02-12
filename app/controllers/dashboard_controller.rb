@@ -1,14 +1,26 @@
 class DashboardController < ApplicationController
+  before_action :authenticate_user!
+
   def index
     render inertia: "Dashboard", props: {
-      user: current_user_props
+      user: {
+        name: current_user.name,
+        email: current_user.email
+      },
+      account: account_props
     }
   end
 
   private
 
-  def current_user_props
-    # Placeholder for user data
-    { name: "Developer" }
+  def account_props
+    return nil unless current_account
+
+    {
+      name: current_account.name,
+      plan: current_account.current_plan&.name,
+      subscribed: current_account.subscribed?,
+      on_trial: current_account.on_trial?
+    }
   end
 end
