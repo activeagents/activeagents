@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="en" class="theme-light">
+
+<head>
+  <meta charset="utf-8" />
+  <title><%= content_for(:title) || "Active Agent | The AI Framework For Ruby on Rails" %></title>
+  <meta content="Build AI in Rails - Now Agents are Controllers. The Ruby-native way to build AI features." name="description" />
+  <meta content="width=device-width, initial-scale=1" name="viewport" />
+
+  <!-- Open Graph -->
+  <meta property="og:type" content="website" />
+  <meta property="og:site_name" content="Active Agent" />
+  <meta property="og:locale" content="en_US" />
+  <meta property="og:title" content="Active Agent | The AI Framework For Ruby on Rails" />
+  <meta property="og:description" content="Build AI in Rails - Now Agents are Controllers. Makes code tons of fun!" />
+  <meta property="og:url" content="https://activeagents.ai" />
+  <meta name="twitter:site" content="@activeagents" />
+  <meta name="twitter:card" content="summary_large_image" />
+  <meta name="twitter:title" content="Active Agent | The AI Framework For Ruby on Rails" />
+  <meta name="twitter:description" content="Build AI in Rails - Now Agents are Controllers." />
+
+  <!-- Favicon and icons -->
+  <link rel="icon" href="/images/activeagent-logo.png" sizes="32x32" />
+  <link rel="apple-touch-icon" href="/images/activeagent-logo.png" />
+
+  <!-- Preload fonts -->
+  <link rel="preload" href="/fonts/InterVariable.woff2" as="font" type="font/woff2" crossorigin />
+
+  <!-- Styles (static paths for GitHub Pages) -->
+  <link href="/vendor/font-awesome-6.7.2/css/all.min.css" rel="stylesheet" />
+  <link href="/css/base.css" rel="stylesheet" />
+  <link href="/css/pricing.css" rel="stylesheet" />
+  <link href="/css/tablet.css" rel="stylesheet" media="(max-width: 1024px)" />
+  <link href="/css/mobile.css" rel="stylesheet" media="(max-width: 600px)" />
+</head>
+
+<body>
+  <div class="background-gradient"></div>
+  <div class="page-container">
+    <%= render "layouts/landing/header" %>
+
+    <main>
+      <%= yield %>
+    </main>
+
+    <%= render "layouts/landing/footer" %>
+  </div>
+
+  <!-- Minimal JS for accordion toggles -->
+  <script>
+    document.querySelectorAll('[data-mobile-toggle]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        document.querySelector('[data-navigation]').classList.toggle('is-open');
+      });
+    });
+  </script>
+</body>
+
+</html>
