@@ -1,0 +1,79 @@
+<section id="pricing">
+  <div class="text-centered full-width">
+    <h2>The Gems</h2>
+    <p class="paragraph m secondary">Give your Rails app an agent. MIT core, commercial extensions.</p>
+  </div>
+
+  <!-- Gem Pricing Cards -->
+  <div class="grid columns-3 margin-top-xl">
+    <%= render "pages/components/pricing_card",
+      name: "ActiveAgent.dev",
+      link: "https://activeagent.dev",
+      license: "MIT License",
+      price: "Free",
+      price_suffix: nil,
+      features: [
+        "Active Agent Web UI Dashboard",
+        "Action Prompt for composable prompt contexts",
+        "Solid Agent for context management and persistence",
+        "Streaming",
+        "Structured outputs",
+        "Error handling and retries",
+        "Community support on GitHub & Discord"
+      ],
+      tagline: "Ship your first agent today",
+      cta_text: "Get Started",
+      cta_link: "https://github.com/activeagents/activeagent",
+      cta_style: "tertiary",
+      highlighted: false %>
+
+    <%= render "pages/components/pricing_card",
+      name: "ActiveAgent.PRO",
+      link: "https://activeagent.pro",
+      license: "Commercial License",
+      price: "$99",
+      price_suffix: "/mo or $995/yr",
+      features: [
+        "Generational Versioned agents, prompts, and contexts",
+        "Multi-agent workflows that can be paused, fault-tolerant, & resume",
+        "Reasonable Reasons for fragment cached context references",
+        "Generative UI & Human-in-the-loop keep the Agents on the Rails",
+        "Dedicated email support"
+      ],
+      tagline: "Production-ready agents",
+      cta_text: "Subscribe to Pro",
+      cta_link: "https://activeagents.ai/dashboard",
+      cta_style: "primary",
+      highlighted: true %>
+
+    <%= render "pages/components/pricing_card",
+      name: "activeagent-enterprise",
+      link: nil,
+      license: "Commercial License",
+      price: "$269+",
+      price_suffix: "/mo per 100 agents",
+      features: [
+        "Enterprise gem available for entire organization",
+        "Generative Workflow Generators",
+        "Deterministic Generative Tasks",
+        "Multi-app & embedded licensing",
+        "Dedicated support channel"
+      ],
+      tagline: "Agents at scale",
+      cta_text: "Contact Sales",
+      cta_link: "mailto:sales@activeagents.ai",
+      cta_style: "tertiary",
+      highlighted: false %>
+  </div>
+
+  <!-- Gem Comparison Table -->
+  <details class="accordion-item comparison-accordion margin-top-xl">
+    <summary class="accordion-toggle">
+      <h3 class="no-top-margin">Gem Feature Comparison</h3>
+      <span class="accordion-chevron fa-solid fa-chevron-down"></span>
+    </summary>
+    <div class="accordion-content">
+      <%= render "pages/components/gem_comparison_table" %>
+    </div>
+  </details>
+</section>

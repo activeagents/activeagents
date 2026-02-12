@@ -18,6 +18,10 @@ gem "stimulus-rails"
 gem "cssbundling-rails"
 # Build JSON APIs with ease [https://github.com/rails/jbuilder]
 gem "jbuilder"
+# Markdown rendering for landing pages [https://github.com/vmg/redcarpet]
+gem "redcarpet"
+# Syntax highlighting for code snippets [https://github.com/rouge-ruby/rouge]
+gem "rouge"
 # Inertia adapter for Rails [https://inertia-rails.dev]
 gem "inertia_rails"
 # Active Agent - AI agent framework for Rails [https://github.com/activeagents/activeagent]

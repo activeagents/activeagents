@@ -1,6 +1,6 @@
 @font-face {
   font-family: Inter Variable;
-  src: url("../fonts/InterVariable.woff2") format("woff2");
+  src: url("/fonts/InterVariable.woff2") format("woff2");
   font-weight: 100 900;
   font-style: normal;
   font-display: swap;
@@ -8,7 +8,7 @@
 
 @font-face {
   font-family: Inter Variable;
-  src: url("../fonts/InterVariable-Italic.woff2") format("woff2");
+  src: url("/fonts/InterVariable-Italic.woff2") format("woff2");
   font-weight: 100 900;
   font-style: italic;
   font-display: swap;
@@ -16,7 +16,7 @@
 
 @font-face {
   font-family: JetBrains Mono;
-  src: url("../fonts/JetBrainsMono-VariableFont_wght.ttf") format("woff2");
+  src: url("/fonts/JetBrainsMono-VariableFont_wght.ttf") format("truetype");
   font-weight: 100 900;
   font-style: normal;
   font-display: swap;
@@ -782,7 +782,7 @@ section {
   font-family: inherit;
 }
 
-/* Syntax highlighting */
+/* Syntax highlighting - original classes */
 .flip-card-back .keyword { color: #569cd6; }
 .flip-card-back .class-name { color: #4ec9b0; }
 .flip-card-back .method { color: #dcdcaa; }
@@ -790,6 +790,29 @@ section {
 .flip-card-back .string { color: #ce9178; }
 .flip-card-back .comment { color: #6a9955; }
 .flip-card-back .number { color: #b5cea8; }
+
+/* Rouge syntax highlighting classes */
+.flip-card-back .highlight .k,
+.flip-card-back .highlight .kd,
+.flip-card-back .highlight .kp { color: #569cd6; } /* keywords */
+.flip-card-back .highlight .nc,
+.flip-card-back .highlight .no { color: #4ec9b0; } /* class names, constants */
+.flip-card-back .highlight .nf,
+.flip-card-back .highlight .nb { color: #dcdcaa; } /* functions, builtins */
+.flip-card-back .highlight .ss,
+.flip-card-back .highlight .na { color: #9cdcfe; } /* symbols, attributes */
+.flip-card-back .highlight .s,
+.flip-card-back .highlight .s1,
+.flip-card-back .highlight .s2,
+.flip-card-back .highlight .si { color: #ce9178; } /* strings */
+.flip-card-back .highlight .c,
+.flip-card-back .highlight .c1,
+.flip-card-back .highlight .cm { color: #6a9955; } /* comments */
+.flip-card-back .highlight .mi,
+.flip-card-back .highlight .mf { color: #b5cea8; } /* numbers */
+.flip-card-back .highlight .vi,
+.flip-card-back .highlight .vc { color: #9cdcfe; } /* instance/class vars */
+.flip-card-back .highlight .n { color: #d4d4d4; } /* default text */
 
 .flip-hint {
   position: absolute;
