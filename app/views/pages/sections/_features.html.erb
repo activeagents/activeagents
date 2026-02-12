@@ -1,0 +1,104 @@
+<section>
+  <div class="heading centered">
+    <h2 class="no-top-margin">What's in the Box</h2>
+    <p class="paragraph m secondary">
+      Everything to build agents in Rails. Free forever.
+    </p>
+  </div>
+  <div class="grid columns-3">
+    <%= render "pages/components/flip_card",
+      title: "Agents are Controllers",
+      description: "Actions, callbacks, views. Your agents speak Rails.",
+      code: <<~CODE,
+        class TranslationAgent < ApplicationAgent
+          generate_with :openai, model: "gpt-4o"
+
+          def translate
+            prompt message: "Translate to \#{params[:lang]}"
+          end
+        end
+      CODE
+      docs_link: "https://docs.activeagents.ai/agents",
+      docs_text: "docs/agents" %>
+
+    <%= render "pages/components/flip_card",
+      title: "Action Prompt",
+      description: "Composable prompts. Like Action Mailer, but for AI.",
+      code: <<~CODE,
+        def summarize
+          prompt(
+            instructions: "Summarize in 2-3 sentences",
+            message: params[:text],
+            temperature: 0.3
+          )
+        end
+
+        SummaryAgent.with(text:).summarize.generate_now
+      CODE
+      docs_link: "https://docs.activeagents.ai/actions",
+      docs_text: "docs/actions" %>
+
+    <%= render "pages/components/flip_card",
+      title: "Any LLM",
+      description: "OpenAI, Anthropic, RubyLLM. Switch with one line.",
+      code: <<~CODE,
+        # OpenAI
+        generate_with :openai, model: "gpt-4o"
+
+        # Anthropic
+        generate_with :anthropic, model: "claude-sonnet-4-5-20250929"
+
+        # RubyLLM (any provider)
+        generate_with :ruby_llm, model: "llama3"
+      CODE
+      docs_link: "https://docs.activeagents.ai/providers",
+      docs_text: "docs/providers" %>
+  </div>
+  <div class="grid columns-3">
+    <%= render "pages/components/flip_card",
+      title: "Resilient by Default",
+      description: "Retries, backoff, graceful failures. Agents that don't give up.",
+      code: <<~CODE,
+        class ReliableAgent < ApplicationAgent
+          generate_with :openai,
+            model: "gpt-4o",
+            retries: 3,
+            backoff: :exponential
+
+          on_error :handle_failure
+        end
+      CODE
+      docs_link: "https://docs.activeagents.ai/agents/retries",
+      docs_text: "docs/agents/retries" %>
+
+    <%= render "pages/components/flip_card",
+      title: "Streaming",
+      description: "Real-time responses. Your agents think out loud.",
+      code: <<~CODE,
+        generate_with :openai, stream: true
+
+        on_stream :handle_chunk
+
+        def handle_chunk(chunk)
+          print chunk.delta if chunk.delta
+        end
+      CODE
+      docs_link: "https://docs.activeagents.ai/agents/streaming",
+      docs_text: "docs/agents/streaming" %>
+
+    <%= render "pages/components/flip_card",
+      title: "Structured Output",
+      description: "JSON schemas, typed data. Agents that follow instructions.",
+      code: <<~CODE,
+        def parse_resume
+          prompt(
+            message: "Extract: \#{params[:data]}",
+            response_format: :json_schema
+          )
+        end
+        # Loads schema from views/agents/*/parse_resume.json
+      CODE
+      docs_link: "https://docs.activeagents.ai/actions/structured_output",
+      docs_text: "docs/structured_output" %>
+  </div>
+</section>

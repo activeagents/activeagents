@@ -1,0 +1,30 @@
+<header class="nav-container">
+  <%= link_to "/", class: "nav-brand", style: "display: flex; align-items: center; gap: 8px;" do %>
+    <img src="/images/activeagent-logo.png" alt="Active Agent" style="height: 32px; width: 32px;" />
+    <span style="font-size: 1.25rem; font-weight: 600;">Active Agent</span>
+  <% end %>
+  <nav role="navigation" class="nav-menu" data-navigation>
+    <%= link_to "Docs", "https://docs.activeagents.ai", class: "nav-link" %>
+    <%= link_to "Gems", "#pricing", class: "nav-link" %>
+    <%= link_to "Consulting", "#services", class: "nav-link" %>
+    <%= link_to "Platform", "#hosted", class: "nav-link" %>
+    <%= link_to "GitHub", "https://github.com/activeagents/activeagent", class: "nav-link" %>
+    <div class="button-group stacked margin-top-l mobile-only">
+      <%= link_to "Sign In", "https://activeagents.ai/dashboard", class: "button tertiary" %>
+      <%= link_to "Getting Started", "https://docs.activeagents.ai/getting-started", class: "button primary" %>
+    </div>
+  </nav>
+  <div class="button-group">
+    <%= link_to "https://github.com/activeagents/activeagent", class: "button ghost compact hide-on-mobile" do %>
+      <div class="fa-brands fa-github icon l"></div>
+    <% end %>
+    <%= link_to "https://discord.gg/activeagent", class: "button ghost compact hide-on-mobile" do %>
+      <div class="fa-brands fa-discord icon l"></div>
+    <% end %>
+    <%= link_to "Sign In", "https://activeagents.ai/dashboard", class: "button tertiary compact hide-on-mobile" %>
+    <%= link_to "Getting Started", "https://docs.activeagents.ai/getting-started", class: "button primary compact" %>
+    <button class="button ghost compact nav-hamburger" data-mobile-toggle aria-label="Show menu">
+      <span class="fa-solid fa-bars icon m"></span>
+    </button>
+  </div>
+</header>

@@ -1,3 +1,30 @@
+<!--
+================================================================================
+CHECKPOINT: 2026-02-12 - Landing Page Content Snapshot
+================================================================================
+This file is being migrated to Rails with markdown rendering.
+Content preserved here for reference during migration.
+
+KEY SECTIONS:
+- Hero: "Active Agent - Build AI in Rails"
+- What's in the Box: 6 flip cards (Agents/Controllers, Action Prompt, Any LLM, Resilient, Streaming, Structured Output)
+- Pricing (The Gems): 3 tiers (Free/MIT, Pro $99/mo, Enterprise $269+/mo)
+- Services: Workshops, Advisory, Development
+- Platform: Pro Platform $99/mo, Enterprise $2000+/yr
+- FAQ: 8 questions
+- Footer with social links
+
+PRICING UPDATES MADE:
+- ActiveAgent.dev (Free/MIT): Web UI Dashboard, Action Prompt, Solid Agent, Streaming, Structured outputs, Error handling, Community support
+- ActiveAgent.PRO ($99/mo): Generational Versioning, Multi-agent workflows, Reasonable Reasons, Generative UI & HITL, Email support
+- Enterprise ($269+/mo per 100 agents): Enterprise gem, Workflow Generators, Deterministic Tasks, Multi-app licensing, Dedicated support
+
+CSS: Uses index.css, pricing.css, tablet.css, mobile.css
+- Green checks: fa-circle-check with color-success
+- Red X marks: fa-circle-xmark with color-danger
+- Comparison tables are collapsible accordions
+================================================================================
+-->
 <!DOCTYPE html>
 <html lang="en" class="theme-light">
 
@@ -264,24 +291,32 @@
         </div>
         <div class="feature-list">
           <div class="feature-item paragraph s">
-            <div class="fa-regular fa-square-check icon m"></div>
-            <div>Agents are Controllers for your AI</div>
+            <div class="fa-solid fa-circle-check icon m color-success"></div>
+            <div>Active Agent Web UI Dashboard</div>
           </div>
           <div class="feature-item paragraph s">
-            <div class="fa-regular fa-square-check icon m"></div>
-            <div>Action Prompt for composable prompts</div>
+            <div class="fa-solid fa-circle-check icon m color-success"></div>
+            <div>Action Prompt for composable prompt contexts</div>
           </div>
           <div class="feature-item paragraph s">
-            <div class="fa-regular fa-square-check icon m"></div>
-            <div>Any LLM provider, switch with one line</div>
+            <div class="fa-solid fa-circle-check icon m color-success"></div>
+            <div>Solid Agent for context management and persistence</div>
           </div>
           <div class="feature-item paragraph s">
-            <div class="fa-regular fa-square-check icon m"></div>
-            <div>Streaming, structured output, retries</div>
+            <div class="fa-solid fa-circle-check icon m color-success"></div>
+            <div>Streaming</div>
           </div>
           <div class="feature-item paragraph s">
-            <div class="fa-regular fa-square-check icon m"></div>
-            <div>Community support on Discord</div>
+            <div class="fa-solid fa-circle-check icon m color-success"></div>
+            <div>Structured outputs</div>
+          </div>
+          <div class="feature-item paragraph s">
+            <div class="fa-solid fa-circle-check icon m color-success"></div>
+            <div>Error handling and retries</div>
+          </div>
+          <div class="feature-item paragraph s">
+            <div class="fa-solid fa-circle-check icon m color-success"></div>
+            <div>Community support on GitHub &amp; Discord</div>
           </div>
         </div>
         <p class="paragraph xs secondary" style="margin-top: 1rem;">Ship your first agent today</p>
@@ -295,31 +330,30 @@
           <p class="paragraph l bold no-top-margin"><a href="https://activeagent.pro" target="_blank">ActiveAgent.PRO</a></p>
           <p class="paragraph s secondary">Commercial License</p>
           <div class="price-line">
-            <div class="paragraph l bold">$49</div>
-            <div class="paragraph m secondary">/month or $495/yr</div>
+            <div class="paragraph l bold">$99</div>
+            <div class="paragraph m secondary">/mo or $995/yr</div>
           </div>
         </div>
         <div class="feature-list">
           <div class="feature-item paragraph s">
-            <div class="fa-regular fa-square-check icon m"></div>
-            <div>Everything your agents need to ship</div>
+            <div class="fa-solid fa-circle-check icon m color-success"></div>
+            <div>Generational Versioned agents, prompts, and contexts</div>
           </div>
           <div class="feature-item paragraph s">
-            <div class="fa-regular fa-square-check icon m"></div>
-            <div>Reasonable Reasons gems (evals, compliance)</div>
+            <div class="fa-solid fa-circle-check icon m color-success"></div>
+            <div>Multi-agent workflows that can be paused, fault-tolerant, &amp; resume</div>
           </div>
           <div class="feature-item paragraph s">
-            <div class="fa-regular fa-square-check icon m"></div>
-            <div>Generative UI that builds itself</div>
+            <div class="fa-solid fa-circle-check icon m color-success"></div>
+            <div>Reasonable Reasons for fragment cached context references</div>
           </div>
           <div class="feature-item paragraph s">
-            <div class="fa-regular fa-square-check icon m"></div>
-            <div>Multi-agent workflows that pause &amp; resume</div>
+            <div class="fa-solid fa-circle-check icon m color-success"></div>
+            <div>Generative UI &amp; Human-in-the-loop keep the Agents on the Rails</div>
           </div>
           <div class="feature-item paragraph s">
-            <div class="fa-regular fa-square-check icon m"></div>
-            <div>Human-in-the-loop when agents need help</div>
-          </div>
+            <div class="fa-solid fa-circle-check icon m color-success"></div>
+            <div>Dedicated email support</div>
         </div>
         <p class="paragraph xs secondary" style="margin-top: 1rem;">Production-ready agents</p>
       </div>
@@ -332,30 +366,31 @@
           <p class="paragraph l bold no-top-margin">activeagent-enterprise</p>
           <p class="paragraph s secondary">Commercial License</p>
           <div class="price-line">
-            <div class="paragraph l bold">$995+</div>
-            <div class="paragraph m secondary">/year</div>
+            <div class="paragraph l bold">$269+</div>
+            <div class="paragraph m secondary">/mo per 100 agents</div>
           </div>
         </div>
         <div class="feature-list">
           <div class="feature-item paragraph s">
-            <div class="fa-regular fa-square-check icon m"></div>
-            <div>Pro gems for your whole org</div>
+            <div class="fa-solid fa-circle-check icon m color-success"></div>
+            <div>Enterprise gem available for entire organization</div>
           </div>
           <div class="feature-item paragraph s">
-            <div class="fa-regular fa-square-check icon m"></div>
+            <div class="fa-solid fa-circle-check icon m color-success"></div>
+            <div>Generative Workflow Generators</div>
+          </div>
+          <div class="feature-item paragraph s">
+            <div class="fa-solid fa-circle-check icon m color-success"></div>
+            <div>Deterministic Generative Tasks</div>
+          </div>
+          <div class="feature-item paragraph s">
+            <div class="fa-solid fa-circle-check icon m color-success"></div>
             <div>Multi-app &amp; embedded licensing</div>
           </div>
           <div class="feature-item paragraph s">
-            <div class="fa-regular fa-square-check icon m"></div>
-            <div>Priority fixes for your agents</div>
-          </div>
-          <div class="feature-item paragraph s">
-            <div class="fa-regular fa-square-check icon m"></div>
+            <div class="fa-solid fa-circle-check icon m color-success"></div>
             <div>Dedicated support channel</div>
           </div>
-          <div class="feature-item paragraph s">
-            <div class="fa-regular fa-square-check icon m"></div>
-            <div>Custom terms available</div>
           </div>
         </div>
         <p class="paragraph xs secondary" style="margin-top: 1rem;">Agents at scale</p>
@@ -365,9 +400,12 @@
   </div>
 
   <!-- Gem Comparison Table -->
-  <div class="text-centered full-width margin-top-xl">
-    <h3 class="no-top-margin">Gem Feature Comparison</h3>
-  </div>
+  <details class="accordion-item comparison-accordion margin-top-xl">
+    <summary class="accordion-toggle">
+      <h3 class="no-top-margin">Gem Feature Comparison</h3>
+      <span class="accordion-chevron fa-solid fa-chevron-down"></span>
+    </summary>
+    <div class="accordion-content">
   <table class="pricing-table">
     <thead>
       <tr class="pricing-table-row">
@@ -382,73 +420,79 @@
         <td class="paragraph s bold" colspan="4" style="background: var(--color-bg-secondary);">Core Framework</td>
       </tr>
       <tr class="pricing-table-row">
-        <td class="paragraph s">Active Agent + Action Prompt</td>
-        <td><div class="fa-regular fa-square-check icon m"></div></td>
-        <td><div class="fa-regular fa-square-check icon m"></div></td>
-        <td><div class="fa-regular fa-square-check icon m"></div></td>
+        <td class="paragraph s"><a href="https://docs.activeagents.ai/agents">Active Agent</a></td>
+        <td><div class="fa-solid fa-circle-check icon m color-success"></div></td>
+        <td><div class="fa-solid fa-circle-check icon m color-success"></div></td>
+        <td><div class="fa-solid fa-circle-check icon m color-success"></div></td>
       </tr>
       <tr class="pricing-table-row">
-        <td class="paragraph s">Generation Providers (RubyLLM, OpenAI, Anthropic)</td>
-        <td><div class="fa-regular fa-square-check icon m"></div></td>
-        <td><div class="fa-regular fa-square-check icon m"></div></td>
-        <td><div class="fa-regular fa-square-check icon m"></div></td>
+        <td class="paragraph s"><a href="https://docs.activeagents.ai/actions">Action Prompt</a></td>
+        <td><div class="fa-solid fa-circle-check icon m color-success"></div></td>
+        <td><div class="fa-solid fa-circle-check icon m color-success"></div></td>
+        <td><div class="fa-solid fa-circle-check icon m color-success"></div></td>
       </tr>
       <tr class="pricing-table-row">
-        <td class="paragraph s">Instrumentation, Error Handling, Retries</td>
-        <td><div class="fa-regular fa-square-check icon m"></div></td>
-        <td><div class="fa-regular fa-square-check icon m"></div></td>
-        <td><div class="fa-regular fa-square-check icon m"></div></td>
+        <td class="paragraph s"><a href="https://docs.activeagents.ai/providers">Generation Providers</a> (RubyLLM, OpenAI, Anthropic)</td>
+        <td><div class="fa-solid fa-circle-check icon m color-success"></div></td>
+        <td><div class="fa-solid fa-circle-check icon m color-success"></div></td>
+        <td><div class="fa-solid fa-circle-check icon m color-success"></div></td>
       </tr>
       <tr class="pricing-table-row">
-        <td class="paragraph s">Streaming & Structured Output</td>
-        <td><div class="fa-regular fa-square-check icon m"></div></td>
-        <td><div class="fa-regular fa-square-check icon m"></div></td>
-        <td><div class="fa-regular fa-square-check icon m"></div></td>
+        <td class="paragraph s"><a href="https://docs.activeagents.ai/agents/retries">Instrumentation, Error Handling, Retries</a></td>
+        <td><div class="fa-solid fa-circle-check icon m color-success"></div></td>
+        <td><div class="fa-solid fa-circle-check icon m color-success"></div></td>
+        <td><div class="fa-solid fa-circle-check icon m color-success"></div></td>
       </tr>
       <tr class="pricing-table-row">
-        <td class="paragraph s">Local Web UI engine</td>
-        <td><div class="fa-regular fa-square-check icon m"></div></td>
-        <td><div class="fa-regular fa-square-check icon m"></div></td>
-        <td><div class="fa-regular fa-square-check icon m"></div></td>
+        <td class="paragraph s"><a href="https://docs.activeagents.ai/agents/streaming">Streaming</a> & <a href="https://docs.activeagents.ai/actions/structured_output">Structured Output</a></td>
+        <td><div class="fa-solid fa-circle-check icon m color-success"></div></td>
+        <td><div class="fa-solid fa-circle-check icon m color-success"></div></td>
+        <td><div class="fa-solid fa-circle-check icon m color-success"></div></td>
       </tr>
       <tr class="pricing-table-row">
-        <td class="paragraph s bold" colspan="4" style="background: var(--color-bg-secondary);">Pro Gems (Reasonable Reasons)</td>
+        <td class="paragraph s"><a href="https://docs.activeagents.ai/web-ui">Agent Management Web UI </a></td>
+        <td><div class="fa-solid fa-circle-check icon m color-success"></div></td>
+        <td><div class="fa-solid fa-circle-check icon m color-success"></div></td>
+        <td><div class="fa-solid fa-circle-check icon m color-success"></div></td>
+      </tr>
+      <tr class="pricing-table-row">
+        <td class="paragraph s bold" colspan="4" style="background: var(--color-bg-secondary);">Active Agent Pro</td>
       </tr>
       <tr class="pricing-table-row">
         <td class="paragraph s">Observable Evaluations & Compliance</td>
-        <td></td>
-        <td><div class="fa-regular fa-square-check icon m"></div></td>
-        <td><div class="fa-regular fa-square-check icon m"></div></td>
+        <td><div class="fa-solid fa-circle-xmark icon m color-danger"></div></td>
+        <td><div class="fa-solid fa-circle-check icon m color-success"></div></td>
+        <td><div class="fa-solid fa-circle-check icon m color-success"></div></td>
       </tr>
       <tr class="pricing-table-row">
         <td class="paragraph s">Generative UI & Generative Generators</td>
-        <td></td>
-        <td><div class="fa-regular fa-square-check icon m"></div></td>
-        <td><div class="fa-regular fa-square-check icon m"></div></td>
+        <td><div class="fa-solid fa-circle-xmark icon m color-danger"></div></td>
+        <td><div class="fa-solid fa-circle-check icon m color-success"></div></td>
+        <td><div class="fa-solid fa-circle-check icon m color-success"></div></td>
       </tr>
       <tr class="pricing-table-row">
         <td class="paragraph s">Parallel tasks & advanced retries</td>
-        <td></td>
-        <td><div class="fa-regular fa-square-check icon m"></div></td>
-        <td><div class="fa-regular fa-square-check icon m"></div></td>
+        <td><div class="fa-solid fa-circle-xmark icon m color-danger"></div></td>
+        <td><div class="fa-solid fa-circle-check icon m color-success"></div></td>
+        <td><div class="fa-solid fa-circle-check icon m color-success"></div></td>
       </tr>
       <tr class="pricing-table-row">
         <td class="paragraph s">HITL generative UI</td>
-        <td></td>
-        <td><div class="fa-regular fa-square-check icon m"></div></td>
-        <td><div class="fa-regular fa-square-check icon m"></div></td>
+        <td><div class="fa-solid fa-circle-xmark icon m color-danger"></div></td>
+        <td><div class="fa-solid fa-circle-check icon m color-success"></div></td>
+        <td><div class="fa-solid fa-circle-check icon m color-success"></div></td>
       </tr>
       <tr class="pricing-table-row">
         <td class="paragraph s">Agentic workflows (pausable multi-agent)</td>
-        <td></td>
-        <td><div class="fa-regular fa-square-check icon m"></div></td>
-        <td><div class="fa-regular fa-square-check icon m"></div></td>
+        <td><div class="fa-solid fa-circle-xmark icon m color-danger"></div></td>
+        <td><div class="fa-solid fa-circle-check icon m color-success"></div></td>
+        <td><div class="fa-solid fa-circle-check icon m color-success"></div></td>
       </tr>
       <tr class="pricing-table-row">
         <td class="paragraph s">Async tasks with external triggers</td>
-        <td></td>
-        <td><div class="fa-regular fa-square-check icon m"></div></td>
-        <td><div class="fa-regular fa-square-check icon m"></div></td>
+        <td><div class="fa-solid fa-circle-xmark icon m color-danger"></div></td>
+        <td><div class="fa-solid fa-circle-check icon m color-success"></div></td>
+        <td><div class="fa-solid fa-circle-check icon m color-success"></div></td>
       </tr>
       <tr class="pricing-table-row">
         <td class="paragraph s bold" colspan="4" style="background: var(--color-bg-secondary);">Licensing</td>
@@ -461,39 +505,41 @@
       </tr>
       <tr class="pricing-table-row">
         <td class="paragraph s">Multi-app / embedded licensing</td>
-        <td></td>
-        <td></td>
-        <td><div class="fa-regular fa-square-check icon m"></div></td>
+        <td><div class="fa-solid fa-circle-xmark icon m color-danger"></div></td>
+        <td><div class="fa-solid fa-circle-xmark icon m color-danger"></div></td>
+        <td><div class="fa-solid fa-circle-check icon m color-success"></div></td>
       </tr>
       <tr class="pricing-table-row">
         <td class="paragraph s">Custom terms</td>
-        <td></td>
-        <td></td>
-        <td><div class="fa-regular fa-square-check icon m"></div></td>
+        <td><div class="fa-solid fa-circle-xmark icon m color-danger"></div></td>
+        <td><div class="fa-solid fa-circle-xmark icon m color-danger"></div></td>
+        <td><div class="fa-solid fa-circle-check icon m color-success"></div></td>
       </tr>
       <tr class="pricing-table-row">
         <td class="paragraph s bold" colspan="4" style="background: var(--color-bg-secondary);">Support</td>
       </tr>
       <tr class="pricing-table-row">
         <td class="paragraph s">Community (Discord, GitHub)</td>
-        <td><div class="fa-regular fa-square-check icon m"></div></td>
-        <td><div class="fa-regular fa-square-check icon m"></div></td>
-        <td><div class="fa-regular fa-square-check icon m"></div></td>
+        <td><div class="fa-solid fa-circle-check icon m color-success"></div></td>
+        <td><div class="fa-solid fa-circle-check icon m color-success"></div></td>
+        <td><div class="fa-solid fa-circle-check icon m color-success"></div></td>
       </tr>
       <tr class="pricing-table-row">
         <td class="paragraph s">Email support</td>
-        <td></td>
-        <td><div class="fa-regular fa-square-check icon m"></div></td>
-        <td><div class="fa-regular fa-square-check icon m"></div></td>
+        <td><div class="fa-solid fa-circle-xmark icon m color-danger"></div></td>
+        <td><div class="fa-solid fa-circle-check icon m color-success"></div></td>
+        <td><div class="fa-solid fa-circle-check icon m color-success"></div></td>
       </tr>
       <tr class="pricing-table-row">
         <td class="paragraph s">Priority support</td>
-        <td></td>
-        <td></td>
-        <td><div class="fa-regular fa-square-check icon m"></div></td>
+        <td><div class="fa-solid fa-circle-xmark icon m color-danger"></div></td>
+        <td><div class="fa-solid fa-circle-xmark icon m color-danger"></div></td>
+        <td><div class="fa-solid fa-circle-check icon m color-success"></div></td>
       </tr>
     </tbody>
   </table>
+    </div>
+  </details>
 </section>
 
 <!-- ======================= -->
@@ -517,23 +563,23 @@
         </div>
         <div class="feature-list">
           <div class="feature-item paragraph s">
-            <div class="fa-regular fa-square-check icon m"></div>
+            <div class="fa-solid fa-circle-check icon m color-success"></div>
             <div>Build your first agent in a day</div>
           </div>
           <div class="feature-item paragraph s">
-            <div class="fa-regular fa-square-check icon m"></div>
+            <div class="fa-solid fa-circle-check icon m color-success"></div>
             <div>Hands-on coding, not slides</div>
           </div>
           <div class="feature-item paragraph s">
-            <div class="fa-regular fa-square-check icon m"></div>
+            <div class="fa-solid fa-circle-check icon m color-success"></div>
             <div>Architecture patterns that scale</div>
           </div>
           <div class="feature-item paragraph s">
-            <div class="fa-regular fa-square-check icon m"></div>
+            <div class="fa-solid fa-circle-check icon m color-success"></div>
             <div>Code review &amp; Q&amp;A</div>
           </div>
           <div class="feature-item paragraph s">
-            <div class="fa-regular fa-square-check icon m"></div>
+            <div class="fa-solid fa-circle-check icon m color-success"></div>
             <div>Custom curriculum available</div>
           </div>
         </div>
@@ -553,23 +599,23 @@
         </div>
         <div class="feature-list">
           <div class="feature-item paragraph s">
-            <div class="fa-regular fa-square-check icon m"></div>
+            <div class="fa-solid fa-circle-check icon m color-success"></div>
             <div>Your dedicated AI architect</div>
           </div>
           <div class="feature-item paragraph s">
-            <div class="fa-regular fa-square-check icon m"></div>
+            <div class="fa-solid fa-circle-check icon m color-success"></div>
             <div>Strategy, code reviews, PR feedback</div>
           </div>
           <div class="feature-item paragraph s">
-            <div class="fa-regular fa-square-check icon m"></div>
+            <div class="fa-solid fa-circle-check icon m color-success"></div>
             <div>Train your team as you build</div>
           </div>
           <div class="feature-item paragraph s">
-            <div class="fa-regular fa-square-check icon m"></div>
+            <div class="fa-solid fa-circle-check icon m color-success"></div>
             <div>Async Slack access</div>
           </div>
           <div class="feature-item paragraph s">
-            <div class="fa-regular fa-square-check icon m"></div>
+            <div class="fa-solid fa-circle-check icon m color-success"></div>
             <div>Cancel anytime, 30-day notice</div>
           </div>
         </div>
@@ -589,23 +635,23 @@
         </div>
         <div class="feature-list">
           <div class="feature-item paragraph s">
-            <div class="fa-regular fa-square-check icon m"></div>
+            <div class="fa-solid fa-circle-check icon m color-success"></div>
             <div>We build your agents for you</div>
           </div>
           <div class="feature-item paragraph s">
-            <div class="fa-regular fa-square-check icon m"></div>
+            <div class="fa-solid fa-circle-check icon m color-success"></div>
             <div>Integrate with your Rails app</div>
           </div>
           <div class="feature-item paragraph s">
-            <div class="fa-regular fa-square-check icon m"></div>
+            <div class="fa-solid fa-circle-check icon m color-success"></div>
             <div>Optimize &amp; deploy to production</div>
           </div>
           <div class="feature-item paragraph s">
-            <div class="fa-regular fa-square-check icon m"></div>
+            <div class="fa-solid fa-circle-check icon m color-success"></div>
             <div>Flexible: hourly or fixed-price</div>
           </div>
           <div class="feature-item paragraph s">
-            <div class="fa-regular fa-square-check icon m"></div>
+            <div class="fa-solid fa-circle-check icon m color-success"></div>
             <div>SOW with clear milestones</div>
           </div>
         </div>
@@ -662,29 +708,29 @@
           <p class="paragraph l bold no-top-margin">Pro Platform</p>
           <p class="paragraph s secondary">For small/medium teams</p>
           <div class="price-line">
-            <div class="paragraph l bold">$50</div>
+            <div class="paragraph l bold">$99</div>
             <div class="paragraph m secondary">/month or $500/yr</div>
           </div>
         </div>
         <div class="feature-list">
           <div class="feature-item paragraph s">
-            <div class="fa-regular fa-square-check icon m"></div>
+            <div class="fa-solid fa-circle-check icon m color-success"></div>
             <div>5 team seats, 1 workspace</div>
           </div>
           <div class="feature-item paragraph s">
-            <div class="fa-regular fa-square-check icon m"></div>
+            <div class="fa-solid fa-circle-check icon m color-success"></div>
             <div>25,000 traces/month (14-day retention)</div>
           </div>
           <div class="feature-item paragraph s">
-            <div class="fa-regular fa-square-check icon m"></div>
+            <div class="fa-solid fa-circle-check icon m color-success"></div>
             <div>10,000 agent executions/month</div>
           </div>
           <div class="feature-item paragraph s">
-            <div class="fa-regular fa-square-check icon m"></div>
+            <div class="fa-solid fa-circle-check icon m color-success"></div>
             <div>Analytics, A/B testing &amp; 5 prebuilt evaluators</div>
           </div>
           <div class="feature-item paragraph s">
-            <div class="fa-regular fa-square-check icon m"></div>
+            <div class="fa-solid fa-circle-check icon m color-success"></div>
             <div>48-hour email support</div>
           </div>
         </div>
@@ -705,23 +751,23 @@
         </div>
         <div class="feature-list">
           <div class="feature-item paragraph s">
-            <div class="fa-regular fa-square-check icon m"></div>
+            <div class="fa-solid fa-circle-check icon m color-success"></div>
             <div>Unlimited seats &amp; workspaces</div>
           </div>
           <div class="feature-item paragraph s">
-            <div class="fa-regular fa-square-check icon m"></div>
+            <div class="fa-solid fa-circle-check icon m color-success"></div>
             <div>500k+ traces/month, 400-day retention</div>
           </div>
           <div class="feature-item paragraph s">
-            <div class="fa-regular fa-square-check icon m"></div>
+            <div class="fa-solid fa-circle-check icon m color-success"></div>
             <div>Unlimited agent executions</div>
           </div>
           <div class="feature-item paragraph s">
-            <div class="fa-regular fa-square-check icon m"></div>
+            <div class="fa-solid fa-circle-check icon m color-success"></div>
             <div>SSO, SOC 2, HIPAA, Private VPC</div>
           </div>
           <div class="feature-item paragraph s">
-            <div class="fa-regular fa-square-check icon m"></div>
+            <div class="fa-solid fa-circle-check icon m color-success"></div>
             <div>Dedicated Slack, 4-hour SLA</div>
           </div>
         </div>
@@ -794,9 +840,12 @@
   </div>
 
   <!-- Platform Comparison Table -->
-  <div class="text-centered full-width margin-top-xl">
-    <h3 class="no-top-margin">Platform Feature Comparison</h3>
-  </div>
+  <details class="accordion-item comparison-accordion margin-top-xl">
+    <summary class="accordion-toggle">
+      <h3 class="no-top-margin">Platform Feature Comparison</h3>
+      <span class="accordion-chevron fa-solid fa-chevron-down"></span>
+    </summary>
+    <div class="accordion-content">
   <table class="pricing-table">
     <thead>
       <tr class="pricing-table-row">
@@ -811,8 +860,8 @@
       </tr>
       <tr class="pricing-table-row">
         <td class="paragraph s">Hosted dashboard</td>
-        <td><div class="fa-regular fa-square-check icon m"></div></td>
-        <td><div class="fa-regular fa-square-check icon m"></div></td>
+        <td><div class="fa-solid fa-circle-check icon m color-success"></div></td>
+        <td><div class="fa-solid fa-circle-check icon m color-success"></div></td>
       </tr>
       <tr class="pricing-table-row">
         <td class="paragraph s">Managed agent deployments</td>
@@ -836,16 +885,16 @@
       </tr>
       <tr class="pricing-table-row">
         <td class="paragraph s">Private VPC / on-premise</td>
-        <td></td>
-        <td><div class="fa-regular fa-square-check icon m"></div></td>
+        <td><div class="fa-solid fa-circle-xmark icon m color-danger"></div></td>
+        <td><div class="fa-solid fa-circle-check icon m color-success"></div></td>
       </tr>
       <tr class="pricing-table-row">
         <td class="paragraph s bold" colspan="3" style="background: var(--color-bg-secondary);">Observability & Evaluation</td>
       </tr>
       <tr class="pricing-table-row">
         <td class="paragraph s">Cost & latency analytics</td>
-        <td><div class="fa-regular fa-square-check icon m"></div></td>
-        <td><div class="fa-regular fa-square-check icon m"></div></td>
+        <td><div class="fa-solid fa-circle-check icon m color-success"></div></td>
+        <td><div class="fa-solid fa-circle-check icon m color-success"></div></td>
       </tr>
       <tr class="pricing-table-row">
         <td class="paragraph s">LLM-as-judge evaluators</td>
@@ -854,13 +903,13 @@
       </tr>
       <tr class="pricing-table-row">
         <td class="paragraph s">A/B prompt testing</td>
-        <td><div class="fa-regular fa-square-check icon m"></div></td>
-        <td><div class="fa-regular fa-square-check icon m"></div></td>
+        <td><div class="fa-solid fa-circle-check icon m color-success"></div></td>
+        <td><div class="fa-solid fa-circle-check icon m color-success"></div></td>
       </tr>
       <tr class="pricing-table-row">
         <td class="paragraph s">Anomaly detection (ML)</td>
-        <td></td>
-        <td><div class="fa-regular fa-square-check icon m"></div></td>
+        <td><div class="fa-solid fa-circle-xmark icon m color-danger"></div></td>
+        <td><div class="fa-solid fa-circle-check icon m color-success"></div></td>
       </tr>
       <tr class="pricing-table-row">
         <td class="paragraph s bold" colspan="3" style="background: var(--color-bg-secondary);">Team & Security</td>
@@ -877,13 +926,13 @@
       </tr>
       <tr class="pricing-table-row">
         <td class="paragraph s">SSO / SAML & RBAC</td>
-        <td></td>
-        <td><div class="fa-regular fa-square-check icon m"></div></td>
+        <td><div class="fa-solid fa-circle-xmark icon m color-danger"></div></td>
+        <td><div class="fa-solid fa-circle-check icon m color-success"></div></td>
       </tr>
       <tr class="pricing-table-row">
         <td class="paragraph s">SOC 2 Type II & HIPAA</td>
-        <td></td>
-        <td><div class="fa-regular fa-square-check icon m"></div></td>
+        <td><div class="fa-solid fa-circle-xmark icon m color-danger"></div></td>
+        <td><div class="fa-solid fa-circle-check icon m color-success"></div></td>
       </tr>
       <tr class="pricing-table-row">
         <td class="paragraph s bold" colspan="3" style="background: var(--color-bg-secondary);">Support</td>
@@ -895,11 +944,13 @@
       </tr>
       <tr class="pricing-table-row">
         <td class="paragraph s">Dedicated Slack channel</td>
-        <td></td>
-        <td><div class="fa-regular fa-square-check icon m"></div></td>
+        <td><div class="fa-solid fa-circle-xmark icon m color-danger"></div></td>
+        <td><div class="fa-solid fa-circle-check icon m color-success"></div></td>
       </tr>
     </tbody>
   </table>
+    </div>
+  </details>
 </section>
 
 <section>

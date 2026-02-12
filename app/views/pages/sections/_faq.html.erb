@@ -1,0 +1,41 @@
+<section>
+  <div class="heading centered">
+    <h2 class="no-top-margin">FAQ</h2>
+    <p class="paragraph m secondary">
+      Common questions about Active Agent
+    </p>
+  </div>
+  <div class="accordion-container">
+    <%= render "pages/components/faq_item",
+      question: "How do I install Active Agent?",
+      answer: "Add <code>gem 'activeagent'</code> to your Gemfile and run <code>bundle install</code>. Then run <code>rails generate active_agent:install</code> to set up the initial configuration.".html_safe %>
+
+    <%= render "pages/components/faq_item",
+      question: "What gems are included in the free tier?",
+      answer: "The free tier includes the Active Agent gem, Action Prompt, and all Generation Provider modules (RubyLLM, OpenAI, Anthropic — both official and community gems). You also get Instrumentation, Error Handling, and Retries modules at no cost." %>
+
+    <%= render "pages/components/faq_item",
+      question: "Which Generation Providers are supported?",
+      answer: "Active Agent supports multiple providers through its Generation Providers module: RubyLLM, OpenAI (official and community gems), Anthropic (official and community gems), Ollama, and OpenRouter. Switch providers with one line of code." %>
+
+    <%= render "pages/components/faq_item",
+      question: "What are the Reasonable Reasons gems in Pro?",
+      answer: "The Reasonable Reasons gems are Pro-tier modules that include Observable Evaluations, Observable Compliance, Deterministically Generative, Generally Deterministic, Generative UI, and Generative Generators (with self-healing capabilities). These gems add advanced analytics and generative capabilities to your agents." %>
+
+    <%= render "pages/components/faq_item",
+      question: "What's the difference between Community and Pro?",
+      answer: "The Community (Dev) tier gives you full access to the open-source Active Agent gem, Action Prompt, all Generation Providers, and core modules (Instrumentation, Error Handling, Retries) — free forever. Pro ($99/mo or $995/yr) adds the Reasonable Reasons gems, HITL generative UI, parallel tasks & retries, agentic workflows with pausable multi-agent actions, async tasks with external triggers, hosted observability, and 48-hour email support SLA." %>
+
+    <%= render "pages/components/faq_item",
+      question: "What are agentic workflows?",
+      answer: "Agentic workflows in the Pro tier allow you to break complex tasks into many agents' actions, which can be paused between tasks. Combined with HITL generative UI and async tasks with external triggers (webhooks, human approval, timeouts), you can build sophisticated human-in-the-loop AI systems." %>
+
+    <%= render "pages/components/faq_item",
+      question: "Can I use Active Agent with existing Rails apps?",
+      answer: "Yes! Active Agent is designed to integrate seamlessly with existing Rails applications. It works alongside your existing models, controllers, and services." %>
+
+    <%= render "pages/components/faq_item",
+      question: "Can I self-host Active Agent?",
+      answer: "Absolutely! The core framework is MIT licensed and can be self-hosted without limits on any tier. The hosted services (observability, evaluation, collaboration) and Pro gems are what differentiate the paid tiers." %>
+  </div>
+</section>

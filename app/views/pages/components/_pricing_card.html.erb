@@ -1,0 +1,31 @@
+<%# locals: (name:, link:, license:, price:, price_suffix:, features:, tagline:, cta_text:, cta_link:, cta_style:, highlighted:) %>
+<div class="feature-card justified-vertically <%= 'highlighted' if highlighted %>">
+  <div>
+    <div class="feature-heading">
+      <p class="paragraph l bold no-top-margin">
+        <% if link.present? %>
+          <%= link_to name, link, target: "_blank" %>
+        <% else %>
+          <%= name %>
+        <% end %>
+      </p>
+      <p class="paragraph s secondary"><%= license %></p>
+      <div class="price-line">
+        <div class="paragraph l bold"><%= price %></div>
+        <% if price_suffix.present? %>
+          <div class="paragraph m secondary"><%= price_suffix %></div>
+        <% end %>
+      </div>
+    </div>
+    <div class="feature-list">
+      <% features.each do |feature| %>
+        <div class="feature-item paragraph s">
+          <div class="fa-solid fa-circle-check icon m color-success"></div>
+          <div><%= feature %></div>
+        </div>
+      <% end %>
+    </div>
+    <p class="paragraph xs secondary" style="margin-top: 1rem;"><%= tagline %></p>
+  </div>
+  <%= link_to cta_text, cta_link, class: "button #{cta_style} full-width margin-top-l" %>
+</div>

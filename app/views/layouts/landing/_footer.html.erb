@@ -1,0 +1,41 @@
+<footer class="footer">
+  <div class="footer-menu">
+    <div>
+      <p class="paragraph s">
+        &copy; <%= Time.current.year %> Active Agent<br />
+        The AI Framework for Ruby on Rails
+      </p>
+    </div>
+    <div>
+      <div class="link-list">
+        <%= link_to "Documentation", "https://docs.activeagents.ai", class: "ui s" %>
+        <%= link_to "Pricing", "#pricing", class: "ui s" %>
+        <%= link_to "GitHub", "https://github.com/activeagents/activeagent", class: "ui s", target: "_blank" %>
+      </div>
+    </div>
+    <div>
+      <div class="link-list">
+        <%= link_to "https://github.com/activeagents/activeagent", class: "icon-link ui s", target: "_blank" do %>
+          <div class="fa-brands fa-github icon m color-accent"></div>
+          <div class="pseudo-link">GitHub</div>
+        <% end %>
+        <%= link_to "https://discord.gg/activeagent", class: "icon-link ui s", target: "_blank" do %>
+          <div class="fa-brands fa-discord icon m color-accent"></div>
+          <div class="pseudo-link">Discord</div>
+        <% end %>
+        <%= link_to "https://x.com/activeagents", class: "icon-link ui s", target: "_blank" do %>
+          <div class="fa-brands fa-x-twitter icon m color-accent"></div>
+          <div class="pseudo-link">Twitter</div>
+        <% end %>
+        <%= link_to "https://bsky.app/profile/activeagent.dev", class: "icon-link ui s", target: "_blank" do %>
+          <div class="fa-brands fa-bluesky icon m color-accent"></div>
+          <div class="pseudo-link">Bluesky</div>
+        <% end %>
+      </div>
+    </div>
+  </div>
+  <div class="link-list-horizontal">
+    <%= link_to "Privacy Policy", "#", class: "ui s tertiary" %>
+    <%= link_to "Terms of Service", "#", class: "ui s tertiary" %>
+  </div>
+</footer>
