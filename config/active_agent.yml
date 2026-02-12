@@ -1,0 +1,30 @@
+development:
+  mock:
+    service: "Mock"
+    model: "mock-model"
+  openai:
+    service: "OpenAI"
+    api_key: <%= Rails.application.credentials.dig(:openai, :api_key) %>
+    model: "gpt-4o-mini"
+  anthropic:
+    service: "Anthropic"
+    api_key: <%= Rails.application.credentials.dig(:anthropic, :api_key) %>
+    model: "claude-sonnet-4-5-20250929"
+
+test:
+  mock:
+    service: "Mock"
+    model: "mock-model"
+
+production:
+  mock:
+    service: "Mock"
+    model: "mock-model"
+  openai:
+    service: "OpenAI"
+    api_key: <%= Rails.application.credentials.dig(:openai, :api_key) %>
+    model: "gpt-4o-mini"
+  anthropic:
+    service: "Anthropic"
+    api_key: <%= Rails.application.credentials.dig(:anthropic, :api_key) %>
+    model: "claude-sonnet-4-5-20250929"

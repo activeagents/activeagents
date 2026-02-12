@@ -13,6 +13,13 @@ Rails.application.routes.draw do
   root to: "pages#home"
   get "pricing", to: "pages#pricing"
 
+  # Agent Playground
+  get "playground", to: "playground#index"
+  post "playground/execute", to: "playground#execute"
+  post "playground/reset", to: "playground#reset"
+  get "playground/context", to: "playground#context"
+  post "playground/settings", to: "playground#update_settings"
+
   # App dashboard (Inertia)
   get "dashboard", to: "dashboard#index"
 end
