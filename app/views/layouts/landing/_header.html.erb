@@ -1,7 +1,9 @@
 <header class="nav-container" data-controller="theme-toggle">
   <%= link_to "/", class: "nav-brand", style: "display: flex; align-items: center; gap: 8px;" do %>
-    <img src="/images/activeagent-logo.svg" alt="Active Agent" class="logo-light" style="height: 32px; width: 32px;" />
-    <img src="/images/activeagent-logo-dark.svg" alt="Active Agent" class="logo-dark" style="height: 32px; width: 32px;" />
+    <div class="logo-container" style="height: 32px; width: 32px;">
+      <img src="/images/activeagent-logo.svg" alt="Active Agent" class="logo-light" style="height: 32px; width: 32px;" />
+      <img src="/images/activeagent-logo-dark.svg" alt="Active Agent" class="logo-dark" style="height: 32px; width: 32px;" />
+    </div>
     <span style="font-size: 1.25rem; font-weight: 600;">Active Agent</span>
   <% end %>
   <nav role="navigation" class="nav-menu" data-navigation>
