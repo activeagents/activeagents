@@ -23,14 +23,20 @@
 }
 
 :root {
-  /** There features 
-  These are values that determine the overall look of the theme.
-  - Saturation controls how much of accent color will be mixed into text, background, and surface colors.
-  - Contrast controls how contrast the text colors will be.
+  /** Theme Controls
+  These values determine the overall look of the theme.
+  - Hue: The base color angle in OKLCH (25 = Active Agent red)
+  - Saturation: How much accent color bleeds into text/backgrounds (0 = grayscale, 1 = fully tinted)
+  - Contrast: Text/background contrast level (0 = low, 1 = high/black-white)
   */
-  --theme-hue: 358; /* Active Agent red/coral */
-  --theme-saturation: 0.15; /* 0...1 where 0 means grayscale colors; 1 means fully saturated colors */
-  --theme-contrast: 0.85; /* 0...1 where 0 means low contrast; 1 means high contrast, black-n-white in fact */
+  --theme-hue: 23.84; /* Active Agent red in OKLCH (not HSL!) */
+  --theme-saturation: 0.15; /* 0...1 */
+  --theme-contrast: 0.85; /* 0...1 */
+
+  /* Base accent color - all other colors derive from this */
+  --theme-accent-lightness: 0.6507;
+  --theme-accent-chroma: 0.1858
+  ;
 
   /* Fonts */
   --font-text: "Inter Variable", Arial, sans-serif;
@@ -80,34 +86,29 @@
   --radius-m: 12px;
   --radius-l: 16px;
 
-  /* Colors */
+  /* Fallback colors (used if theme class not applied) */
   --color-background: white;
   --color-surface: #99a3ae14;
   --color-text-primary: #363e48;
   --color-text-secondary: #757a7f;
   --color-text-tertiary: #a7acb2;
-  --color-accent: #FA343B;
-  --color-accent-hover: #e02d33;
-  --color-accent-b: #FA343B29;
-  --color-accent-b-hover: #FA343B33;
+  --color-accent: oklch(var(--theme-accent-lightness) var(--theme-accent-chroma) var(--theme-hue));
+  --color-accent-hover: oklch(calc(var(--theme-accent-lightness) - 0.05) var(--theme-accent-chroma) var(--theme-hue));
+  --color-accent-b: oklch(var(--theme-accent-lightness) var(--theme-accent-chroma) var(--theme-hue) / 0.16);
+  --color-accent-b-hover: oklch(calc(var(--theme-accent-lightness) - 0.1) var(--theme-accent-chroma) var(--theme-hue) / 0.2);
   --color-on-accent: white;
   --color-border-level-2: #99a3ae29;
   --color-border-level-3: #99a3ae52;
   --color-background-blur: #ffffffe6;
-  --color-gradient-bg-start: #FA343B14;
-  --color-gradient-bg-end: #FA343B00;
-  --color-gradient-promo-start: #FA343B;
-  --color-gradient-promo-end: #c41e24;
+  --color-gradient-bg-start: oklch(var(--theme-accent-lightness) var(--theme-accent-chroma) var(--theme-hue) / 0.08);
+  --color-gradient-bg-end: oklch(var(--theme-accent-lightness) var(--theme-accent-chroma) var(--theme-hue) / 0);
+  --color-gradient-promo-start: oklch(var(--theme-accent-lightness) var(--theme-accent-chroma) var(--theme-hue));
+  --color-gradient-promo-end: oklch(calc(var(--theme-accent-lightness) - 0.15) var(--theme-accent-chroma) var(--theme-hue));
 }
 
 .theme-light {
-  /** Base color
-  By default it's blue ≈ #0289ff
-  Usually it's your brand color. Simply provide your value and the whole theme will be recalculated automatically.
-  Default value is in OKLCH because it produces richer P3 colors, however you can use any color format.
-  */
-  /* --color-accent: #00bc81; */
-  --color-accent: rgb(250, 52, 59);
+  /* Accent color in OKLCH - derived from theme variables */
+  --color-accent: oklch(var(--theme-accent-lightness) var(--theme-accent-chroma) var(--theme-hue));
 
   /* Relative colors 
   These colors are calculated based on the accent color and saturation/contrast values.
@@ -150,13 +151,8 @@
 .theme-dark {
   color-scheme: dark;
 
-  /** Base color
-  By default it's blue ≈ #0289ff
-  Usually it's your brand color. Simply provide your value and the whole theme will be recalculated automatically.
-  Default value is in OKLCH because it produces richer P3 colors, however you can use any color format. 
-   */
-  /* --colors-accent: #00bc81; */
-  --color-accent: oklch(0.53 0.22 var(--theme-hue));
+  /* Accent color in OKLCH - same as light mode for consistency */
+  --color-accent: oklch(var(--theme-accent-lightness) var(--theme-accent-chroma) var(--theme-hue));
 
   /* Relative colors 
   These colors are calculated based on the accent color and saturation/contrast values.
@@ -2916,24 +2912,47 @@ section:not(:last-child)::after {
   opacity: 1;
 }
 
-/* === THEME-BASED LOGO SWITCHING === */
+/* === THEME-BASED LOGO WITH LENS TRANSITION === */
 
-.logo-dark {
-  display: none;
+/* Container for logos */
+.logo-container {
+  display: inline-grid;
+  place-items: center;
 }
 
-.logo-light {
-  display: inline-block;
+.logo-container > * {
+  grid-area: 1 / 1;
 }
 
-html.theme-dark .logo-dark,
-:root.theme-dark .logo-dark {
-  display: inline-block;
+/* Image-based logo switching (for header - no transition, just swap) */
+.logo-container img.logo-dark {
+  opacity: 0;
 }
 
-html.theme-dark .logo-light,
-:root.theme-dark .logo-light {
-  display: none;
+.logo-container img.logo-light {
+  opacity: 1;
+}
+
+html.theme-dark .logo-container img.logo-dark,
+:root.theme-dark .logo-container img.logo-dark {
+  opacity: 1;
+}
+
+html.theme-dark .logo-container img.logo-light,
+:root.theme-dark .logo-container img.logo-light {
+  opacity: 0;
+}
+
+/* SVG lens elements - only these transition */
+.logo-container .lens-fill {
+  transition: fill-opacity 0.6s ease-in-out;
+  fill-opacity: 0.92; /* Dark sunglasses in light mode */
+}
+
+/* Dark mode: lighter/clear lenses */
+html.theme-dark .logo-container .lens-fill,
+:root.theme-dark .logo-container .lens-fill {
+  fill-opacity: 0.35;
 }
 
 /* === THEME TOGGLE ICON === */
