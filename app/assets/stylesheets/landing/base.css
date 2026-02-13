@@ -1151,6 +1151,10 @@ section {
   color: var(--color-accent);
 }
 
+.span-icon.thinking {
+  font-size: 12px;
+}
+
 .span-name {
   font-size: 11px;
   color: #aaa;
@@ -1196,6 +1200,11 @@ section {
   opacity: 0.8;
 }
 
+.span-bar.thinking {
+  background: linear-gradient(90deg, rgba(251, 191, 36, 0.4) 0%, rgba(245, 158, 11, 0.2) 100%);
+  border: 1px dashed rgba(251, 191, 36, 0.5);
+}
+
 .span-bar.response {
   background-color: rgba(40, 202, 66, 0.4);
 }
@@ -1209,12 +1218,47 @@ section {
   font-size: 10px;
 }
 
+.token-thinking {
+  color: #fbbf24;
+}
+
 .token-in {
   color: #569cd6;
 }
 
 .token-out {
   color: #4ec9b0;
+}
+
+/* Reasoning Popover */
+
+.reasoning-popover {
+  min-width: 260px;
+}
+
+.reasoning-popover .popover-title {
+  color: #fbbf24;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.reasoning-popover .popover-title i {
+  font-size: 10px;
+}
+
+.reasoning-preview {
+  font-size: 10px;
+  color: #888;
+  font-style: italic;
+  line-height: 1.5;
+  padding: 8px 0;
+  border-bottom: 1px solid #333;
+  margin-bottom: 6px;
+}
+
+.reasoning-row:hover .span-name {
+  color: #fbbf24;
 }
 
 /* === METRICS DASHBOARD === */

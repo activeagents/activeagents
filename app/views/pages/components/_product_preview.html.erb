@@ -57,19 +57,37 @@
               <div class="span-bar generate" style="left: 10%; width: 80%;"></div>
             </div>
           </div>
-          <div class="span-row nested-2 hoverable" data-tooltip="OpenAI API Call&#10;Model: gpt-4o&#10;Duration: 892ms&#10;Tokens: 1,247">
+          <div class="span-row nested-2 hoverable" data-tooltip="Claude API Call&#10;Model: claude-sonnet-4&#10;Duration: 892ms">
             <div class="span-label">
               <span class="span-icon llm">◆</span>
-              <span class="span-name">openai.chat.completions</span>
+              <span class="span-name">anthropic.messages</span>
             </div>
             <div class="span-bar-container">
               <div class="span-bar llm" style="left: 12%; width: 72%;">
                 <div class="span-popover">
-                  <div class="popover-title">openai.chat.completions</div>
-                  <div class="popover-row"><span>Model</span><span>gpt-4o</span></div>
+                  <div class="popover-title">anthropic.messages</div>
+                  <div class="popover-row"><span>Model</span><span>claude-sonnet-4</span></div>
                   <div class="popover-row"><span>Duration</span><span>892ms</span></div>
-                  <div class="popover-row"><span>Tokens</span><span>1,247</span></div>
-                  <div class="popover-row"><span>Cost</span><span>$0.0031</span></div>
+                  <div class="popover-row"><span>Tokens</span><span>2,847</span></div>
+                  <div class="popover-row"><span>Cost</span><span>$0.0089</span></div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="span-row nested-3 hoverable reasoning-row">
+            <div class="span-label">
+              <span class="span-icon thinking">💭</span>
+              <span class="span-name">extended_thinking</span>
+            </div>
+            <div class="span-bar-container">
+              <div class="span-bar thinking" style="left: 12%; width: 45%;">
+                <div class="span-popover reasoning-popover">
+                  <div class="popover-title"><i class="fa-solid fa-brain"></i> Reasoning Trace</div>
+                  <div class="reasoning-preview">
+                    "The user wants Spanish translation. I should use natural, conversational Spanish rather than formal. 'Hello world' is a greeting..."
+                  </div>
+                  <div class="popover-row"><span>Thinking tokens</span><span>1,600</span></div>
+                  <div class="popover-row"><span>Time</span><span>412ms</span></div>
                 </div>
               </div>
             </div>
@@ -77,12 +95,13 @@
           <div class="span-row nested-3">
             <div class="span-label">
               <span class="span-icon">↳</span>
-              <span class="span-name tokens">1,247 tokens</span>
+              <span class="span-name tokens">2,847 tokens</span>
             </div>
             <div class="span-bar-container">
               <div class="token-breakdown">
-                <span class="token-in">in: 892</span>
-                <span class="token-out">out: 355</span>
+                <span class="token-thinking">🧠 1,600</span>
+                <span class="token-in">↓ 892</span>
+                <span class="token-out">↑ 355</span>
               </div>
             </div>
           </div>
