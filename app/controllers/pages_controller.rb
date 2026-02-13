@@ -14,7 +14,7 @@ class PagesController < ApplicationController
   private
 
   def load_sections(*names)
-    names = [:hero, :features, :pricing, :services, :platform, :faq] if names.empty?
+    names = [ :hero, :features, :pricing, :services, :platform, :faq ] if names.empty?
     names.each_with_object({}) do |name, hash|
       path = Rails.root.join("app", "content", "landing", "#{name}.md")
       hash[name] = render_markdown(path.read) if path.exist?
