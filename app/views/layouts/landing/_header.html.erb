@@ -1,4 +1,4 @@
-<header class="nav-container" data-controller="theme-toggle">
+<header class="nav-container" data-controller="theme-toggle mobile-menu">
   <%= link_to "/", class: "nav-brand", style: "display: flex; align-items: center; gap: 8px;" do %>
     <div class="logo-container" style="height: 32px; width: 32px;">
       <img src="/images/activeagent-logo.svg" alt="Active Agent" class="logo-light" style="height: 32px; width: 32px;" />
@@ -6,11 +6,11 @@
     </div>
     <span style="font-size: 1.25rem; font-weight: 600;">Active Agent</span>
   <% end %>
-  <nav role="navigation" class="nav-menu" data-navigation>
-    <%= link_to "Docs", "https://docs.activeagents.ai", class: "nav-link" %>
-    <%= link_to "Gems", "#pricing", class: "nav-link" %>
-    <%= link_to "Services", "#services", class: "nav-link" %>
-    <%= link_to "Hosting", "#hosting", class: "nav-link" %>
+  <nav role="navigation" class="nav-menu" data-mobile-menu-target="menu">
+    <%= link_to "Docs", "https://docs.activeagents.ai", class: "nav-link", data: { action: "click->mobile-menu#close" } %>
+    <%= link_to "Gems", "#gems", class: "nav-link", data: { action: "click->mobile-menu#close" } %>
+    <%= link_to "Services", "#services", class: "nav-link", data: { action: "click->mobile-menu#close" } %>
+    <%= link_to "Hosting", "#hosting", class: "nav-link", data: { action: "click->mobile-menu#close" } %>
     <div class="button-group stacked margin-top-l mobile-only">
       <%= link_to "Sign In", "https://activeagents.ai/dashboard", class: "button tertiary" %>
       <%= link_to "Getting Started", "https://docs.activeagents.ai/getting-started", class: "button primary" %>
@@ -29,7 +29,7 @@
     </button>
     <%= link_to "Sign In", "https://activeagents.ai/dashboard", class: "button tertiary compact hide-on-mobile" %>
     <%= link_to "Getting Started", "https://docs.activeagents.ai/getting-started", class: "button primary compact" %>
-    <button class="button ghost compact nav-hamburger" data-mobile-toggle aria-label="Show menu">
+    <button class="button ghost compact nav-hamburger" data-action="mobile-menu#toggle" aria-label="Show menu">
       <span class="fa-solid fa-bars icon m"></span>
     </button>
   </div>

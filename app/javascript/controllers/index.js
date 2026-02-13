@@ -12,3 +12,6 @@ application.register("scroll-animate", ScrollAnimateController)
 
 import ThemeToggleController from "./theme_toggle_controller"
 application.register("theme-toggle", ThemeToggleController)
+
+import MobileMenuController from "./mobile_menu_controller"
+application.register("mobile-menu", MobileMenuController)
