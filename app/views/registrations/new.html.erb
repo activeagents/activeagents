@@ -1,0 +1,40 @@
+<section id="signup">
+  <div class="text-centered full-width">
+    <h2>Create Your Account</h2>
+    <p class="paragraph m secondary">
+      Already have an account? <%= link_to "Sign in", new_session_path %>
+    </p>
+  </div>
+
+  <div class="feature-card margin-top-xl" style="max-width: 480px; margin-left: auto; margin-right: auto;">
+    <% if flash[:alert] %>
+      <p class="paragraph s" style="color: var(--color-danger);"><%= flash[:alert] %></p>
+    <% end %>
+
+    <%= form_with url: registration_path, method: :post do |f| %>
+      <div style="display: flex; flex-direction: column; gap: 16px;">
+        <div>
+          <label class="paragraph s bold" for="name">Name</label>
+          <input type="text" name="name" id="name" required
+                 style="width: 100%; padding: 10px 14px; border: 1px solid var(--color-border-level-3); border-radius: 8px; font-size: 16px; font-family: inherit; background: var(--color-background);" />
+        </div>
+        <div>
+          <label class="paragraph s bold" for="email">Email</label>
+          <input type="email" name="email" id="email" required
+                 style="width: 100%; padding: 10px 14px; border: 1px solid var(--color-border-level-3); border-radius: 8px; font-size: 16px; font-family: inherit; background: var(--color-background);" />
+        </div>
+        <div>
+          <label class="paragraph s bold" for="password">Password</label>
+          <input type="password" name="password" id="password" required
+                 style="width: 100%; padding: 10px 14px; border: 1px solid var(--color-border-level-3); border-radius: 8px; font-size: 16px; font-family: inherit; background: var(--color-background);" />
+        </div>
+        <div>
+          <label class="paragraph s bold" for="password_confirmation">Confirm Password</label>
+          <input type="password" name="password_confirmation" id="password_confirmation" required
+                 style="width: 100%; padding: 10px 14px; border: 1px solid var(--color-border-level-3); border-radius: 8px; font-size: 16px; font-family: inherit; background: var(--color-background);" />
+        </div>
+        <button type="submit" class="button primary full-width margin-top-l">Create Account</button>
+      </div>
+    <% end %>
+  </div>
+</section>

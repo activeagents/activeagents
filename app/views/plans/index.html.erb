@@ -1,0 +1,71 @@
+<section id="plans">
+  <div class="text-centered full-width">
+    <h2>Choose Your Plan</h2>
+    <p class="paragraph m secondary">Give your Rails app an agent. MIT core, commercial extensions.</p>
+  </div>
+
+  <div class="grid columns-3 margin-top-xl">
+    <% @plans.each do |plan| %>
+      <% if plan.free? %>
+        <%= render "pages/components/pricing_card",
+          name: plan.name,
+          link: "https://activeagent.dev",
+          license: "MIT License",
+          price: "Free",
+          price_suffix: nil,
+          features: [
+            "Active Agent Web UI Dashboard",
+            "Action Prompt for composable prompt contexts",
+            "Solid Agent for context management and persistence",
+            "Streaming",
+            "Structured outputs",
+            "Error handling and retries",
+            "Community support on GitHub & Discord"
+          ],
+          tagline: "Ship your first agent today",
+          cta_text: "Get Started",
+          cta_link: "https://github.com/activeagents/activeagent",
+          cta_style: "tertiary",
+          highlighted: false %>
+      <% elsif plan.slug == "pro" %>
+        <%= render "pages/components/pricing_card",
+          name: plan.name,
+          link: "https://activeagent.pro",
+          license: "Commercial License",
+          price: "$#{plan.price_cents / 100}",
+          price_suffix: "/mo or $#{plan.annual_price_cents / 100}/yr",
+          features: [
+            "Generational Versioned agents, prompts, and contexts",
+            "Multi-agent workflows that can be paused, fault-tolerant, & resume",
+            "Reasonable Reasons for fragment cached context references",
+            "Generative UI & Human-in-the-loop keep the Agents on the Rails",
+            "Dedicated email support"
+          ],
+          tagline: "Production-ready agents",
+          cta_text: plan.trial_days > 0 ? "Start #{plan.trial_days}-Day Free Trial" : "Subscribe to Pro",
+          cta_link: user_signed_in? ? checkout_subscriptions_path(plan: plan.slug, interval: "monthly") : new_registration_path,
+          cta_style: "primary",
+          highlighted: true %>
+      <% elsif plan.slug == "enterprise" %>
+        <%= render "pages/components/pricing_card",
+          name: plan.name,
+          link: nil,
+          license: "Commercial License",
+          price: "$#{plan.price_cents / 100}+",
+          price_suffix: "/mo per 100 agents",
+          features: [
+            "Enterprise gem available for entire organization",
+            "Generative Workflow Generators",
+            "Deterministic Generative Tasks",
+            "Multi-app & embedded licensing",
+            "Dedicated support channel"
+          ],
+          tagline: "Agents at scale",
+          cta_text: "Contact Sales",
+          cta_link: "mailto:sales@activeagents.ai",
+          cta_style: "tertiary",
+          highlighted: false %>
+      <% end %>
+    <% end %>
+  </div>
+</section>

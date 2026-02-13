@@ -1,6 +1,7 @@
 class SessionsController < ApplicationController
+  layout "landing"
+
   def new
-    render inertia: "Auth/SignIn"
   end
 
   def create

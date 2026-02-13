@@ -1,0 +1,111 @@
+<section id="billing">
+  <div class="text-centered full-width">
+    <h2>Subscription & Billing</h2>
+    <p class="paragraph m secondary">Manage your plan and billing for <%= current_account.name %></p>
+  </div>
+
+  <!-- Current Plan -->
+  <div class="feature-card margin-top-xl" style="max-width: 640px; margin-left: auto; margin-right: auto;">
+    <div class="feature-heading">
+      <p class="paragraph l bold no-top-margin">Current Plan</p>
+      <div class="price-line">
+        <div class="paragraph l bold"><%= @current_plan&.name || "No Plan" %></div>
+      </div>
+      <% if @current_plan&.free? %>
+        <p class="paragraph s secondary">Free forever — community tier</p>
+      <% elsif @current_plan %>
+        <p class="paragraph s secondary">
+          $<%= @current_plan.price_cents / 100 %>/mo<%= @current_plan.slug == "enterprise" ? " per 100 agents" : "" %>
+          <%= " or $#{@current_plan.annual_price_cents / 100}/year" if @current_plan.annual_price_cents > 0 %>
+        </p>
+      <% end %>
+    </div>
+
+    <% if @subscription %>
+      <div style="border-top: 1px solid var(--color-border-level-2); padding-top: 16px; margin-top: 8px;">
+        <p class="paragraph s">
+          Status:
+          <% if @subscription.on_trial? %>
+            <strong style="color: var(--color-accent);">Trial</strong>
+          <% elsif @subscription.active? %>
+            <strong style="color: var(--color-success);">Active</strong>
+          <% elsif @subscription.canceled? %>
+            <strong style="color: var(--color-danger);">Canceled</strong>
+          <% else %>
+            <strong><%= @subscription.status %></strong>
+          <% end %>
+        </p>
+        <% if @subscription.on_trial? && @subscription.trial_ends_at %>
+          <p class="paragraph s secondary">Trial ends: <%= @subscription.trial_ends_at.strftime("%B %d, %Y") %></p>
+        <% end %>
+        <% if @subscription.current_period_end %>
+          <p class="paragraph s secondary">Current period ends: <%= @subscription.current_period_end.strftime("%B %d, %Y") %></p>
+        <% end %>
+        <% if @subscription.canceled? && @subscription.on_grace_period? %>
+          <p class="paragraph s" style="color: var(--color-danger);">Your subscription has been canceled but you have access until the end of the billing period.</p>
+        <% end %>
+      </div>
+
+      <div class="button-group margin-top-l">
+        <% if @subscription.active? %>
+          <%= button_to "Manage Billing", billing_portal_subscriptions_path, method: :post, class: "button tertiary" %>
+        <% end %>
+        <% if @subscription.canceled? && @subscription.on_grace_period? %>
+          <%= button_to "Resume Subscription", resume_subscriptions_path, method: :post, class: "button primary" %>
+        <% end %>
+      </div>
+    <% end %>
+  </div>
+
+  <!-- Available Plans -->
+  <% unless @subscription&.active? %>
+    <div class="text-centered full-width margin-top-xl">
+      <h3>Available Plans</h3>
+    </div>
+
+    <div class="grid columns-3 margin-top-xl">
+      <% @plans.each do |plan| %>
+        <% next if plan.free? %>
+        <% if plan.slug == "pro" %>
+          <%= render "pages/components/pricing_card",
+            name: plan.name,
+            link: "https://activeagent.pro",
+            license: "Commercial License",
+            price: "$#{plan.price_cents / 100}",
+            price_suffix: "/mo or $#{plan.annual_price_cents / 100}/yr",
+            features: [
+              "#{plan.included_seats} team seats, #{plan.included_workspaces} workspace",
+              "25,000 traces/month (14-day retention)",
+              "10,000 agent executions/month",
+              "Analytics, A/B testing & 5 prebuilt evaluators",
+              "48-hour email support"
+            ],
+            tagline: plan.trial_days > 0 ? "#{plan.trial_days}-day free trial included" : "Production-ready agents",
+            cta_text: plan.trial_days > 0 ? "Start Free Trial" : "Subscribe",
+            cta_link: checkout_subscriptions_path(plan: plan.slug, interval: "monthly"),
+            cta_style: "primary",
+            highlighted: true %>
+        <% elsif plan.slug == "enterprise" %>
+          <%= render "pages/components/pricing_card",
+            name: plan.name,
+            link: nil,
+            license: "Commercial License",
+            price: "$#{plan.price_cents / 100}+",
+            price_suffix: "/mo per 100 agents",
+            features: [
+              "Unlimited seats & workspaces",
+              "500k+ traces/month, 400-day retention",
+              "Unlimited agent executions",
+              "SSO, SOC 2, HIPAA, Private VPC",
+              "Dedicated Slack, 4-hour SLA"
+            ],
+            tagline: "Agents at scale",
+            cta_text: "Contact Sales",
+            cta_link: "mailto:sales@activeagents.ai",
+            cta_style: "tertiary",
+            highlighted: false %>
+        <% end %>
+      <% end %>
+    </div>
+  <% end %>
+</section>
