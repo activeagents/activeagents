@@ -1469,7 +1469,7 @@ section {
   font-family: var(--font-mono);
 }
 
-/* === SESSION LOGS === */
+/* === FRAGMENT CACHE === */
 
 .preview-sessions {
   font-family: var(--font-mono);
@@ -1504,6 +1504,209 @@ section {
   font-size: 10px;
   color: #555;
 }
+
+/* Fragment-based view */
+
+.session-fragments {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.fragment {
+  background-color: #141414;
+  border-radius: var(--radius-s);
+  border: 1px solid #252525;
+  overflow: hidden;
+  transition: all 0.2s ease;
+}
+
+.fragment.hoverable:hover {
+  border-color: #333;
+  background-color: #1a1a1a;
+}
+
+.fragment-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  background-color: #1a1a1a;
+  border-bottom: 1px solid #252525;
+}
+
+.fragment-badge {
+  font-size: 8px;
+  font-weight: 600;
+  padding: 2px 5px;
+  border-radius: 3px;
+  background-color: rgba(86, 156, 214, 0.15);
+  color: #569cd6;
+  letter-spacing: 0.5px;
+}
+
+.fragment-badge.tool {
+  background-color: rgba(167, 139, 250, 0.15);
+  color: #a78bfa;
+}
+
+.fragment-hash {
+  font-size: 10px;
+  color: #555;
+}
+
+.fragment-cache {
+  margin-left: auto;
+  font-size: 9px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.fragment-cache.hit {
+  color: #28ca42;
+}
+
+.fragment-cache.hit i {
+  font-size: 8px;
+}
+
+.fragment-cache.miss {
+  color: #666;
+}
+
+.fragment-cache.miss i {
+  font-size: 6px;
+}
+
+.fragment-deterministic {
+  margin-left: auto;
+  font-size: 9px;
+  color: #a78bfa;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.fragment-deterministic i {
+  font-size: 8px;
+}
+
+.fragment-messages {
+  padding: 10px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.msg {
+  display: flex;
+  gap: 8px;
+  align-items: flex-start;
+}
+
+.msg-role {
+  font-size: 9px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+  padding: 2px 5px;
+  border-radius: 3px;
+  min-width: 52px;
+  text-align: center;
+}
+
+.msg-user .msg-role {
+  background-color: rgba(86, 156, 214, 0.15);
+  color: #569cd6;
+}
+
+.msg-assistant .msg-role {
+  background-color: rgba(250, 52, 59, 0.15);
+  color: var(--color-accent);
+}
+
+.msg-tool .msg-role {
+  background-color: rgba(167, 139, 250, 0.15);
+  color: #a78bfa;
+}
+
+.msg-system .msg-role {
+  background-color: rgba(100, 100, 100, 0.15);
+  color: #888;
+}
+
+.msg-content {
+  font-size: 11px;
+  color: #aaa;
+  line-height: 1.4;
+  flex: 1;
+}
+
+.msg-content.truncate {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 280px;
+}
+
+.msg-tool-call {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.msg-tool-call .tool-name {
+  font-size: 11px;
+  color: #a78bfa;
+  font-weight: 500;
+}
+
+.msg-tool-call .tool-args {
+  font-size: 10px;
+  color: #666;
+}
+
+.msg-tool .tool-result {
+  font-size: 10px;
+  color: #4ec9b0;
+  font-family: var(--font-mono);
+}
+
+.msg-citation {
+  font-size: 9px;
+  color: #569cd6;
+  margin-left: 4px;
+  opacity: 0.8;
+}
+
+.msg-citation i {
+  font-size: 7px;
+  margin-right: 2px;
+}
+
+.fragment-meta {
+  display: flex;
+  gap: 12px;
+  padding: 8px 12px;
+  border-top: 1px solid #252525;
+  background-color: #0f0f0f;
+}
+
+.fragment-meta .meta-item {
+  font-size: 9px;
+  color: #555;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.fragment-meta .meta-item i {
+  font-size: 8px;
+  color: #444;
+}
+
+/* Legacy trace styles for backwards compat */
 
 .session-traces {
   display: flex;

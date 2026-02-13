@@ -223,65 +223,66 @@
         <div class="session-header hoverable">
           <span class="session-badge">SESSION</span>
           <span class="session-id">user_8f2a_chat</span>
-          <span class="session-count">4 traces</span>
+          <span class="session-count">3 fragments</span>
         </div>
-        <div class="session-traces">
-          <div class="session-trace hoverable">
-            <div class="trace-connector"></div>
-            <div class="trace-content">
-              <div class="trace-row">
-                <span class="trace-time">14:23:01</span>
-                <span class="trace-agent">SupportAgent</span>
-                <span class="trace-action">#respond</span>
-                <span class="trace-duration">892ms</span>
-                <span class="trace-status success">✓</span>
-              </div>
-              <div class="trace-preview">
-                <span class="preview-label">User:</span>
-                <span class="preview-text">"How do I reset my password?"</span>
-              </div>
-              <div class="trace-expand-hint">Click to expand</div>
+        <div class="session-fragments">
+          <div class="fragment hoverable">
+            <div class="fragment-header">
+              <span class="fragment-badge">FRAGMENT</span>
+              <span class="fragment-hash">frag_a8c2</span>
+              <span class="fragment-cache hit"><i class="fa-solid fa-bolt"></i> cache hit</span>
             </div>
-          </div>
-          <div class="session-trace hoverable expanded">
-            <div class="trace-connector"></div>
-            <div class="trace-content">
-              <div class="trace-row">
-                <span class="trace-time">14:23:02</span>
-                <span class="trace-agent">SupportAgent</span>
-                <span class="trace-action">#tool_call</span>
-                <span class="trace-duration">234ms</span>
-                <span class="trace-status success">✓</span>
+            <div class="fragment-messages">
+              <div class="msg msg-user">
+                <span class="msg-role">user</span>
+                <span class="msg-content">"How do I reset my password?"</span>
               </div>
-              <div class="trace-preview">
-                <span class="preview-label">Tool:</span>
-                <span class="preview-text">lookup_user(email: "user@...")</span>
-              </div>
-              <div class="trace-details">
-                <div class="details-json">
-{
-  <span class="json-key">"tool"</span>: <span class="json-string">"lookup_user"</span>,
-  <span class="json-key">"args"</span>: { <span class="json-key">"email"</span>: <span class="json-string">"user@example.com"</span> },
-  <span class="json-key">"result"</span>: { <span class="json-key">"found"</span>: <span class="json-bool">true</span>, <span class="json-key">"id"</span>: <span class="json-number">1847</span> }
-}</div>
+              <div class="msg msg-assistant">
+                <span class="msg-role">assistant</span>
+                <span class="msg-content truncate">"I can help with that. Let me look up..."</span>
               </div>
             </div>
           </div>
-          <div class="session-trace hoverable">
-            <div class="trace-connector"></div>
-            <div class="trace-content">
-              <div class="trace-row">
-                <span class="trace-time">14:23:03</span>
-                <span class="trace-agent">SupportAgent</span>
-                <span class="trace-action">#respond</span>
-                <span class="trace-duration">1.1s</span>
-                <span class="trace-status success">✓</span>
+          <div class="fragment hoverable expanded">
+            <div class="fragment-header">
+              <span class="fragment-badge tool">TOOL FRAGMENT</span>
+              <span class="fragment-hash">frag_b3d1</span>
+              <span class="fragment-deterministic"><i class="fa-solid fa-lock"></i> deterministic</span>
+            </div>
+            <div class="fragment-messages">
+              <div class="msg msg-assistant">
+                <span class="msg-role">assistant</span>
+                <span class="msg-tool-call">
+                  <span class="tool-name">lookup_user</span>
+                  <span class="tool-args">{ email: "user@..." }</span>
+                </span>
               </div>
-              <div class="trace-preview">
-                <span class="preview-label">Response:</span>
-                <span class="preview-text">"I found your account. I'll send a reset link..."</span>
+              <div class="msg msg-tool">
+                <span class="msg-role">tool</span>
+                <span class="msg-content">
+                  <span class="tool-result">{ found: true, user_id: 1847 }</span>
+                </span>
               </div>
-              <div class="trace-expand-hint">Click to expand</div>
+            </div>
+            <div class="fragment-meta">
+              <span class="meta-item"><i class="fa-solid fa-fingerprint"></i> hash: 7f2e8a</span>
+              <span class="meta-item"><i class="fa-solid fa-clock"></i> 234ms</span>
+            </div>
+          </div>
+          <div class="fragment hoverable">
+            <div class="fragment-header">
+              <span class="fragment-badge">FRAGMENT</span>
+              <span class="fragment-hash">frag_c9e4</span>
+              <span class="fragment-cache miss"><i class="fa-solid fa-circle"></i> generated</span>
+            </div>
+            <div class="fragment-messages">
+              <div class="msg msg-assistant">
+                <span class="msg-role">assistant</span>
+                <span class="msg-content">
+                  "I found your account. I've sent a password reset link to your email."
+                  <span class="msg-citation">[<i class="fa-solid fa-quote-left"></i> user.email]</span>
+                </span>
+              </div>
             </div>
           </div>
         </div>
