@@ -656,10 +656,29 @@ section {
   padding: var(--space-card-m);
   background-color: var(--color-surface);
   border-radius: var(--radius-l);
+  border: 1px solid rgba(250, 52, 59, 0.2);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.06);
   display: flex;
   gap: 16px;
   flex-direction: column;
   align-items: flex-start;
+}
+
+.feature-card:hover {
+  border-color: rgba(250, 52, 59, 0.4);
+}
+
+.feature-card.highlighted {
+  border: 2px solid var(--color-accent);
+  box-shadow: 0 8px 32px rgba(250, 52, 59, 0.15);
+}
+
+.theme-dark .feature-card {
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
+}
+
+.theme-dark .feature-card.highlighted {
+  box-shadow: 0 8px 32px rgba(250, 52, 59, 0.25);
 }
 
 .feature-heading {
@@ -758,12 +777,20 @@ section {
 
 .flip-card-front {
   background-color: var(--color-surface);
+  border: 1px solid rgba(250, 52, 59, 0.2);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.06);
+}
+
+.theme-dark .flip-card-front {
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
 }
 
 .flip-card-back {
   background-color: #1e1e1e;
   transform: rotateY(180deg);
   overflow: hidden;
+  border: 1px solid rgba(250, 52, 59, 0.3);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
 }
 
 .flip-card-back pre {
@@ -845,15 +872,24 @@ section {
 /* Accordion */
 
 .accordion-container {
-  border-top: 1px solid var(--color-border-level-2);
+  border-top: 1px solid rgba(250, 52, 59, 0.15);
   flex-flow: column;
   display: flex;
 }
 
 .accordion-item {
-  border-bottom: 1px solid var(--color-border-level-2);
+  border-bottom: 1px solid rgba(250, 52, 59, 0.15);
   width: 100%;
   overflow: hidden;
+  transition: background-color 0.2s ease;
+}
+
+.accordion-item summary {
+  list-style: none;
+}
+
+.accordion-item summary::-webkit-details-marker {
+  display: none;
 }
 
 .accordion-toggle {
@@ -870,11 +906,13 @@ section {
 .accordion-chevron {
   margin-left: auto;
   color: var(--color-text-tertiary);
+  transition: transform 0.3s ease;
 }
 
 [open] .accordion-chevron {
   transform: rotate(180deg);
 }
+
 
 .accordion-content {
   padding-right: 48px;
@@ -882,6 +920,19 @@ section {
   padding-left: var(--space-card-m);
   background-color: #0000;
   display: block;
+  overflow: hidden;
+  animation: accordionOpen 0.3s ease-out;
+}
+
+@keyframes accordionOpen {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 /* Footer */
@@ -935,9 +986,19 @@ section {
 }
 
 .comparison-accordion {
-  border: 1px solid var(--color-border-level-2);
-  border-radius: var(--radius-m);
+  border: 1px solid rgba(250, 52, 59, 0.2);
+  border-radius: var(--radius-l);
   background-color: var(--color-surface);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.06);
+  transition: all 0.3s ease;
+}
+
+.comparison-accordion:hover {
+  border-color: rgba(250, 52, 59, 0.4);
+}
+
+.theme-dark .comparison-accordion {
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
 }
 
 .comparison-accordion .accordion-toggle {
@@ -989,7 +1050,8 @@ section {
   background-color: #0f0f0f;
   border-radius: var(--radius-l);
   overflow: hidden;
-  border: 1px solid #252525;
+  border: 1px solid rgba(250, 52, 59, 0.25);
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.4);
 }
 
 .preview-header {
@@ -2708,7 +2770,11 @@ section {
 
 .flip-card:hover {
   transform: translateY(-4px);
-  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.1);
+  box-shadow: 0 12px 40px rgba(250, 52, 59, 0.12);
+}
+
+.theme-dark .flip-card:hover {
+  box-shadow: 0 12px 40px rgba(250, 52, 59, 0.2);
 }
 
 .flip-card:hover .flip-card-inner {
@@ -2747,8 +2813,8 @@ section {
 
 .product-preview-card:hover {
   transform: translateY(-4px);
-  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.4);
-  border-color: #333;
+  box-shadow: 0 16px 48px rgba(250, 52, 59, 0.2);
+  border-color: rgba(250, 52, 59, 0.5);
 }
 
 /* Service cards hover */
@@ -2848,4 +2914,124 @@ section::after {
 
 section:not(:last-child)::after {
   opacity: 1;
+}
+
+/* === THEME-BASED LOGO SWITCHING === */
+
+.logo-dark {
+  display: none;
+}
+
+.logo-light {
+  display: inline-block;
+}
+
+html.theme-dark .logo-dark,
+:root.theme-dark .logo-dark {
+  display: inline-block;
+}
+
+html.theme-dark .logo-light,
+:root.theme-dark .logo-light {
+  display: none;
+}
+
+/* === THEME TOGGLE SUNGLASSES ICON === */
+
+.theme-toggle-btn {
+  position: relative;
+}
+
+.theme-icon {
+  display: block;
+  transition: transform 0.3s ease;
+}
+
+.theme-toggle-btn:hover .theme-icon {
+  transform: scale(1.1);
+}
+
+/* Eyes - always behind the lenses */
+.theme-icon .eye {
+  fill: currentColor;
+  transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.theme-icon .pupil {
+  fill: var(--color-background);
+  transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Glasses bridge */
+.theme-icon .glasses-bridge {
+  fill: currentColor;
+  transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Lenses - DARK in light mode (sunglasses), TRANSLUCENT in dark mode (transition lenses) */
+.theme-icon .lens {
+  fill: currentColor;
+  fill-opacity: 0.85;
+  transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Lens shine for that sunglasses reflection look */
+.theme-icon .lens-shine {
+  transition: opacity 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* === LIGHT MODE - Dark sunglasses === */
+html.theme-light .theme-icon .lens,
+:root.theme-light .theme-icon .lens {
+  fill-opacity: 0.85;
+}
+
+/* Eyes dimmed behind dark lenses but still visible */
+html.theme-light .theme-icon .eye,
+:root.theme-light .theme-icon .eye {
+  opacity: 0.25;
+}
+
+html.theme-light .theme-icon .lens-shine,
+:root.theme-light .theme-icon .lens-shine {
+  opacity: 0.4;
+}
+
+/* === DARK MODE - Clear transition lenses === */
+html.theme-dark .theme-icon .lens,
+:root.theme-dark .theme-icon .lens {
+  fill-opacity: 0.2;
+}
+
+/* Eyes clearly visible through clear lenses */
+html.theme-dark .theme-icon .eye,
+:root.theme-dark .theme-icon .eye {
+  opacity: 1;
+}
+
+html.theme-dark .theme-icon .lens-shine,
+:root.theme-dark .theme-icon .lens-shine {
+  opacity: 0.15;
+}
+
+/* === CONSISTENT CARD STYLING === */
+
+.card-accent {
+  border: 1px solid rgba(250, 52, 59, 0.3);
+  border-radius: var(--radius-l);
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+  transition: all 0.3s ease;
+}
+
+.card-accent:hover {
+  border-color: rgba(250, 52, 59, 0.5);
+  box-shadow: 0 8px 32px rgba(250, 52, 59, 0.12);
+}
+
+.theme-dark .card-accent {
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+}
+
+.theme-dark .card-accent:hover {
+  box-shadow: 0 8px 32px rgba(250, 52, 59, 0.2);
 }

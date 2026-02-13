@@ -9,3 +9,6 @@ application.register("hello", HelloController)
 
 import ScrollAnimateController from "./scroll_animate_controller"
 application.register("scroll-animate", ScrollAnimateController)
+
+import ThemeToggleController from "./theme_toggle_controller"
+application.register("theme-toggle", ThemeToggleController)
