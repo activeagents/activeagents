@@ -6,3 +6,6 @@ import { application } from "./application"
 
 import HelloController from "./hello_controller"
 application.register("hello", HelloController)
+
+import ScrollAnimateController from "./scroll_animate_controller"
+application.register("scroll-animate", ScrollAnimateController)

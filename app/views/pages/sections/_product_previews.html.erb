@@ -1,16 +1,16 @@
 <section class="product-previews-section">
-  <div class="heading centered">
+  <div class="heading centered fade-in-up" data-controller="scroll-animate">
     <h2 class="no-top-margin">Observe Every Interaction</h2>
     <p class="paragraph m secondary">
       Trace, measure, and evaluate your agents. Built-in observability for production AI.
     </p>
   </div>
 
-  <div class="preview-grid">
+  <div class="preview-grid fade-in-up" data-controller="scroll-animate">
     <div class="preview-large">
       <%= render "pages/components/product_preview",
         title: "Session Replay",
-        description: "FullStory for AI. Replay every user click and agent response. Debug issues by watching exactly what happened.",
+        description: "FullStory for AI agents. Record browser interactions like VCR cassettes. Watch your agent navigate, click, and fill forms.",
         preview_type: :session_replay %>
     </div>
 

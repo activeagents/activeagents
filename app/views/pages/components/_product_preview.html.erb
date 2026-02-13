@@ -308,72 +308,96 @@
       </div>
     <% when :session_replay %>
       <div class="preview-replay">
-        <div class="replay-viewport">
-          <div class="replay-screen">
-            <div class="screen-header">
-              <div class="screen-url">acme.com/dashboard</div>
-              <div class="screen-user">
-                <span class="user-avatar">JD</span>
-                <span class="user-name">john@acme.com</span>
-              </div>
+        <div class="replay-browser">
+          <div class="browser-chrome">
+            <div class="browser-dots">
+              <span class="dot"></span><span class="dot"></span><span class="dot"></span>
             </div>
-            <div class="screen-content">
-              <div class="screen-element chat-widget">
-                <div class="chat-header-mini">
-                  <span class="chat-title">Support</span>
-                  <span class="chat-status online"></span>
-                </div>
-                <div class="chat-messages-mini">
-                  <div class="chat-msg user-msg">How do I export my data?</div>
-                  <div class="chat-msg agent-msg typing">
-                    <span class="typing-indicator">
-                      <span></span><span></span><span></span>
-                    </span>
-                  </div>
-                </div>
-              </div>
-              <div class="cursor-indicator" style="left: 65%; top: 45%;">
-                <span class="cursor-dot"></span>
-                <span class="cursor-click"></span>
-              </div>
+            <div class="browser-address">
+              <i class="fa-solid fa-lock"></i>
+              <span class="address-text">checkout.stripe.com/pay/cs_test_...</span>
+            </div>
+            <div class="cassette-badge">
+              <i class="fa-solid fa-circle recording"></i>
+              <span>REC</span>
             </div>
           </div>
-          <div class="replay-events">
-            <div class="event-item user-event">
-              <span class="event-icon">👆</span>
-              <span class="event-text">Clicked "Support"</span>
+          <div class="browser-viewport">
+            <div class="page-content checkout-page">
+              <div class="checkout-form">
+                <div class="form-section">
+                  <div class="form-label">Card number</div>
+                  <div class="form-input filled">
+                    <span class="card-icon"><i class="fa-brands fa-cc-visa"></i></span>
+                    <span class="input-value">4242 4242 4242 4242</span>
+                    <span class="input-cursor blink"></span>
+                  </div>
+                </div>
+                <div class="form-row">
+                  <div class="form-section half">
+                    <div class="form-label">Expiry</div>
+                    <div class="form-input">12/25</div>
+                  </div>
+                  <div class="form-section half">
+                    <div class="form-label">CVC</div>
+                    <div class="form-input">***</div>
+                  </div>
+                </div>
+                <button class="checkout-btn">Pay $49.00</button>
+              </div>
             </div>
-            <div class="event-item user-event">
-              <span class="event-icon">⌨️</span>
-              <span class="event-text">Typed message</span>
+            <div class="agent-cursor" style="left: 55%; top: 32%;">
+              <svg class="cursor-icon" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M4 4l16 8-7 2-2 7z"/>
+              </svg>
+              <span class="cursor-label">Agent</span>
             </div>
-            <div class="event-item agent-event active">
-              <span class="event-icon">🤖</span>
-              <span class="event-text">Agent thinking...</span>
+            <div class="interaction-highlight" style="left: 8%; top: 25%; width: 84%; height: 18%;"></div>
+          </div>
+        </div>
+        <div class="replay-sidebar">
+          <div class="sidebar-header">
+            <span class="cassette-icon"><i class="fa-solid fa-tape"></i></span>
+            <span class="cassette-name">checkout_flow.vcr</span>
+          </div>
+          <div class="action-list">
+            <div class="action-item completed">
+              <span class="action-icon"><i class="fa-solid fa-globe"></i></span>
+              <span class="action-text">navigate</span>
+              <span class="action-status"><i class="fa-solid fa-check"></i></span>
+            </div>
+            <div class="action-item completed">
+              <span class="action-icon"><i class="fa-solid fa-camera"></i></span>
+              <span class="action-text">snapshot</span>
+              <span class="action-status"><i class="fa-solid fa-check"></i></span>
+            </div>
+            <div class="action-item active">
+              <span class="action-icon"><i class="fa-solid fa-keyboard"></i></span>
+              <span class="action-text">type card</span>
+              <span class="action-status"><i class="fa-solid fa-play"></i></span>
+            </div>
+            <div class="action-item pending">
+              <span class="action-icon"><i class="fa-solid fa-hand-pointer"></i></span>
+              <span class="action-text">click Pay</span>
+              <span class="action-status"></span>
+            </div>
+            <div class="action-item pending">
+              <span class="action-icon"><i class="fa-solid fa-camera"></i></span>
+              <span class="action-text">snapshot</span>
+              <span class="action-status"></span>
             </div>
           </div>
         </div>
         <div class="replay-controls">
           <div class="replay-timeline">
             <div class="timeline-track">
-              <div class="timeline-progress" style="width: 45%;"></div>
-              <div class="timeline-markers">
-                <span class="marker user-marker" style="left: 10%;" title="Page load"></span>
-                <span class="marker user-marker" style="left: 25%;" title="Click"></span>
-                <span class="marker user-marker" style="left: 35%;" title="Input"></span>
-                <span class="marker agent-marker" style="left: 45%;" title="Agent response"></span>
-                <span class="marker agent-marker" style="left: 60%;" title="Tool call"></span>
-                <span class="marker user-marker" style="left: 75%;" title="Click"></span>
-                <span class="marker agent-marker" style="left: 90%;" title="Agent response"></span>
+              <div class="timeline-progress" style="width: 40%;"></div>
+              <div class="timeline-snapshots">
+                <span class="snapshot-marker" style="left: 5%;" title="Initial load"><i class="fa-solid fa-camera"></i></span>
+                <span class="snapshot-marker" style="left: 40%;" title="Form filled"><i class="fa-solid fa-camera"></i></span>
+                <span class="snapshot-marker pending" style="left: 85%;" title="Payment complete"><i class="fa-solid fa-camera"></i></span>
               </div>
-              <div class="timeline-playhead" style="left: 45%;"></div>
-            </div>
-            <div class="timeline-labels">
-              <span>0:00</span>
-              <span>0:30</span>
-              <span>1:00</span>
-              <span>1:30</span>
-              <span>2:00</span>
+              <div class="timeline-playhead" style="left: 40%;"></div>
             </div>
           </div>
           <div class="replay-buttons">
@@ -381,12 +405,8 @@
             <button class="replay-btn play-btn"><i class="fa-solid fa-pause"></i></button>
             <button class="replay-btn"><i class="fa-solid fa-forward-step"></i></button>
             <span class="replay-speed">1x</span>
-            <span class="replay-time">0:54 / 2:03</span>
+            <span class="replay-time">Step 3/5</span>
           </div>
-        </div>
-        <div class="replay-legend">
-          <span class="legend-item"><span class="legend-dot user"></span> User</span>
-          <span class="legend-item"><span class="legend-dot agent"></span> Agent</span>
         </div>
       </div>
     <% end %>
