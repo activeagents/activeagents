@@ -219,6 +219,11 @@ body {
   line-height: var(--line-height-paragraph-m);
 }
 
+/* Scroll offset for anchor links (accounts for sticky nav) */
+section[id] {
+  scroll-margin-top: var(--line-height-h2);
+}
+
 /* Headers */
 
 h1,
@@ -298,6 +303,52 @@ img {
 
 section {
   padding: var(--space-section) 0;
+}
+
+/* Hero section - reduced padding to show below-fold content teaser */
+section:first-of-type {
+  padding-top: 24px;
+  padding-bottom: 24px;
+}
+
+/* Scroll indicator - animated chevron to encourage scrolling */
+.scroll-indicator {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  margin-top: 1rem;
+  opacity: 0.6;
+  transition: opacity 0.3s ease;
+  cursor: pointer;
+}
+
+.scroll-indicator:hover {
+  opacity: 1;
+}
+
+.scroll-indicator span {
+  font-size: var(--font-size-s);
+  color: var(--color-text-tertiary);
+  letter-spacing: 0.5px;
+}
+
+.scroll-indicator .chevron {
+  color: var(--color-accent);
+  font-size: var(--font-size-l);
+  animation: bounce 2s infinite;
+}
+
+@keyframes bounce {
+  0%, 20%, 50%, 80%, 100% {
+    transform: translateY(0);
+  }
+  40% {
+    transform: translateY(6px);
+  }
+  60% {
+    transform: translateY(3px);
+  }
 }
 
 .eyebrow {
@@ -2918,6 +2969,20 @@ section:not(:last-child)::after {
 .logo-container {
   display: inline-grid;
   place-items: center;
+}
+
+/* Hero logo - responsive sizing with max-height constraint */
+.logo-container.hero-logo {
+  width: 100%;
+  max-width: 400px;
+  max-height: 28vh; /* Constrain height to leave room for below-fold content teaser */
+}
+
+.logo-container.hero-logo svg {
+  width: 100%;
+  height: auto;
+  max-height: 28vh;
+  object-fit: contain;
 }
 
 .logo-container > * {
