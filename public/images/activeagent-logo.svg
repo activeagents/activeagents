@@ -60,11 +60,11 @@
             <g id="Lenses" transform="translate(75.1052, 196.1822)" fill-rule="nonzero">
                 <g id="right-lens" transform="translate(267.3948, 54.8349) scale(-1, 1) translate(-267.3948, -54.8349)">
                     <use fill="black" fill-opacity="1" filter="url(#filter-4)" xlink:href="#path-3"></use>
-                    <use stroke="#000000" stroke-width="8" fill-opacity="0.8" fill="#000000" xlink:href="#path-3"></use>
+                    <use stroke="#000000" stroke-width="8" fill-opacity="0.92" fill="#000000" xlink:href="#path-3"></use>
                 </g>
                 <g id="left-lens">
                     <use fill="black" fill-opacity="1" filter="url(#filter-6)" xlink:href="#path-5"></use>
-                    <use stroke="#000000" stroke-width="8" fill-opacity="0.8" fill="#000000" xlink:href="#path-5"></use>
+                    <use stroke="#000000" stroke-width="8" fill-opacity="0.92" fill="#000000" xlink:href="#path-5"></use>
                 </g>
             </g>
             <g id="Frames" transform="translate(75.1052, 196.1822)" fill-rule="nonzero">
