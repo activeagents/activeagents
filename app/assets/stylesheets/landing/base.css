@@ -2936,82 +2936,24 @@ html.theme-dark .logo-light,
   display: none;
 }
 
-/* === THEME TOGGLE SUNGLASSES ICON === */
+/* === THEME TOGGLE ICON === */
 
-.theme-toggle-btn {
-  position: relative;
+/* Default/Light mode: show moon (to switch to dark), hide sun */
+.theme-icon-sun {
+  display: none !important;
+}
+.theme-icon-moon {
+  display: inline-block !important;
 }
 
-.theme-icon {
-  display: block;
-  transition: transform 0.3s ease;
+/* Dark mode: show sun (to switch to light), hide moon */
+html.theme-dark .theme-icon-sun,
+:root.theme-dark .theme-icon-sun {
+  display: inline-block !important;
 }
-
-.theme-toggle-btn:hover .theme-icon {
-  transform: scale(1.1);
-}
-
-/* Eyes - always behind the lenses */
-.theme-icon .eye {
-  fill: currentColor;
-  transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1);
-}
-
-.theme-icon .pupil {
-  fill: var(--color-background);
-  transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1);
-}
-
-/* Glasses bridge */
-.theme-icon .glasses-bridge {
-  fill: currentColor;
-  transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1);
-}
-
-/* Lenses - DARK in light mode (sunglasses), TRANSLUCENT in dark mode (transition lenses) */
-.theme-icon .lens {
-  fill: currentColor;
-  fill-opacity: 0.85;
-  transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1);
-}
-
-/* Lens shine for that sunglasses reflection look */
-.theme-icon .lens-shine {
-  transition: opacity 0.5s cubic-bezier(0.4, 0, 0.2, 1);
-}
-
-/* === LIGHT MODE - Dark sunglasses === */
-html.theme-light .theme-icon .lens,
-:root.theme-light .theme-icon .lens {
-  fill-opacity: 0.85;
-}
-
-/* Eyes dimmed behind dark lenses but still visible */
-html.theme-light .theme-icon .eye,
-:root.theme-light .theme-icon .eye {
-  opacity: 0.25;
-}
-
-html.theme-light .theme-icon .lens-shine,
-:root.theme-light .theme-icon .lens-shine {
-  opacity: 0.4;
-}
-
-/* === DARK MODE - Clear transition lenses === */
-html.theme-dark .theme-icon .lens,
-:root.theme-dark .theme-icon .lens {
-  fill-opacity: 0.2;
-}
-
-/* Eyes clearly visible through clear lenses */
-html.theme-dark .theme-icon .eye,
-:root.theme-dark .theme-icon .eye {
-  opacity: 1;
-}
-
-html.theme-dark .theme-icon .lens-shine,
-:root.theme-dark .theme-icon .lens-shine {
-  opacity: 0.15;
+html.theme-dark .theme-icon-moon,
+:root.theme-dark .theme-icon-moon {
+  display: none !important;
 }
 
 /* === CONSISTENT CARD STYLING === */
