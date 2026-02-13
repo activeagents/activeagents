@@ -12,7 +12,7 @@
     <% case preview_type %>
     <% when :trace_timeline %>
       <div class="preview-traces">
-        <div class="trace-header-row">
+        <div class="trace-header-row hoverable">
           <div class="trace-id">
             <span class="trace-badge">TRACE</span>
             <span class="trace-hash">abc-7f2e</span>
@@ -30,7 +30,7 @@
             <span>800ms</span>
             <span>1.2s</span>
           </div>
-          <div class="span-row">
+          <div class="span-row hoverable" data-tooltip="TranslationAgent#translate&#10;Duration: 1.24s&#10;Status: success">
             <div class="span-label">
               <span class="span-icon">→</span>
               <span class="span-name">TranslationAgent#translate</span>
@@ -39,25 +39,42 @@
               <div class="span-bar root" style="left: 0%; width: 100%;"></div>
             </div>
           </div>
-          <div class="span-row nested-1">
+          <div class="span-row nested-1 hoverable" data-tooltip="Prompt Construction&#10;Duration: 45ms&#10;Template: translate.erb">
             <div class="span-label">
               <span class="span-icon">◇</span>
               <span class="span-name">prompt</span>
             </div>
             <div class="span-bar-container">
-              <div class="span-bar prompt" style="left: 2%; width: 8%;"></div>
+              <div class="span-bar prompt" style="left: 2%; width: 6%;"></div>
             </div>
           </div>
-          <div class="span-row nested-1">
+          <div class="span-row nested-1 hoverable" data-tooltip="Generate Call&#10;Provider: openai&#10;Duration: 987ms">
+            <div class="span-label">
+              <span class="span-icon generate">▶</span>
+              <span class="span-name">#generate</span>
+            </div>
+            <div class="span-bar-container">
+              <div class="span-bar generate" style="left: 10%; width: 80%;"></div>
+            </div>
+          </div>
+          <div class="span-row nested-2 hoverable" data-tooltip="OpenAI API Call&#10;Model: gpt-4o&#10;Duration: 892ms&#10;Tokens: 1,247">
             <div class="span-label">
               <span class="span-icon llm">◆</span>
               <span class="span-name">openai.chat.completions</span>
             </div>
             <div class="span-bar-container">
-              <div class="span-bar llm" style="left: 12%; width: 75%;"></div>
+              <div class="span-bar llm" style="left: 12%; width: 72%;">
+                <div class="span-popover">
+                  <div class="popover-title">openai.chat.completions</div>
+                  <div class="popover-row"><span>Model</span><span>gpt-4o</span></div>
+                  <div class="popover-row"><span>Duration</span><span>892ms</span></div>
+                  <div class="popover-row"><span>Tokens</span><span>1,247</span></div>
+                  <div class="popover-row"><span>Cost</span><span>$0.0031</span></div>
+                </div>
+              </div>
             </div>
           </div>
-          <div class="span-row nested-2">
+          <div class="span-row nested-3">
             <div class="span-label">
               <span class="span-icon">↳</span>
               <span class="span-name tokens">1,247 tokens</span>
@@ -69,13 +86,13 @@
               </div>
             </div>
           </div>
-          <div class="span-row nested-1">
+          <div class="span-row nested-1 hoverable" data-tooltip="Response Processing&#10;Duration: 52ms&#10;Format: text">
             <div class="span-label">
               <span class="span-icon">◇</span>
               <span class="span-name">response</span>
             </div>
             <div class="span-bar-container">
-              <div class="span-bar response" style="left: 90%; width: 8%;"></div>
+              <div class="span-bar response" style="left: 92%; width: 6%;"></div>
             </div>
           </div>
         </div>
@@ -83,22 +100,37 @@
     <% when :metrics_dashboard %>
       <div class="preview-metrics">
         <div class="metrics-grid">
-          <div class="metric-card">
+          <div class="metric-card hoverable">
             <div class="metric-label">Total Requests</div>
             <div class="metric-value">12,847</div>
             <div class="metric-trend up"><i class="fa-solid fa-arrow-up"></i> 23% vs last week</div>
+            <div class="metric-sparkline">
+              <svg viewBox="0 0 60 20" class="sparkline">
+                <polyline points="0,15 10,12 20,14 30,8 40,10 50,5 60,7" />
+              </svg>
+            </div>
           </div>
-          <div class="metric-card">
+          <div class="metric-card hoverable">
             <div class="metric-label">Avg Latency</div>
             <div class="metric-value">847<span class="metric-unit">ms</span></div>
             <div class="metric-trend down"><i class="fa-solid fa-arrow-down"></i> 12% faster</div>
+            <div class="metric-sparkline">
+              <svg viewBox="0 0 60 20" class="sparkline green">
+                <polyline points="0,5 10,8 20,6 30,10 40,12 50,14 60,15" />
+              </svg>
+            </div>
           </div>
-          <div class="metric-card">
+          <div class="metric-card hoverable">
             <div class="metric-label">Total Cost</div>
             <div class="metric-value">$42.18</div>
             <div class="metric-trend neutral">this period</div>
+            <div class="metric-sparkline">
+              <svg viewBox="0 0 60 20" class="sparkline neutral">
+                <polyline points="0,10 10,11 20,9 30,10 40,10 50,11 60,10" />
+              </svg>
+            </div>
           </div>
-          <div class="metric-card">
+          <div class="metric-card hoverable">
             <div class="metric-label">Tokens Used</div>
             <div class="metric-value">2.4<span class="metric-unit">M</span></div>
             <div class="metric-breakdown">
@@ -107,63 +139,80 @@
             </div>
           </div>
         </div>
-        <div class="metrics-chart">
+        <div class="metrics-chart hoverable">
           <div class="chart-header">
             <span class="chart-title">Requests / Hour</span>
             <span class="chart-period">Last 24h</span>
           </div>
           <div class="chart-bars">
-            <div class="chart-bar" style="height: 40%;"></div>
-            <div class="chart-bar" style="height: 25%;"></div>
-            <div class="chart-bar" style="height: 60%;"></div>
-            <div class="chart-bar" style="height: 45%;"></div>
-            <div class="chart-bar" style="height: 80%;"></div>
-            <div class="chart-bar" style="height: 95%;"></div>
-            <div class="chart-bar" style="height: 70%;"></div>
-            <div class="chart-bar active" style="height: 55%;"></div>
+            <div class="chart-bar" style="height: 40%;" data-value="423"></div>
+            <div class="chart-bar" style="height: 25%;" data-value="267"></div>
+            <div class="chart-bar" style="height: 60%;" data-value="634"></div>
+            <div class="chart-bar" style="height: 45%;" data-value="478"></div>
+            <div class="chart-bar" style="height: 80%;" data-value="847"></div>
+            <div class="chart-bar" style="height: 95%;" data-value="1,012"></div>
+            <div class="chart-bar" style="height: 70%;" data-value="743"></div>
+            <div class="chart-bar active" style="height: 55%;" data-value="582">
+              <span class="bar-tooltip">582 requests<br>12:00 - 13:00</span>
+            </div>
           </div>
         </div>
       </div>
     <% when :evaluation %>
       <div class="preview-evaluation">
-        <div class="eval-header">
+        <div class="eval-header hoverable">
           <span class="eval-badge">EVALUATION</span>
           <span class="eval-name">Translation Quality</span>
           <span class="eval-time">2 min ago</span>
         </div>
         <div class="eval-scores">
-          <div class="score-item">
+          <div class="score-item hoverable">
             <div class="score-label">Accuracy</div>
             <div class="score-bar-container">
-              <div class="score-bar high" style="width: 94%;"></div>
+              <div class="score-bar high animated" style="width: 94%;"></div>
             </div>
             <div class="score-value high">0.94</div>
+            <div class="score-tooltip">
+              <strong>Accuracy Score</strong>
+              <p>Measures semantic correctness of translation</p>
+              <div class="tooltip-stat">Min: 0.89 | Max: 0.98 | Avg: 0.94</div>
+            </div>
           </div>
-          <div class="score-item">
+          <div class="score-item hoverable">
             <div class="score-label">Fluency</div>
             <div class="score-bar-container">
-              <div class="score-bar high" style="width: 88%;"></div>
+              <div class="score-bar high animated" style="width: 88%;"></div>
             </div>
             <div class="score-value high">0.88</div>
+            <div class="score-tooltip">
+              <strong>Fluency Score</strong>
+              <p>Natural language flow and readability</p>
+              <div class="tooltip-stat">Min: 0.82 | Max: 0.95 | Avg: 0.88</div>
+            </div>
           </div>
-          <div class="score-item">
+          <div class="score-item hoverable">
             <div class="score-label">Faithfulness</div>
             <div class="score-bar-container">
-              <div class="score-bar medium" style="width: 72%;"></div>
+              <div class="score-bar medium animated" style="width: 72%;"></div>
             </div>
             <div class="score-value medium">0.72</div>
+            <div class="score-tooltip">
+              <strong>Faithfulness Score</strong>
+              <p>Preservation of original meaning</p>
+              <div class="tooltip-stat warning">⚠ Below threshold (0.80)</div>
+            </div>
           </div>
         </div>
         <div class="eval-details">
-          <div class="eval-row">
+          <div class="eval-row hoverable">
             <span class="eval-key">Model Judge</span>
             <span class="eval-val">claude-3-haiku</span>
           </div>
-          <div class="eval-row">
+          <div class="eval-row hoverable">
             <span class="eval-key">Criteria</span>
             <span class="eval-val">semantic_similarity, grammar, tone</span>
           </div>
-          <div class="eval-row">
+          <div class="eval-row hoverable">
             <span class="eval-key">Samples</span>
             <span class="eval-val">50 / 50 passed</span>
           </div>
@@ -171,13 +220,13 @@
       </div>
     <% when :session_log %>
       <div class="preview-sessions">
-        <div class="session-header">
+        <div class="session-header hoverable">
           <span class="session-badge">SESSION</span>
           <span class="session-id">user_8f2a_chat</span>
           <span class="session-count">4 traces</span>
         </div>
         <div class="session-traces">
-          <div class="session-trace">
+          <div class="session-trace hoverable">
             <div class="trace-connector"></div>
             <div class="trace-content">
               <div class="trace-row">
@@ -191,9 +240,10 @@
                 <span class="preview-label">User:</span>
                 <span class="preview-text">"How do I reset my password?"</span>
               </div>
+              <div class="trace-expand-hint">Click to expand</div>
             </div>
           </div>
-          <div class="session-trace">
+          <div class="session-trace hoverable expanded">
             <div class="trace-connector"></div>
             <div class="trace-content">
               <div class="trace-row">
@@ -207,9 +257,17 @@
                 <span class="preview-label">Tool:</span>
                 <span class="preview-text">lookup_user(email: "user@...")</span>
               </div>
+              <div class="trace-details">
+                <div class="details-json">
+{
+  <span class="json-key">"tool"</span>: <span class="json-string">"lookup_user"</span>,
+  <span class="json-key">"args"</span>: { <span class="json-key">"email"</span>: <span class="json-string">"user@example.com"</span> },
+  <span class="json-key">"result"</span>: { <span class="json-key">"found"</span>: <span class="json-bool">true</span>, <span class="json-key">"id"</span>: <span class="json-number">1847</span> }
+}</div>
+              </div>
             </div>
           </div>
-          <div class="session-trace">
+          <div class="session-trace hoverable">
             <div class="trace-connector"></div>
             <div class="trace-content">
               <div class="trace-row">
@@ -223,6 +281,7 @@
                 <span class="preview-label">Response:</span>
                 <span class="preview-text">"I found your account. I'll send a reset link..."</span>
               </div>
+              <div class="trace-expand-hint">Click to expand</div>
             </div>
           </div>
         </div>
