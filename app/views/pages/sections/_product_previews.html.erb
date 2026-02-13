@@ -1,0 +1,36 @@
+<section class="product-previews-section">
+  <div class="heading centered">
+    <h2 class="no-top-margin">Observe Every Interaction</h2>
+    <p class="paragraph m secondary">
+      Trace, measure, and evaluate your agents. Built-in observability for production AI.
+    </p>
+  </div>
+
+  <div class="preview-grid">
+    <div class="preview-large">
+      <%= render "pages/components/product_preview",
+        title: "Trace Timeline",
+        description: "Every agent call broken down into spans. See exactly where time is spent - prompts, LLM calls, tool use, and responses.",
+        preview_type: :trace_timeline %>
+    </div>
+
+    <div class="preview-row">
+      <%= render "pages/components/product_preview",
+        title: "Metrics Dashboard",
+        description: "Track requests, latency, costs, and token usage across all your agents in real-time.",
+        preview_type: :metrics_dashboard %>
+
+      <%= render "pages/components/product_preview",
+        title: "Evaluations",
+        description: "Score outputs with LLM-as-judge, rule-based checks, or custom criteria. Catch regressions before production.",
+        preview_type: :evaluation %>
+    </div>
+
+    <div class="preview-large">
+      <%= render "pages/components/product_preview",
+        title: "Session Logs",
+        description: "Group related traces into sessions. Debug multi-turn conversations with full context.",
+        preview_type: :session_log %>
+    </div>
+  </div>
+</section>

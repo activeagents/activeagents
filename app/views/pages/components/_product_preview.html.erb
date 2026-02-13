@@ -1,0 +1,235 @@
+<%# locals: (title:, description:, preview_type:) %>
+<div class="product-preview-card">
+  <div class="preview-header">
+    <div class="preview-dots">
+      <span class="dot red"></span>
+      <span class="dot yellow"></span>
+      <span class="dot green"></span>
+    </div>
+    <span class="preview-title"><%= title %></span>
+  </div>
+  <div class="preview-content">
+    <% case preview_type %>
+    <% when :trace_timeline %>
+      <div class="preview-traces">
+        <div class="trace-header-row">
+          <div class="trace-id">
+            <span class="trace-badge">TRACE</span>
+            <span class="trace-hash">abc-7f2e</span>
+          </div>
+          <div class="trace-meta">
+            <span class="meta-item"><i class="fa-solid fa-clock"></i> 1.24s</span>
+            <span class="meta-item"><i class="fa-solid fa-coins"></i> $0.0034</span>
+            <span class="meta-item success"><i class="fa-solid fa-check"></i> 200</span>
+          </div>
+        </div>
+        <div class="trace-timeline">
+          <div class="timeline-scale">
+            <span>0ms</span>
+            <span>400ms</span>
+            <span>800ms</span>
+            <span>1.2s</span>
+          </div>
+          <div class="span-row">
+            <div class="span-label">
+              <span class="span-icon">→</span>
+              <span class="span-name">TranslationAgent#translate</span>
+            </div>
+            <div class="span-bar-container">
+              <div class="span-bar root" style="left: 0%; width: 100%;"></div>
+            </div>
+          </div>
+          <div class="span-row nested-1">
+            <div class="span-label">
+              <span class="span-icon">◇</span>
+              <span class="span-name">prompt</span>
+            </div>
+            <div class="span-bar-container">
+              <div class="span-bar prompt" style="left: 2%; width: 8%;"></div>
+            </div>
+          </div>
+          <div class="span-row nested-1">
+            <div class="span-label">
+              <span class="span-icon llm">◆</span>
+              <span class="span-name">openai.chat.completions</span>
+            </div>
+            <div class="span-bar-container">
+              <div class="span-bar llm" style="left: 12%; width: 75%;"></div>
+            </div>
+          </div>
+          <div class="span-row nested-2">
+            <div class="span-label">
+              <span class="span-icon">↳</span>
+              <span class="span-name tokens">1,247 tokens</span>
+            </div>
+            <div class="span-bar-container">
+              <div class="token-breakdown">
+                <span class="token-in">in: 892</span>
+                <span class="token-out">out: 355</span>
+              </div>
+            </div>
+          </div>
+          <div class="span-row nested-1">
+            <div class="span-label">
+              <span class="span-icon">◇</span>
+              <span class="span-name">response</span>
+            </div>
+            <div class="span-bar-container">
+              <div class="span-bar response" style="left: 90%; width: 8%;"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    <% when :metrics_dashboard %>
+      <div class="preview-metrics">
+        <div class="metrics-grid">
+          <div class="metric-card">
+            <div class="metric-label">Total Requests</div>
+            <div class="metric-value">12,847</div>
+            <div class="metric-trend up"><i class="fa-solid fa-arrow-up"></i> 23% vs last week</div>
+          </div>
+          <div class="metric-card">
+            <div class="metric-label">Avg Latency</div>
+            <div class="metric-value">847<span class="metric-unit">ms</span></div>
+            <div class="metric-trend down"><i class="fa-solid fa-arrow-down"></i> 12% faster</div>
+          </div>
+          <div class="metric-card">
+            <div class="metric-label">Total Cost</div>
+            <div class="metric-value">$42.18</div>
+            <div class="metric-trend neutral">this period</div>
+          </div>
+          <div class="metric-card">
+            <div class="metric-label">Tokens Used</div>
+            <div class="metric-value">2.4<span class="metric-unit">M</span></div>
+            <div class="metric-breakdown">
+              <span class="breakdown-in">↓ 1.8M</span>
+              <span class="breakdown-out">↑ 0.6M</span>
+            </div>
+          </div>
+        </div>
+        <div class="metrics-chart">
+          <div class="chart-header">
+            <span class="chart-title">Requests / Hour</span>
+            <span class="chart-period">Last 24h</span>
+          </div>
+          <div class="chart-bars">
+            <div class="chart-bar" style="height: 40%;"></div>
+            <div class="chart-bar" style="height: 25%;"></div>
+            <div class="chart-bar" style="height: 60%;"></div>
+            <div class="chart-bar" style="height: 45%;"></div>
+            <div class="chart-bar" style="height: 80%;"></div>
+            <div class="chart-bar" style="height: 95%;"></div>
+            <div class="chart-bar" style="height: 70%;"></div>
+            <div class="chart-bar active" style="height: 55%;"></div>
+          </div>
+        </div>
+      </div>
+    <% when :evaluation %>
+      <div class="preview-evaluation">
+        <div class="eval-header">
+          <span class="eval-badge">EVALUATION</span>
+          <span class="eval-name">Translation Quality</span>
+          <span class="eval-time">2 min ago</span>
+        </div>
+        <div class="eval-scores">
+          <div class="score-item">
+            <div class="score-label">Accuracy</div>
+            <div class="score-bar-container">
+              <div class="score-bar high" style="width: 94%;"></div>
+            </div>
+            <div class="score-value high">0.94</div>
+          </div>
+          <div class="score-item">
+            <div class="score-label">Fluency</div>
+            <div class="score-bar-container">
+              <div class="score-bar high" style="width: 88%;"></div>
+            </div>
+            <div class="score-value high">0.88</div>
+          </div>
+          <div class="score-item">
+            <div class="score-label">Faithfulness</div>
+            <div class="score-bar-container">
+              <div class="score-bar medium" style="width: 72%;"></div>
+            </div>
+            <div class="score-value medium">0.72</div>
+          </div>
+        </div>
+        <div class="eval-details">
+          <div class="eval-row">
+            <span class="eval-key">Model Judge</span>
+            <span class="eval-val">claude-3-haiku</span>
+          </div>
+          <div class="eval-row">
+            <span class="eval-key">Criteria</span>
+            <span class="eval-val">semantic_similarity, grammar, tone</span>
+          </div>
+          <div class="eval-row">
+            <span class="eval-key">Samples</span>
+            <span class="eval-val">50 / 50 passed</span>
+          </div>
+        </div>
+      </div>
+    <% when :session_log %>
+      <div class="preview-sessions">
+        <div class="session-header">
+          <span class="session-badge">SESSION</span>
+          <span class="session-id">user_8f2a_chat</span>
+          <span class="session-count">4 traces</span>
+        </div>
+        <div class="session-traces">
+          <div class="session-trace">
+            <div class="trace-connector"></div>
+            <div class="trace-content">
+              <div class="trace-row">
+                <span class="trace-time">14:23:01</span>
+                <span class="trace-agent">SupportAgent</span>
+                <span class="trace-action">#respond</span>
+                <span class="trace-duration">892ms</span>
+                <span class="trace-status success">✓</span>
+              </div>
+              <div class="trace-preview">
+                <span class="preview-label">User:</span>
+                <span class="preview-text">"How do I reset my password?"</span>
+              </div>
+            </div>
+          </div>
+          <div class="session-trace">
+            <div class="trace-connector"></div>
+            <div class="trace-content">
+              <div class="trace-row">
+                <span class="trace-time">14:23:02</span>
+                <span class="trace-agent">SupportAgent</span>
+                <span class="trace-action">#tool_call</span>
+                <span class="trace-duration">234ms</span>
+                <span class="trace-status success">✓</span>
+              </div>
+              <div class="trace-preview">
+                <span class="preview-label">Tool:</span>
+                <span class="preview-text">lookup_user(email: "user@...")</span>
+              </div>
+            </div>
+          </div>
+          <div class="session-trace">
+            <div class="trace-connector"></div>
+            <div class="trace-content">
+              <div class="trace-row">
+                <span class="trace-time">14:23:03</span>
+                <span class="trace-agent">SupportAgent</span>
+                <span class="trace-action">#respond</span>
+                <span class="trace-duration">1.1s</span>
+                <span class="trace-status success">✓</span>
+              </div>
+              <div class="trace-preview">
+                <span class="preview-label">Response:</span>
+                <span class="preview-text">"I found your account. I'll send a reset link..."</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    <% end %>
+  </div>
+  <div class="preview-footer">
+    <p class="paragraph s secondary"><%= description %></p>
+  </div>
+</div>
