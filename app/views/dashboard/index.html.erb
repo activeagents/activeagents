@@ -1,0 +1,42 @@
+<section id="dashboard">
+  <div class="text-centered full-width">
+    <h2>Dashboard</h2>
+    <p class="paragraph m secondary">Welcome back, <%= current_user.name %></p>
+  </div>
+
+  <div class="grid columns-3 margin-top-xl">
+    <!-- User Card -->
+    <div class="feature-card">
+      <div class="feature-heading">
+        <div class="service-icon"><span class="fa-solid fa-user icon l color-accent"></span></div>
+        <p class="paragraph l bold no-top-margin">User</p>
+        <p class="paragraph m"><%= current_user.name %></p>
+        <p class="paragraph s secondary"><%= current_user.email %></p>
+      </div>
+    </div>
+
+    <!-- Account Card -->
+    <div class="feature-card">
+      <div class="feature-heading">
+        <div class="service-icon"><span class="fa-solid fa-building icon l color-accent"></span></div>
+        <p class="paragraph l bold no-top-margin">Account</p>
+        <p class="paragraph m"><%= current_account.name %></p>
+        <p class="paragraph s secondary"><%= current_account.current_plan&.name || "No Plan" %></p>
+      </div>
+    </div>
+
+    <!-- Plan Card -->
+    <div class="feature-card">
+      <div class="feature-heading">
+        <div class="service-icon"><span class="fa-solid fa-gem icon l color-accent"></span></div>
+        <p class="paragraph l bold no-top-margin">Current Plan</p>
+        <p class="paragraph m"><%= current_account.current_plan&.name || "None" %></p>
+      </div>
+      <%= link_to "Manage Subscription", subscriptions_path, class: "button tertiary full-width margin-top-l" %>
+    </div>
+  </div>
+
+  <div class="button-group centered margin-top-xl">
+    <%= button_to "Sign Out", session_path, method: :delete, class: "button tertiary" %>
+  </div>
+</section>

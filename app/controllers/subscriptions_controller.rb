@@ -1,17 +1,13 @@
 class SubscriptionsController < ApplicationController
+  layout "landing"
   before_action :authenticate_user!
   before_action :require_account!
 
   # GET /subscriptions
   def index
-    plan = current_account.current_plan
-    subscription = current_account.payment_processor&.subscription
-
-    render inertia: "Subscriptions/Index", props: {
-      current_plan: plan_props(plan),
-      subscription: subscription_props(subscription),
-      plans: Plan.active.order(:price_cents).map { |p| plan_props(p) }
-    }
+    @current_plan = current_account.current_plan
+    @subscription = current_account.payment_processor&.subscription
+    @plans = Plan.active.order(:price_cents)
   end
 
   # POST /subscriptions/checkout
@@ -95,38 +91,4 @@ class SubscriptionsController < ApplicationController
     end
   end
 
-  private
-
-  def plan_props(plan)
-    return nil unless plan
-    {
-      id: plan.id,
-      name: plan.name,
-      slug: plan.slug,
-      price_cents: plan.price_cents,
-      annual_price_cents: plan.annual_price_cents,
-      trial_days: plan.trial_days,
-      included_seats: plan.included_seats,
-      included_workspaces: plan.included_workspaces,
-      features: plan.features,
-      free: plan.free?,
-      annual_savings_percent: plan.annual_savings_percent
-    }
-  end
-
-  def subscription_props(sub)
-    return nil unless sub
-    {
-      id: sub.id,
-      status: sub.status,
-      processor_plan: sub.processor_plan,
-      trial_ends_at: sub.trial_ends_at,
-      ends_at: sub.ends_at,
-      current_period_end: sub.current_period_end,
-      on_trial: sub.on_trial?,
-      on_grace_period: sub.on_grace_period?,
-      active: sub.active?,
-      canceled: sub.canceled?
-    }
-  end
 end

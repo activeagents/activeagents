@@ -1,6 +1,7 @@
 class RegistrationsController < ApplicationController
+  layout "landing"
+
   def new
-    render inertia: "Auth/SignUp"
   end
 
   def create
