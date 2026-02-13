@@ -2175,6 +2175,397 @@ section {
   border-radius: 4px;
 }
 
+/* === SESSION REPLAY === */
+
+.preview-replay {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.replay-viewport {
+  display: flex;
+  gap: 12px;
+}
+
+.replay-screen {
+  flex: 1;
+  background-color: #1a1a1a;
+  border-radius: var(--radius-s);
+  border: 1px solid #333;
+  overflow: hidden;
+  min-height: 160px;
+}
+
+.screen-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 12px;
+  background-color: #252525;
+  border-bottom: 1px solid #333;
+}
+
+.screen-url {
+  font-size: 10px;
+  color: #666;
+  font-family: var(--font-mono);
+}
+
+.screen-user {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.user-avatar {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #569cd6, #4ec9b0);
+  font-size: 8px;
+  font-weight: 600;
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.user-name {
+  font-size: 9px;
+  color: #888;
+}
+
+.screen-content {
+  position: relative;
+  padding: 16px;
+  min-height: 120px;
+}
+
+.chat-widget {
+  position: absolute;
+  right: 16px;
+  bottom: 16px;
+  width: 160px;
+  background-color: #0f0f0f;
+  border-radius: 8px;
+  border: 1px solid #333;
+  overflow: hidden;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+}
+
+.chat-header-mini {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 6px 10px;
+  background-color: var(--color-accent);
+}
+
+.chat-title {
+  font-size: 9px;
+  font-weight: 600;
+  color: white;
+}
+
+.chat-status {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+}
+
+.chat-status.online {
+  background-color: #28ca42;
+}
+
+.chat-messages-mini {
+  padding: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.chat-msg {
+  font-size: 8px;
+  padding: 4px 8px;
+  border-radius: 6px;
+  max-width: 90%;
+}
+
+.chat-msg.user-msg {
+  background-color: #252525;
+  color: #ccc;
+  align-self: flex-end;
+}
+
+.chat-msg.agent-msg {
+  background-color: rgba(250, 52, 59, 0.15);
+  color: #ccc;
+  align-self: flex-start;
+}
+
+.typing-indicator {
+  display: flex;
+  gap: 3px;
+  padding: 2px 0;
+}
+
+.typing-indicator span {
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background-color: var(--color-accent);
+  animation: typing 1.4s infinite ease-in-out;
+}
+
+.typing-indicator span:nth-child(2) {
+  animation-delay: 0.2s;
+}
+
+.typing-indicator span:nth-child(3) {
+  animation-delay: 0.4s;
+}
+
+@keyframes typing {
+  0%, 60%, 100% { transform: translateY(0); opacity: 0.4; }
+  30% { transform: translateY(-4px); opacity: 1; }
+}
+
+.cursor-indicator {
+  position: absolute;
+  pointer-events: none;
+}
+
+.cursor-dot {
+  display: block;
+  width: 12px;
+  height: 12px;
+  background-color: rgba(86, 156, 214, 0.8);
+  border-radius: 50%;
+  box-shadow: 0 0 8px rgba(86, 156, 214, 0.5);
+}
+
+.cursor-click {
+  position: absolute;
+  top: -8px;
+  left: -8px;
+  width: 28px;
+  height: 28px;
+  border: 2px solid rgba(86, 156, 214, 0.6);
+  border-radius: 50%;
+  animation: clickRipple 1.5s infinite;
+}
+
+@keyframes clickRipple {
+  0% { transform: scale(0.5); opacity: 1; }
+  100% { transform: scale(1.5); opacity: 0; }
+}
+
+.replay-events {
+  width: 140px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.event-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 8px;
+  background-color: #1a1a1a;
+  border-radius: 4px;
+  border-left: 2px solid transparent;
+  font-size: 9px;
+  transition: all 0.2s ease;
+}
+
+.event-item.user-event {
+  border-left-color: #569cd6;
+}
+
+.event-item.agent-event {
+  border-left-color: var(--color-accent);
+}
+
+.event-item.active {
+  background-color: #252525;
+}
+
+.event-icon {
+  font-size: 10px;
+}
+
+.event-text {
+  color: #888;
+}
+
+.event-item.active .event-text {
+  color: #ccc;
+}
+
+/* Replay Controls */
+
+.replay-controls {
+  background-color: #1a1a1a;
+  border-radius: var(--radius-s);
+  padding: 12px;
+  border: 1px solid #252525;
+}
+
+.replay-timeline {
+  margin-bottom: 10px;
+}
+
+.timeline-track {
+  position: relative;
+  height: 8px;
+  background-color: #252525;
+  border-radius: 4px;
+  overflow: visible;
+}
+
+.timeline-progress {
+  position: absolute;
+  top: 0;
+  left: 0;
+  height: 100%;
+  background: linear-gradient(90deg, var(--color-accent), rgba(250, 52, 59, 0.6));
+  border-radius: 4px;
+}
+
+.timeline-markers {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+}
+
+.marker {
+  position: absolute;
+  top: -3px;
+  width: 6px;
+  height: 14px;
+  border-radius: 2px;
+  transform: translateX(-50%);
+  cursor: pointer;
+  transition: transform 0.15s ease;
+}
+
+.marker:hover {
+  transform: translateX(-50%) scaleY(1.2);
+}
+
+.marker.user-marker {
+  background-color: #569cd6;
+}
+
+.marker.agent-marker {
+  background-color: var(--color-accent);
+}
+
+.timeline-playhead {
+  position: absolute;
+  top: -4px;
+  width: 4px;
+  height: 16px;
+  background-color: white;
+  border-radius: 2px;
+  transform: translateX(-50%);
+  box-shadow: 0 0 6px rgba(255, 255, 255, 0.5);
+}
+
+.timeline-labels {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 6px;
+  font-size: 8px;
+  color: #555;
+  font-family: var(--font-mono);
+}
+
+.replay-buttons {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.replay-btn {
+  width: 28px;
+  height: 28px;
+  border: none;
+  background-color: #252525;
+  color: #888;
+  border-radius: 4px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s ease;
+}
+
+.replay-btn:hover {
+  background-color: #333;
+  color: #ccc;
+}
+
+.replay-btn.play-btn {
+  width: 36px;
+  height: 36px;
+  background-color: var(--color-accent);
+  color: white;
+}
+
+.replay-btn.play-btn:hover {
+  background-color: var(--color-accent-hover);
+}
+
+.replay-speed {
+  font-size: 10px;
+  font-weight: 600;
+  color: #666;
+  padding: 4px 8px;
+  background-color: #252525;
+  border-radius: 4px;
+  margin-left: 8px;
+}
+
+.replay-time {
+  font-size: 10px;
+  color: #666;
+  font-family: var(--font-mono);
+  margin-left: auto;
+}
+
+.replay-legend {
+  display: flex;
+  gap: 16px;
+  justify-content: center;
+}
+
+.legend-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 9px;
+  color: #666;
+}
+
+.legend-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 2px;
+}
+
+.legend-dot.user {
+  background-color: #569cd6;
+}
+
+.legend-dot.agent {
+  background-color: var(--color-accent);
+}
+
 /* Animations */
 
 @keyframes pulse {

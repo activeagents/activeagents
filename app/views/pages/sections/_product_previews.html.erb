@@ -9,27 +9,32 @@
   <div class="preview-grid">
     <div class="preview-large">
       <%= render "pages/components/product_preview",
-        title: "Trace Timeline",
-        description: "Every agent call broken down into spans. See exactly where time is spent - prompts, LLM calls, tool use, and responses.",
-        preview_type: :trace_timeline %>
+        title: "Session Replay",
+        description: "FullStory for AI. Replay every user click and agent response. Debug issues by watching exactly what happened.",
+        preview_type: :session_replay %>
     </div>
 
     <div class="preview-row">
       <%= render "pages/components/product_preview",
-        title: "Metrics Dashboard",
-        description: "Track requests, latency, costs, and token usage across all your agents in real-time.",
-        preview_type: :metrics_dashboard %>
+        title: "Trace Timeline",
+        description: "Every call broken into spans. See prompts, reasoning, LLM calls, and tool use with token costs.",
+        preview_type: :trace_timeline %>
 
       <%= render "pages/components/product_preview",
         title: "Evaluations",
-        description: "Score outputs with LLM-as-judge, rule-based checks, or custom criteria. Catch regressions before production.",
+        description: "Score outputs with LLM-as-judge, rule-based checks, or custom criteria. Catch regressions early.",
         preview_type: :evaluation %>
     </div>
 
-    <div class="preview-large">
+    <div class="preview-row">
+      <%= render "pages/components/product_preview",
+        title: "Metrics",
+        description: "Track requests, latency, costs, and token usage across all agents in real-time.",
+        preview_type: :metrics_dashboard %>
+
       <%= render "pages/components/product_preview",
         title: "Interactions",
-        description: "Message fragments cached for replay. Tool calls are deterministic. Citations ground outputs. Extended thinking captured.",
+        description: "Message fragments cached for replay. Tool calls are deterministic. Extended thinking captured.",
         preview_type: :session_log %>
     </div>
   </div>
