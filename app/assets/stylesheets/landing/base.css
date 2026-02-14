@@ -686,6 +686,10 @@ section:first-of-type {
   display: none;
 }
 
+.desktop-only {
+  display: inline;
+}
+
 .clients-container {
   display: flex;
   gap: 36px;

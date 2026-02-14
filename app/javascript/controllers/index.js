@@ -15,3 +15,6 @@ application.register("theme-toggle", ThemeToggleController)
 
 import MobileMenuController from "./mobile_menu_controller"
 application.register("mobile-menu", MobileMenuController)
+
+import FlipCardController from "./flip_card_controller"
+application.register("flip-card", FlipCardController)
