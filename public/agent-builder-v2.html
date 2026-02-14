@@ -4,50 +4,45 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Agent Builder - ActiveAgents.ai</title>
+  <link rel="stylesheet" href="/landing/css/index.css">
   <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
   <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
   <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
   <style>
-    * { box-sizing: border-box; }
-    body {
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-      background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
-      min-height: 100vh;
-      margin: 0;
-      padding: 2rem;
-      color: #fff;
+    .builder-header {
+      text-align: center;
+      padding: var(--space-section) 0 var(--space-card-m);
     }
-    .header { text-align: center; margin-bottom: 2rem; }
-    .header h1 {
-      font-size: 2.5rem;
-      margin-bottom: 0.5rem;
-      background: linear-gradient(135deg, #E86B6B, #F28B8B);
-      -webkit-background-clip: text;
-      -webkit-text-fill-color: transparent;
+    .builder-header h1 {
+      margin-bottom: 8px;
     }
-    .header p { color: #888; font-size: 1.1rem; }
+    .builder-header p {
+      color: var(--color-text-secondary);
+      font-size: var(--font-size-l);
+    }
     .builder-container {
-      max-width: 900px;
-      margin: 0 auto;
       display: grid;
       grid-template-columns: 1fr 1fr;
-      gap: 2rem;
+      gap: var(--space-card-m);
       align-items: start;
     }
     @media (max-width: 768px) {
       .builder-container { grid-template-columns: 1fr; }
     }
     .preview-panel {
-      background: rgba(255,255,255,0.05);
-      border-radius: 20px;
-      padding: 2rem;
+      background-color: var(--color-surface);
+      border-radius: var(--radius-l);
+      padding: var(--space-card-m);
       text-align: center;
-      border: 1px solid rgba(255,255,255,0.1);
     }
-    .preview-panel h2 { margin-top: 0; font-size: 1.2rem; color: #E86B6B; }
+    .preview-panel h2 {
+      margin-top: 0;
+      font-size: var(--font-size-l);
+      color: var(--color-accent);
+    }
     .agent-preview {
-      width: 300px;
-      height: 400px;
+      width: 320px;
+      height: 360px;
       margin: 0 auto;
       position: relative;
       display: flex;
@@ -56,184 +51,281 @@
       justify-content: center;
     }
     .agent-preview .base-logo {
-      width: 260px;
-      height: 260px;
-    }
-    .agent-preview .accessory {
+      width: 220px;
+      height: 220px;
       position: absolute;
-      font-size: 48px;
-      filter: drop-shadow(2px 2px 4px rgba(0,0,0,0.5));
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+    }
+    .agent-preview .mcp-container {
+      position: absolute;
+      top: 30px;
+      left: 50%;
+      transform: translateX(-50%);
+      display: flex;
+      gap: 8px;
+      z-index: 10;
+    }
+    .agent-preview .mcp-item {
+      font-size: 28px;
+      filter: drop-shadow(1px 1px 2px rgba(0,0,0,0.2));
       transition: all 0.3s ease;
+      animation: float 3s ease-in-out infinite;
     }
-    .agent-preview .accessory.hat-accessory {
-      top: 5px;
-      right: 45px;
+    .agent-preview .mcp-item:nth-child(2) { animation-delay: 0.5s; }
+    .agent-preview .mcp-item:nth-child(3) { animation-delay: 1s; }
+    .agent-preview .mcp-item:nth-child(4) { animation-delay: 1.5s; }
+    @keyframes float {
+      0%, 100% { transform: translateY(0); }
+      50% { transform: translateY(-4px); }
     }
-    .agent-preview .accessory.held-item {
-      bottom: 20px;
-      font-size: 64px;
+    .agent-preview .tools-container {
+      position: absolute;
+      bottom: 25px;
+      left: 50%;
+      transform: translateX(-50%);
+      display: flex;
+      gap: 10px;
+      z-index: 10;
+    }
+    .agent-preview .tool-item {
+      font-size: 36px;
+      filter: drop-shadow(1px 1px 2px rgba(0,0,0,0.2));
+      transition: all 0.3s ease;
     }
     .agent-preview .speech-left {
       position: absolute;
-      left: -20px;
-      top: 120px;
-      background: #4A90D9;
+      left: 20px;
+      top: 130px;
+      background: var(--color-accent);
       color: white;
-      padding: 8px 14px;
-      border-radius: 12px;
-      font-size: 16px;
-      font-weight: bold;
+      padding: 5px 10px;
+      border-radius: var(--radius-s);
+      font-size: var(--font-size-s);
+      font-weight: 500;
+      z-index: 10;
     }
     .agent-preview .speech-right {
       position: absolute;
-      right: -20px;
-      top: 120px;
-      background: #E86B6B;
+      right: 20px;
+      top: 130px;
+      background: var(--color-text-secondary);
       color: white;
-      padding: 8px 14px;
-      border-radius: 12px;
-      font-size: 16px;
-      font-weight: bold;
+      padding: 5px 10px;
+      border-radius: var(--radius-s);
+      font-size: var(--font-size-s);
+      font-weight: 500;
+      z-index: 10;
     }
     .controls-panel {
-      background: rgba(255,255,255,0.05);
-      border-radius: 20px;
-      padding: 2rem;
-      border: 1px solid rgba(255,255,255,0.1);
+      background-color: var(--color-surface);
+      border-radius: var(--radius-l);
+      padding: var(--space-card-m);
     }
-    .controls-panel h2 { margin-top: 0; font-size: 1.2rem; color: #E86B6B; }
-    .control-group { margin-bottom: 1.5rem; }
+    .controls-panel h2 {
+      margin-top: 0;
+      font-size: var(--font-size-l);
+      color: var(--color-accent);
+    }
+    .control-group {
+      margin-bottom: var(--space-card-m);
+    }
+    .control-group-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 8px;
+    }
     .control-group label {
-      display: block;
       font-weight: 600;
-      margin-bottom: 0.75rem;
-      color: #ccc;
-      font-size: 0.9rem;
+      color: var(--color-text-primary);
+      font-size: var(--font-size-m);
+    }
+    .control-group .hint {
+      font-size: var(--font-size-s);
+      color: var(--color-text-tertiary);
+      margin-bottom: 12px;
     }
     .options-grid {
       display: grid;
-      grid-template-columns: repeat(3, 1fr);
-      gap: 0.5rem;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 8px;
     }
     .option-btn {
-      padding: 0.75rem;
-      border: 2px solid rgba(255,255,255,0.1);
-      border-radius: 12px;
-      background: rgba(255,255,255,0.03);
-      color: #fff;
+      padding: 12px 8px;
+      border: 1px solid var(--color-border-level-2);
+      border-radius: var(--radius-m);
+      background: var(--color-background);
+      color: var(--color-text-primary);
       cursor: pointer;
-      font-size: 1.8rem;
-      transition: all 0.2s ease;
+      font-size: 1.4rem;
+      transition: all 0.15s ease;
       text-align: center;
       line-height: 1;
+      font-family: inherit;
     }
     .option-btn:hover {
-      border-color: rgba(232, 107, 107, 0.5);
-      background: rgba(232, 107, 107, 0.1);
-      transform: scale(1.05);
+      border-color: var(--color-accent);
+      background: var(--color-accent-b);
     }
     .option-btn.active {
-      border-color: #E86B6B;
-      background: rgba(232, 107, 107, 0.2);
+      border-color: var(--color-accent);
+      background: var(--color-accent-b);
+      box-shadow: 0 0 0 1px var(--color-accent);
     }
     .option-btn .label {
       display: block;
-      font-size: 0.65rem;
-      margin-top: 0.3rem;
-      color: #888;
+      font-size: var(--font-size-s);
+      margin-top: 4px;
+      color: var(--color-text-secondary);
+      font-weight: 500;
     }
     .presets {
       display: flex;
       flex-wrap: wrap;
-      gap: 0.5rem;
-      margin-top: 1.5rem;
-      padding-top: 1rem;
-      border-top: 1px solid rgba(255,255,255,0.1);
+      gap: 8px;
+      margin-top: var(--space-card-m);
+      padding-top: var(--space-default);
+      border-top: 1px solid var(--color-border-level-2);
+    }
+    .presets-label {
+      width: 100%;
+      font-size: var(--font-size-s);
+      color: var(--color-text-tertiary);
+      margin-bottom: 4px;
     }
     .preset-btn {
-      padding: 0.5rem 0.8rem;
-      font-size: 0.75rem;
-      background: transparent;
-      border: 1px solid rgba(255,255,255,0.2);
-      border-radius: 6px;
-      color: #888;
+      padding: 8px 12px;
+      font-size: var(--font-size-s);
+      background: var(--color-background);
+      border: 1px solid var(--color-border-level-2);
+      border-radius: var(--radius-s);
+      color: var(--color-text-secondary);
       cursor: pointer;
-      transition: all 0.2s ease;
+      transition: all 0.15s ease;
+      font-family: inherit;
+      font-weight: 500;
     }
     .preset-btn:hover {
-      border-color: #E86B6B;
-      color: #E86B6B;
+      border-color: var(--color-accent);
+      color: var(--color-accent);
+    }
+    .preset-btn.active {
+      background: var(--color-accent-b);
+      border-color: var(--color-accent);
+      color: var(--color-accent);
     }
     .config-display {
-      margin-top: 1rem;
-      padding: 0.75rem;
-      background: rgba(0,0,0,0.3);
-      border-radius: 8px;
-      font-family: monospace;
-      font-size: 0.8rem;
-      color: #888;
+      margin-top: var(--space-default);
+      padding: 12px;
+      background: var(--color-background);
+      border: 1px solid var(--color-border-level-2);
+      border-radius: var(--radius-s);
+      font-family: var(--font-mono);
+      font-size: var(--font-size-s);
+      color: var(--color-text-secondary);
+      line-height: 1.6;
+    }
+    .clear-btn {
+      padding: 4px 8px;
+      font-size: var(--font-size-s);
+      background: transparent;
+      border: 1px solid var(--color-border-level-2);
+      border-radius: var(--radius-xs);
+      color: var(--color-text-tertiary);
+      cursor: pointer;
+      font-family: inherit;
+      transition: all 0.15s ease;
+    }
+    .clear-btn:hover {
+      background: var(--color-accent-b);
+      border-color: var(--color-accent);
+      color: var(--color-accent);
     }
   </style>
 </head>
 <body>
-  <div class="header">
-    <h1>Agent Builder</h1>
-    <p>Customize your ActiveAgent with emoji accessories</p>
+  <div class="page-container">
+    <div class="builder-header">
+      <h1>Agent Builder</h1>
+      <p>Configure your agent's MCPs and Tools</p>
+    </div>
+    <div id="root"></div>
   </div>
-  <div id="root"></div>
 
   <script type="text/babel">
     const { useState } = React;
 
-    const ACCESSORIES = [
-      { id: 'none', emoji: '➖', label: 'None' },
-      { id: 'feather', emoji: '🪶', label: 'Quill' },
-      { id: 'flower', emoji: '🌸', label: 'Sakura' },
-      { id: 'masks', emoji: '🎭', label: 'Masks' },
-      { id: 'star', emoji: '⭐', label: 'Star' },
-      { id: 'sparkles', emoji: '✨', label: 'Sparkles' },
+    // MCPs - capabilities that extend the agent (shown near the hat/head)
+    const MCPS = [
+      { id: 'playwright', emoji: '🎭', label: 'Playwright' },
+      { id: 'filesystem', emoji: '📁', label: 'Filesystem' },
+      { id: 'github', emoji: '🐙', label: 'GitHub' },
+      { id: 'database', emoji: '🗄️', label: 'Database' },
+      { id: 'slack', emoji: '💬', label: 'Slack' },
+      { id: 'memory', emoji: '🧠', label: 'Memory' },
+      { id: 'fetch', emoji: '🌐', label: 'Fetch' },
+      { id: 'huggingface', emoji: '🤗', label: 'Hugging Face' },
     ];
 
-    const ITEMS = [
-      { id: 'none', emoji: '➖', label: 'None' },
+    // Tools - actions the agent can perform (shown as held items)
+    const TOOLS = [
       { id: 'terminal', emoji: '💻', label: 'Terminal' },
       { id: 'browser', emoji: '🌐', label: 'Browser' },
-      { id: 'document', emoji: '📄', label: 'Document' },
-      { id: 'scroll', emoji: '📜', label: 'Scroll' },
-      { id: 'magnifier', emoji: '🔍', label: 'Search' },
-      { id: 'speech', emoji: '💬', label: 'Speech' },
+      { id: 'document', emoji: '📄', label: 'Read' },
+      { id: 'edit', emoji: '✏️', label: 'Edit' },
+      { id: 'search', emoji: '🔍', label: 'Search' },
       { id: 'code', emoji: '👨‍💻', label: 'Code' },
-      { id: 'robot', emoji: '🤖', label: 'Robot' },
+      { id: 'translate', emoji: '🌍', label: 'Translate' },
+      { id: 'vision', emoji: '👁️', label: 'Vision' },
+      { id: 'voice', emoji: '🗣️', label: 'Voice' },
     ];
 
+    // Example agent configurations
     const PRESETS = [
-      { name: 'Terminal Pro', accessory: 'none', item: 'terminal' },
-      { name: 'Web Wizard', accessory: 'sparkles', item: 'browser' },
-      { name: 'Doc Detective', accessory: 'none', item: 'document' },
-      { name: 'Globe Trotter', accessory: 'star', item: 'magnifier' },
-      { name: 'Wordsmith', accessory: 'feather', item: 'scroll' },
-      { name: 'Polyglot', accessory: 'flower', item: 'speech' },
-      { name: 'Stage Master', accessory: 'masks', item: 'browser' },
-      { name: 'Code Agent', accessory: 'sparkles', item: 'code' },
+      { name: 'Claude Code', mcps: ['filesystem', 'github'], tools: ['terminal', 'edit', 'search'] },
+      { name: 'Web Scraper', mcps: ['playwright', 'fetch'], tools: ['browser', 'document'] },
+      { name: 'Data Analyst', mcps: ['database', 'filesystem'], tools: ['search', 'code'] },
+      { name: 'DevOps Bot', mcps: ['github', 'slack'], tools: ['terminal', 'code'] },
+      { name: 'Polyglot', mcps: ['memory'], tools: ['translate', 'document'] },
+      { name: 'Research Agent', mcps: ['fetch', 'memory'], tools: ['browser', 'search', 'document'] },
     ];
 
     function AgentBuilder() {
-      const [accessory, setAccessory] = useState('none');
-      const [item, setItem] = useState('none');
+      const [mcps, setMcps] = useState([]);
+      const [tools, setTools] = useState([]);
 
-      const currentAccessory = ACCESSORIES.find(a => a.id === accessory);
-      const currentItem = ITEMS.find(i => i.id === item);
+      const toggleMcp = (id) => {
+        setMcps(prev =>
+          prev.includes(id) ? prev.filter(m => m !== id) : [...prev, id]
+        );
+      };
+
+      const toggleTool = (id) => {
+        setTools(prev =>
+          prev.includes(id) ? prev.filter(t => t !== id) : [...prev, id]
+        );
+      };
+
+      const selectedMcps = MCPS.filter(m => mcps.includes(m.id));
+      const selectedTools = TOOLS.filter(t => tools.includes(t.id));
+      const hasTranslate = tools.includes('translate');
 
       return (
         <div className="builder-container">
           <div className="preview-panel">
             <h2>Live Preview</h2>
             <div className="agent-preview">
-              {/* Hat Accessory */}
-              {accessory !== 'none' && (
-                <span className="accessory hat-accessory">
-                  {currentAccessory?.emoji}
-                </span>
+              {/* MCPs - floating above/around the hat */}
+              {selectedMcps.length > 0 && (
+                <div className="mcp-container">
+                  {selectedMcps.map((mcp, i) => (
+                    <span key={mcp.id} className="mcp-item" title={mcp.label}>
+                      {mcp.emoji}
+                    </span>
+                  ))}
+                </div>
               )}
 
               {/* Base Logo - the actual ActiveAgent SVG */}
@@ -243,35 +335,53 @@
                 alt="ActiveAgent"
               />
 
-              {/* Held Item */}
-              {item !== 'none' && item !== 'speech' && (
-                <span className="accessory held-item">
-                  {currentItem?.emoji}
-                </span>
+              {/* Tools - displayed at bottom */}
+              {selectedTools.length > 0 && !hasTranslate && (
+                <div className="tools-container">
+                  {selectedTools.map((tool) => (
+                    <span key={tool.id} className="tool-item" title={tool.label}>
+                      {tool.emoji}
+                    </span>
+                  ))}
+                </div>
               )}
 
-              {/* Speech bubbles special case */}
-              {item === 'speech' && (
+              {/* Speech bubbles special case for translation */}
+              {hasTranslate && (
                 <>
-                  <span className="speech-left">Yes</span>
-                  <span className="speech-right">はい</span>
+                  <span className="speech-left">Hello</span>
+                  <span className="speech-right">Hola</span>
+                  {selectedTools.filter(t => t.id !== 'translate').length > 0 && (
+                    <div className="tools-container">
+                      {selectedTools.filter(t => t.id !== 'translate').map((tool) => (
+                        <span key={tool.id} className="tool-item" title={tool.label}>
+                          {tool.emoji}
+                        </span>
+                      ))}
+                    </div>
+                  )}
                 </>
               )}
             </div>
 
             <div className="config-display">
-              Accessory: {currentAccessory?.emoji} {currentAccessory?.label}<br/>
-              Item: {currentItem?.emoji} {currentItem?.label}
+              <strong>MCPs:</strong> {selectedMcps.length > 0
+                ? selectedMcps.map(m => `${m.emoji} ${m.label}`).join(', ')
+                : 'None'}<br/>
+              <strong>Tools:</strong> {selectedTools.length > 0
+                ? selectedTools.map(t => `${t.emoji} ${t.label}`).join(', ')
+                : 'None'}
             </div>
 
             <div className="presets">
+              <span className="presets-label">Quick Presets</span>
               {PRESETS.map(p => (
                 <button
                   key={p.name}
                   className="preset-btn"
                   onClick={() => {
-                    setAccessory(p.accessory);
-                    setItem(p.item);
+                    setMcps(p.mcps);
+                    setTools(p.tools);
                   }}
                 >
                   {p.name}
@@ -281,35 +391,43 @@
           </div>
 
           <div className="controls-panel">
-            <h2>Customize</h2>
+            <h2>Customize Your Agent</h2>
 
             <div className="control-group">
-              <label>Hat Accessory</label>
+              <div className="control-group-header">
+                <label>MCPs (Model Context Protocol)</label>
+                <button className="clear-btn" onClick={() => setMcps([])}>Clear</button>
+              </div>
+              <div className="hint">Select multiple - extends agent capabilities</div>
               <div className="options-grid">
-                {ACCESSORIES.map(a => (
+                {MCPS.map(m => (
                   <button
-                    key={a.id}
-                    className={`option-btn ${accessory === a.id ? 'active' : ''}`}
-                    onClick={() => setAccessory(a.id)}
+                    key={m.id}
+                    className={`option-btn ${mcps.includes(m.id) ? 'active' : ''}`}
+                    onClick={() => toggleMcp(m.id)}
                   >
-                    {a.emoji}
-                    <span className="label">{a.label}</span>
+                    {m.emoji}
+                    <span className="label">{m.label}</span>
                   </button>
                 ))}
               </div>
             </div>
 
             <div className="control-group">
-              <label>Held Item</label>
+              <div className="control-group-header">
+                <label>Tools</label>
+                <button className="clear-btn" onClick={() => setTools([])}>Clear</button>
+              </div>
+              <div className="hint">Select multiple - actions the agent can perform</div>
               <div className="options-grid">
-                {ITEMS.map(i => (
+                {TOOLS.map(t => (
                   <button
-                    key={i.id}
-                    className={`option-btn ${item === i.id ? 'active' : ''}`}
-                    onClick={() => setItem(i.id)}
+                    key={t.id}
+                    className={`option-btn ${tools.includes(t.id) ? 'active' : ''}`}
+                    onClick={() => toggleTool(t.id)}
                   >
-                    {i.emoji}
-                    <span className="label">{i.label}</span>
+                    {t.emoji}
+                    <span className="label">{t.label}</span>
                   </button>
                 ))}
               </div>
@@ -320,6 +438,22 @@
     }
 
     ReactDOM.createRoot(document.getElementById('root')).render(<AgentBuilder />);
+  </script>
+
+  <script>
+    // Theme detection matching the lander
+    function applyTheme() {
+      const savedTheme = localStorage.getItem('theme');
+      const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+      const theme = savedTheme || (prefersDark ? 'theme-dark' : 'theme-light');
+      document.documentElement.classList.remove('theme-light', 'theme-dark');
+      document.documentElement.classList.add(theme);
+    }
+    applyTheme();
+    // Listen for system theme changes
+    window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => {
+      if (!localStorage.getItem('theme')) applyTheme();
+    });
   </script>
 </body>
 </html>
