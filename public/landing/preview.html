@@ -19,7 +19,7 @@
   <link href="css/pricing.css" rel="stylesheet" type="text/css" />
   <link href="css/tablet.css" rel="stylesheet" type="text/css" />
   <link href="css/mobile.css" rel="stylesheet" type="text/css" />
-  <script src="/landing/js/main.js"></script>
+  <script src="/landing/js/main.js?v=3" defer></script>
 </head>
 
 <body>
@@ -30,6 +30,11 @@
         <img src="images/activeagent-logo.png" alt="Active Agent" style="height: 32px; width: 32px;" />
         <span style="font-size: 1.25rem; font-weight: 600;">Active Agent</span>
       </a>
+      <button class="nav-hamburger" data-mobile-toggle aria-label="Toggle navigation menu" style="flex-direction: column; justify-content: center; align-items: center; gap: 5px; width: 44px; height: 44px; padding: 10px;">
+        <span class="hamburger-line" style="display: block; width: 20px; height: 2px; background-color: var(--color-text-primary); border-radius: 1px;"></span>
+        <span class="hamburger-line" style="display: block; width: 20px; height: 2px; background-color: var(--color-text-primary); border-radius: 1px;"></span>
+        <span class="hamburger-line" style="display: block; width: 20px; height: 2px; background-color: var(--color-text-primary); border-radius: 1px;"></span>
+      </button>
       <nav role="navigation" class="nav-menu" data-navigation>
         <a href="https://docs.activeagents.ai" class="nav-link">Docs</a>
         <a href="#pricing" class="nav-link">Pricing</a>
