@@ -93,6 +93,30 @@ function handleFlipCards() {
   };
 
   flipCards.forEach((card) => {
+    // Set up scroll-to-flip on mobile
+    if (isTouchDevice()) {
+      const observer = new IntersectionObserver(
+        (entries) => {
+          entries.forEach((entry) => {
+            if (entry.isIntersecting) {
+              // Card is in the "flip zone" - flip it
+              card.classList.add("flipped");
+            } else {
+              // Card left the flip zone - flip back
+              card.classList.remove("flipped");
+            }
+          });
+        },
+        {
+          // Trigger when card is in the middle 40% of the viewport
+          rootMargin: "-30% 0px -30% 0px",
+          threshold: 0.5
+        }
+      );
+
+      observer.observe(card);
+    }
+
     card.addEventListener("click", (event) => {
       // Only handle taps on mobile/touch devices
       if (!isTouchDevice()) return;
