@@ -884,3 +884,27 @@ section {
   border-radius: var(--radius-xs);
   color: var(--color-text-secondary);
 }
+
+/* Theme Toggle */
+[data-theme-toggle] {
+  position: relative;
+  cursor: pointer;
+}
+
+/* In light mode: show moon (to switch to dark), hide sun */
+.theme-light [data-theme-toggle] .theme-icon-light {
+  display: none !important;
+}
+
+.theme-light [data-theme-toggle] .theme-icon-dark {
+  display: flex !important;
+}
+
+/* In dark mode: show sun (to switch to light), hide moon */
+.theme-dark [data-theme-toggle] .theme-icon-light {
+  display: flex !important;
+}
+
+.theme-dark [data-theme-toggle] .theme-icon-dark {
+  display: none !important;
+}
