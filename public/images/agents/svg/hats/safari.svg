@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 80" width="200" height="80">
+  <defs>
+    <linearGradient id="safariGradient" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#D4C4A8"/>
+      <stop offset="100%" stop-color="#B8A88C"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Safari/Explorer Hat -->
+  <g id="safari">
+    <!-- Wide brim -->
+    <ellipse cx="100" cy="68" rx="80" ry="10" fill="#A89878"/>
+
+    <!-- Hat dome -->
+    <ellipse cx="100" cy="40" rx="45" ry="30" fill="url(#safariGradient)"/>
+
+    <!-- Hat band -->
+    <path
+      d="M 58 55 Q 100 65 142 55"
+      fill="none"
+      stroke="#6B5B45"
+      stroke-width="4"
+    />
+
+    <!-- Chin strap -->
+    <circle cx="55" cy="68" r="3" fill="#5A4A3A"/>
+    <circle cx="145" cy="68" r="3" fill="#5A4A3A"/>
+  </g>
+</svg>

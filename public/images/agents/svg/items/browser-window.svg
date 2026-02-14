@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 90" width="120" height="90">
+  <!-- Browser Window -->
+  <g id="browser-window">
+    <!-- Window frame -->
+    <rect x="0" y="0" width="120" height="90" rx="6" fill="#FFFFFF" stroke="#E0E0E0" stroke-width="2"/>
+
+    <!-- Title bar -->
+    <rect x="0" y="0" width="120" height="20" rx="6" fill="#F5F5F5"/>
+    <rect x="0" y="14" width="120" height="6" fill="#F5F5F5"/>
+
+    <!-- Traffic lights -->
+    <circle cx="12" cy="10" r="4" fill="#FF5F56"/>
+    <circle cx="26" cy="10" r="4" fill="#FFBD2E"/>
+    <circle cx="40" cy="10" r="4" fill="#27CA3F"/>
+
+    <!-- URL bar -->
+    <rect x="50" y="5" width="60" height="10" rx="3" fill="#FFFFFF" stroke="#DDD" stroke-width="1"/>
+
+    <!-- Content area - simple layout -->
+    <rect x="8" y="28" width="30" height="50" rx="2" fill="#4A90D9"/>
+    <rect x="44" y="28" width="68" height="8" rx="2" fill="#E8E8E8"/>
+    <rect x="44" y="40" width="60" height="6" rx="1" fill="#F0F0F0"/>
+    <rect x="44" y="50" width="55" height="6" rx="1" fill="#F0F0F0"/>
+    <rect x="44" y="60" width="50" height="6" rx="1" fill="#F0F0F0"/>
+    <rect x="44" y="72" width="25" height="8" rx="2" fill="#E86B6B"/>
+  </g>
+</svg>
