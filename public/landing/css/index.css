@@ -215,6 +215,11 @@ body {
   margin: 0;
 }
 
+html {
+  scroll-behavior: smooth;
+  scroll-padding-top: 100px;
+}
+
 body {
   background-color: var(--color-background);
   font-family: var(--font-text);
@@ -639,6 +644,57 @@ section {
   display: none;
 }
 
+.nav-hamburger {
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  gap: 5px;
+  width: 44px;
+  min-width: 44px;
+  height: 44px;
+  min-height: 44px;
+  padding: 10px;
+  background: transparent;
+  border: none;
+  border-radius: var(--radius-s);
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  flex-shrink: 0;
+}
+
+.nav-hamburger:hover {
+  background-color: var(--color-surface);
+}
+
+.nav-hamburger:active {
+  background-color: var(--color-border-level-2);
+}
+
+.nav-hamburger.active .hamburger-line:nth-child(1) {
+  transform: translateY(7px) rotate(45deg);
+}
+
+.nav-hamburger.active .hamburger-line:nth-child(2) {
+  opacity: 0;
+}
+
+.nav-hamburger.active .hamburger-line:nth-child(3) {
+  transform: translateY(-7px) rotate(-45deg);
+}
+
+.hamburger-line {
+  display: block;
+  width: 20px;
+  min-width: 20px;
+  height: 2px;
+  min-height: 2px;
+  max-height: 2px;
+  flex-shrink: 0;
+  background-color: var(--color-text-primary);
+  border-radius: 1px;
+  transition: transform 0.2s ease, opacity 0.2s ease;
+}
+
 .clients-container {
   display: flex;
   gap: 36px;
@@ -660,6 +716,18 @@ section {
   gap: 16px;
   flex-direction: column;
   align-items: flex-start;
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.feature-card:active {
+  transform: scale(0.98);
+}
+
+@media (hover: hover) {
+  .feature-card:hover {
+    box-shadow: 0 0 0 1px var(--color-border-level-3);
+  }
 }
 
 .feature-heading {
