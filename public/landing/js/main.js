@@ -80,14 +80,56 @@ function handleThemeToggle() {
   });
 }
 
+function handleFlipCards() {
+  const flipCards = document.querySelectorAll(".flip-card");
+
+  // Check if touch device
+  const isTouchDevice = () => {
+    return (
+      "ontouchstart" in window ||
+      navigator.maxTouchPoints > 0 ||
+      window.matchMedia("(max-width: 767px)").matches
+    );
+  };
+
+  flipCards.forEach((card) => {
+    card.addEventListener("click", (event) => {
+      // Only handle taps on mobile/touch devices
+      if (!isTouchDevice()) return;
+
+      // Don't flip back if clicking the docs link when flipped
+      const isFlipped = card.classList.contains("flipped");
+      const clickedDocsLink = event.target.closest(".docs-link");
+
+      if (isFlipped && clickedDocsLink) {
+        // Let the link work normally
+        return;
+      }
+
+      // Toggle the flip
+      card.classList.toggle("flipped");
+    });
+
+    // Also handle keyboard for accessibility
+    card.addEventListener("keydown", (event) => {
+      if (event.key === "Enter" || event.key === " ") {
+        event.preventDefault();
+        card.classList.toggle("flipped");
+      }
+    });
+  });
+}
+
 // Initialize when DOM is ready
 if (document.readyState === "loading") {
   document.addEventListener("DOMContentLoaded", () => {
     handleMobileNav();
     handleThemeToggle();
+    handleFlipCards();
   });
 } else {
   // DOM already loaded, run immediately
   handleMobileNav();
   handleThemeToggle();
+  handleFlipCards();
 }

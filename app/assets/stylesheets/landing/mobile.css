@@ -88,6 +88,15 @@
   .flip-card-back pre {
     font-size: 10px;
   }
+
+  /* Show/hide appropriate hints for mobile */
+  .flip-card .desktop-only {
+    display: none;
+  }
+
+  .flip-card .mobile-only {
+    display: inline;
+  }
 }
 
 @media screen and (max-width: 767px) {

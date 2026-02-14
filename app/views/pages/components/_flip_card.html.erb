@@ -1,15 +1,17 @@
 <%# locals: (title:, description:, code:, docs_link:, docs_text:) %>
-<div class="flip-card" tabindex="0">
+<div class="flip-card" tabindex="0" data-controller="flip-card" data-action="click->flip-card#toggle keydown->flip-card#keyToggle">
   <div class="flip-card-inner">
     <div class="flip-card-front">
       <h3 class="color-accent no-top-margin"><%= title %></h3>
       <p class="paragraph s secondary"><%= description %></p>
-      <span class="flip-hint">hover for code</span>
+      <span class="flip-hint desktop-only">hover for code</span>
+      <span class="flip-hint mobile-only">tap for code</span>
     </div>
     <div class="flip-card-back">
       <pre><code class="highlight"><%= highlight_ruby(code) %></code></pre>
       <%= link_to "#{docs_text} →", docs_link, class: "docs-link", target: "_blank" %>
-      <span class="flip-hint">tap to flip back</span>
+      <span class="flip-hint desktop-only">hover to flip back</span>
+      <span class="flip-hint mobile-only">tap to flip back</span>
     </div>
   </div>
 </div>
