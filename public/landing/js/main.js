@@ -48,10 +48,46 @@ function handleMobileNav() {
   });
 }
 
+function handleThemeToggle() {
+  const themeToggle = document.querySelector("[data-theme-toggle]");
+  const html = document.documentElement;
+
+  if (!themeToggle) return;
+
+  // Check for saved theme preference or default to light
+  const savedTheme = localStorage.getItem("theme");
+  if (savedTheme) {
+    html.className = savedTheme;
+  } else if (window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches) {
+    // Use system preference if no saved preference
+    html.className = "theme-dark";
+  }
+
+  themeToggle.addEventListener("click", () => {
+    const currentTheme = html.className;
+    const newTheme = currentTheme === "theme-light" ? "theme-dark" : "theme-light";
+
+    html.className = newTheme;
+    localStorage.setItem("theme", newTheme);
+  });
+
+  // Listen for system theme changes
+  window.matchMedia("(prefers-color-scheme: dark)").addEventListener("change", (e) => {
+    // Only auto-switch if user hasn't manually set a preference
+    if (!localStorage.getItem("theme")) {
+      html.className = e.matches ? "theme-dark" : "theme-light";
+    }
+  });
+}
+
 // Initialize when DOM is ready
 if (document.readyState === "loading") {
-  document.addEventListener("DOMContentLoaded", handleMobileNav);
+  document.addEventListener("DOMContentLoaded", () => {
+    handleMobileNav();
+    handleThemeToggle();
+  });
 } else {
   // DOM already loaded, run immediately
   handleMobileNav();
+  handleThemeToggle();
 }
