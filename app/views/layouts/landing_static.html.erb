@@ -46,13 +46,79 @@
     <%= render "layouts/landing/footer" %>
   </div>
 
-  <!-- Minimal JS for accordion toggles -->
+  <!-- JS for mobile nav and theme toggle -->
   <script>
-    document.querySelectorAll('[data-mobile-toggle]').forEach(btn => {
-      btn.addEventListener('click', () => {
-        document.querySelector('[data-navigation]').classList.toggle('is-open');
+    // Mobile navigation toggle
+    (function() {
+      const hamburger = document.querySelector('.nav-hamburger');
+      const navMenu = document.querySelector('.nav-menu');
+
+      if (hamburger && navMenu) {
+        hamburger.addEventListener('click', () => {
+          navMenu.classList.toggle('open');
+          hamburger.classList.toggle('active');
+        });
+
+        // Close menu when clicking outside
+        document.addEventListener('click', (e) => {
+          if (!hamburger.contains(e.target) && !navMenu.contains(e.target)) {
+            navMenu.classList.remove('open');
+            hamburger.classList.remove('active');
+          }
+        });
+
+        // Close menu when clicking nav links
+        navMenu.querySelectorAll('.nav-link').forEach(link => {
+          link.addEventListener('click', (e) => {
+            const href = link.getAttribute('href');
+            if (href && href.startsWith('#')) {
+              e.preventDefault();
+              navMenu.classList.remove('open');
+              hamburger.classList.remove('active');
+              setTimeout(() => {
+                const target = document.querySelector(href);
+                if (target) {
+                  target.scrollIntoView({ behavior: 'smooth' });
+                  history.pushState(null, null, href);
+                }
+              }, 150);
+            } else {
+              navMenu.classList.remove('open');
+              hamburger.classList.remove('active');
+            }
+          });
+        });
+      }
+    })();
+
+    // Theme toggle
+    (function() {
+      const html = document.documentElement;
+      const themeBtn = document.querySelector('[aria-label="Toggle dark mode"]');
+
+      // Check saved preference or system preference
+      const savedTheme = localStorage.getItem('theme');
+      if (savedTheme) {
+        html.className = savedTheme;
+      } else if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
+        html.className = 'theme-dark';
+      }
+
+      if (themeBtn) {
+        themeBtn.addEventListener('click', () => {
+          const newTheme = html.className === 'theme-light' ? 'theme-dark' : 'theme-light';
+          html.className = newTheme;
+          localStorage.setItem('theme', newTheme);
+        });
+      }
+
+      // Listen for system theme changes
+      window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', (e) => {
+        if (!localStorage.getItem('theme')) {
+          html.className = e.matches ? 'theme-dark' : 'theme-light';
+        }
       });
-    });
+    })();
   </script>
 </body>
 
