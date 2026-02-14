@@ -1,0 +1,290 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Agent Gallery - ActiveAgents.ai</title>
+  <style>
+    * { box-sizing: border-box; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+      min-height: 100vh;
+      margin: 0;
+      padding: 2rem;
+      color: #fff;
+    }
+
+    .header {
+      text-align: center;
+      margin-bottom: 3rem;
+    }
+
+    .header h1 {
+      font-size: 3rem;
+      margin-bottom: 0.5rem;
+      background: linear-gradient(135deg, #E86B6B, #F28B8B);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+
+    .header p {
+      color: #888;
+      font-size: 1.2rem;
+    }
+
+    .gallery {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: 2rem;
+      max-width: 1400px;
+      margin: 0 auto;
+    }
+
+    .agent-card {
+      background: rgba(255,255,255,0.05);
+      border-radius: 20px;
+      padding: 1.5rem;
+      text-align: center;
+      transition: transform 0.3s ease, box-shadow 0.3s ease;
+      border: 1px solid rgba(255,255,255,0.1);
+    }
+
+    .agent-card:hover {
+      transform: translateY(-8px);
+      box-shadow: 0 20px 40px rgba(232, 107, 107, 0.2);
+      border-color: rgba(232, 107, 107, 0.3);
+    }
+
+    .agent-image {
+      width: 200px;
+      height: 200px;
+      margin: 0 auto 1rem;
+      border-radius: 16px;
+      overflow: hidden;
+      background: rgba(255,255,255,0.03);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .agent-image img {
+      max-width: 100%;
+      max-height: 100%;
+      object-fit: contain;
+    }
+
+    .agent-name {
+      font-size: 1.1rem;
+      font-weight: 600;
+      margin: 0.5rem 0;
+      color: #fff;
+    }
+
+    .agent-desc {
+      font-size: 0.85rem;
+      color: #888;
+      margin: 0;
+    }
+
+    .section-title {
+      text-align: center;
+      margin: 3rem 0 2rem;
+      color: #E86B6B;
+      font-size: 1.5rem;
+    }
+
+    .svg-gallery {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+      gap: 1.5rem;
+      max-width: 1200px;
+      margin: 0 auto;
+    }
+
+    .svg-card {
+      background: rgba(255,255,255,0.05);
+      border-radius: 12px;
+      padding: 1rem;
+      text-align: center;
+      border: 1px solid rgba(255,255,255,0.1);
+    }
+
+    .svg-card img, .svg-card object {
+      width: 100px;
+      height: 100px;
+      margin-bottom: 0.5rem;
+    }
+
+    .svg-card p {
+      font-size: 0.75rem;
+      color: #888;
+      margin: 0;
+    }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <h1>Agent Gallery</h1>
+    <p>Meet the ActiveAgents family - modular AI assistants ready to help with any task</p>
+  </div>
+
+  <div class="gallery">
+    <div class="agent-card">
+      <div class="agent-image">
+        <img src="/images/agents/computer_use_agent.png" alt="Computer Use Agent">
+      </div>
+      <h3 class="agent-name">Computer Use Agent</h3>
+      <p class="agent-desc">Desktop automation and GUI interaction</p>
+    </div>
+
+    <div class="agent-card">
+      <div class="agent-image">
+        <img src="/images/agents/terminal_agent.png" alt="Terminal Agent">
+      </div>
+      <h3 class="agent-name">Terminal Agent</h3>
+      <p class="agent-desc">Command-line operations and shell scripting</p>
+    </div>
+
+    <div class="agent-card">
+      <div class="agent-image">
+        <img src="/images/agents/web_developer_agent.png" alt="Web Developer Agent">
+      </div>
+      <h3 class="agent-name">Web Developer Agent</h3>
+      <p class="agent-desc">Building and debugging web applications</p>
+    </div>
+
+    <div class="agent-card">
+      <div class="agent-image">
+        <img src="/images/agents/document_analysis_agent.png" alt="Document Analysis Agent">
+      </div>
+      <h3 class="agent-name">Document Analysis Agent</h3>
+      <p class="agent-desc">Parsing and extracting insights from documents</p>
+    </div>
+
+    <div class="agent-card">
+      <div class="agent-image">
+        <img src="/images/agents/image_analysis_agent.png" alt="Image Analysis Agent">
+      </div>
+      <h3 class="agent-name">Image Analysis Agent</h3>
+      <p class="agent-desc">Visual content understanding and processing</p>
+    </div>
+
+    <div class="agent-card">
+      <div class="agent-image">
+        <img src="/images/agents/research_agent.png" alt="Research Agent">
+      </div>
+      <h3 class="agent-name">Research Agent</h3>
+      <p class="agent-desc">Web search and information gathering</p>
+    </div>
+
+    <div class="agent-card">
+      <div class="agent-image">
+        <img src="/images/agents/playwright_agent.png" alt="Playwright Agent">
+      </div>
+      <h3 class="agent-name">Playwright Agent</h3>
+      <p class="agent-desc">Browser automation and testing</p>
+    </div>
+
+    <div class="agent-card">
+      <div class="agent-image">
+        <img src="/images/agents/translation_agent.png" alt="Translation Agent">
+      </div>
+      <h3 class="agent-name">Translation Agent</h3>
+      <p class="agent-desc">Multi-language translation and localization</p>
+    </div>
+
+    <div class="agent-card">
+      <div class="agent-image">
+        <img src="/images/agents/writing_agent.png" alt="Writing Agent">
+      </div>
+      <h3 class="agent-name">Writing Agent</h3>
+      <p class="agent-desc">Creative and technical content creation</p>
+    </div>
+
+    <div class="agent-card">
+      <div class="agent-image">
+        <img src="/images/agents/product_design_agent.png" alt="Product Design Agent">
+      </div>
+      <h3 class="agent-name">Product Design Agent</h3>
+      <p class="agent-desc">UI/UX design and prototyping</p>
+    </div>
+  </div>
+
+  <h2 class="section-title">Modular SVG Components</h2>
+
+  <div class="svg-gallery">
+    <div class="svg-card">
+      <object type="image/svg+xml" data="/images/agents/svg/base-agent.svg"></object>
+      <p>Base Agent</p>
+    </div>
+    <div class="svg-card">
+      <object type="image/svg+xml" data="/images/agents/svg/hats/fedora.svg"></object>
+      <p>Fedora Hat</p>
+    </div>
+    <div class="svg-card">
+      <object type="image/svg+xml" data="/images/agents/svg/hats/safari.svg"></object>
+      <p>Safari Hat</p>
+    </div>
+    <div class="svg-card">
+      <object type="image/svg+xml" data="/images/agents/svg/accessories/feather.svg"></object>
+      <p>Quill Feather</p>
+    </div>
+    <div class="svg-card">
+      <object type="image/svg+xml" data="/images/agents/svg/accessories/cherry-blossom.svg"></object>
+      <p>Cherry Blossom</p>
+    </div>
+    <div class="svg-card">
+      <object type="image/svg+xml" data="/images/agents/svg/accessories/theater-masks-badge.svg"></object>
+      <p>Theater Masks</p>
+    </div>
+    <div class="svg-card">
+      <object type="image/svg+xml" data="/images/agents/svg/items/terminal.svg"></object>
+      <p>Terminal</p>
+    </div>
+    <div class="svg-card">
+      <object type="image/svg+xml" data="/images/agents/svg/items/browser-window.svg"></object>
+      <p>Browser Window</p>
+    </div>
+    <div class="svg-card">
+      <object type="image/svg+xml" data="/images/agents/svg/items/document.svg"></object>
+      <p>Document</p>
+    </div>
+    <div class="svg-card">
+      <object type="image/svg+xml" data="/images/agents/svg/items/scroll.svg"></object>
+      <p>Scroll</p>
+    </div>
+    <div class="svg-card">
+      <object type="image/svg+xml" data="/images/agents/svg/items/magnifying-glass.svg"></object>
+      <p>Magnifying Glass</p>
+    </div>
+    <div class="svg-card">
+      <object type="image/svg+xml" data="/images/agents/svg/elements/globe.svg"></object>
+      <p>Globe</p>
+    </div>
+    <div class="svg-card">
+      <object type="image/svg+xml" data="/images/agents/svg/elements/chart.svg"></object>
+      <p>Chart</p>
+    </div>
+    <div class="svg-card">
+      <object type="image/svg+xml" data="/images/agents/svg/elements/cursor.svg"></object>
+      <p>Cursor</p>
+    </div>
+    <div class="svg-card">
+      <object type="image/svg+xml" data="/images/agents/svg/elements/speech-bubble.svg"></object>
+      <p>Speech Bubble</p>
+    </div>
+  </div>
+
+  <h2 class="section-title">Composed Example</h2>
+
+  <div style="display: flex; justify-content: center; margin-bottom: 3rem;">
+    <div class="svg-card" style="padding: 2rem;">
+      <object type="image/svg+xml" data="/images/agents/svg/composed/terminal-agent.svg" style="width: 280px; height: 280px;"></object>
+      <p>Terminal Agent (Composed SVG)</p>
+    </div>
+  </div>
+</body>
+</html>

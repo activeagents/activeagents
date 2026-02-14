@@ -1,0 +1,532 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Agent Builder (SVG) - ActiveAgents.ai</title>
+  <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
+  <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+      min-height: 100vh;
+      margin: 0;
+      padding: 2rem;
+      color: #fff;
+    }
+    .header { text-align: center; margin-bottom: 2rem; }
+    .header h1 {
+      font-size: 2.5rem;
+      margin-bottom: 0.5rem;
+      background: linear-gradient(135deg, #E86B6B, #F28B8B);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+    .header p { color: #888; font-size: 1.1rem; }
+    .builder-container {
+      max-width: 1000px;
+      margin: 0 auto;
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 2rem;
+      align-items: start;
+    }
+    @media (max-width: 768px) {
+      .builder-container { grid-template-columns: 1fr; }
+    }
+    .preview-panel {
+      background: rgba(255,255,255,0.05);
+      border-radius: 20px;
+      padding: 2rem;
+      text-align: center;
+      border: 1px solid rgba(255,255,255,0.1);
+      position: sticky;
+      top: 2rem;
+    }
+    .preview-panel h2 { margin-top: 0; font-size: 1.2rem; color: #E86B6B; }
+    .agent-preview {
+      width: 320px;
+      height: 380px;
+      margin: 0 auto;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .controls-panel {
+      background: rgba(255,255,255,0.05);
+      border-radius: 20px;
+      padding: 2rem;
+      border: 1px solid rgba(255,255,255,0.1);
+    }
+    .controls-panel h2 { margin-top: 0; font-size: 1.2rem; color: #E86B6B; }
+    .control-group { margin-bottom: 1.5rem; }
+    .control-group label {
+      display: block;
+      font-weight: 600;
+      margin-bottom: 0.75rem;
+      color: #ccc;
+      font-size: 0.9rem;
+    }
+    .options-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 0.5rem;
+    }
+    .option-btn {
+      padding: 0.6rem 0.8rem;
+      border: 2px solid rgba(255,255,255,0.1);
+      border-radius: 10px;
+      background: rgba(255,255,255,0.03);
+      color: #fff;
+      cursor: pointer;
+      font-size: 0.8rem;
+      transition: all 0.2s ease;
+      text-align: center;
+    }
+    .option-btn:hover {
+      border-color: rgba(232, 107, 107, 0.5);
+      background: rgba(232, 107, 107, 0.1);
+    }
+    .option-btn.active {
+      border-color: #E86B6B;
+      background: rgba(232, 107, 107, 0.2);
+    }
+    .option-btn .emoji { display: block; font-size: 1.3rem; margin-bottom: 0.15rem; }
+    .agent-name-display {
+      margin-top: 1rem;
+      padding: 1rem;
+      background: rgba(0,0,0,0.3);
+      border-radius: 10px;
+      font-family: monospace;
+      font-size: 0.85rem;
+      color: #aaa;
+    }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <h1>Agent Builder</h1>
+    <p>Build custom agents using the ActiveAgents SVG logo</p>
+  </div>
+  <div id="root"></div>
+
+  <script type="text/babel">
+    const { useState } = React;
+
+    // Base ActiveAgent SVG Logo Component - Clean redraw matching the original style
+    function BaseAgent({ showEyes = true }) {
+      return (
+        <g id="base-agent" transform="translate(50, 20)">
+          {/* Gem Body - Octagonal shape */}
+          <path
+            d="M200,10 L320,60 L360,180 L320,300 L200,350 L80,300 L40,180 L80,60 Z"
+            fill="#EB5555"
+            stroke="#000000"
+            strokeWidth="8"
+          />
+          {/* Body highlight/facet */}
+          <path
+            d="M200,10 L320,60 L280,120 L200,50 L120,120 L80,60 Z"
+            fill="#F07070"
+            opacity="0.6"
+          />
+
+          {/* Eyes behind sunglasses */}
+          <g id="eyes">
+            {/* Left eye socket */}
+            <ellipse cx="140" cy="150" rx="45" ry="38" fill="#F5E6D3"/>
+            <ellipse cx="140" cy="155" rx="26" ry="26" fill="#5D4037"/>
+            <ellipse cx="140" cy="155" rx="16" ry="16" fill="#2D1F1F"/>
+            <ellipse cx="132" cy="148" rx="6" ry="6" fill="#FFFFFF"/>
+            {/* Right eye socket */}
+            <ellipse cx="260" cy="150" rx="45" ry="38" fill="#F5E6D3"/>
+            <ellipse cx="260" cy="155" rx="26" ry="26" fill="#5D4037"/>
+            <ellipse cx="260" cy="155" rx="16" ry="16" fill="#2D1F1F"/>
+            <ellipse cx="252" cy="148" rx="6" ry="6" fill="#FFFFFF"/>
+          </g>
+
+          {/* Sunglasses */}
+          <g id="sunglasses">
+            {/* Left lens */}
+            <ellipse cx="140" cy="155" rx="52" ry="44" fill="#000000" fillOpacity="0.9" stroke="#000000" strokeWidth="6"/>
+            {/* Right lens */}
+            <ellipse cx="260" cy="155" rx="52" ry="44" fill="#000000" fillOpacity="0.9" stroke="#000000" strokeWidth="6"/>
+            {/* Bridge */}
+            <path d="M192,155 Q200,140 208,155" fill="none" stroke="#000000" strokeWidth="8"/>
+            {/* Left arm */}
+            <path d="M88,145 L60,130" stroke="#000000" strokeWidth="6" strokeLinecap="round"/>
+            {/* Right arm */}
+            <path d="M312,145 L340,130" stroke="#000000" strokeWidth="6" strokeLinecap="round"/>
+          </g>
+
+          {/* Mouth */}
+          <path
+            d="M170,240 Q200,265 230,240"
+            fill="none"
+            stroke="#000000"
+            strokeWidth="6"
+            strokeLinecap="round"
+          />
+
+          {/* Cheek blush */}
+          <ellipse cx="95" cy="200" rx="20" ry="12" fill="#FF9999" opacity="0.5"/>
+          <ellipse cx="305" cy="200" rx="20" ry="12" fill="#FF9999" opacity="0.5"/>
+
+          {/* Sparkles */}
+          <g id="sparkles" fill="#FFFFFF">
+            <path d="M70,80 L75,70 L80,80 L90,85 L80,90 L75,100 L70,90 L60,85 Z"/>
+            <path d="M55,110 L58,105 L61,110 L66,112 L61,114 L58,120 L55,114 L50,112 Z" opacity="0.7"/>
+            <path d="M330,80 L335,70 L340,80 L350,85 L340,90 L335,100 L330,90 L320,85 Z"/>
+            <path d="M345,110 L348,105 L351,110 L356,112 L351,114 L348,120 L345,114 L340,112 Z" opacity="0.7"/>
+          </g>
+        </g>
+      );
+    }
+
+    // Fedora Hat Component
+    function FedoraHat({ color = "#000000" }) {
+      return (
+        <g id="fedora-hat" transform="translate(50, 20)">
+          {/* Hat brim */}
+          <ellipse cx="200" cy="45" rx="140" ry="18" fill="#2A2A2A"/>
+          {/* Hat crown */}
+          <path
+            d="M80,45 Q80,0 130,-10 L270,-10 Q320,0 320,45 Z"
+            fill={color}
+          />
+          {/* Hat band */}
+          <rect x="90" y="25" width="220" height="12" fill="#1A1A1A" rx="2"/>
+          {/* Hat crease */}
+          <path d="M130,-10 Q200,10 270,-10" fill="none" stroke="#3A3A3A" strokeWidth="4"/>
+        </g>
+      );
+    }
+
+    // Safari Hat Component
+    function SafariHat({ color = "#D4C4A8" }) {
+      return (
+        <g id="safari-hat" transform="translate(50, 10)">
+          {/* Wide brim */}
+          <ellipse cx="200" cy="55" rx="160" ry="20" fill="#A89878" stroke="#6B5B45" strokeWidth="3"/>
+          {/* Hat dome */}
+          <ellipse cx="200" cy="30" rx="90" ry="40" fill={color} stroke="#8B7B5B" strokeWidth="2"/>
+          {/* Hat band */}
+          <path d="M 120 50 Q 200 65 280 50" fill="none" stroke="#6B5B45" strokeWidth="6"/>
+          {/* Chin strap buttons */}
+          <circle cx="80" cy="55" r="5" fill="#5A4A3A"/>
+          <circle cx="320" cy="55" r="5" fill="#5A4A3A"/>
+        </g>
+      );
+    }
+
+    // Hat Accessories
+    function QuillFeather() {
+      return (
+        <g id="quill-feather" transform="translate(340, -25) rotate(25)">
+          <path d="M 20 90 Q 18 50 28 5" fill="none" stroke="#8B8B8B" strokeWidth="3"/>
+          <path d="M 20 85 Q -5 78 5 60 Q 18 68 20 55 Q 0 48 8 30 Q 18 40 22 28 Q 5 18 18 0 Q 22 20 28 15" fill="#C0C0C0" stroke="#A0A0A0" strokeWidth="1"/>
+          <path d="M 28 80 Q 55 72 48 55 Q 35 62 32 48 Q 55 40 48 22 Q 38 35 35 20 Q 52 10 42 -5 Q 35 15 32 8" fill="#E8E8E8" stroke="#C8C8C8" strokeWidth="1"/>
+        </g>
+      );
+    }
+
+    function CherryBlossom() {
+      return (
+        <g id="cherry-blossom" transform="translate(335, -5) scale(1.4)">
+          <ellipse cx="25" cy="8" rx="10" ry="14" fill="#FFB3C1" transform="rotate(0 25 25)"/>
+          <ellipse cx="25" cy="8" rx="10" ry="14" fill="#FFB3C1" transform="rotate(72 25 25)"/>
+          <ellipse cx="25" cy="8" rx="10" ry="14" fill="#FFB3C1" transform="rotate(144 25 25)"/>
+          <ellipse cx="25" cy="8" rx="10" ry="14" fill="#FFB3C1" transform="rotate(216 25 25)"/>
+          <ellipse cx="25" cy="8" rx="10" ry="14" fill="#FFB3C1" transform="rotate(288 25 25)"/>
+          <circle cx="25" cy="25" r="8" fill="#FFE5E5"/>
+          <circle cx="22" cy="22" r="2" fill="#FFD700"/>
+          <circle cx="28" cy="22" r="2" fill="#FFD700"/>
+          <circle cx="25" cy="28" r="2" fill="#FFD700"/>
+        </g>
+      );
+    }
+
+    function TheaterMasks() {
+      return (
+        <g id="theater-masks" transform="translate(200, -5) scale(1.2)">
+          <circle cx="25" cy="25" r="24" fill="#1A6B8A" stroke="#D4A530" strokeWidth="4"/>
+          <g transform="translate(-4, 2) scale(0.8)">
+            <ellipse cx="20" cy="22" rx="12" ry="14" fill="#FFFFFF" stroke="#1A6B8A" strokeWidth="2"/>
+            <circle cx="16" cy="20" r="3" fill="#1A6B8A"/>
+            <circle cx="24" cy="20" r="3" fill="#1A6B8A"/>
+            <path d="M 14 26 Q 20 32 26 26" fill="none" stroke="#1A6B8A" strokeWidth="2"/>
+          </g>
+          <g transform="translate(12, 8) scale(0.8)">
+            <ellipse cx="28" cy="22" rx="12" ry="14" fill="#FFFFFF" stroke="#1A6B8A" strokeWidth="2"/>
+            <circle cx="24" cy="20" r="3" fill="#1A6B8A"/>
+            <circle cx="32" cy="20" r="3" fill="#1A6B8A"/>
+            <path d="M 24 28 Q 28 24 32 28" fill="none" stroke="#1A6B8A" strokeWidth="2"/>
+          </g>
+        </g>
+      );
+    }
+
+    // Held Items
+    function TerminalWindow() {
+      return (
+        <g id="terminal" transform="translate(120, 380)">
+          <rect x="0" y="0" width="260" height="150" rx="10" fill="#1E1E1E" stroke="#333" strokeWidth="4"/>
+          <rect x="0" y="0" width="260" height="35" rx="10" fill="#333333"/>
+          <rect x="0" y="25" width="260" height="10" fill="#333333"/>
+          <circle cx="25" cy="17" r="8" fill="#FF5F56"/>
+          <circle cx="50" cy="17" r="8" fill="#FFBD2E"/>
+          <circle cx="75" cy="17" r="8" fill="#27CA3F"/>
+          <text x="15" y="70" fontFamily="monospace" fontSize="16" fill="#00FF00">$ activeagent new</text>
+          <text x="15" y="95" fontFamily="monospace" fontSize="14" fill="#CCCCCC">Creating agent...</text>
+          <text x="15" y="115" fontFamily="monospace" fontSize="14" fill="#CCCCCC">Done!</text>
+          <text x="15" y="140" fontFamily="monospace" fontSize="16" fill="#00FF00">$ _</text>
+          <rect x="38" y="125" width="12" height="18" fill="#00FF00" opacity="0.8"/>
+        </g>
+      );
+    }
+
+    function BrowserWindow() {
+      return (
+        <g id="browser" transform="translate(120, 380)">
+          <rect x="0" y="0" width="260" height="160" rx="10" fill="#FFFFFF" stroke="#E0E0E0" strokeWidth="4"/>
+          <rect x="0" y="0" width="260" height="35" rx="10" fill="#F5F5F5"/>
+          <rect x="0" y="25" width="260" height="10" fill="#F5F5F5"/>
+          <circle cx="20" cy="17" r="7" fill="#FF5F56"/>
+          <circle cx="42" cy="17" r="7" fill="#FFBD2E"/>
+          <circle cx="64" cy="17" r="7" fill="#27CA3F"/>
+          <rect x="85" y="8" width="160" height="18" rx="5" fill="#FFFFFF" stroke="#DDD" strokeWidth="2"/>
+          <rect x="15" y="50" width="70" height="95" rx="4" fill="#4A90D9"/>
+          <rect x="95" y="50" width="150" height="15" rx="3" fill="#E8E8E8"/>
+          <rect x="95" y="72" width="130" height="10" rx="2" fill="#F0F0F0"/>
+          <rect x="95" y="88" width="120" height="10" rx="2" fill="#F0F0F0"/>
+          <rect x="95" y="104" width="100" height="10" rx="2" fill="#F0F0F0"/>
+          <rect x="95" y="125" width="60" height="18" rx="4" fill="#E86B6B"/>
+        </g>
+      );
+    }
+
+    function DocumentPDF() {
+      return (
+        <g id="document" transform="translate(160, 380)">
+          <path d="M 10 0 L 130 0 L 170 40 L 170 200 L 10 200 Z" fill="#FFFFFF" stroke="#CCCCCC" strokeWidth="4"/>
+          <path d="M 130 0 L 130 40 L 170 40 Z" fill="#E8E8E8" stroke="#CCCCCC" strokeWidth="2"/>
+          <rect x="25" y="60" width="120" height="10" rx="2" fill="#E0E0E0"/>
+          <rect x="25" y="80" width="110" height="10" rx="2" fill="#E0E0E0"/>
+          <rect x="25" y="100" width="115" height="10" rx="2" fill="#E0E0E0"/>
+          <rect x="25" y="120" width="80" height="10" rx="2" fill="#E0E0E0"/>
+          <rect x="25" y="150" width="120" height="10" rx="2" fill="#E0E0E0"/>
+          <rect x="25" y="170" width="95" height="10" rx="2" fill="#E0E0E0"/>
+          <rect x="20" y="15" width="60" height="28" rx="4" fill="#E86B6B"/>
+          <text x="30" y="35" fontFamily="sans-serif" fontSize="16" fontWeight="bold" fill="#FFFFFF">PDF</text>
+        </g>
+      );
+    }
+
+    function MagnifyingGlass() {
+      return (
+        <g id="magnifying-glass" transform="translate(340, 430) scale(2)">
+          <rect x="42" y="42" width="12" height="35" rx="5" fill="#4A4A4A" transform="rotate(45 48 60)"/>
+          <circle cx="30" cy="30" r="28" fill="none" stroke="#5A5A5A" strokeWidth="8"/>
+          <circle cx="30" cy="30" r="22" fill="#E8F4FC" fillOpacity="0.5"/>
+          <path d="M 18 18 Q 14 25 18 32" fill="none" stroke="#FFFFFF" strokeWidth="4" strokeLinecap="round" opacity="0.8"/>
+        </g>
+      );
+    }
+
+    function ScrollItem() {
+      return (
+        <g id="scroll" transform="translate(150, 385)">
+          <ellipse cx="100" cy="15" rx="85" ry="18" fill="#D4C4A0"/>
+          <rect x="20" y="15" width="160" height="15" fill="#FDF8EE"/>
+          <rect x="25" y="30" width="150" height="140" fill="#FDF8EE"/>
+          <ellipse cx="100" cy="170" rx="85" ry="18" fill="#D4C4A0"/>
+          <path d="M 45 55 Q 70 50 100 55 Q 130 60 150 55" fill="none" stroke="#8B7355" strokeWidth="3"/>
+          <path d="M 45 80 Q 85 75 130 80" fill="none" stroke="#8B7355" strokeWidth="3"/>
+          <path d="M 45 105 Q 80 100 120 105 Q 140 108 155 105" fill="none" stroke="#8B7355" strokeWidth="3"/>
+          <path d="M 45 130 Q 65 125 100 130" fill="none" stroke="#8B7355" strokeWidth="3"/>
+        </g>
+      );
+    }
+
+    // Speech Bubbles
+    function SpeechBubbles() {
+      return (
+        <g id="speech-bubbles" transform="translate(50, 200)">
+          {/* Left bubble - English */}
+          <g transform="translate(0, 0)">
+            <path d="M 10 5 L 70 5 Q 80 5 80 15 L 80 45 Q 80 55 70 55 L 30 55 L 20 70 L 25 55 L 10 55 Q 0 55 0 45 L 0 15 Q 0 5 10 5 Z" fill="#4A90D9" stroke="#3A7BC8" strokeWidth="2"/>
+            <text x="40" y="38" fontFamily="sans-serif" fontSize="18" fontWeight="bold" fill="#FFFFFF" textAnchor="middle">Yes</text>
+          </g>
+          {/* Right bubble - Japanese */}
+          <g transform="translate(320, 0)">
+            <path d="M 10 5 L 70 5 Q 80 5 80 15 L 80 45 Q 80 55 70 55 L 30 55 L 20 70 L 25 55 L 10 55 Q 0 55 0 45 L 0 15 Q 0 5 10 5 Z" fill="#E86B6B" stroke="#D45A5A" strokeWidth="2"/>
+            <text x="40" y="38" fontFamily="sans-serif" fontSize="18" fontWeight="bold" fill="#FFFFFF" textAnchor="middle">はい</text>
+          </g>
+        </g>
+      );
+    }
+
+    // Main Agent SVG Component
+    function AgentSVG({ hat, hatAccessory, heldItem }) {
+      return (
+        <svg viewBox="0 0 500 560" width="320" height="380">
+          {/* Held Item (behind agent) */}
+          {heldItem === 'terminal' && <TerminalWindow />}
+          {heldItem === 'browser' && <BrowserWindow />}
+          {heldItem === 'document' && <DocumentPDF />}
+          {heldItem === 'scroll' && <ScrollItem />}
+          {heldItem === 'magnifier' && <MagnifyingGlass />}
+
+          {/* Base Agent */}
+          <BaseAgent />
+
+          {/* Hat */}
+          {hat === 'fedora' && <FedoraHat />}
+          {hat === 'safari' && <SafariHat />}
+
+          {/* Hat Accessories (on top) */}
+          {hatAccessory === 'feather' && <QuillFeather />}
+          {hatAccessory === 'flower' && <CherryBlossom />}
+          {hatAccessory === 'masks' && <TheaterMasks />}
+
+          {/* Speech bubbles for translation */}
+          {heldItem === 'speech' && <SpeechBubbles />}
+        </svg>
+      );
+    }
+
+    // Main Builder Component
+    function AgentBuilder() {
+      const [hat, setHat] = useState('fedora');
+      const [hatAccessory, setHatAccessory] = useState('none');
+      const [heldItem, setHeldItem] = useState('none');
+
+      const hats = [
+        { id: 'fedora', name: 'Fedora', emoji: '🎩' },
+        { id: 'safari', name: 'Safari', emoji: '🪖' },
+        { id: 'none', name: 'None', emoji: '➖' },
+      ];
+
+      const accessories = [
+        { id: 'none', name: 'None', emoji: '➖' },
+        { id: 'feather', name: 'Quill', emoji: '🪶' },
+        { id: 'flower', name: 'Sakura', emoji: '🌸' },
+        { id: 'masks', name: 'Masks', emoji: '🎭' },
+      ];
+
+      const items = [
+        { id: 'none', name: 'None', emoji: '➖' },
+        { id: 'terminal', name: 'Terminal', emoji: '💻' },
+        { id: 'browser', name: 'Browser', emoji: '🌐' },
+        { id: 'document', name: 'Document', emoji: '📄' },
+        { id: 'scroll', name: 'Scroll', emoji: '📜' },
+        { id: 'magnifier', name: 'Magnifier', emoji: '🔍' },
+        { id: 'speech', name: 'Speech', emoji: '💬' },
+      ];
+
+      const presets = [
+        { name: 'Terminal Pro', hat: 'fedora', acc: 'none', item: 'terminal' },
+        { name: 'Web Wizard', hat: 'fedora', acc: 'none', item: 'browser' },
+        { name: 'Doc Detective', hat: 'fedora', acc: 'none', item: 'document' },
+        { name: 'Globe Trotter', hat: 'safari', acc: 'none', item: 'magnifier' },
+        { name: 'Wordsmith', hat: 'fedora', acc: 'feather', item: 'scroll' },
+        { name: 'Polyglot', hat: 'fedora', acc: 'flower', item: 'speech' },
+        { name: 'Stage Master', hat: 'fedora', acc: 'masks', item: 'browser' },
+      ];
+
+      return (
+        <div className="builder-container">
+          <div className="preview-panel">
+            <h2>Live Preview</h2>
+            <div className="agent-preview">
+              <AgentSVG hat={hat} hatAccessory={hatAccessory} heldItem={heldItem} />
+            </div>
+            <div className="agent-name-display">
+              <div style={{marginBottom: '0.5rem'}}>
+                <strong>Configuration:</strong>
+              </div>
+              Hat: {hats.find(h => h.id === hat)?.name || 'None'}<br/>
+              Accessory: {accessories.find(a => a.id === hatAccessory)?.name || 'None'}<br/>
+              Item: {items.find(i => i.id === heldItem)?.name || 'None'}
+            </div>
+            <div style={{marginTop: '1rem', display: 'flex', flexWrap: 'wrap', gap: '0.4rem', justifyContent: 'center'}}>
+              {presets.map(p => (
+                <button
+                  key={p.name}
+                  onClick={() => { setHat(p.hat); setHatAccessory(p.acc); setHeldItem(p.item); }}
+                  style={{
+                    padding: '0.4rem 0.6rem',
+                    fontSize: '0.7rem',
+                    background: 'transparent',
+                    border: '1px solid rgba(255,255,255,0.2)',
+                    borderRadius: '5px',
+                    color: '#888',
+                    cursor: 'pointer'
+                  }}
+                >{p.name}</button>
+              ))}
+            </div>
+          </div>
+
+          <div className="controls-panel">
+            <h2>Customize Your Agent</h2>
+
+            <div className="control-group">
+              <label>Hat Style</label>
+              <div className="options-grid">
+                {hats.map(h => (
+                  <button
+                    key={h.id}
+                    className={`option-btn ${hat === h.id ? 'active' : ''}`}
+                    onClick={() => setHat(h.id)}
+                  >
+                    <span className="emoji">{h.emoji}</span>
+                    {h.name}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div className="control-group">
+              <label>Hat Accessory</label>
+              <div className="options-grid">
+                {accessories.map(a => (
+                  <button
+                    key={a.id}
+                    className={`option-btn ${hatAccessory === a.id ? 'active' : ''}`}
+                    onClick={() => setHatAccessory(a.id)}
+                  >
+                    <span className="emoji">{a.emoji}</span>
+                    {a.name}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div className="control-group">
+              <label>Held Item</label>
+              <div className="options-grid">
+                {items.map(i => (
+                  <button
+                    key={i.id}
+                    className={`option-btn ${heldItem === i.id ? 'active' : ''}`}
+                    onClick={() => setHeldItem(i.id)}
+                  >
+                    <span className="emoji">{i.emoji}</span>
+                    {i.name}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    ReactDOM.createRoot(document.getElementById('root')).render(<AgentBuilder />);
+  </script>
+</body>
+</html>

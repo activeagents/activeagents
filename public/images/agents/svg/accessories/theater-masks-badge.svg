@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 40" width="40" height="40">
+  <!-- Theater Masks Badge (Playwright) -->
+  <g id="theater-badge">
+    <!-- Badge circle -->
+    <circle cx="20" cy="20" r="18" fill="#1A6B8A" stroke="#D4A530" stroke-width="3"/>
+
+    <!-- Happy mask -->
+    <g transform="translate(-2, 2) scale(0.7)">
+      <path
+        d="M 18 12 Q 10 12 10 20 Q 10 28 18 28 Q 26 28 26 20 Q 26 12 18 12"
+        fill="#FFFFFF"
+        stroke="#1A6B8A"
+        stroke-width="1"
+      />
+      <!-- Eyes -->
+      <circle cx="14" cy="18" r="2" fill="#1A6B8A"/>
+      <circle cx="22" cy="18" r="2" fill="#1A6B8A"/>
+      <!-- Smile -->
+      <path d="M 14 23 Q 18 27 22 23" fill="none" stroke="#1A6B8A" stroke-width="1.5"/>
+    </g>
+
+    <!-- Sad mask -->
+    <g transform="translate(8, 6) scale(0.7)">
+      <path
+        d="M 25 15 Q 17 15 17 23 Q 17 31 25 31 Q 33 31 33 23 Q 33 15 25 15"
+        fill="#FFFFFF"
+        stroke="#1A6B8A"
+        stroke-width="1"
+      />
+      <!-- Eyes -->
+      <circle cx="21" cy="21" r="2" fill="#1A6B8A"/>
+      <circle cx="29" cy="21" r="2" fill="#1A6B8A"/>
+      <!-- Frown -->
+      <path d="M 21 27 Q 25 24 29 27" fill="none" stroke="#1A6B8A" stroke-width="1.5"/>
+    </g>
+  </g>
+</svg>

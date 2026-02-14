@@ -1,0 +1,325 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Agent Builder - ActiveAgents.ai</title>
+  <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
+  <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+      min-height: 100vh;
+      margin: 0;
+      padding: 2rem;
+      color: #fff;
+    }
+    .header { text-align: center; margin-bottom: 2rem; }
+    .header h1 {
+      font-size: 2.5rem;
+      margin-bottom: 0.5rem;
+      background: linear-gradient(135deg, #E86B6B, #F28B8B);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+    .header p { color: #888; font-size: 1.1rem; }
+    .builder-container {
+      max-width: 900px;
+      margin: 0 auto;
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 2rem;
+      align-items: start;
+    }
+    @media (max-width: 768px) {
+      .builder-container { grid-template-columns: 1fr; }
+    }
+    .preview-panel {
+      background: rgba(255,255,255,0.05);
+      border-radius: 20px;
+      padding: 2rem;
+      text-align: center;
+      border: 1px solid rgba(255,255,255,0.1);
+    }
+    .preview-panel h2 { margin-top: 0; font-size: 1.2rem; color: #E86B6B; }
+    .agent-preview {
+      width: 300px;
+      height: 400px;
+      margin: 0 auto;
+      position: relative;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+    }
+    .agent-preview .base-logo {
+      width: 260px;
+      height: 260px;
+    }
+    .agent-preview .accessory {
+      position: absolute;
+      font-size: 48px;
+      filter: drop-shadow(2px 2px 4px rgba(0,0,0,0.5));
+      transition: all 0.3s ease;
+    }
+    .agent-preview .accessory.hat-accessory {
+      top: 5px;
+      right: 45px;
+    }
+    .agent-preview .accessory.held-item {
+      bottom: 20px;
+      font-size: 64px;
+    }
+    .agent-preview .speech-left {
+      position: absolute;
+      left: -20px;
+      top: 120px;
+      background: #4A90D9;
+      color: white;
+      padding: 8px 14px;
+      border-radius: 12px;
+      font-size: 16px;
+      font-weight: bold;
+    }
+    .agent-preview .speech-right {
+      position: absolute;
+      right: -20px;
+      top: 120px;
+      background: #E86B6B;
+      color: white;
+      padding: 8px 14px;
+      border-radius: 12px;
+      font-size: 16px;
+      font-weight: bold;
+    }
+    .controls-panel {
+      background: rgba(255,255,255,0.05);
+      border-radius: 20px;
+      padding: 2rem;
+      border: 1px solid rgba(255,255,255,0.1);
+    }
+    .controls-panel h2 { margin-top: 0; font-size: 1.2rem; color: #E86B6B; }
+    .control-group { margin-bottom: 1.5rem; }
+    .control-group label {
+      display: block;
+      font-weight: 600;
+      margin-bottom: 0.75rem;
+      color: #ccc;
+      font-size: 0.9rem;
+    }
+    .options-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 0.5rem;
+    }
+    .option-btn {
+      padding: 0.75rem;
+      border: 2px solid rgba(255,255,255,0.1);
+      border-radius: 12px;
+      background: rgba(255,255,255,0.03);
+      color: #fff;
+      cursor: pointer;
+      font-size: 1.8rem;
+      transition: all 0.2s ease;
+      text-align: center;
+      line-height: 1;
+    }
+    .option-btn:hover {
+      border-color: rgba(232, 107, 107, 0.5);
+      background: rgba(232, 107, 107, 0.1);
+      transform: scale(1.05);
+    }
+    .option-btn.active {
+      border-color: #E86B6B;
+      background: rgba(232, 107, 107, 0.2);
+    }
+    .option-btn .label {
+      display: block;
+      font-size: 0.65rem;
+      margin-top: 0.3rem;
+      color: #888;
+    }
+    .presets {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.5rem;
+      margin-top: 1.5rem;
+      padding-top: 1rem;
+      border-top: 1px solid rgba(255,255,255,0.1);
+    }
+    .preset-btn {
+      padding: 0.5rem 0.8rem;
+      font-size: 0.75rem;
+      background: transparent;
+      border: 1px solid rgba(255,255,255,0.2);
+      border-radius: 6px;
+      color: #888;
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+    .preset-btn:hover {
+      border-color: #E86B6B;
+      color: #E86B6B;
+    }
+    .config-display {
+      margin-top: 1rem;
+      padding: 0.75rem;
+      background: rgba(0,0,0,0.3);
+      border-radius: 8px;
+      font-family: monospace;
+      font-size: 0.8rem;
+      color: #888;
+    }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <h1>Agent Builder</h1>
+    <p>Customize your ActiveAgent with emoji accessories</p>
+  </div>
+  <div id="root"></div>
+
+  <script type="text/babel">
+    const { useState } = React;
+
+    const ACCESSORIES = [
+      { id: 'none', emoji: '➖', label: 'None' },
+      { id: 'feather', emoji: '🪶', label: 'Quill' },
+      { id: 'flower', emoji: '🌸', label: 'Sakura' },
+      { id: 'masks', emoji: '🎭', label: 'Masks' },
+      { id: 'star', emoji: '⭐', label: 'Star' },
+      { id: 'sparkles', emoji: '✨', label: 'Sparkles' },
+    ];
+
+    const ITEMS = [
+      { id: 'none', emoji: '➖', label: 'None' },
+      { id: 'terminal', emoji: '💻', label: 'Terminal' },
+      { id: 'browser', emoji: '🌐', label: 'Browser' },
+      { id: 'document', emoji: '📄', label: 'Document' },
+      { id: 'scroll', emoji: '📜', label: 'Scroll' },
+      { id: 'magnifier', emoji: '🔍', label: 'Search' },
+      { id: 'speech', emoji: '💬', label: 'Speech' },
+      { id: 'code', emoji: '👨‍💻', label: 'Code' },
+      { id: 'robot', emoji: '🤖', label: 'Robot' },
+    ];
+
+    const PRESETS = [
+      { name: 'Terminal Pro', accessory: 'none', item: 'terminal' },
+      { name: 'Web Wizard', accessory: 'sparkles', item: 'browser' },
+      { name: 'Doc Detective', accessory: 'none', item: 'document' },
+      { name: 'Globe Trotter', accessory: 'star', item: 'magnifier' },
+      { name: 'Wordsmith', accessory: 'feather', item: 'scroll' },
+      { name: 'Polyglot', accessory: 'flower', item: 'speech' },
+      { name: 'Stage Master', accessory: 'masks', item: 'browser' },
+      { name: 'Code Agent', accessory: 'sparkles', item: 'code' },
+    ];
+
+    function AgentBuilder() {
+      const [accessory, setAccessory] = useState('none');
+      const [item, setItem] = useState('none');
+
+      const currentAccessory = ACCESSORIES.find(a => a.id === accessory);
+      const currentItem = ITEMS.find(i => i.id === item);
+
+      return (
+        <div className="builder-container">
+          <div className="preview-panel">
+            <h2>Live Preview</h2>
+            <div className="agent-preview">
+              {/* Hat Accessory */}
+              {accessory !== 'none' && (
+                <span className="accessory hat-accessory">
+                  {currentAccessory?.emoji}
+                </span>
+              )}
+
+              {/* Base Logo - the actual ActiveAgent SVG */}
+              <img
+                className="base-logo"
+                src="/images/activeagent-hero.svg"
+                alt="ActiveAgent"
+              />
+
+              {/* Held Item */}
+              {item !== 'none' && item !== 'speech' && (
+                <span className="accessory held-item">
+                  {currentItem?.emoji}
+                </span>
+              )}
+
+              {/* Speech bubbles special case */}
+              {item === 'speech' && (
+                <>
+                  <span className="speech-left">Yes</span>
+                  <span className="speech-right">はい</span>
+                </>
+              )}
+            </div>
+
+            <div className="config-display">
+              Accessory: {currentAccessory?.emoji} {currentAccessory?.label}<br/>
+              Item: {currentItem?.emoji} {currentItem?.label}
+            </div>
+
+            <div className="presets">
+              {PRESETS.map(p => (
+                <button
+                  key={p.name}
+                  className="preset-btn"
+                  onClick={() => {
+                    setAccessory(p.accessory);
+                    setItem(p.item);
+                  }}
+                >
+                  {p.name}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div className="controls-panel">
+            <h2>Customize</h2>
+
+            <div className="control-group">
+              <label>Hat Accessory</label>
+              <div className="options-grid">
+                {ACCESSORIES.map(a => (
+                  <button
+                    key={a.id}
+                    className={`option-btn ${accessory === a.id ? 'active' : ''}`}
+                    onClick={() => setAccessory(a.id)}
+                  >
+                    {a.emoji}
+                    <span className="label">{a.label}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div className="control-group">
+              <label>Held Item</label>
+              <div className="options-grid">
+                {ITEMS.map(i => (
+                  <button
+                    key={i.id}
+                    className={`option-btn ${item === i.id ? 'active' : ''}`}
+                    onClick={() => setItem(i.id)}
+                  >
+                    {i.emoji}
+                    <span className="label">{i.label}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    ReactDOM.createRoot(document.getElementById('root')).render(<AgentBuilder />);
+  </script>
+</body>
+</html>
