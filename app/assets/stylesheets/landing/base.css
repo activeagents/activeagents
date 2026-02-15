@@ -3065,3 +3065,213 @@ html.theme-dark .theme-icon-moon,
 .theme-dark .card-accent:hover {
   box-shadow: 0 8px 32px rgba(250, 52, 59, 0.2);
 }
+
+/* === AGENT BUILDER HERO === */
+
+.agent-builder-hero {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-default);
+  margin-top: 2rem;
+  width: 100%;
+}
+
+.agent-preview-container {
+  position: relative;
+  width: 320px;
+  height: 320px;
+  margin: 0 auto;
+}
+
+/* Base logo - centered absolutely */
+.agent-preview-container .logo-container.hero-logo {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 200px;
+  height: 200px;
+}
+
+.agent-preview-container .logo-container.hero-logo svg {
+  width: 100%;
+  height: 100%;
+}
+
+/* MCPs floating above the logo */
+.agent-mcps {
+  position: absolute;
+  top: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  gap: 12px;
+  z-index: 10;
+  min-height: 36px;
+}
+
+.agent-mcps .mcp-item {
+  font-size: 32px;
+  filter: drop-shadow(2px 2px 4px rgba(0, 0, 0, 0.15));
+  animation: mcp-float 3s ease-in-out infinite;
+  display: inline-block;
+}
+
+.agent-mcps .mcp-item:nth-child(1) { animation-delay: 0s; }
+.agent-mcps .mcp-item:nth-child(2) { animation-delay: 0.5s; }
+.agent-mcps .mcp-item:nth-child(3) { animation-delay: 1s; }
+.agent-mcps .mcp-item:nth-child(4) { animation-delay: 1.5s; }
+
+@keyframes mcp-float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-6px); }
+}
+
+/* Tools displayed below the logo */
+.agent-tools {
+  position: absolute;
+  bottom: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  gap: 16px;
+  z-index: 10;
+  min-height: 44px;
+}
+
+.agent-tools .tool-item {
+  font-size: 40px;
+  filter: drop-shadow(2px 2px 4px rgba(0, 0, 0, 0.15));
+  transition: transform 0.2s ease;
+  display: inline-block;
+}
+
+.agent-tools .tool-item:hover {
+  transform: scale(1.15);
+}
+
+/* Speech bubbles for translation */
+.agent-speech-left,
+.agent-speech-right {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  padding: 8px 14px;
+  border-radius: var(--radius-m);
+  font-size: var(--font-size-m);
+  font-weight: 600;
+  z-index: 10;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+}
+
+.agent-speech-left {
+  left: 10px;
+  background: var(--color-accent);
+  color: white;
+  animation: speech-left 0.4s ease;
+}
+
+.agent-speech-right {
+  right: 10px;
+  background: var(--color-text-primary);
+  color: var(--color-background);
+  animation: speech-right 0.4s ease;
+}
+
+@keyframes speech-left {
+  from {
+    opacity: 0;
+    transform: translateY(-50%) translateX(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(-50%) translateX(0);
+  }
+}
+
+@keyframes speech-right {
+  from {
+    opacity: 0;
+    transform: translateY(-50%) translateX(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(-50%) translateX(0);
+  }
+}
+
+/* Preset buttons */
+.agent-presets {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 8px;
+  padding: var(--space-default) 0;
+  max-width: 100%;
+}
+
+.preset-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 10px 14px;
+  font-size: var(--font-size-s);
+  background: var(--color-background);
+  border: 1px solid var(--color-border-level-2);
+  border-radius: var(--radius-m);
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  transition: all 0.15s ease;
+  font-family: inherit;
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.preset-btn:hover {
+  border-color: var(--color-accent);
+  color: var(--color-accent);
+  background: var(--color-accent-b);
+}
+
+.preset-btn.active {
+  background: var(--color-accent-b);
+  border-color: var(--color-accent);
+  color: var(--color-accent);
+  box-shadow: 0 0 0 1px var(--color-accent);
+}
+
+.preset-icon {
+  font-size: 1.1rem;
+}
+
+.preset-label {
+  font-size: var(--font-size-s);
+}
+
+/* Config display */
+.agent-config {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 20px;
+  padding: 14px 20px;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border-level-2);
+  border-radius: var(--radius-m);
+  font-family: var(--font-mono);
+  font-size: var(--font-size-s);
+  color: var(--color-text-secondary);
+  width: 100%;
+}
+
+.agent-config strong {
+  color: var(--color-text-primary);
+}
+
+.config-mcps,
+.config-tools {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
