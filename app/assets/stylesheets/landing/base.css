@@ -2452,108 +2452,17 @@ section:first-of-type {
   font-size: 14px;
 }
 
-.input-value {
-  flex: 1;
-}
-
-/* Typing animation for input values */
-.typing-text::after {
-  content: attr(data-text);
-  display: inline;
-  overflow: hidden;
-  white-space: nowrap;
-}
-
-/* Card number typing - 19 characters */
-.card-field .typing-text::after {
-  animation: typeCard 2.5s steps(19) 0.5s forwards;
-  width: 0;
-  display: inline-block;
-}
-
-/* Expiry typing - 5 characters */
-.expiry-field .typing-text::after {
-  animation: typeExpiry 0.8s steps(5) 3.2s forwards;
-  width: 0;
-  display: inline-block;
-}
-
-/* CVC typing - 3 characters */
-.cvc-field .typing-text::after {
-  animation: typeCvc 0.5s steps(3) 4.2s forwards;
-  width: 0;
-  display: inline-block;
-}
-
-@keyframes typeCard {
-  from { width: 0; }
-  to { width: 100%; }
-}
-
-@keyframes typeExpiry {
-  from { width: 0; }
-  to { width: 100%; }
-}
-
-@keyframes typeCvc {
-  from { width: 0; }
-  to { width: 100%; }
-}
-
-.input-cursor {
-  width: 2px;
-  height: 12px;
-  background-color: var(--color-accent);
-  opacity: 0;
-}
-
-/* Show cursor during typing for each field */
-.card-field .input-cursor {
-  animation: cursorCard 10s infinite;
-}
-
-.expiry-field .input-cursor {
-  animation: cursorExpiry 10s infinite;
-}
-
-.cvc-field .input-cursor {
-  animation: cursorCvc 10s infinite;
-}
-
-@keyframes cursorCard {
-  0%, 5% { opacity: 0; }
-  5.1%, 32% { opacity: 1; animation: cursorBlink 0.5s infinite; }
-  32.1%, 100% { opacity: 0; }
-}
-
-@keyframes cursorExpiry {
-  0%, 32% { opacity: 0; }
-  32.1%, 42% { opacity: 1; }
-  42.1%, 100% { opacity: 0; }
-}
-
-@keyframes cursorCvc {
-  0%, 42% { opacity: 0; }
-  42.1%, 50% { opacity: 1; }
-  50.1%, 100% { opacity: 0; }
-}
-
-@keyframes cursorBlink {
-  0%, 50% { opacity: 1; }
-  51%, 100% { opacity: 0; }
-}
-
-/* Active field highlight */
-.typing-field {
-  transition: border-color 0.2s, background-color 0.2s;
-}
-
-/* Fields use neutral styling - no highlight animations */
+/* Form field styling */
 .card-field,
 .expiry-field,
 .cvc-field {
   border-color: #333;
   background-color: #252525;
+}
+
+.form-input:focus-within {
+  border-color: #635bff;
+  background-color: #2a2a35;
 }
 
 .checkout-btn {
@@ -2568,80 +2477,44 @@ section:first-of-type {
   cursor: pointer;
 }
 
+/* Agent cursor - static position in corner */
 .agent-cursor {
   position: absolute;
   display: flex;
   align-items: flex-start;
   gap: 4px;
   pointer-events: none;
+  right: 15%;
+  bottom: 20%;
+  animation: cursorFloat 3s ease-in-out infinite;
 }
 
-/* Static cursor with subtle movement */
-.agent-cursor:not(.animated-cursor) {
-  animation: cursorMove 2s infinite ease-in-out;
-}
-
-@keyframes cursorMove {
+@keyframes cursorFloat {
   0%, 100% { transform: translate(0, 0); }
   50% { transform: translate(3px, 2px); }
 }
 
-/* Animated cursor that moves between form fields */
-.agent-cursor.animated-cursor {
-  animation: cursorTravel 10s infinite ease-in-out, cursorClick 10s infinite ease-in-out;
+/* Interactive checkout form inputs */
+.checkout-input {
+  width: 100%;
+  background: transparent;
+  border: none;
+  color: white;
+  font-size: 11px;
+  font-family: inherit;
+  padding: 0;
 }
 
-@keyframes cursorTravel {
-  /* Start offscreen, move to card field */
-  0% { left: 80%; top: 10%; }
-  5% { left: 65%; top: 32%; }
-  /* Stay at card field while typing */
-  5.1%, 30% { left: 65%; top: 32%; }
-  /* Small movements while typing card */
-  10% { left: 50%; top: 33%; }
-  15% { left: 55%; top: 31%; }
-  20% { left: 60%; top: 32%; }
-  25% { left: 65%; top: 33%; }
-  /* Move to expiry field */
-  32% { left: 30%; top: 58%; }
-  /* Stay at expiry */
-  32.1%, 40% { left: 30%; top: 58%; }
-  35% { left: 32%; top: 59%; }
-  38% { left: 28%; top: 57%; }
-  /* Move to CVC field */
-  42% { left: 65%; top: 58%; }
-  /* Stay at CVC */
-  42.1%, 48% { left: 65%; top: 58%; }
-  45% { left: 67%; top: 59%; }
-  /* Move to Pay button */
-  52% { left: 50%; top: 82%; }
-  /* Hover on button then click */
-  52.1%, 56% { left: 50%; top: 82%; }
-  /* Click down */
-  57% { left: 50%; top: 83%; }
-  /* Click up */
-  58% { left: 50%; top: 82%; }
-  /* Return to start position */
-  70%, 100% { left: 80%; top: 10%; }
+.card-field .checkout-input {
+  padding-left: 4px;
 }
 
-/* Cursor click animation - subtle scale on click */
-@keyframes cursorClick {
-  0%, 56% { transform: scale(1); }
-  57% { transform: scale(0.85); }
-  58%, 100% { transform: scale(1); }
+.checkout-input:focus {
+  outline: none;
 }
 
-/* Pay button click animation */
-.checkout-btn {
-  animation: buttonClick 10s infinite ease-in-out;
-}
-
-@keyframes buttonClick {
-  0%, 56% { transform: scale(1); filter: brightness(1); }
-  57% { transform: scale(0.97); filter: brightness(0.9); }
-  58% { transform: scale(1); filter: brightness(1.1); }
-  60%, 100% { transform: scale(1); filter: brightness(1); }
+.checkout-input::placeholder {
+  color: rgba(255, 255, 255, 0.5);
 }
 
 .cursor-icon {

@@ -209,6 +209,52 @@
       // Initialize with claude-code preset
       renderPreset('claude-code');
     })();
+
+    // Session Replay - User interaction mode
+    (function() {
+      const viewport = document.querySelector('.browser-viewport');
+      if (!viewport) return;
+
+      viewport.addEventListener('mouseenter', () => {
+        viewport.classList.add('user-mode');
+        // Focus the card input when entering
+        const cardInput = viewport.querySelector('.card-field .user-input');
+        if (cardInput) {
+          setTimeout(() => cardInput.focus(), 100);
+        }
+      });
+
+      viewport.addEventListener('mouseleave', () => {
+        viewport.classList.remove('user-mode');
+        // Clear inputs on leave so animation shows properly
+        viewport.querySelectorAll('.user-input').forEach(input => {
+          input.value = '';
+          input.blur();
+        });
+      });
+
+      // Handle Pay button click in user mode
+      const payBtn = viewport.querySelector('.checkout-btn');
+      if (payBtn) {
+        payBtn.addEventListener('click', (e) => {
+          if (viewport.classList.contains('user-mode')) {
+            e.preventDefault();
+            payBtn.textContent = 'Processing...';
+            payBtn.style.opacity = '0.7';
+            setTimeout(() => {
+              payBtn.textContent = 'Payment Successful!';
+              payBtn.style.background = 'linear-gradient(135deg, #10b981, #059669)';
+              payBtn.style.opacity = '1';
+            }, 1000);
+            setTimeout(() => {
+              payBtn.textContent = 'Pay $49.00';
+              payBtn.style.background = '';
+              payBtn.style.opacity = '';
+            }, 3000);
+          }
+        });
+      }
+    })();
   </script>
 </body>
 
