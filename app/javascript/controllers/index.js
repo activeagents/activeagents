@@ -18,3 +18,6 @@ application.register("mobile-menu", MobileMenuController)
 
 import FlipCardController from "./flip_card_controller"
 application.register("flip-card", FlipCardController)
+
+import AgentBuilderController from "./agent_builder_controller"
+application.register("agent-builder", AgentBuilderController)
