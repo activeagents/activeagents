@@ -2548,34 +2548,12 @@ section:first-of-type {
   transition: border-color 0.2s, background-color 0.2s;
 }
 
-.card-field {
-  animation: fieldActiveCard 10s infinite;
-}
-
-.expiry-field {
-  animation: fieldActiveExpiry 10s infinite;
-}
-
+/* Fields use neutral styling - no highlight animations */
+.card-field,
+.expiry-field,
 .cvc-field {
-  animation: fieldActiveCvc 10s infinite;
-}
-
-@keyframes fieldActiveCard {
-  0%, 5% { border-color: #333; background-color: #252525; }
-  5.1%, 32% { border-color: var(--color-accent); background-color: rgba(250, 52, 59, 0.05); }
-  32.1%, 100% { border-color: var(--color-accent); background-color: rgba(250, 52, 59, 0.05); }
-}
-
-@keyframes fieldActiveExpiry {
-  0%, 32% { border-color: #333; background-color: #252525; }
-  32.1%, 42% { border-color: var(--color-accent); background-color: rgba(250, 52, 59, 0.05); }
-  42.1%, 100% { border-color: var(--color-accent); background-color: rgba(250, 52, 59, 0.05); }
-}
-
-@keyframes fieldActiveCvc {
-  0%, 42% { border-color: #333; background-color: #252525; }
-  42.1%, 50% { border-color: var(--color-accent); background-color: rgba(250, 52, 59, 0.05); }
-  50.1%, 100% { border-color: var(--color-accent); background-color: rgba(250, 52, 59, 0.05); }
+  border-color: #333;
+  background-color: #252525;
 }
 
 .checkout-btn {
@@ -2610,7 +2588,7 @@ section:first-of-type {
 
 /* Animated cursor that moves between form fields */
 .agent-cursor.animated-cursor {
-  animation: cursorTravel 10s infinite ease-in-out;
+  animation: cursorTravel 10s infinite ease-in-out, cursorClick 10s infinite ease-in-out;
 }
 
 @keyframes cursorTravel {
@@ -2636,12 +2614,34 @@ section:first-of-type {
   42.1%, 48% { left: 65%; top: 58%; }
   45% { left: 67%; top: 59%; }
   /* Move to Pay button */
-  52% { left: 50%; top: 80%; }
-  /* Hover on button */
-  52.1%, 60% { left: 50%; top: 80%; }
-  55% { left: 52%; top: 81%; }
+  52% { left: 50%; top: 82%; }
+  /* Hover on button then click */
+  52.1%, 56% { left: 50%; top: 82%; }
+  /* Click down */
+  57% { left: 50%; top: 83%; }
+  /* Click up */
+  58% { left: 50%; top: 82%; }
   /* Return to start position */
   70%, 100% { left: 80%; top: 10%; }
+}
+
+/* Cursor click animation - subtle scale on click */
+@keyframes cursorClick {
+  0%, 56% { transform: scale(1); }
+  57% { transform: scale(0.85); }
+  58%, 100% { transform: scale(1); }
+}
+
+/* Pay button click animation */
+.checkout-btn {
+  animation: buttonClick 10s infinite ease-in-out;
+}
+
+@keyframes buttonClick {
+  0%, 56% { transform: scale(1); filter: brightness(1); }
+  57% { transform: scale(0.97); filter: brightness(0.9); }
+  58% { transform: scale(1); filter: brightness(1.1); }
+  60%, 100% { transform: scale(1); filter: brightness(1); }
 }
 
 .cursor-icon {
@@ -2661,49 +2661,6 @@ section:first-of-type {
   white-space: nowrap;
 }
 
-.interaction-highlight {
-  position: absolute;
-  border: 2px solid var(--color-accent);
-  border-radius: 6px;
-  background-color: rgba(250, 52, 59, 0.08);
-  pointer-events: none;
-}
-
-/* Static highlight */
-.interaction-highlight:not(.animated-highlight) {
-  animation: highlightPulse 2s infinite;
-  left: 8%;
-  top: 25%;
-  width: 84%;
-  height: 18%;
-}
-
-@keyframes highlightPulse {
-  0%, 100% { opacity: 0.6; }
-  50% { opacity: 1; }
-}
-
-/* Animated highlight that moves between form fields */
-.interaction-highlight.animated-highlight {
-  animation: highlightTravel 10s infinite ease-in-out, highlightPulse 2s infinite;
-}
-
-@keyframes highlightTravel {
-  /* Card number field */
-  0%, 5% { left: 8%; top: 25%; width: 84%; height: 18%; opacity: 0; }
-  5.1%, 30% { left: 8%; top: 25%; width: 84%; height: 18%; opacity: 1; }
-  /* Expiry field */
-  32% { left: 8%; top: 50%; width: 38%; height: 16%; opacity: 1; }
-  32.1%, 40% { left: 8%; top: 50%; width: 38%; height: 16%; opacity: 1; }
-  /* CVC field */
-  42% { left: 52%; top: 50%; width: 40%; height: 16%; opacity: 1; }
-  42.1%, 48% { left: 52%; top: 50%; width: 40%; height: 16%; opacity: 1; }
-  /* Pay button */
-  52% { left: 8%; top: 72%; width: 84%; height: 14%; opacity: 1; }
-  52.1%, 60% { left: 8%; top: 72%; width: 84%; height: 14%; opacity: 1; }
-  /* Fade out */
-  65%, 100% { left: 8%; top: 72%; width: 84%; height: 14%; opacity: 0; }
-}
 
 /* Replay Sidebar - Action List */
 .replay-sidebar {
