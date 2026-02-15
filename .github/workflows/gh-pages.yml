@@ -8,6 +8,7 @@ on:
       - 'app/views/layouts/landing/**'
       - 'app/views/layouts/landing_static.html.erb'
       - 'app/assets/stylesheets/landing/**'
+      - 'app/javascript/controllers/**'
       - 'app/helpers/**'
       - 'app/controllers/pages_controller.rb'
       - 'public/fonts/**'

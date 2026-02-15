@@ -120,81 +120,120 @@
       });
     })();
 
-    // Agent Builder (hero section)
+    // Agent Builder (hero section) - Multi-select version
     (function() {
-      const mcps = {
-        playwright: { emoji: '🎭', label: 'Playwright' },
-        filesystem: { emoji: '📁', label: 'Filesystem' },
+      const instructions = {
         github: { emoji: '🐙', label: 'GitHub' },
-        database: { emoji: '🗄️', label: 'Database' },
-        slack: { emoji: '💬', label: 'Slack' },
-        memory: { emoji: '🧠', label: 'Memory' },
-        fetch: { emoji: '🌐', label: 'Fetch' },
-        huggingface: { emoji: '🤗', label: 'Hugging Face' },
+        ruby: { emoji: '💎', label: 'Ruby' },
+        rails: { emoji: '🛤️', label: 'Rails' },
+        aws: { emoji: '☁️', label: 'AWS' },
+        gcp: { emoji: '🌐', label: 'GCP' },
+        python: { emoji: '🐍', label: 'Python' },
+        typescript: { emoji: '📘', label: 'TypeScript' },
+        docker: { emoji: '🐳', label: 'Docker' },
+        kubernetes: { emoji: '☸️', label: 'Kubernetes' },
       };
 
       const tools = {
         terminal: { emoji: '💻', label: 'Terminal' },
-        browser: { emoji: '🌐', label: 'Browser' },
-        document: { emoji: '📄', label: 'Read' },
-        edit: { emoji: '✏️', label: 'Edit' },
-        search: { emoji: '🔍', label: 'Search' },
+        playwright: { emoji: '🎭', label: 'Playwright' },
+        filesystem: { emoji: '📁', label: 'Filesystem' },
         code: { emoji: '👨‍💻', label: 'Code' },
+        database: { emoji: '🗄️', label: 'Database' },
+        slack: { emoji: '💬', label: 'Slack' },
+        fetch: { emoji: '🌐', label: 'Fetch' },
+        search: { emoji: '🔍', label: 'Search' },
+        edit: { emoji: '✏️', label: 'Edit' },
         translate: { emoji: '🌍', label: 'Translate' },
-        vision: { emoji: '👁️', label: 'Vision' },
-        voice: { emoji: '🗣️', label: 'Voice' },
+        memory: { emoji: '🧠', label: 'Memory' },
       };
 
       const presets = {
-        'claude-code': { mcps: ['filesystem', 'github'], tools: ['terminal', 'edit', 'search'] },
-        'web-scraper': { mcps: ['playwright', 'fetch'], tools: ['browser', 'document'] },
-        'data-analyst': { mcps: ['database', 'filesystem'], tools: ['search', 'code'] },
-        'devops': { mcps: ['github', 'slack'], tools: ['terminal', 'code'] },
-        'polyglot': { mcps: ['memory'], tools: ['translate', 'document'] },
-        'research': { mcps: ['fetch', 'memory'], tools: ['browser', 'search', 'document'] },
+        'claude-code': { instructions: ['github'], tools: ['terminal', 'code'] },
+        'web-scraper': { instructions: ['typescript'], tools: ['playwright', 'fetch'] },
+        'data-analyst': { instructions: ['python'], tools: ['database', 'search', 'code'] },
+        'devops': { instructions: ['github', 'aws'], tools: ['terminal', 'slack', 'code'] },
+        'polyglot': { instructions: ['ruby', 'python', 'typescript'], tools: ['translate', 'code'] },
+        'research': { instructions: ['github'], tools: ['fetch', 'search', 'memory'] },
       };
 
-      const mcpsContainer = document.querySelector('.agent-mcps');
+      const instructionsContainer = document.querySelector('.agent-instructions');
       const toolsContainer = document.querySelector('.agent-tools');
       const speechLeft = document.querySelector('.agent-speech-left');
       const speechRight = document.querySelector('.agent-speech-right');
-      const configMcps = document.querySelector('[data-config="mcps"]');
-      const configTools = document.querySelector('[data-config="tools"]');
+      const configInstructions = document.querySelector('[data-agent-builder-target="configInstructions"]');
+      const configTools = document.querySelector('[data-agent-builder-target="configTools"]');
       const presetBtns = document.querySelectorAll('.preset-btn');
+      const instructionChips = document.querySelectorAll('[data-instruction]');
+      const toolChips = document.querySelectorAll('[data-tool]');
 
-      function renderPreset(presetName) {
-        const preset = presets[presetName];
-        if (!preset) return;
+      // Track selected items
+      let selectedInstructions = new Set(['github']);
+      let selectedTools = new Set(['terminal', 'code']);
 
-        // Render MCPs
-        if (mcpsContainer) {
-          mcpsContainer.innerHTML = preset.mcps.map((id, i) => {
-            const mcp = mcps[id];
-            return mcp ? `<span class="mcp-item" style="animation-delay: ${i * 0.5}s" title="${mcp.label}">${mcp.emoji}</span>` : '';
-          }).join('');
+      function renderFromSelections() {
+        // Render instructions (head/hat)
+        if (instructionsContainer) {
+          const ids = Array.from(selectedInstructions);
+          instructionsContainer.innerHTML = ids.map((id, i) => {
+            const inst = instructions[id];
+            return inst ? `<span class="instruction-item" style="animation-delay: ${i * 0.1}s" title="${inst.label}">${inst.emoji}</span>` : '';
+          }).join('') || '<span class="instruction-item empty">💬</span>';
         }
 
-        // Render tools (excluding translate which shows as speech bubbles)
+        // Render tools (hands) - excluding translate
         if (toolsContainer) {
-          const displayTools = preset.tools.filter(id => id !== 'translate');
-          toolsContainer.innerHTML = displayTools.map(id => {
+          const ids = Array.from(selectedTools).filter(id => id !== 'translate');
+          toolsContainer.innerHTML = ids.map(id => {
             const tool = tools[id];
             return tool ? `<span class="tool-item" title="${tool.label}">${tool.emoji}</span>` : '';
-          }).join('');
+          }).join('') || '<span class="tool-item empty">🔧</span>';
         }
 
         // Handle translation speech bubbles
-        const hasTranslate = preset.tools.includes('translate');
+        const hasTranslate = selectedTools.has('translate');
         if (speechLeft) speechLeft.style.display = hasTranslate ? 'block' : 'none';
         if (speechRight) speechRight.style.display = hasTranslate ? 'block' : 'none';
 
         // Update config display
-        if (configMcps) {
-          configMcps.textContent = preset.mcps.map(id => mcps[id] ? `${mcps[id].emoji} ${mcps[id].label}` : '').filter(Boolean).join(', ') || 'None';
+        if (configInstructions) {
+          const labels = Array.from(selectedInstructions).map(id => {
+            const inst = instructions[id];
+            return inst ? `${inst.emoji} ${inst.label}` : '';
+          }).filter(Boolean).join(', ');
+          configInstructions.textContent = labels || 'None selected';
         }
         if (configTools) {
-          configTools.textContent = preset.tools.map(id => tools[id] ? `${tools[id].emoji} ${tools[id].label}` : '').filter(Boolean).join(', ') || 'None';
+          const labels = Array.from(selectedTools).map(id => {
+            const tool = tools[id];
+            return tool ? `${tool.emoji} ${tool.label}` : '';
+          }).filter(Boolean).join(', ');
+          configTools.textContent = labels || 'None selected';
         }
+      }
+
+      function updateChipStates() {
+        instructionChips.forEach(chip => {
+          const id = chip.dataset.instruction;
+          chip.classList.toggle('selected', selectedInstructions.has(id));
+        });
+        toolChips.forEach(chip => {
+          const id = chip.dataset.tool;
+          chip.classList.toggle('selected', selectedTools.has(id));
+        });
+      }
+
+      function clearPresetActive() {
+        presetBtns.forEach(b => b.classList.remove('active'));
+      }
+
+      function applyPreset(presetName) {
+        const preset = presets[presetName];
+        if (!preset) return;
+        selectedInstructions = new Set(preset.instructions);
+        selectedTools = new Set(preset.tools);
+        updateChipStates();
+        renderFromSelections();
       }
 
       // Bind preset buttons
@@ -202,12 +241,44 @@
         btn.addEventListener('click', () => {
           presetBtns.forEach(b => b.classList.remove('active'));
           btn.classList.add('active');
-          renderPreset(btn.dataset.preset);
+          applyPreset(btn.dataset.preset);
+        });
+      });
+
+      // Bind instruction chip toggles
+      instructionChips.forEach(chip => {
+        chip.addEventListener('click', () => {
+          const id = chip.dataset.instruction;
+          if (selectedInstructions.has(id)) {
+            selectedInstructions.delete(id);
+            chip.classList.remove('selected');
+          } else {
+            selectedInstructions.add(id);
+            chip.classList.add('selected');
+          }
+          clearPresetActive();
+          renderFromSelections();
+        });
+      });
+
+      // Bind tool chip toggles
+      toolChips.forEach(chip => {
+        chip.addEventListener('click', () => {
+          const id = chip.dataset.tool;
+          if (selectedTools.has(id)) {
+            selectedTools.delete(id);
+            chip.classList.remove('selected');
+          } else {
+            selectedTools.add(id);
+            chip.classList.add('selected');
+          }
+          clearPresetActive();
+          renderFromSelections();
         });
       });
 
       // Initialize with claude-code preset
-      renderPreset('claude-code');
+      applyPreset('claude-code');
     })();
 
     // Session Replay - Agent typing animation
