@@ -210,50 +210,131 @@
       renderPreset('claude-code');
     })();
 
-    // Session Replay - User interaction mode
+    // Session Replay - Agent typing animation
     (function() {
-      const viewport = document.querySelector('.browser-viewport');
+      const viewport = document.querySelector('[data-replay-viewport]');
       if (!viewport) return;
 
-      viewport.addEventListener('mouseenter', () => {
-        viewport.classList.add('user-mode');
-        // Focus the card input when entering
-        const cardInput = viewport.querySelector('.card-field .user-input');
-        if (cardInput) {
-          setTimeout(() => cardInput.focus(), 100);
-        }
-      });
+      const cursor = viewport.querySelector('[data-replay-cursor]');
+      const cardInput = viewport.querySelector('[data-replay-card]');
+      const expiryInput = viewport.querySelector('[data-replay-expiry]');
+      const cvcInput = viewport.querySelector('[data-replay-cvc]');
+      const payBtn = viewport.querySelector('[data-replay-pay]');
 
-      viewport.addEventListener('mouseleave', () => {
-        viewport.classList.remove('user-mode');
-        // Clear inputs on leave so animation shows properly
-        viewport.querySelectorAll('.user-input').forEach(input => {
-          input.value = '';
-          input.blur();
-        });
-      });
+      if (!cursor || !cardInput || !expiryInput || !cvcInput || !payBtn) return;
 
-      // Handle Pay button click in user mode
-      const payBtn = viewport.querySelector('.checkout-btn');
-      if (payBtn) {
-        payBtn.addEventListener('click', (e) => {
-          if (viewport.classList.contains('user-mode')) {
-            e.preventDefault();
-            payBtn.textContent = 'Processing...';
-            payBtn.style.opacity = '0.7';
-            setTimeout(() => {
-              payBtn.textContent = 'Payment Successful!';
-              payBtn.style.background = 'linear-gradient(135deg, #10b981, #059669)';
-              payBtn.style.opacity = '1';
-            }, 1000);
-            setTimeout(() => {
-              payBtn.textContent = 'Pay $49.00';
-              payBtn.style.background = '';
-              payBtn.style.opacity = '';
-            }, 3000);
+      let isPaused = false;
+      let animationTimer = null;
+
+      const fields = [
+        { input: cardInput, position: 'at-card', text: cardInput.dataset.typed },
+        { input: expiryInput, position: 'at-expiry', text: expiryInput.dataset.typed },
+        { input: cvcInput, position: 'at-cvc', text: cvcInput.dataset.typed },
+      ];
+
+      function typeText(input, text, callback) {
+        let i = 0;
+        const parent = input.closest('.form-input');
+        parent.classList.add('typing');
+
+        function typeChar() {
+          if (isPaused) {
+            animationTimer = setTimeout(typeChar, 100);
+            return;
           }
-        });
+          if (i < text.length) {
+            input.value = text.substring(0, i + 1);
+            i++;
+            animationTimer = setTimeout(typeChar, 60 + Math.random() * 40);
+          } else {
+            parent.classList.remove('typing');
+            animationTimer = setTimeout(callback, 300);
+          }
+        }
+        typeChar();
       }
+
+      function runAnimation() {
+        // Reset
+        fields.forEach(f => {
+          f.input.value = '';
+          f.input.closest('.form-input').classList.remove('typing');
+        });
+        payBtn.textContent = 'Pay $49.00';
+        payBtn.style.background = '';
+
+        let fieldIndex = 0;
+
+        function nextField() {
+          if (isPaused) {
+            animationTimer = setTimeout(nextField, 100);
+            return;
+          }
+
+          if (fieldIndex < fields.length) {
+            const field = fields[fieldIndex];
+            cursor.className = 'agent-cursor ' + field.position;
+
+            animationTimer = setTimeout(() => {
+              typeText(field.input, field.text, () => {
+                fieldIndex++;
+                nextField();
+              });
+            }, 400);
+          } else {
+            // Move to pay button
+            cursor.className = 'agent-cursor at-pay';
+            animationTimer = setTimeout(() => {
+              payBtn.textContent = 'Processing...';
+              payBtn.style.opacity = '0.7';
+              animationTimer = setTimeout(() => {
+                payBtn.textContent = 'Payment Successful!';
+                payBtn.style.background = 'linear-gradient(135deg, #10b981, #059669)';
+                payBtn.style.opacity = '1';
+                cursor.classList.add('hidden');
+                // Wait then restart
+                animationTimer = setTimeout(() => {
+                  payBtn.style.background = '';
+                  payBtn.style.opacity = '';
+                  runAnimation();
+                }, 2500);
+              }, 1000);
+            }, 500);
+          }
+        }
+
+        // Start with cursor at card field
+        cursor.className = 'agent-cursor at-card';
+        animationTimer = setTimeout(nextField, 600);
+      }
+
+      // Pause on hover/focus
+      viewport.addEventListener('mouseenter', () => { isPaused = true; });
+      viewport.addEventListener('mouseleave', () => { isPaused = false; });
+      [cardInput, expiryInput, cvcInput].forEach(input => {
+        input.addEventListener('focus', () => { isPaused = true; cursor.classList.add('hidden'); });
+        input.addEventListener('blur', () => { isPaused = false; cursor.classList.remove('hidden'); });
+      });
+
+      // Handle user clicking Pay
+      payBtn.addEventListener('click', (e) => {
+        e.preventDefault();
+        payBtn.textContent = 'Processing...';
+        payBtn.style.opacity = '0.7';
+        setTimeout(() => {
+          payBtn.textContent = 'Payment Successful!';
+          payBtn.style.background = 'linear-gradient(135deg, #10b981, #059669)';
+          payBtn.style.opacity = '1';
+        }, 1000);
+        setTimeout(() => {
+          payBtn.textContent = 'Pay $49.00';
+          payBtn.style.background = '';
+          payBtn.style.opacity = '';
+        }, 3000);
+      });
+
+      // Start animation
+      runAnimation();
     })();
   </script>
 </body>
