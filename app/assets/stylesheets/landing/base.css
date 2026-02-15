@@ -907,17 +907,24 @@ section:first-of-type {
 
 .flip-card-back .docs-link {
   position: absolute;
-  top: 12px;
-  left: 12px;
-  font-size: 10px;
-  color: #6a9955;
+  top: 10px;
+  left: 10px;
+  font-size: 14px;
+  font-weight: 800;
+  color: var(--color-accent);
   text-decoration: none;
-  opacity: 0.7;
+  opacity: 1;
+  letter-spacing: 0.01em;
+  background: rgba(250, 52, 59, 0.12);
+  padding: 4px 10px;
+  border-radius: var(--radius-s);
 }
 
 .flip-card-back .docs-link:hover {
   opacity: 1;
   text-decoration: underline;
+  color: white;
+  background: var(--color-accent);
 }
 
 /* Accordion */
