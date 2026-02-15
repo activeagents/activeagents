@@ -2376,6 +2376,7 @@ section:first-of-type {
 }
 
 .browser-viewport {
+  position: relative;
   flex: 1;
   background-color: #0f0f0f;
   border-radius: var(--radius-s);
@@ -2430,6 +2431,7 @@ section:first-of-type {
 }
 
 .form-input {
+  position: relative;
   padding: 8px 10px;
   background-color: #252525;
   border: 1px solid #333;
@@ -2477,21 +2479,63 @@ section:first-of-type {
   cursor: pointer;
 }
 
-/* Agent cursor - static position in corner */
+/* Agent cursor - animated to follow typing */
 .agent-cursor {
   position: absolute;
   display: flex;
   align-items: flex-start;
   gap: 4px;
   pointer-events: none;
-  right: 15%;
-  bottom: 20%;
-  animation: cursorFloat 3s ease-in-out infinite;
+  z-index: 10;
+  transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
-@keyframes cursorFloat {
-  0%, 100% { transform: translate(0, 0); }
-  50% { transform: translate(3px, 2px); }
+/* Cursor positions for each field - relative to .browser-viewport */
+.agent-cursor.at-card {
+  top: 55px;
+  right: 25px;
+}
+
+.agent-cursor.at-expiry {
+  top: 105px;
+  right: 130px;
+}
+
+.agent-cursor.at-cvc {
+  top: 105px;
+  right: 25px;
+}
+
+.agent-cursor.at-pay {
+  top: 150px;
+  right: 80px;
+}
+
+.agent-cursor.hidden {
+  opacity: 0;
+}
+
+/* Typing indicator on active field */
+.form-input.typing {
+  border-color: #635bff;
+  background-color: #2a2a35;
+}
+
+.form-input.typing::after {
+  content: '';
+  position: absolute;
+  right: 8px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 1px;
+  height: 12px;
+  background-color: #635bff;
+  animation: cursorBlink 0.8s infinite;
+}
+
+@keyframes cursorBlink {
+  0%, 50% { opacity: 1; }
+  51%, 100% { opacity: 0; }
 }
 
 /* Interactive checkout form inputs */
@@ -3106,8 +3150,8 @@ html.theme-dark .theme-icon-moon,
   height: 100%;
 }
 
-/* MCPs floating above the logo */
-.agent-mcps {
+/* Instructions floating above the logo (head/hat area) */
+.agent-instructions {
   position: absolute;
   top: 20px;
   left: 50%;
@@ -3118,19 +3162,24 @@ html.theme-dark .theme-icon-moon,
   min-height: 36px;
 }
 
-.agent-mcps .mcp-item {
+.agent-instructions .instruction-item {
   font-size: 32px;
   filter: drop-shadow(2px 2px 4px rgba(0, 0, 0, 0.15));
-  animation: mcp-float 3s ease-in-out infinite;
+  animation: instruction-float 3s ease-in-out infinite;
   display: inline-block;
 }
 
-.agent-mcps .mcp-item:nth-child(1) { animation-delay: 0s; }
-.agent-mcps .mcp-item:nth-child(2) { animation-delay: 0.5s; }
-.agent-mcps .mcp-item:nth-child(3) { animation-delay: 1s; }
-.agent-mcps .mcp-item:nth-child(4) { animation-delay: 1.5s; }
+.agent-instructions .instruction-item.empty {
+  opacity: 0.3;
+}
 
-@keyframes mcp-float {
+.agent-instructions .instruction-item:nth-child(1) { animation-delay: 0s; }
+.agent-instructions .instruction-item:nth-child(2) { animation-delay: 0.15s; }
+.agent-instructions .instruction-item:nth-child(3) { animation-delay: 0.3s; }
+.agent-instructions .instruction-item:nth-child(4) { animation-delay: 0.45s; }
+.agent-instructions .instruction-item:nth-child(5) { animation-delay: 0.6s; }
+
+@keyframes instruction-float {
   0%, 100% { transform: translateY(0); }
   50% { transform: translateY(-6px); }
 }
@@ -3156,6 +3205,10 @@ html.theme-dark .theme-icon-moon,
 
 .agent-tools .tool-item:hover {
   transform: scale(1.15);
+}
+
+.agent-tools .tool-item.empty {
+  opacity: 0.3;
 }
 
 /* Speech bubbles for translation */
@@ -3276,9 +3329,102 @@ html.theme-dark .theme-icon-moon,
   color: var(--color-text-primary);
 }
 
-.config-mcps,
+.config-instructions,
 .config-tools {
   display: flex;
   align-items: center;
   gap: 6px;
+}
+
+/* Multi-select selector groups */
+.agent-selectors {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  width: 100%;
+  padding: 16px;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border-level-2);
+  border-radius: var(--radius-m);
+}
+
+.selector-group {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.selector-label {
+  font-size: var(--font-size-s);
+  color: var(--color-text-secondary);
+  min-width: 100px;
+}
+
+.selector-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.chip-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 6px 10px;
+  font-size: var(--font-size-xs);
+  background: var(--color-background);
+  border: 1px solid var(--color-border-level-2);
+  border-radius: var(--radius-s);
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  transition: all 0.15s ease;
+  font-family: inherit;
+  font-weight: 500;
+}
+
+.chip-btn:hover {
+  border-color: var(--color-accent);
+  color: var(--color-accent);
+  background: var(--color-accent-b);
+}
+
+.chip-btn.selected {
+  background: var(--color-accent-b);
+  border-color: var(--color-accent);
+  color: var(--color-accent);
+  box-shadow: 0 0 0 1px var(--color-accent);
+}
+
+.chip-icon {
+  font-size: 1rem;
+}
+
+.chip-label {
+  font-size: var(--font-size-xs);
+}
+
+/* Responsive adjustments for agent builder */
+@media (max-width: 640px) {
+  .agent-selectors {
+    padding: 12px;
+  }
+
+  .selector-group {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .selector-label {
+    min-width: auto;
+    margin-bottom: 4px;
+  }
+
+  .selector-chips {
+    width: 100%;
+  }
+
+  .chip-btn {
+    padding: 5px 8px;
+  }
 }

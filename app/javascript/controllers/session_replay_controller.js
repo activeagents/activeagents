@@ -1,56 +1,160 @@
 import { Controller } from "@hotwired/stimulus"
 
 // Session Replay Controller
-// Handles user interaction mode for the checkout form preview
+// Handles agent typing animation for the checkout form preview
 export default class extends Controller {
-  static targets = ["viewport", "cursor", "hint", "cardInput", "expiryInput", "cvcInput", "payButton"]
+  static targets = ["viewport", "cursor", "card", "expiry", "cvc", "pay"]
 
   connect() {
-    this.isUserMode = false
+    this.isPaused = false
+    this.animationTimer = null
+
+    this.fields = [
+      { target: 'card', position: 'at-card' },
+      { target: 'expiry', position: 'at-expiry' },
+      { target: 'cvc', position: 'at-cvc' },
+    ]
+
+    // Start animation after a brief delay
+    setTimeout(() => this.runAnimation(), 500)
+  }
+
+  disconnect() {
+    if (this.animationTimer) clearTimeout(this.animationTimer)
   }
 
   pause() {
-    if (!this.hasViewportTarget) return
-
-    this.isUserMode = true
-    this.viewportTarget.classList.add('user-mode')
-
-    // Focus the card input when entering user mode
-    if (this.hasCardInputTarget) {
-      setTimeout(() => this.cardInputTarget.focus(), 100)
-    }
+    this.isPaused = true
   }
 
   resume() {
-    if (!this.hasViewportTarget) return
+    this.isPaused = false
+  }
 
-    this.isUserMode = false
-    this.viewportTarget.classList.remove('user-mode')
-
-    // Clear inputs on leave so animation shows properly
-    if (this.hasCardInputTarget) this.cardInputTarget.value = ''
-    if (this.hasExpiryInputTarget) this.expiryInputTarget.value = ''
-    if (this.hasCvcInputTarget) this.cvcInputTarget.value = ''
-
-    // Blur any focused inputs
-    document.activeElement?.blur()
-
-    // Reset pay button if it was modified
-    if (this.hasPayButtonTarget) {
-      this.payButtonTarget.textContent = 'Pay $49.00'
-      this.payButtonTarget.style.background = ''
-      this.payButtonTarget.style.opacity = ''
+  hideCursor() {
+    this.isPaused = true
+    if (this.hasCursorTarget) {
+      this.cursorTarget.classList.add('hidden')
     }
   }
 
-  pay(event) {
-    if (!this.isUserMode) return
+  showCursor() {
+    this.isPaused = false
+    if (this.hasCursorTarget) {
+      this.cursorTarget.classList.remove('hidden')
+    }
+  }
 
+  typeText(input, text, callback) {
+    let i = 0
+    const parent = input.closest('.form-input')
+    parent.classList.add('typing')
+
+    const typeChar = () => {
+      if (this.isPaused) {
+        this.animationTimer = setTimeout(typeChar, 100)
+        return
+      }
+      if (i < text.length) {
+        input.value = text.substring(0, i + 1)
+        i++
+        this.animationTimer = setTimeout(typeChar, 60 + Math.random() * 40)
+      } else {
+        parent.classList.remove('typing')
+        this.animationTimer = setTimeout(callback, 300)
+      }
+    }
+    typeChar()
+  }
+
+  runAnimation() {
+    // Reset all fields
+    this.fields.forEach(f => {
+      const input = this[`${f.target}Target`]
+      if (input) {
+        input.value = ''
+        input.closest('.form-input')?.classList.remove('typing')
+      }
+    })
+
+    if (this.hasPayTarget) {
+      this.payTarget.textContent = 'Pay $49.00'
+      this.payTarget.style.background = ''
+      this.payTarget.style.opacity = ''
+    }
+
+    let fieldIndex = 0
+
+    const nextField = () => {
+      if (this.isPaused) {
+        this.animationTimer = setTimeout(nextField, 100)
+        return
+      }
+
+      if (fieldIndex < this.fields.length) {
+        const field = this.fields[fieldIndex]
+        const input = this[`${field.target}Target`]
+
+        if (this.hasCursorTarget) {
+          this.cursorTarget.className = 'agent-cursor ' + field.position
+        }
+
+        this.animationTimer = setTimeout(() => {
+          if (input) {
+            this.typeText(input, input.dataset.typed || '', () => {
+              fieldIndex++
+              nextField()
+            })
+          }
+        }, 400)
+      } else {
+        // Move to pay button
+        if (this.hasCursorTarget) {
+          this.cursorTarget.className = 'agent-cursor at-pay'
+        }
+
+        this.animationTimer = setTimeout(() => {
+          if (this.hasPayTarget) {
+            this.payTarget.textContent = 'Processing...'
+            this.payTarget.style.opacity = '0.7'
+
+            this.animationTimer = setTimeout(() => {
+              this.payTarget.textContent = 'Payment Successful!'
+              this.payTarget.style.background = 'linear-gradient(135deg, #10b981, #059669)'
+              this.payTarget.style.opacity = '1'
+
+              if (this.hasCursorTarget) {
+                this.cursorTarget.classList.add('hidden')
+              }
+
+              // Wait then restart
+              this.animationTimer = setTimeout(() => {
+                this.payTarget.style.background = ''
+                this.payTarget.style.opacity = ''
+                if (this.hasCursorTarget) {
+                  this.cursorTarget.classList.remove('hidden')
+                }
+                this.runAnimation()
+              }, 2500)
+            }, 1000)
+          }
+        }, 500)
+      }
+    }
+
+    // Start with cursor at card field
+    if (this.hasCursorTarget) {
+      this.cursorTarget.className = 'agent-cursor at-card'
+    }
+    this.animationTimer = setTimeout(nextField, 600)
+  }
+
+  pay(event) {
     event.preventDefault()
 
-    if (!this.hasPayButtonTarget) return
+    if (!this.hasPayTarget) return
 
-    const btn = this.payButtonTarget
+    const btn = this.payTarget
     btn.textContent = 'Processing...'
     btn.style.opacity = '0.7'
 

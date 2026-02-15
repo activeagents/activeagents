@@ -17,15 +17,15 @@
   <!-- Agent Builder Preview -->
   <div class="agent-builder-hero" data-controller="agent-builder">
     <div class="agent-preview-container">
-      <!-- MCPs floating above -->
-      <div class="agent-mcps" data-agent-builder-target="mcps"></div>
+      <!-- Instructions floating above (head/hat) -->
+      <div class="agent-instructions" data-agent-builder-target="instructions"></div>
 
       <!-- Base Logo -->
       <div class="logo-container hero-logo">
         <%= inline_svg("activeagent-hero.svg") %>
       </div>
 
-      <!-- Tools below -->
+      <!-- MCPs/Tools below (hands) -->
       <div class="agent-tools" data-agent-builder-target="tools"></div>
 
       <!-- Speech bubbles for translation -->
@@ -61,10 +61,87 @@
       </button>
     </div>
 
+    <!-- Multi-Select Pickers -->
+    <div class="agent-selectors">
+      <!-- Instructions Selector (system/developer messages) -->
+      <div class="selector-group">
+        <span class="selector-label"><strong>Instructions:</strong></span>
+        <div class="selector-chips" data-agent-builder-target="instructionChips">
+          <button class="chip-btn selected" data-action="click->agent-builder#toggleInstruction" data-instruction="github">
+            <span class="chip-icon">🐙</span>
+            <span class="chip-label">GitHub</span>
+          </button>
+          <button class="chip-btn" data-action="click->agent-builder#toggleInstruction" data-instruction="ruby">
+            <span class="chip-icon">💎</span>
+            <span class="chip-label">Ruby</span>
+          </button>
+          <button class="chip-btn" data-action="click->agent-builder#toggleInstruction" data-instruction="rails">
+            <span class="chip-icon">🛤️</span>
+            <span class="chip-label">Rails</span>
+          </button>
+          <button class="chip-btn" data-action="click->agent-builder#toggleInstruction" data-instruction="aws">
+            <span class="chip-icon">☁️</span>
+            <span class="chip-label">AWS</span>
+          </button>
+          <button class="chip-btn" data-action="click->agent-builder#toggleInstruction" data-instruction="gcp">
+            <span class="chip-icon">🌐</span>
+            <span class="chip-label">GCP</span>
+          </button>
+          <button class="chip-btn" data-action="click->agent-builder#toggleInstruction" data-instruction="python">
+            <span class="chip-icon">🐍</span>
+            <span class="chip-label">Python</span>
+          </button>
+          <button class="chip-btn" data-action="click->agent-builder#toggleInstruction" data-instruction="typescript">
+            <span class="chip-icon">📘</span>
+            <span class="chip-label">TypeScript</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- MCPs/Tools Selector -->
+      <div class="selector-group">
+        <span class="selector-label"><strong>Tools:</strong></span>
+        <div class="selector-chips" data-agent-builder-target="toolChips">
+          <button class="chip-btn selected" data-action="click->agent-builder#toggleTool" data-tool="terminal">
+            <span class="chip-icon">💻</span>
+            <span class="chip-label">Terminal</span>
+          </button>
+          <button class="chip-btn" data-action="click->agent-builder#toggleTool" data-tool="playwright">
+            <span class="chip-icon">🎭</span>
+            <span class="chip-label">Playwright</span>
+          </button>
+          <button class="chip-btn" data-action="click->agent-builder#toggleTool" data-tool="filesystem">
+            <span class="chip-icon">📁</span>
+            <span class="chip-label">Filesystem</span>
+          </button>
+          <button class="chip-btn selected" data-action="click->agent-builder#toggleTool" data-tool="code">
+            <span class="chip-icon">👨‍💻</span>
+            <span class="chip-label">Code</span>
+          </button>
+          <button class="chip-btn" data-action="click->agent-builder#toggleTool" data-tool="database">
+            <span class="chip-icon">🗄️</span>
+            <span class="chip-label">Database</span>
+          </button>
+          <button class="chip-btn" data-action="click->agent-builder#toggleTool" data-tool="slack">
+            <span class="chip-icon">💬</span>
+            <span class="chip-label">Slack</span>
+          </button>
+          <button class="chip-btn" data-action="click->agent-builder#toggleTool" data-tool="fetch">
+            <span class="chip-icon">🌐</span>
+            <span class="chip-label">Fetch</span>
+          </button>
+          <button class="chip-btn" data-action="click->agent-builder#toggleTool" data-tool="search">
+            <span class="chip-icon">🔍</span>
+            <span class="chip-label">Search</span>
+          </button>
+        </div>
+      </div>
+    </div>
+
     <!-- Config Display -->
     <div class="agent-config" data-agent-builder-target="config">
-      <span class="config-mcps"><strong>MCPs:</strong> <span data-agent-builder-target="configMcps" data-config="mcps">📁 Filesystem, 🐙 GitHub</span></span>
-      <span class="config-tools"><strong>Tools:</strong> <span data-agent-builder-target="configTools" data-config="tools">💻 Terminal, ✏️ Edit, 🔍 Search</span></span>
+      <span class="config-instructions"><strong>Instructions:</strong> <span data-agent-builder-target="configInstructions">🐙 GitHub</span></span>
+      <span class="config-tools"><strong>Tools:</strong> <span data-agent-builder-target="configTools">💻 Terminal, 👨‍💻 Code</span></span>
     </div>
   </div>
 
