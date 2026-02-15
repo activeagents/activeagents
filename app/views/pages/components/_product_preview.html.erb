@@ -307,7 +307,7 @@
         </div>
       </div>
     <% when :session_replay %>
-      <div class="preview-replay">
+      <div class="preview-replay" data-controller="session-replay">
         <div class="replay-browser">
           <div class="browser-chrome">
             <div class="browser-dots">
@@ -327,32 +327,29 @@
               <div class="checkout-form">
                 <div class="form-section">
                   <div class="form-label">Card number</div>
-                  <div class="form-input typing-field card-field">
+                  <div class="form-input card-field">
                     <span class="card-icon"><i class="fa-brands fa-cc-visa"></i></span>
-                    <span class="input-value typing-text" data-text="4242 4242 4242 4242"></span>
-                    <span class="input-cursor"></span>
+                    <input type="text" class="checkout-input" placeholder="4242 4242 4242 4242">
                   </div>
                 </div>
                 <div class="form-row">
                   <div class="form-section half">
                     <div class="form-label">Expiry</div>
-                    <div class="form-input typing-field expiry-field">
-                      <span class="input-value typing-text" data-text="12/25"></span>
-                      <span class="input-cursor"></span>
+                    <div class="form-input expiry-field">
+                      <input type="text" class="checkout-input" placeholder="MM/YY">
                     </div>
                   </div>
                   <div class="form-section half">
                     <div class="form-label">CVC</div>
-                    <div class="form-input typing-field cvc-field">
-                      <span class="input-value typing-text" data-text="123"></span>
-                      <span class="input-cursor"></span>
+                    <div class="form-input cvc-field">
+                      <input type="text" class="checkout-input" placeholder="123">
                     </div>
                   </div>
                 </div>
                 <button class="checkout-btn">Pay $49.00</button>
               </div>
             </div>
-            <div class="agent-cursor animated-cursor">
+            <div class="agent-cursor">
               <svg class="cursor-icon" viewBox="0 0 24 24" fill="currentColor">
                 <path d="M4 4l16 8-7 2-2 7z"/>
               </svg>
