@@ -11,6 +11,9 @@ class RegistrationsController < ApplicationController
     @user = User.new(user_params)
 
     if @user.save
+      account = Account.create!(name: "#{@user.display_name}'s Account", owner: @user)
+      AccountMembership.create!(account: account, user: @user, role: "owner")
+
       start_new_session_for(@user)
       redirect_to dashboard_path, notice: "Welcome! Your account has been created."
     else
