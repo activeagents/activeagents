@@ -3,7 +3,9 @@ class DashboardController < ApplicationController
     render inertia: "Dashboard", props: {
       user: current_user_props,
       initialAgents: agents_data,
-      meta: meta_data
+      meta: meta_data,
+      account: current_account_props,
+      subscription: subscription_props
     }
   end
 
@@ -62,5 +64,36 @@ class DashboardController < ApplicationController
       instructionSets: %w[github ruby rails aws gcp python typescript docker kubernetes],
       availableTools: %w[terminal playwright filesystem code database slack fetch search edit translate memory]
     }
+  end
+
+  def current_account_props
+    return nil unless current_user
+    account = current_user.primary_account
+    return nil unless account
+    {
+      id: account.id,
+      name: account.name,
+      subscribed: account.subscribed?
+    }
+  rescue NoMethodError
+    nil
+  end
+
+  def subscription_props
+    return nil unless current_user
+    account = current_user.primary_account
+    return nil unless account
+    subscription = account.active_subscription
+    return nil unless subscription
+    plan = account.current_plan
+    {
+      plan_name: plan&.name || "Unknown",
+      status: subscription.status,
+      on_trial: subscription.on_trial?,
+      trial_ends_at: subscription.trial_ends_at&.iso8601,
+      ends_at: subscription.ends_at&.iso8601
+    }
+  rescue NoMethodError
+    nil
   end
 end
