@@ -5,9 +5,19 @@ export default class extends Controller {
     // Check if touch device or mobile viewport
     this.isTouchDevice = this.checkTouchDevice()
 
+    // Store original height and measure back content
+    this.originalHeight = this.element.offsetHeight
+    this.measureBackHeight()
+
     // Set up scroll-to-flip on mobile
     if (this.isTouchDevice) {
       this.setupScrollFlip()
+    }
+
+    // Set up hover listeners for desktop
+    if (!this.isTouchDevice) {
+      this.element.addEventListener("mouseenter", () => this.expand())
+      this.element.addEventListener("mouseleave", () => this.collapse())
     }
   }
 
@@ -16,6 +26,37 @@ export default class extends Controller {
     if (this.observer) {
       this.observer.disconnect()
     }
+  }
+
+  measureBackHeight() {
+    const back = this.element.querySelector(".flip-card-back")
+    if (!back) return
+
+    // Temporarily make back visible to measure
+    const inner = this.element.querySelector(".flip-card-inner")
+    const originalTransform = inner.style.transform
+    inner.style.transform = "rotateY(180deg)"
+    back.style.visibility = "hidden"
+    back.style.position = "relative"
+    back.style.height = "auto"
+
+    this.backHeight = back.scrollHeight + 20 // padding
+
+    // Restore original styles
+    back.style.visibility = ""
+    back.style.position = ""
+    back.style.height = ""
+    inner.style.transform = originalTransform
+  }
+
+  expand() {
+    if (this.backHeight > this.originalHeight) {
+      this.element.style.height = `${this.backHeight}px`
+    }
+  }
+
+  collapse() {
+    this.element.style.height = `${this.originalHeight}px`
   }
 
   checkTouchDevice() {
@@ -34,9 +75,11 @@ export default class extends Controller {
           if (entry.isIntersecting) {
             // Card is in the "flip zone" - flip it
             this.element.classList.add("flipped")
+            this.expand()
           } else {
             // Card left the flip zone - flip back
             this.element.classList.remove("flipped")
+            this.collapse()
           }
         })
       },
@@ -63,14 +106,27 @@ export default class extends Controller {
       return
     }
 
-    // Toggle the flip
-    this.element.classList.toggle("flipped")
+    // Toggle the flip and height
+    if (isFlipped) {
+      this.element.classList.remove("flipped")
+      this.collapse()
+    } else {
+      this.element.classList.add("flipped")
+      this.expand()
+    }
   }
 
   keyToggle(event) {
     if (event.key === "Enter" || event.key === " ") {
       event.preventDefault()
-      this.element.classList.toggle("flipped")
+      const isFlipped = this.element.classList.contains("flipped")
+      if (isFlipped) {
+        this.element.classList.remove("flipped")
+        this.collapse()
+      } else {
+        this.element.classList.add("flipped")
+        this.expand()
+      }
     }
   }
 }
