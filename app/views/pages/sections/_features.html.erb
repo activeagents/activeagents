@@ -6,6 +6,7 @@
     </p>
   </div>
   <div class="grid columns-3 stagger-children" data-controller="scroll-animate">
+    <%# Example: test/agents/examples/flip_card_examples.rb %>
     <%= render "pages/components/flip_card",
       title: "Agents are Controllers",
       description: "Actions, callbacks, views. Your agents speak Rails.",
@@ -14,13 +15,16 @@
           generate_with :openai, model: "gpt-4o"
 
           def translate
-            prompt message: "Translate to \#{params[:lang]}"
+            prompt message: "Translate '\#{params[:text]}' to \#{params[:target_lang]}"
           end
         end
+
+        TranslationAgent.with(text: "Hello", target_lang: "es").translate.generate_now
       CODE
       docs_link: "https://docs.activeagents.ai/agents",
       docs_text: "docs/agents" %>
 
+    <%# Example: test/agents/examples/flip_card_examples.rb %>
     <%= render "pages/components/flip_card",
       title: "Action Prompt",
       description: "Composable prompts. Like Action Mailer, but for AI.",
@@ -38,23 +42,25 @@
       docs_link: "https://docs.activeagents.ai/actions",
       docs_text: "docs/actions" %>
 
+    <%# Example: test/agents/examples/flip_card_examples.rb %>
     <%= render "pages/components/flip_card",
       title: "Any LLM",
-      description: "OpenAI, Anthropic, RubyLLM. Switch with one line.",
+      description: "OpenAI, Anthropic, Ollama. Switch with one line.",
       code: <<~CODE,
         # OpenAI
-        generate_with :openai, model: "gpt-4o"
+        generate_with :open_ai, model: "gpt-4o"
 
         # Anthropic
         generate_with :anthropic, model: "claude-sonnet-4-5-20250929"
 
-        # RubyLLM (any provider)
-        generate_with :ruby_llm, model: "llama3"
+        # Ollama (local)
+        generate_with :ollama, model: "llama3"
       CODE
       docs_link: "https://docs.activeagents.ai/providers",
       docs_text: "docs/providers" %>
   </div>
   <div class="grid columns-3 stagger-children" data-controller="scroll-animate">
+    <%# Example: test/agents/examples/flip_card_examples.rb %>
     <%= render "pages/components/flip_card",
       title: "Resilient by Default",
       description: "Retries, backoff, graceful failures. Agents that don't give up.",
@@ -71,21 +77,31 @@
       docs_link: "https://docs.activeagents.ai/agents/retries",
       docs_text: "docs/agents/retries" %>
 
+    <%# Example: test/agents/examples/flip_card_examples.rb %>
     <%= render "pages/components/flip_card",
       title: "Streaming",
       description: "Real-time responses. Your agents think out loud.",
       code: <<~CODE,
-        generate_with :openai, stream: true
+        class ChatAgent < ApplicationAgent
+          generate_with :openai, model: "gpt-4o", stream: true
 
-        on_stream :handle_chunk
+          on_stream :handle_chunk
 
-        def handle_chunk(chunk)
-          print chunk.delta if chunk.delta
+          def chat
+            prompt message: params[:message]
+          end
+
+          private
+
+          def handle_chunk(chunk)
+            print chunk.delta if chunk.delta
+          end
         end
       CODE
       docs_link: "https://docs.activeagents.ai/agents/streaming",
-      docs_text: "docs/agents/streaming" %>
+      docs_text: "docs/streaming" %>
 
+    <%# Example: test/agents/examples/flip_card_examples.rb %>
     <%= render "pages/components/flip_card",
       title: "Structured Output",
       description: "JSON schemas, typed data. Agents that follow instructions.",
@@ -102,24 +118,32 @@
       docs_text: "docs/structured_output" %>
   </div>
   <div class="grid columns-3 stagger-children" data-controller="scroll-animate">
+    <%# Example: test/agents/examples/flip_card_examples.rb %>
     <%= render "pages/components/flip_card",
       title: "Tool Calling",
       description: "AI calls Ruby methods. Fetch data, take actions, make decisions.",
       code: <<~CODE,
-        def research
+        def weather_update
           prompt(
             message: params[:query],
-            tools: [:search_web, :read_file, :save_note]
+            tools: [{
+              name: "get_weather",
+              description: "Get weather for a location",
+              parameters: { type: "object", properties: {
+                location: { type: "string" }
+              }, required: ["location"] }
+            }]
           )
         end
 
-        def search_web(query:)
+        def get_weather(location:)
           # AI calls this method automatically
         end
       CODE
       docs_link: "https://docs.activeagents.ai/actions/tools",
       docs_text: "docs/tools" %>
 
+    <%# Example: test/agents/examples/flip_card_examples.rb %>
     <%= render "pages/components/flip_card",
       title: "MCP Support",
       description: "Model Context Protocol. Connect agents to any MCP server.",
@@ -137,6 +161,7 @@
       docs_link: "https://docs.activeagents.ai/agents/mcp",
       docs_text: "docs/mcp" %>
 
+    <%# Example: test/agents/examples/flip_card_examples.rb %>
     <%= render "pages/components/flip_card",
       title: "Background Jobs",
       description: "ActiveJob integration. Run agents async, at scale.",
