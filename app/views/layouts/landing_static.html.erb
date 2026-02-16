@@ -31,7 +31,7 @@
   <link href="/css/base.css" rel="stylesheet" />
   <link href="/css/pricing.css" rel="stylesheet" />
   <link href="/css/tablet.css" rel="stylesheet" media="(max-width: 1024px)" />
-  <link href="/css/mobile.css" rel="stylesheet" media="(max-width: 600px)" />
+  <link href="/css/mobile.css" rel="stylesheet" media="(max-width: 767px)" />
 </head>
 
 <body>
@@ -406,6 +406,61 @@
 
       // Start animation
       runAnimation();
+    })();
+
+    // Flip Cards - tap to flip on mobile, hover on desktop
+    (function() {
+      const flipCards = document.querySelectorAll('.flip-card');
+
+      const isTouchDevice = () => {
+        return (
+          'ontouchstart' in window ||
+          navigator.maxTouchPoints > 0 ||
+          window.matchMedia('(max-width: 767px)').matches
+        );
+      };
+
+      flipCards.forEach((card) => {
+        // Set up scroll-to-flip on mobile using IntersectionObserver
+        if (isTouchDevice()) {
+          const observer = new IntersectionObserver(
+            (entries) => {
+              entries.forEach((entry) => {
+                if (entry.isIntersecting) {
+                  card.classList.add('flipped');
+                } else {
+                  card.classList.remove('flipped');
+                }
+              });
+            },
+            {
+              rootMargin: '-30% 0px -30% 0px',
+              threshold: 0.5
+            }
+          );
+          observer.observe(card);
+        }
+
+        // Tap to toggle on mobile
+        card.addEventListener('click', (event) => {
+          if (!isTouchDevice()) return;
+
+          const isFlipped = card.classList.contains('flipped');
+          const clickedDocsLink = event.target.closest('.docs-link');
+
+          if (isFlipped && clickedDocsLink) return;
+
+          card.classList.toggle('flipped');
+        });
+
+        // Keyboard accessibility
+        card.addEventListener('keydown', (event) => {
+          if (event.key === 'Enter' || event.key === ' ') {
+            event.preventDefault();
+            card.classList.toggle('flipped');
+          }
+        });
+      });
     })();
   </script>
 </body>

@@ -101,4 +101,58 @@
       docs_link: "https://docs.activeagents.ai/actions/structured_output",
       docs_text: "docs/structured_output" %>
   </div>
+  <div class="grid columns-3 stagger-children" data-controller="scroll-animate">
+    <%= render "pages/components/flip_card",
+      title: "Tool Calling",
+      description: "AI calls Ruby methods. Fetch data, take actions, make decisions.",
+      code: <<~CODE,
+        def research
+          prompt(
+            message: params[:query],
+            tools: [:search_web, :read_file, :save_note]
+          )
+        end
+
+        def search_web(query:)
+          # AI calls this method automatically
+        end
+      CODE
+      docs_link: "https://docs.activeagents.ai/actions/tools",
+      docs_text: "docs/tools" %>
+
+    <%= render "pages/components/flip_card",
+      title: "MCP Support",
+      description: "Model Context Protocol. Connect agents to any MCP server.",
+      code: <<~CODE,
+        generate_with :anthropic,
+          model: "claude-sonnet-4-5-20250929",
+          mcp_servers: {
+            filesystem: {
+              command: "npx",
+              args: ["-y", "@anthropic/mcp-fs"]
+            },
+            github: { url: "https://mcp.github.com" }
+          }
+      CODE
+      docs_link: "https://docs.activeagents.ai/agents/mcp",
+      docs_text: "docs/mcp" %>
+
+    <%= render "pages/components/flip_card",
+      title: "Background Jobs",
+      description: "ActiveJob integration. Run agents async, at scale.",
+      code: <<~CODE,
+        # Queue for later
+        TranslationAgent
+          .with(text: document.content, lang: "es")
+          .translate
+          .generate_later
+
+        # With custom queue
+        class TranslationAgent < ApplicationAgent
+          queue_as :ai_agents
+        end
+      CODE
+      docs_link: "https://docs.activeagents.ai/agents/jobs",
+      docs_text: "docs/jobs" %>
+  </div>
 </section>
