@@ -142,17 +142,18 @@
       description: "ActiveJob integration. Run agents async, at scale.",
       code: <<~CODE,
         # Queue for later
-        TranslationAgent
-          .with(text: document.content, lang: "es")
-          .translate
-          .generate_later
+        ApplicationAgent.prompt(message: "Analyze").generate_later
 
-        # With custom queue
-        class TranslationAgent < ApplicationAgent
-          queue_as :ai_agents
-        end
+        # With options
+        ApplicationAgent.prompt(message: "Report").generate_later(
+          queue: :reports,
+          wait: 5.minutes
+        )
+
+        # Configure queue at class level
+        self.generate_later_queue_name = :ai_tasks
       CODE
-      docs_link: "https://docs.activeagents.ai/agents/jobs",
-      docs_text: "docs/jobs" %>
+      docs_link: "https://docs.activeagents.ai/agents/generation#asynchronous",
+      docs_text: "docs/generation" %>
   </div>
 </section>
