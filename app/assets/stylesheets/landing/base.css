@@ -798,6 +798,7 @@ section:first-of-type {
 .flip-card {
   perspective: 1000px;
   height: 180px;
+  transition: height 0.4s ease;
 }
 
 .flip-card-inner {

@@ -408,7 +408,7 @@
       runAnimation();
     })();
 
-    // Flip Cards - tap to flip on mobile, hover on desktop
+    // Flip Cards - tap to flip on mobile, hover on desktop, expand for long code
     (function() {
       const flipCards = document.querySelectorAll('.flip-card');
 
@@ -421,6 +421,41 @@
       };
 
       flipCards.forEach((card) => {
+        const originalHeight = card.offsetHeight;
+        let backHeight = originalHeight;
+
+        // Measure back content height
+        const back = card.querySelector('.flip-card-back');
+        if (back) {
+          const inner = card.querySelector('.flip-card-inner');
+          const origTransform = inner.style.transform;
+          inner.style.transform = 'rotateY(180deg)';
+          back.style.visibility = 'hidden';
+          back.style.position = 'relative';
+          back.style.height = 'auto';
+          backHeight = back.scrollHeight + 20;
+          back.style.visibility = '';
+          back.style.position = '';
+          back.style.height = '';
+          inner.style.transform = origTransform;
+        }
+
+        const expand = () => {
+          if (backHeight > originalHeight) {
+            card.style.height = backHeight + 'px';
+          }
+        };
+
+        const collapse = () => {
+          card.style.height = originalHeight + 'px';
+        };
+
+        // Desktop hover expand/collapse
+        if (!isTouchDevice()) {
+          card.addEventListener('mouseenter', expand);
+          card.addEventListener('mouseleave', collapse);
+        }
+
         // Set up scroll-to-flip on mobile using IntersectionObserver
         if (isTouchDevice()) {
           const observer = new IntersectionObserver(
@@ -428,8 +463,10 @@
               entries.forEach((entry) => {
                 if (entry.isIntersecting) {
                   card.classList.add('flipped');
+                  expand();
                 } else {
                   card.classList.remove('flipped');
+                  collapse();
                 }
               });
             },
@@ -450,14 +487,27 @@
 
           if (isFlipped && clickedDocsLink) return;
 
-          card.classList.toggle('flipped');
+          if (isFlipped) {
+            card.classList.remove('flipped');
+            collapse();
+          } else {
+            card.classList.add('flipped');
+            expand();
+          }
         });
 
         // Keyboard accessibility
         card.addEventListener('keydown', (event) => {
           if (event.key === 'Enter' || event.key === ' ') {
             event.preventDefault();
-            card.classList.toggle('flipped');
+            const isFlipped = card.classList.contains('flipped');
+            if (isFlipped) {
+              card.classList.remove('flipped');
+              collapse();
+            } else {
+              card.classList.add('flipped');
+              expand();
+            }
           }
         });
       });
