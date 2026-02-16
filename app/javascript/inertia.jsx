@@ -4,9 +4,13 @@ import { createRoot } from 'react-dom/client'
 
 // Explicitly import pages since we're using esbuild (not Vite)
 import Dashboard from './pages/Dashboard'
+import PlansIndex from './pages/Plans/Index'
+import SubscriptionsIndex from './pages/Subscriptions/Index'
 
 const pages = {
   'Dashboard': Dashboard,
+  'Plans/Index': PlansIndex,
+  'Subscriptions/Index': SubscriptionsIndex,
 }
 
 createInertiaApp({
