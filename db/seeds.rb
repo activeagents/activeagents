@@ -4,6 +4,7 @@
 # development, test). The code here should be idempotent so that it can be executed at any point in every environment.
 # The data can then be loaded with the bin/rails db:seed command (or created alongside the database with db:setup).
 
+# Agent Templates
 puts "Seeding agent templates..."
 AgentTemplate.seed_defaults!
 puts "Created #{AgentTemplate.count} agent templates"
@@ -181,3 +182,99 @@ unless Rails.env.production?
   puts "  Agent Versions: #{AgentVersion.count}"
   puts "  Agent Templates: #{AgentTemplate.count}"
 end
+
+# Pricing Plans
+plans = [
+  {
+    name: "ActiveAgent.dev",
+    slug: "free",
+    price_cents: 0,
+    annual_price_cents: 0,
+    trial_days: 0,
+    included_seats: 1,
+    included_workspaces: 0,
+    features: {
+      "web_ui_dashboard" => true,
+      "action_prompt" => true,
+      "solid_agent" => true,
+      "streaming" => true,
+      "structured_outputs" => true,
+      "error_handling" => true,
+      "community_support" => true
+    }
+  },
+  {
+    name: "ActiveAgent.PRO",
+    slug: "pro",
+    price_cents: 9900,
+    annual_price_cents: 99_500,
+    stripe_monthly_price_id: ENV["STRIPE_PRO_MONTHLY_PRICE_ID"],
+    stripe_annual_price_id: ENV["STRIPE_PRO_ANNUAL_PRICE_ID"],
+    trial_days: 14,
+    included_seats: 5,
+    included_workspaces: 1,
+    features: {
+      "web_ui_dashboard" => true,
+      "action_prompt" => true,
+      "solid_agent" => true,
+      "streaming" => true,
+      "structured_outputs" => true,
+      "error_handling" => true,
+      "generational_versioning" => true,
+      "multi_agent_workflows" => true,
+      "reasonable_reasons" => true,
+      "generative_ui" => true,
+      "human_in_the_loop" => true,
+      "cost_analytics" => true,
+      "ab_testing" => true,
+      "email_support" => true,
+      "traces_25k_monthly" => true,
+      "14_day_retention" => true
+    }
+  },
+  {
+    name: "ActiveAgent Enterprise",
+    slug: "enterprise",
+    price_cents: 26_900,
+    annual_price_cents: 269_000,
+    stripe_monthly_price_id: ENV["STRIPE_ENTERPRISE_MONTHLY_PRICE_ID"],
+    stripe_annual_price_id: ENV["STRIPE_ENTERPRISE_ANNUAL_PRICE_ID"],
+    trial_days: 0,
+    included_seats: -1,
+    included_workspaces: -1,
+    features: {
+      "web_ui_dashboard" => true,
+      "action_prompt" => true,
+      "solid_agent" => true,
+      "streaming" => true,
+      "structured_outputs" => true,
+      "error_handling" => true,
+      "generational_versioning" => true,
+      "multi_agent_workflows" => true,
+      "reasonable_reasons" => true,
+      "generative_ui" => true,
+      "human_in_the_loop" => true,
+      "cost_analytics" => true,
+      "ab_testing" => true,
+      "generative_workflow_generators" => true,
+      "deterministic_generative_tasks" => true,
+      "multi_app_licensing" => true,
+      "sso" => true,
+      "soc2_hipaa" => true,
+      "private_vpc" => true,
+      "dedicated_support" => true,
+      "traces_500k_monthly" => true,
+      "400_day_retention" => true,
+      "4_hour_sla" => true
+    }
+  }
+]
+
+plans.each do |plan_attrs|
+  plan = Plan.find_or_initialize_by(slug: plan_attrs[:slug])
+  plan.assign_attributes(plan_attrs)
+  plan.save!
+  puts "#{plan.persisted? && !plan.previously_new_record? ? 'Updated' : 'Created'} plan: #{plan.name} (#{plan.slug})"
+end
+
+puts "\nSeeded #{Plan.count} plans."
