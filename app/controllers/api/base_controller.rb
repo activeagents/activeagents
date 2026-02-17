@@ -10,6 +10,10 @@ module Api
 
     private
 
+    def current_user
+      Current.session&.user
+    end
+
     def not_found
       render json: { error: "Record not found" }, status: :not_found
     end

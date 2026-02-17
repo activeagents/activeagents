@@ -1,12 +1,13 @@
 # frozen_string_literal: true
 
 class Agent < ApplicationRecord
+  belongs_to :user, optional: true
   has_many :agent_versions, dependent: :destroy
   has_many :agent_runs, dependent: :destroy
 
   # Validations
   validates :name, presence: true, length: { minimum: 2, maximum: 100 }
-  validates :slug, presence: true, uniqueness: true, format: { with: /\A[a-z0-9\-_]+\z/ }
+  validates :slug, presence: true, uniqueness: { scope: :user_id }, format: { with: /\A[a-z0-9\-_]+\z/ }
   validates :provider, presence: true
   validates :model, presence: true
 

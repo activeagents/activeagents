@@ -2,11 +2,11 @@
 
 module Api
   class AgentsController < BaseController
-    before_action :set_agent, only: [:show, :update, :destroy, :versions, :runs, :execute, :test, :restore, :duplicate, :export]
+    before_action :set_agent, only: [:show, :update, :destroy, :versions, :runs, :execute, :test, :restore, :duplicate, :export, :analytics]
 
     # GET /api/agents
     def index
-      @agents = Agent.order(updated_at: :desc)
+      @agents = current_user_agents.order(updated_at: :desc)
 
       # Filter by status
       @agents = @agents.where(status: params[:status]) if params[:status].present?
@@ -40,7 +40,7 @@ module Api
 
     # POST /api/agents
     def create
-      @agent = Agent.new(agent_params)
+      @agent = current_user_agents.build(agent_params)
 
       if @agent.save
         render json: { agent: agent_json(@agent, include_details: true) }, status: :created
@@ -151,6 +151,56 @@ module Api
       }
     end
 
+    # GET /api/agents/:id/analytics
+    def analytics
+      days = (params[:days] || 30).to_i
+      start_date = days.days.ago.beginning_of_day
+
+      runs = @agent.agent_runs.where("created_at >= ?", start_date)
+
+      # Calculate stats
+      total_runs = runs.count
+      completed_runs = runs.where(status: :complete).count
+      failed_runs = runs.where(status: :failed).count
+      avg_duration = runs.where.not(duration_ms: nil).average(:duration_ms)&.round || 0
+      total_tokens = runs.sum(:total_tokens)
+      avg_tokens = total_runs > 0 ? (total_tokens.to_f / total_runs).round : 0
+
+      # Runs by day
+      runs_by_day = runs.group("DATE(created_at)")
+        .select("DATE(created_at) as date, COUNT(*) as count, SUM(total_tokens) as tokens")
+        .order("date")
+        .map { |r| { date: r.date.to_s, count: r.count, tokens: r.tokens || 0 } }
+
+      # Status breakdown
+      status_breakdown = runs.group(:status).count.transform_keys(&:to_s)
+
+      # Recent errors
+      recent_errors = runs.failed_runs.recent.limit(5).map do |run|
+        {
+          id: run.id,
+          error: run.error_message&.truncate(200),
+          created_at: run.created_at
+        }
+      end
+
+      render json: {
+        period_days: days,
+        summary: {
+          total_runs: total_runs,
+          completed_runs: completed_runs,
+          failed_runs: failed_runs,
+          success_rate: total_runs > 0 ? ((completed_runs.to_f / total_runs) * 100).round(1) : 0,
+          avg_duration_ms: avg_duration,
+          total_tokens: total_tokens,
+          avg_tokens_per_run: avg_tokens
+        },
+        runs_by_day: runs_by_day,
+        status_breakdown: status_breakdown,
+        recent_errors: recent_errors
+      }
+    end
+
     # GET /api/agents/presets
     def presets
       presets = Agent::PRESET_TYPES.map do |preset|
@@ -168,8 +218,12 @@ module Api
 
     private
 
+    def current_user_agents
+      current_user ? current_user.agents : Agent.none
+    end
+
     def set_agent
-      @agent = Agent.find(params[:id])
+      @agent = current_user_agents.find(params[:id])
     end
 
     def agent_params

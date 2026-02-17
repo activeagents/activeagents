@@ -9,13 +9,24 @@ class DashboardController < ApplicationController
 
   private
 
+  def current_user
+    Current.session&.user
+  end
+
   def current_user_props
-    # Placeholder for user data
-    { name: "Developer" }
+    return { name: "Guest" } unless current_user
+
+    {
+      id: current_user.id,
+      name: current_user.display_name,
+      email: current_user.email_address
+    }
   end
 
   def agents_data
-    Agent.order(updated_at: :desc).limit(20).map do |agent|
+    return [] unless current_user
+
+    current_user.agents.order(updated_at: :desc).limit(20).map do |agent|
       {
         id: agent.id,
         name: agent.name,

@@ -1,7 +1,7 @@
 source "https://rubygems.org"
 
-# Bundle edge Rails instead: gem "rails", github: "rails/rails", branch: "main"
-gem "rails", "~> 8.1.2"
+# Use edge Rails from main branch
+gem "rails", github: "rails/rails", branch: "main"
 # The modern asset pipeline for Rails [https://github.com/rails/propshaft]
 gem "propshaft"
 # Use postgresql as the database for Active Record
@@ -26,9 +26,11 @@ gem "rouge"
 gem "inertia_rails"
 # Active Agent - AI agent framework for Rails [https://github.com/activeagents/activeagent]
 gem "activeagent", github: "activeagents/activeagent", branch: "main"
+# Solid Agent - Persistence and context management for ActiveAgent
+gem "solid_agent", github: "activeagents/solid_agent", branch: "main"
 
 # Use Active Model has_secure_password [https://guides.rubyonrails.org/active_model_basics.html#securepassword]
-# gem "bcrypt", "~> 3.1.7"
+gem "bcrypt", "~> 3.1.7"
 
 # Windows does not include zoneinfo files, so bundle the tzinfo-data gem
 gem "tzinfo-data"

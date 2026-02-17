@@ -17,6 +17,7 @@ class AgentRun < ApplicationRecord
 
   # Callbacks
   before_validation :set_trace_id, on: :create
+  after_update_commit :broadcast_update, if: :saved_change_to_status?
 
   # Add a log entry
   def add_log(message, level: :info)
