@@ -1,4 +1,7 @@
 Rails.application.routes.draw do
+  resource :session, only: [:new, :create, :destroy]
+  resource :registration, only: [:new, :create]
+  resources :passwords, param: :token, only: [:new, :create, :edit, :update]
   # Define your application routes per the DSL in https://guides.rubyonrails.org/routing.html
 
   # Reveal health status on /up that returns 200 if the app boots with no exceptions, otherwise 500.
@@ -28,9 +31,16 @@ Rails.application.routes.draw do
         post :test
         post :duplicate
         get :export
+        get :analytics
       end
       collection do
         get :presets
+      end
+    end
+
+    resources :templates, only: [:index, :show] do
+      member do
+        post :use
       end
     end
 
@@ -39,5 +49,7 @@ Rails.application.routes.draw do
         post :cancel
       end
     end
+
+    resource :analytics, only: [:show], controller: "analytics", action: :index
   end
 end

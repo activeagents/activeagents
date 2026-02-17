@@ -16,7 +16,7 @@ const PROVIDER_MODELS = {
   openrouter: ['openai/gpt-4o', 'anthropic/claude-sonnet-4-20250514', 'meta-llama/llama-3-70b-instruct']
 };
 
-export default function AgentEditor({ agent, meta, onSave, onDelete, onRun, onBack, isLoading }) {
+export default function AgentEditor({ agent, meta, onSave, onDelete, onRun, onAnalytics, onHistory, onBack, isLoading }) {
   const [activeTab, setActiveTab] = useState('config');
   const [formData, setFormData] = useState({
     name: agent.name || '',
@@ -182,6 +182,23 @@ export default function AgentEditor({ agent, meta, onSave, onDelete, onRun, onBa
             <span>▶️</span>
             <span>Run Agent</span>
           </button>
+
+          <div className="grid grid-cols-2 gap-2">
+            <button
+              onClick={onAnalytics}
+              className="flex items-center justify-center space-x-2 px-3 py-2 bg-purple-500 text-white rounded-lg hover:bg-purple-600 transition-colors"
+            >
+              <span>📊</span>
+              <span>Analytics</span>
+            </button>
+            <button
+              onClick={onHistory}
+              className="flex items-center justify-center space-x-2 px-3 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors"
+            >
+              <span>💬</span>
+              <span>History</span>
+            </button>
+          </div>
 
           <button
             onClick={handleSave}

@@ -3,6 +3,7 @@ import React from 'react';
 export default function Sidebar({ currentView, onNavigate, agentCount }) {
   const menuItems = [
     { id: 'list', label: 'Agents', icon: '🤖', badge: agentCount },
+    { id: 'analytics', label: 'Analytics', icon: '📊' },
     { id: 'builder', label: 'New Agent', icon: '✨' },
   ];
 

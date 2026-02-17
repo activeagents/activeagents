@@ -3,6 +3,10 @@ import AgentList from '../components/dashboard/AgentList';
 import AgentBuilder from '../components/dashboard/AgentBuilder';
 import AgentEditor from '../components/dashboard/AgentEditor';
 import AgentRunner from '../components/dashboard/AgentRunner';
+import AgentAnalytics from '../components/dashboard/AgentAnalytics';
+import DashboardAnalytics from '../components/dashboard/DashboardAnalytics';
+import ConversationHistory from '../components/dashboard/ConversationHistory';
+import TemplateLibrary from '../components/dashboard/TemplateLibrary';
 import Sidebar from '../components/dashboard/Sidebar';
 import Header from '../components/dashboard/Header';
 
@@ -14,16 +18,25 @@ import Header from '../components/dashboard/Header';
  */
 export default function Dashboard({ user, initialAgents = [], meta = {} }) {
   const [agents, setAgents] = useState(initialAgents);
-  const [currentView, setCurrentView] = useState('list'); // list, builder, editor, runner
+  const [currentView, setCurrentView] = useState('list'); // list, builder, editor, runner, analytics, agent-analytics, history
   const [selectedAgent, setSelectedAgent] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
   const [notification, setNotification] = useState(null);
+  const [showTemplateLibrary, setShowTemplateLibrary] = useState(false);
 
   // Parse URL to determine initial view
   useEffect(() => {
     const path = window.location.pathname;
-    if (path.includes('/agents/new')) {
+    if (path.includes('/analytics') && !path.includes('/agents/')) {
+      setCurrentView('analytics');
+    } else if (path.includes('/agents/new')) {
       setCurrentView('builder');
+    } else if (path.match(/\/agents\/\d+\/history/)) {
+      const id = path.match(/\/agents\/(\d+)/)?.[1];
+      if (id) loadAgent(id, 'history');
+    } else if (path.match(/\/agents\/\d+\/analytics/)) {
+      const id = path.match(/\/agents\/(\d+)/)?.[1];
+      if (id) loadAgent(id, 'agent-analytics');
     } else if (path.match(/\/agents\/\d+\/edit/)) {
       const id = path.match(/\/agents\/(\d+)/)?.[1];
       if (id) loadAgent(id, 'editor');
@@ -155,6 +168,15 @@ export default function Dashboard({ user, initialAgents = [], meta = {} }) {
     }
   };
 
+  const handleUseTemplate = (agent) => {
+    setAgents([agent, ...agents]);
+    setSelectedAgent(agent);
+    setCurrentView('editor');
+    setShowTemplateLibrary(false);
+    showNotification('Agent created from template!', 'success');
+    window.history.pushState({}, '', `/dashboard/agents/${agent.id}/edit`);
+  };
+
   const navigateTo = (view, agent = null) => {
     setSelectedAgent(agent);
     setCurrentView(view);
@@ -164,6 +186,9 @@ export default function Dashboard({ user, initialAgents = [], meta = {} }) {
     if (view === 'builder') path = '/dashboard/agents/new';
     else if (view === 'editor' && agent) path = `/dashboard/agents/${agent.id}/edit`;
     else if (view === 'runner' && agent) path = `/dashboard/agents/${agent.id}/run`;
+    else if (view === 'agent-analytics' && agent) path = `/dashboard/agents/${agent.id}/analytics`;
+    else if (view === 'history' && agent) path = `/dashboard/agents/${agent.id}/history`;
+    else if (view === 'analytics') path = '/dashboard/analytics';
 
     window.history.pushState({}, '', path);
   };
@@ -187,6 +212,8 @@ export default function Dashboard({ user, initialAgents = [], meta = {} }) {
             onSave={(data) => handleUpdateAgent(selectedAgent.id, data)}
             onDelete={() => handleDeleteAgent(selectedAgent.id)}
             onRun={() => navigateTo('runner', selectedAgent)}
+            onAnalytics={() => navigateTo('agent-analytics', selectedAgent)}
+            onHistory={() => navigateTo('history', selectedAgent)}
             onBack={() => navigateTo('list')}
             isLoading={isLoading}
           />
@@ -198,6 +225,28 @@ export default function Dashboard({ user, initialAgents = [], meta = {} }) {
             onBack={() => navigateTo('editor', selectedAgent)}
           />
         ) : null;
+      case 'agent-analytics':
+        return selectedAgent ? (
+          <AgentAnalytics
+            agent={selectedAgent}
+            onBack={() => navigateTo('editor', selectedAgent)}
+          />
+        ) : null;
+      case 'history':
+        return selectedAgent ? (
+          <ConversationHistory
+            agent={selectedAgent}
+            onBack={() => navigateTo('editor', selectedAgent)}
+          />
+        ) : null;
+      case 'analytics':
+        return (
+          <DashboardAnalytics
+            onSelectAgent={(agent) => {
+              loadAgent(agent.id, 'agent-analytics');
+            }}
+          />
+        );
       default:
         return (
           <AgentList
@@ -205,6 +254,7 @@ export default function Dashboard({ user, initialAgents = [], meta = {} }) {
             meta={meta}
             onSelect={(agent) => navigateTo('editor', agent)}
             onNew={() => navigateTo('builder')}
+            onBrowseTemplates={() => setShowTemplateLibrary(true)}
             onDuplicate={handleDuplicateAgent}
             onDelete={handleDeleteAgent}
             onRefresh={refreshAgents}
@@ -233,6 +283,14 @@ export default function Dashboard({ user, initialAgents = [], meta = {} }) {
           {renderContent()}
         </main>
       </div>
+
+      {/* Template Library Modal */}
+      {showTemplateLibrary && (
+        <TemplateLibrary
+          onUseTemplate={handleUseTemplate}
+          onClose={() => setShowTemplateLibrary(false)}
+        />
+      )}
 
       {/* Notification Toast */}
       {notification && (
