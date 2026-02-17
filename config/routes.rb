@@ -13,6 +13,31 @@ Rails.application.routes.draw do
   root to: "pages#home"
   get "pricing", to: "pages#pricing"
 
-  # App dashboard (Inertia)
+  # App dashboard (Inertia) - all dashboard routes render React app
   get "dashboard", to: "dashboard#index"
+  get "dashboard/*path", to: "dashboard#index"
+
+  # API endpoints
+  namespace :api do
+    resources :agents do
+      member do
+        get :versions
+        post :restore
+        get :runs
+        post :execute
+        post :test
+        post :duplicate
+        get :export
+      end
+      collection do
+        get :presets
+      end
+    end
+
+    resources :runs, controller: "agent_runs", only: [:index, :show] do
+      member do
+        post :cancel
+      end
+    end
+  end
 end
