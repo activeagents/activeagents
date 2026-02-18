@@ -17,6 +17,6 @@ class CreateAgentVersions < ActiveRecord::Migration[8.0]
       t.timestamps
     end
 
-    add_index :agent_versions, [:agent_id, :version_number], unique: true
+    add_index :agent_versions, [ :agent_id, :version_number ], unique: true
   end
 end

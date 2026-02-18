@@ -2,7 +2,7 @@
 
 module Api
   class AgentsController < BaseController
-    before_action :set_agent, only: [:show, :update, :destroy, :versions, :runs, :execute, :test, :restore, :duplicate, :export, :analytics]
+    before_action :set_agent, only: [ :show, :update, :destroy, :versions, :runs, :execute, :test, :restore, :duplicate, :export, :analytics ]
 
     # GET /api/agents
     def index

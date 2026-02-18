@@ -22,7 +22,7 @@ class Agent < ApplicationRecord
   # Scopes
   scope :active_agents, -> { where(status: :active) }
   scope :by_provider, ->(provider) { where(provider: provider) }
-  scope :with_tool, ->(tool) { where("tools @> ?", [tool].to_json) }
+  scope :with_tool, ->(tool) { where("tools @> ?", [ tool ].to_json) }
 
   # Available presets matching AgentAvatar component
   PRESET_TYPES = %w[
