@@ -76,14 +76,14 @@ class AgentVersionTest < ActiveSupport::TestCase
     agent = create_agent(
       user: user,
       instructions: "Test instructions",
-      tools: ["terminal", "code"],
+      tools: [ "terminal", "code" ],
       model_config: { temperature: 0.5 }
     )
 
     snapshot = agent.latest_version.configuration_snapshot
 
     assert_equal "Test instructions", snapshot["instructions"]
-    assert_equal ["terminal", "code"], snapshot["tools"]
+    assert_equal [ "terminal", "code" ], snapshot["tools"]
     assert_equal({ "temperature" => 0.5 }, snapshot["model_config"])
   end
 
@@ -166,10 +166,10 @@ class AgentVersionTest < ActiveSupport::TestCase
 
   test "diff returns changed fields between versions" do
     user = create_user
-    agent = create_agent(user: user, instructions: "Original", tools: ["terminal"])
+    agent = create_agent(user: user, instructions: "Original", tools: [ "terminal" ])
     version1 = agent.latest_version
 
-    agent.update!(instructions: "Updated", tools: ["terminal", "code"])
+    agent.update!(instructions: "Updated", tools: [ "terminal", "code" ])
     version2 = agent.latest_version
 
     diff = version2.diff(version1)
@@ -179,8 +179,8 @@ class AgentVersionTest < ActiveSupport::TestCase
     assert_equal "Updated", diff["instructions"][:to]
 
     assert diff.key?("tools")
-    assert_equal ["terminal"], diff["tools"][:from]
-    assert_equal ["terminal", "code"], diff["tools"][:to]
+    assert_equal [ "terminal" ], diff["tools"][:from]
+    assert_equal [ "terminal", "code" ], diff["tools"][:to]
   end
 
   test "diff returns empty hash for identical versions" do

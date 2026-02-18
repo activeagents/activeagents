@@ -113,7 +113,7 @@ module FlipCardExamples
     def weather_update
       prompt(
         message: params[:query],
-        tools: [{
+        tools: [ {
           name: "get_weather",
           description: "Get current weather for a location",
           parameters: {
@@ -121,9 +121,9 @@ module FlipCardExamples
             properties: {
               location: { type: "string", description: "City and state" }
             },
-            required: ["location"]
+            required: [ "location" ]
           }
-        }]
+        } ]
       )
     end
 
@@ -166,7 +166,7 @@ module FlipCardExamples
       mcp_servers: {
         filesystem: {
           command: "npx",
-          args: ["-y", "@anthropic/mcp-fs"]
+          args: [ "-y", "@anthropic/mcp-fs" ]
         },
         github: { url: "https://mcp.github.com" }
       }

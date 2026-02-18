@@ -157,10 +157,10 @@ class AgentTest < ActiveSupport::TestCase
 
   test "creates new version when tools change" do
     user = create_user
-    agent = create_agent(user: user, tools: ["terminal"])
+    agent = create_agent(user: user, tools: [ "terminal" ])
 
     assert_difference "AgentVersion.count", 1 do
-      agent.update!(tools: ["terminal", "filesystem"])
+      agent.update!(tools: [ "terminal", "filesystem" ])
     end
 
     assert_equal 2, agent.version_count
@@ -197,14 +197,14 @@ class AgentTest < ActiveSupport::TestCase
     agent = create_agent(
       user: user,
       instructions: "Test instructions",
-      tools: ["terminal", "filesystem"],
+      tools: [ "terminal", "filesystem" ],
       model_config: { "temperature" => 0.7 }
     )
 
     snapshot = agent.configuration_snapshot
 
     assert_equal "Test instructions", snapshot[:instructions]
-    assert_equal ["terminal", "filesystem"], snapshot[:tools]
+    assert_equal [ "terminal", "filesystem" ], snapshot[:tools]
     assert_equal({ "temperature" => 0.7 }, snapshot[:model_config])
     assert snapshot.key?(:name)
     assert snapshot.key?(:description)
@@ -222,7 +222,7 @@ class AgentTest < ActiveSupport::TestCase
     create_agent(user: user, status: :draft)
     create_agent(user: user, status: :archived)
 
-    assert_equal [active_agent], user.agents.active_agents.to_a
+    assert_equal [ active_agent ], user.agents.active_agents.to_a
   end
 
   test "by_provider scope filters by provider" do
@@ -230,7 +230,7 @@ class AgentTest < ActiveSupport::TestCase
     openai_agent = create_agent(user: user, provider: "openai")
     create_agent(user: user, provider: "anthropic")
 
-    assert_equal [openai_agent], user.agents.by_provider("openai").to_a
+    assert_equal [ openai_agent ], user.agents.by_provider("openai").to_a
   end
 
   # ===========================================
