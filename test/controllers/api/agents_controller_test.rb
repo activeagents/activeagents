@@ -170,8 +170,8 @@ class Api::AgentsControllerTest < ActionDispatch::IntegrationTest
         model: "claude-sonnet-4-20250514",
         instructions: "Be helpful and concise.",
         preset_type: "terminal",
-        tools: ["terminal", "filesystem"],
-        instruction_sets: ["github", "ruby"],
+        tools: [ "terminal", "filesystem" ],
+        instruction_sets: [ "github", "ruby" ],
         model_config: { temperature: 0.7 }
       }
     }
@@ -179,8 +179,8 @@ class Api::AgentsControllerTest < ActionDispatch::IntegrationTest
     assert_response :created
     data = json_response
 
-    assert_equal ["terminal", "filesystem"], data["agent"]["tools"]
-    assert_equal ["github", "ruby"], data["agent"]["instruction_sets"]
+    assert_equal [ "terminal", "filesystem" ], data["agent"]["tools"]
+    assert_equal [ "github", "ruby" ], data["agent"]["instruction_sets"]
     # model_config is stored as JSON, values may be strings or numbers
     assert data["agent"]["model_config"]["temperature"].present?
   end

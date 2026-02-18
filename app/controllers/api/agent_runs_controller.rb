@@ -2,7 +2,7 @@
 
 module Api
   class AgentRunsController < BaseController
-    before_action :set_run, only: [:show, :cancel]
+    before_action :set_run, only: [ :show, :cancel ]
 
     # GET /api/runs/:id
     def show

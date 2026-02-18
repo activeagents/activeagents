@@ -332,7 +332,7 @@ class AgentRunTest < ActiveSupport::TestCase
     create_run(agent: agent, status: :failed)
     create_run(agent: agent, status: :pending)
 
-    assert_equal [complete_run], agent.agent_runs.successful.to_a
+    assert_equal [ complete_run ], agent.agent_runs.successful.to_a
   end
 
   test "failed_runs scope returns only failed runs" do
@@ -342,7 +342,7 @@ class AgentRunTest < ActiveSupport::TestCase
     create_run(agent: agent, status: :complete)
     failed_run = create_run(agent: agent, status: :failed)
 
-    assert_equal [failed_run], agent.agent_runs.failed_runs.to_a
+    assert_equal [ failed_run ], agent.agent_runs.failed_runs.to_a
   end
 
   test "today scope returns only runs from today" do
