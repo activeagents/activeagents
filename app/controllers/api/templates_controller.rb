@@ -2,7 +2,7 @@
 
 module Api
   class TemplatesController < BaseController
-    allow_unauthenticated_access only: [:index, :show]
+    allow_unauthenticated_access only: [ :index, :show ]
 
     # GET /api/templates
     def index
