@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import AgentAvatar, { AGENT_PRESETS } from '../AgentAvatar';
+import AgentAvatar from '../AgentAvatar';
 
 export default function AgentRunner({ agent, onBack }) {
   const [prompt, setPrompt] = useState('');
@@ -73,13 +73,6 @@ export default function AgentRunner({ agent, onBack }) {
     }
   };
 
-  const getAppearanceConfig = () => {
-    const presetConfig = AGENT_PRESETS[agent.presetType || agent.preset_type] || {};
-    return { ...presetConfig, ...(agent.appearance || {}) };
-  };
-
-  const appearance = getAppearanceConfig();
-
   const getStatusColor = (status) => {
     switch (status) {
       case 'complete': return 'text-green-600 bg-green-100';
@@ -104,12 +97,7 @@ export default function AgentRunner({ agent, onBack }) {
         <div className="bg-white rounded-xl border border-gray-200 p-4">
           <div className="flex items-start space-x-4">
             <div className="flex-shrink-0">
-              <AgentAvatar
-                hat={appearance.hat}
-                hatAccessory={appearance.hatAccessory}
-                heldItem={appearance.heldItem}
-                size={50}
-              />
+              <AgentAvatar size={50} />
             </div>
             <div className="flex-1">
               <textarea
@@ -119,7 +107,7 @@ export default function AgentRunner({ agent, onBack }) {
                 placeholder="Enter your prompt here... (Cmd+Enter to run)"
                 rows={4}
                 disabled={isRunning}
-                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-rose-500 focus:border-transparent resize-none"
+                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent resize-none"
               />
               <div className="flex items-center justify-between mt-3">
                 <span className="text-xs text-gray-400">
@@ -202,12 +190,7 @@ export default function AgentRunner({ agent, onBack }) {
         {/* Agent Info */}
         <div className="bg-white rounded-xl border border-gray-200 p-4">
           <div className="flex items-center space-x-3 mb-4">
-            <AgentAvatar
-              hat={appearance.hat}
-              hatAccessory={appearance.hatAccessory}
-              heldItem={appearance.heldItem}
-              size={60}
-            />
+            <AgentAvatar size={60} />
             <div>
               <h3 className="font-semibold text-gray-900">{agent.name}</h3>
               <p className="text-sm text-gray-500">{agent.provider} / {agent.model}</p>

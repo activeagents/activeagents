@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import AgentAvatar, { AGENT_PRESETS } from '../AgentAvatar';
+import AgentAvatar from '../AgentAvatar';
 
 const CATEGORY_ICONS = {
   productivity: '📋',
@@ -59,11 +59,6 @@ export default function TemplateLibrary({ onUseTemplate, onClose }) {
     }
   };
 
-  const getAppearanceConfig = (template) => {
-    const presetConfig = AGENT_PRESETS[template.preset_type] || {};
-    return { ...presetConfig, ...(template.appearance || {}) };
-  };
-
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
       <div className="bg-white rounded-2xl w-full max-w-5xl max-h-[90vh] flex flex-col overflow-hidden">
@@ -92,7 +87,7 @@ export default function TemplateLibrary({ onUseTemplate, onClose }) {
               <button
                 onClick={() => setSelectedCategory('')}
                 className={`w-full text-left px-3 py-2 rounded-lg text-sm transition-colors ${
-                  !selectedCategory ? 'bg-rose-50 text-rose-600' : 'text-gray-600 hover:bg-gray-50'
+                  !selectedCategory ? 'bg-red-50 text-red-600' : 'text-gray-600 hover:bg-gray-50'
                 }`}
               >
                 All Templates
@@ -102,7 +97,7 @@ export default function TemplateLibrary({ onUseTemplate, onClose }) {
                   key={cat}
                   onClick={() => setSelectedCategory(cat)}
                   className={`w-full text-left px-3 py-2 rounded-lg text-sm flex items-center space-x-2 transition-colors ${
-                    selectedCategory === cat ? 'bg-rose-50 text-rose-600' : 'text-gray-600 hover:bg-gray-50'
+                    selectedCategory === cat ? 'bg-red-50 text-red-600' : 'text-gray-600 hover:bg-gray-50'
                   }`}
                 >
                   <span>{CATEGORY_ICONS[cat] || '📦'}</span>
@@ -116,30 +111,24 @@ export default function TemplateLibrary({ onUseTemplate, onClose }) {
           <div className="flex-1 p-6 overflow-auto">
             {isLoading ? (
               <div className="flex items-center justify-center h-full">
-                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-rose-500"></div>
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-red-500"></div>
               </div>
             ) : templates.length > 0 ? (
               <div className="grid grid-cols-2 lg:grid-cols-3 gap-4">
                 {templates.map(template => {
-                  const appearance = getAppearanceConfig(template);
                   return (
                     <div
                       key={template.id}
                       onClick={() => setSelectedTemplate(template)}
                       className={`bg-white rounded-xl border-2 p-4 cursor-pointer transition-all hover:shadow-lg ${
                         selectedTemplate?.id === template.id
-                          ? 'border-rose-500 ring-2 ring-rose-100'
+                          ? 'border-red-500 ring-2 ring-red-100'
                           : 'border-gray-200 hover:border-gray-300'
                       }`}
                     >
                       <div className="flex items-start space-x-3">
                         <div className="flex-shrink-0">
-                          <AgentAvatar
-                            hat={appearance.hat}
-                            hatAccessory={appearance.hatAccessory}
-                            heldItem={appearance.heldItem}
-                            size={60}
-                          />
+                          <AgentAvatar size={60} />
                         </div>
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center space-x-2">
@@ -170,10 +159,7 @@ export default function TemplateLibrary({ onUseTemplate, onClose }) {
           {selectedTemplate && (
             <div className="w-80 border-l border-gray-200 p-6 flex-shrink-0 bg-gray-50 overflow-auto">
               <div className="flex justify-center mb-4">
-                <AgentAvatar
-                  {...getAppearanceConfig(selectedTemplate)}
-                  size={120}
-                />
+                <AgentAvatar size={120} />
               </div>
 
               <h3 className="text-lg font-semibold text-gray-900 text-center">{selectedTemplate.name}</h3>
@@ -190,7 +176,7 @@ export default function TemplateLibrary({ onUseTemplate, onClose }) {
                     <span className="text-xs font-medium text-gray-500 uppercase">Tools</span>
                     <div className="flex flex-wrap gap-1 mt-1">
                       {selectedTemplate.tools.map(tool => (
-                        <span key={tool} className="text-xs px-2 py-0.5 bg-rose-100 text-rose-700 rounded">{tool}</span>
+                        <span key={tool} className="text-xs px-2 py-0.5 bg-red-100 text-red-700 rounded">{tool}</span>
                       ))}
                     </div>
                   </div>
@@ -205,7 +191,7 @@ export default function TemplateLibrary({ onUseTemplate, onClose }) {
               <button
                 onClick={() => handleUseTemplate(selectedTemplate)}
                 disabled={isCreating}
-                className="w-full mt-6 px-4 py-2 bg-rose-500 text-white rounded-lg hover:bg-rose-600 transition-colors disabled:opacity-50"
+                className="w-full mt-6 px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors disabled:opacity-50"
               >
                 {isCreating ? 'Creating...' : 'Use This Template'}
               </button>

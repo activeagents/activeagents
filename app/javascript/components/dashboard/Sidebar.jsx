@@ -1,4 +1,5 @@
 import React from 'react';
+import AgentAvatar from '../AgentAvatar';
 
 export default function Sidebar({ currentView, onNavigate, agentCount }) {
   const menuItems = [
@@ -9,11 +10,11 @@ export default function Sidebar({ currentView, onNavigate, agentCount }) {
 
   return (
     <aside className="w-64 bg-white border-r border-gray-200 flex flex-col">
-      {/* Logo */}
+      {/* Logo - uses the same mascot SVG as the lander */}
       <div className="h-16 flex items-center px-6 border-b border-gray-200">
         <div className="flex items-center space-x-2">
-          <span className="text-2xl">🔮</span>
-          <span className="font-bold text-xl text-gray-900">ActiveAgent</span>
+          <AgentAvatar size={28} />
+          <span className="font-bold text-xl text-gray-900">Active Agent</span>
         </div>
       </div>
 
@@ -25,7 +26,7 @@ export default function Sidebar({ currentView, onNavigate, agentCount }) {
             onClick={() => onNavigate(item.id)}
             className={`w-full flex items-center justify-between px-4 py-3 rounded-lg text-left transition-colors ${
               currentView === item.id
-                ? 'bg-rose-50 text-rose-600'
+                ? 'bg-red-50 text-red-600'
                 : 'text-gray-700 hover:bg-gray-100'
             }`}
           >
@@ -36,7 +37,7 @@ export default function Sidebar({ currentView, onNavigate, agentCount }) {
             {item.badge !== undefined && (
               <span className={`px-2 py-0.5 text-xs rounded-full ${
                 currentView === item.id
-                  ? 'bg-rose-100 text-rose-600'
+                  ? 'bg-red-100 text-red-600'
                   : 'bg-gray-100 text-gray-600'
               }`}>
                 {item.badge}
@@ -54,7 +55,7 @@ export default function Sidebar({ currentView, onNavigate, agentCount }) {
             href="https://docs.activeagents.ai"
             target="_blank"
             rel="noopener noreferrer"
-            className="flex items-center space-x-2 text-sm text-gray-600 hover:text-rose-600 transition-colors"
+            className="flex items-center space-x-2 text-sm text-gray-600 hover:text-red-600 transition-colors"
           >
             <span>📚</span>
             <span>Documentation</span>
@@ -63,7 +64,7 @@ export default function Sidebar({ currentView, onNavigate, agentCount }) {
             href="https://github.com/activeagents/activeagent"
             target="_blank"
             rel="noopener noreferrer"
-            className="flex items-center space-x-2 text-sm text-gray-600 hover:text-rose-600 transition-colors"
+            className="flex items-center space-x-2 text-sm text-gray-600 hover:text-red-600 transition-colors"
           >
             <span>💻</span>
             <span>GitHub</span>
@@ -74,7 +75,7 @@ export default function Sidebar({ currentView, onNavigate, agentCount }) {
       {/* Version */}
       <div className="px-6 py-4 border-t border-gray-200">
         <div className="text-xs text-gray-400">
-          ActiveAgent v1.0.1
+          Active Agent v1.0.1
         </div>
       </div>
     </aside>

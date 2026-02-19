@@ -58,7 +58,7 @@ export default function AgentAnalytics({ agent, onBack }) {
   if (isLoading && !analytics) {
     return (
       <div className="flex items-center justify-center h-64">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-rose-500"></div>
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-red-500"></div>
       </div>
     );
   }
@@ -89,7 +89,7 @@ export default function AgentAnalytics({ agent, onBack }) {
         <select
           value={period}
           onChange={(e) => setPeriod(Number(e.target.value))}
-          className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-rose-500"
+          className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500"
         >
           {PERIOD_OPTIONS.map(opt => (
             <option key={opt.value} value={opt.value}>Last {opt.label}</option>
@@ -155,7 +155,7 @@ export default function AgentAnalytics({ agent, onBack }) {
                   >
                     <div className="relative w-full">
                       <div
-                        className="w-full bg-rose-500 rounded-t transition-all hover:bg-rose-600"
+                        className="w-full bg-red-500 rounded-t transition-all hover:bg-red-600"
                         style={{ height: `${(day.count / maxRuns) * 150}px`, minHeight: day.count > 0 ? '4px' : '0' }}
                       ></div>
                       <div className="absolute -top-8 left-1/2 transform -translate-x-1/2 bg-gray-800 text-white text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap">
@@ -257,7 +257,7 @@ export default function AgentAnalytics({ agent, onBack }) {
 
 function StatCard({ title, value, icon, color }) {
   const colors = {
-    rose: 'bg-rose-100 text-rose-600',
+    rose: 'bg-red-100 text-red-600',
     green: 'bg-green-100 text-green-600',
     blue: 'bg-blue-100 text-blue-600',
     purple: 'bg-purple-100 text-purple-600'

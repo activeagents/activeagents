@@ -37,8 +37,8 @@ export default function Header({ user, currentView, selectedAgent }) {
         </div>
 
         {/* User avatar */}
-        <div className="w-8 h-8 bg-rose-100 rounded-full flex items-center justify-center">
-          <span className="text-rose-600 font-medium text-sm">
+        <div className="w-8 h-8 bg-red-100 rounded-full flex items-center justify-center">
+          <span className="text-red-600 font-medium text-sm">
             {user?.name?.charAt(0).toUpperCase() || 'D'}
           </span>
         </div>
