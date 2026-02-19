@@ -20,6 +20,19 @@ Rails.application.routes.draw do
   get "dashboard", to: "dashboard#index"
   get "dashboard/*path", to: "dashboard#index"
 
+  # Plans
+  resources :plans, only: [ :index ]
+
+  # Subscriptions
+  resources :subscriptions, only: [ :index, :destroy ] do
+    collection do
+      post :checkout
+      post :billing_portal
+      patch :change_plan
+      post :resume
+    end
+  end
+
   # API endpoints
   namespace :api do
     resources :agents do
@@ -51,5 +64,9 @@ Rails.application.routes.draw do
     end
 
     resource :analytics, only: [ :show ], controller: "analytics", action: :index
+
+    namespace :v1 do
+      resources :plans, only: [ :index ]
+    end
   end
 end
