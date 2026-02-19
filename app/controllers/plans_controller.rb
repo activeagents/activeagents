@@ -1,5 +1,6 @@
 class PlansController < ApplicationController
   allow_unauthenticated_access
+  before_action :set_current_session
 
   def index
     plans = Plan.active.order(:price_cents)
@@ -14,6 +15,10 @@ class PlansController < ApplicationController
   end
 
   private
+
+  def set_current_session
+    resume_session
+  end
 
   def plan_props(plan)
     {

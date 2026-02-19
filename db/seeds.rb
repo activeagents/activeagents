@@ -20,12 +20,26 @@ unless Rails.env.production?
   end
   puts "Created demo user: #{demo_user.email_address}"
 
+  # Create account for demo user if not exists
+  unless demo_user.owned_accounts.exists?
+    demo_account = Account.create!(name: "Demo's Account", owner: demo_user)
+    AccountMembership.create!(account: demo_account, user: demo_user, role: "owner")
+    puts "Created account for demo user: #{demo_account.name}"
+  end
+
   # Create a second user for multi-tenancy testing
   test_user = User.find_or_create_by!(email_address: "test@example.com") do |user|
     user.password = "password123"
     user.password_confirmation = "password123"
   end
   puts "Created test user: #{test_user.email_address}"
+
+  # Create account for test user if not exists
+  unless test_user.owned_accounts.exists?
+    test_account = Account.create!(name: "Test's Account", owner: test_user)
+    AccountMembership.create!(account: test_account, user: test_user, role: "owner")
+    puts "Created account for test user: #{test_account.name}"
+  end
 
   # Create agents for demo user
   agents_data = [
