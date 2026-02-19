@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import AgentAvatar, { AGENT_PRESETS } from '../AgentAvatar';
+import AgentAvatar from '../AgentAvatar';
 
 export default function AgentList({
   agents,
@@ -48,15 +48,6 @@ export default function AgentList({
     }
   };
 
-  const getPresetConfig = (agent) => {
-    if (agent.presetType && AGENT_PRESETS[agent.presetType]) {
-      return AGENT_PRESETS[agent.presetType];
-    }
-    // Default based on provider
-    if (agent.provider === 'anthropic') return { hat: 'safari', heldItem: 'terminal' };
-    return { hat: 'fedora', heldItem: 'terminal' };
-  };
-
   return (
     <div className="space-y-6">
       {/* Header Actions */}
@@ -69,7 +60,7 @@ export default function AgentList({
               placeholder="Search agents..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-rose-500 focus:border-transparent"
+              className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent"
             />
             <svg className="absolute left-3 top-2.5 h-5 w-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
@@ -80,7 +71,7 @@ export default function AgentList({
           <select
             value={filterProvider}
             onChange={(e) => setFilterProvider(e.target.value)}
-            className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-rose-500"
+            className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500"
           >
             <option value="">All Providers</option>
             {meta.providers?.map(p => (
@@ -91,7 +82,7 @@ export default function AgentList({
           <select
             value={filterStatus}
             onChange={(e) => setFilterStatus(e.target.value)}
-            className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-rose-500"
+            className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500"
           >
             <option value="">All Status</option>
             <option value="active">Active</option>
@@ -121,7 +112,7 @@ export default function AgentList({
           </button>
           <button
             onClick={onNew}
-            className="flex items-center space-x-2 px-4 py-2 bg-rose-500 text-white rounded-lg hover:bg-rose-600 transition-colors"
+            className="flex items-center space-x-2 px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors"
           >
             <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
@@ -135,12 +126,6 @@ export default function AgentList({
       {filteredAgents.length > 0 ? (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
           {filteredAgents.map((agent) => {
-            const presetConfig = getPresetConfig(agent);
-            const appearanceConfig = {
-              ...presetConfig,
-              ...(agent.appearance || {})
-            };
-
             return (
               <div
                 key={agent.id}
@@ -150,12 +135,7 @@ export default function AgentList({
                 {/* Avatar Preview */}
                 <div className="h-40 bg-gradient-to-br from-gray-50 to-gray-100 flex items-center justify-center relative overflow-hidden">
                   <div className="transform group-hover:scale-110 transition-transform">
-                    <AgentAvatar
-                      hat={appearanceConfig.hat}
-                      hatAccessory={appearanceConfig.hatAccessory}
-                      heldItem={appearanceConfig.heldItem}
-                      size={120}
-                    />
+                    <AgentAvatar size={120} />
                   </div>
                   <span className={`absolute top-3 right-3 px-2 py-1 text-xs font-medium rounded-full ${getStatusColor(agent.status)}`}>
                     {agent.status}
@@ -164,7 +144,7 @@ export default function AgentList({
 
                 {/* Content */}
                 <div className="p-4">
-                  <h3 className="font-semibold text-gray-900 group-hover:text-rose-600 transition-colors">
+                  <h3 className="font-semibold text-gray-900 group-hover:text-red-600 transition-colors">
                     {agent.name}
                   </h3>
                   <p className="text-sm text-gray-500 mt-1 line-clamp-2">
@@ -184,7 +164,7 @@ export default function AgentList({
                 <div className="px-4 py-3 bg-gray-50 border-t border-gray-100 flex justify-between opacity-0 group-hover:opacity-100 transition-opacity">
                   <button
                     onClick={(e) => { e.stopPropagation(); onDuplicate(agent.id); }}
-                    className="text-sm text-gray-600 hover:text-rose-600 transition-colors"
+                    className="text-sm text-gray-600 hover:text-red-600 transition-colors"
                   >
                     Duplicate
                   </button>
@@ -202,7 +182,7 @@ export default function AgentList({
       ) : (
         <div className="text-center py-16">
           <div className="inline-block mb-4">
-            <AgentAvatar hat="fedora" heldItem="terminal" size={100} />
+            <AgentAvatar size={100} />
           </div>
           <h3 className="text-lg font-medium text-gray-900 mb-2">
             {agents.length === 0 ? 'No agents yet' : 'No matching agents'}
@@ -216,7 +196,7 @@ export default function AgentList({
             <div className="flex items-center justify-center space-x-4">
               <button
                 onClick={onBrowseTemplates}
-                className="inline-flex items-center space-x-2 px-6 py-3 border-2 border-rose-500 text-rose-600 rounded-lg hover:bg-rose-50 transition-colors"
+                className="inline-flex items-center space-x-2 px-6 py-3 border-2 border-red-500 text-red-600 rounded-lg hover:bg-red-50 transition-colors"
               >
                 <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
@@ -226,7 +206,7 @@ export default function AgentList({
               <span className="text-gray-400">or</span>
               <button
                 onClick={onNew}
-                className="inline-flex items-center space-x-2 px-6 py-3 bg-rose-500 text-white rounded-lg hover:bg-rose-600 transition-colors"
+                className="inline-flex items-center space-x-2 px-6 py-3 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors"
               >
                 <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
