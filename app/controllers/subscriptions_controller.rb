@@ -1,7 +1,7 @@
 class SubscriptionsController < ApplicationController
   before_action :require_authentication
-  before_action :require_account!, except: [:checkout]
-  before_action :ensure_account_for_checkout, only: [:checkout]
+  before_action :require_account!, except: [ :checkout ]
+  before_action :ensure_account_for_checkout, only: [ :checkout ]
 
   def index
     subscription = current_account.active_subscription
