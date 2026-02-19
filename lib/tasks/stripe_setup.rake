@@ -25,31 +25,58 @@ namespace :stripe do
     plans_config.each do |config|
       plan = Plan.find_by!(slug: config[:slug])
 
-      # Create or find Stripe product
-      product = Stripe::Product.create(
-        name: config[:product_name],
-        metadata: { plan_slug: config[:slug] }
-      )
-      puts "Created Stripe product: #{product.name} (#{product.id})"
+      # Check if we already have Stripe IDs stored
+      if plan.stripe_monthly_price_id.present? && plan.stripe_annual_price_id.present?
+        puts "Plan '#{config[:slug]}' already has Stripe price IDs. Skipping creation."
+        puts "  Monthly: #{plan.stripe_monthly_price_id}"
+        puts "  Annual: #{plan.stripe_annual_price_id}"
+        puts ""
+        next
+      end
 
-      # Create monthly price
-      monthly_price = Stripe::Price.create(
-        product: product.id,
-        unit_amount: config[:monthly_price],
-        currency: config[:currency],
-        recurring: { interval: "month" },
-        metadata: { plan_slug: config[:slug], interval: "monthly" }
-      )
+      # Look for existing Stripe product with this plan_slug metadata
+      existing_products = Stripe::Product.search(
+        query: "metadata['plan_slug']:'#{config[:slug]}' AND active:'true'"
+      ).data
+
+      product = if existing_products.any?
+        existing_products.first
+      else
+        # Create new Stripe product
+        Stripe::Product.create(
+          name: config[:product_name],
+          metadata: { plan_slug: config[:slug] }
+        )
+      end
+      puts "Using Stripe product: #{product.name} (#{product.id})"
+
+      # Look for existing prices for this product
+      existing_prices = Stripe::Price.list(product: product.id, active: true).data
+      monthly_price = existing_prices.find { |p| p.recurring&.interval == "month" }
+      annual_price = existing_prices.find { |p| p.recurring&.interval == "year" }
+
+      # Create monthly price if it doesn't exist
+      unless monthly_price
+        monthly_price = Stripe::Price.create(
+          product: product.id,
+          unit_amount: config[:monthly_price],
+          currency: config[:currency],
+          recurring: { interval: "month" },
+          metadata: { plan_slug: config[:slug], interval: "monthly" }
+        )
+      end
       puts "  Monthly price: $#{config[:monthly_price] / 100.0}/mo (#{monthly_price.id})"
 
-      # Create annual price
-      annual_price = Stripe::Price.create(
-        product: product.id,
-        unit_amount: config[:annual_price],
-        currency: config[:currency],
-        recurring: { interval: "year" },
-        metadata: { plan_slug: config[:slug], interval: "annual" }
-      )
+      # Create annual price if it doesn't exist
+      unless annual_price
+        annual_price = Stripe::Price.create(
+          product: product.id,
+          unit_amount: config[:annual_price],
+          currency: config[:currency],
+          recurring: { interval: "year" },
+          metadata: { plan_slug: config[:slug], interval: "annual" }
+        )
+      end
       puts "  Annual price: $#{config[:annual_price] / 100.0}/yr (#{annual_price.id})"
 
       # Update local plan record

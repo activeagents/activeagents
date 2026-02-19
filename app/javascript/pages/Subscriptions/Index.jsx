@@ -1,6 +1,12 @@
 import { router } from '@inertiajs/react'
 
-export default function SubscriptionsIndex({ subscription, plan, plans, stripe_public_key }) {
+export default function SubscriptionsIndex({ subscription, plan, plans }) {
+  // Determine the billing interval based on the subscription's processor_plan
+  const isAnnual = subscription && plan && subscription.processor_plan === plan.stripe_annual_price_id;
+  const billingInterval = isAnnual ? 'annual' : 'monthly';
+  const displayPrice = isAnnual ? plan?.annual_price_dollars : plan?.price_dollars;
+  const displayInterval = isAnnual ? '/yr' : '/mo';
+
   function handleBillingPortal() {
     router.post('/subscriptions/billing_portal')
   }
@@ -66,8 +72,8 @@ export default function SubscriptionsIndex({ subscription, plan, plans, stripe_p
               <div className="text-right">
                 {plan && (
                   <p className="text-2xl font-bold text-gray-900">
-                    ${plan.price_dollars}
-                    <span className="text-base font-normal text-gray-500">/mo</span>
+                    ${displayPrice}
+                    <span className="text-base font-normal text-gray-500">{displayInterval}</span>
                   </p>
                 )}
               </div>

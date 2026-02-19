@@ -69,6 +69,11 @@ class SubscriptionsController < ApplicationController
       plan.stripe_monthly_price_id
     end
 
+    unless price_id
+      redirect_to subscriptions_path, alert: "This plan is not available for the selected billing interval."
+      return
+    end
+
     subscription.swap(price_id)
     redirect_to subscriptions_path, notice: "Plan changed to #{plan.name}."
   end
@@ -110,6 +115,7 @@ class SubscriptionsController < ApplicationController
   def require_account!
     unless current_account
       redirect_to dashboard_path, alert: "Please set up an account first."
+      return
     end
   end
 
@@ -144,7 +150,9 @@ class SubscriptionsController < ApplicationController
       included_seats: plan.included_seats,
       included_workspaces: plan.included_workspaces,
       features: plan.features,
-      free: plan.free?
+      free: plan.free?,
+      stripe_monthly_price_id: plan.stripe_monthly_price_id,
+      stripe_annual_price_id: plan.stripe_annual_price_id
     }
   end
 end

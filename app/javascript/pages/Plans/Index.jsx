@@ -96,7 +96,9 @@ export default function PlansIndex({ plans, current_plan, signed_in }) {
                 <ul className="mt-6 space-y-4">
                   <li className="flex items-start">
                     <span className="text-sm text-gray-600">
-                      {plan.included_seats} team seat{plan.included_seats !== 1 ? 's' : ''}
+                      {plan.included_seats === -1
+                        ? 'Unlimited team seats'
+                        : `${plan.included_seats} team seat${plan.included_seats !== 1 ? 's' : ''}`}
                     </span>
                   </li>
                   <li className="flex items-start">
@@ -141,16 +143,19 @@ export default function PlansIndex({ plans, current_plan, signed_in }) {
                   >
                     Get Started
                   </a>
+                ) : plan.slug === 'enterprise' ? (
+                  <a
+                    href="mailto:sales@activeagent.com?subject=Enterprise Plan Inquiry"
+                    className="block w-full rounded-md bg-gray-800 hover:bg-gray-900 py-3 px-4 text-center text-sm font-semibold text-white"
+                  >
+                    Contact Sales
+                  </a>
                 ) : (
                   <button
                     onClick={() => handleSelectPlan(plan)}
-                    className={`w-full rounded-md py-3 px-4 text-sm font-semibold text-white ${
-                      plan.slug === 'pro'
-                        ? 'bg-indigo-600 hover:bg-indigo-700'
-                        : 'bg-gray-800 hover:bg-gray-900'
-                    }`}
+                    className="w-full rounded-md py-3 px-4 text-sm font-semibold text-white bg-indigo-600 hover:bg-indigo-700"
                   >
-                    {plan.slug === 'enterprise' ? 'Contact Sales' : 'Subscribe'}
+                    Subscribe
                   </button>
                 )}
               </div>
