@@ -45,7 +45,7 @@ export default function DashboardAnalytics({ onSelectAgent }) {
   if (isLoading && !analytics) {
     return (
       <div className="flex items-center justify-center h-64">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-rose-500"></div>
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-red-500"></div>
       </div>
     );
   }
@@ -70,7 +70,7 @@ export default function DashboardAnalytics({ onSelectAgent }) {
         <select
           value={period}
           onChange={(e) => setPeriod(Number(e.target.value))}
-          className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-rose-500"
+          className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500"
         >
           {PERIOD_OPTIONS.map(opt => (
             <option key={opt.value} value={opt.value}>Last {opt.label}</option>
@@ -124,7 +124,7 @@ export default function DashboardAnalytics({ onSelectAgent }) {
                   <div key={day.date} className="flex-1 flex flex-col items-center group">
                     <div className="relative w-full">
                       <div
-                        className="w-full bg-rose-500 rounded-t transition-all hover:bg-rose-600"
+                        className="w-full bg-red-500 rounded-t transition-all hover:bg-red-600"
                         style={{ height: `${(day.count / maxRuns) * 150}px`, minHeight: day.count > 0 ? '4px' : '0' }}
                       ></div>
                       <div className="absolute -top-8 left-1/2 transform -translate-x-1/2 bg-gray-800 text-white text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap z-10">
@@ -192,7 +192,7 @@ export default function DashboardAnalytics({ onSelectAgent }) {
                   onClick={() => onSelectAgent?.(agent)}
                   className="flex items-center space-x-4 p-3 rounded-lg hover:bg-gray-50 cursor-pointer transition-colors"
                 >
-                  <div className="w-8 h-8 rounded-full bg-rose-100 flex items-center justify-center text-rose-600 font-semibold">
+                  <div className="w-8 h-8 rounded-full bg-red-100 flex items-center justify-center text-red-600 font-semibold">
                     {index + 1}
                   </div>
                   <div className="flex-1 min-w-0">
@@ -274,7 +274,7 @@ export default function DashboardAnalytics({ onSelectAgent }) {
 
 function StatCard({ title, value, subtitle, color }) {
   const borderColors = {
-    rose: 'border-l-rose-500',
+    rose: 'border-l-red-500',
     blue: 'border-l-blue-500',
     green: 'border-l-green-500',
     purple: 'border-l-purple-500',

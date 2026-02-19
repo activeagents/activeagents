@@ -119,7 +119,7 @@ export default function AgentGallery({ columns = 3 }) {
         .gallery-header h1 {
           font-size: 2.5rem;
           margin-bottom: 0.5rem;
-          background: linear-gradient(135deg, #E86B6B, #D45A5A);
+          background: linear-gradient(135deg, #EB5555, #D43B3B);
           -webkit-background-clip: text;
           -webkit-text-fill-color: transparent;
           background-clip: text;
@@ -196,67 +196,30 @@ export default function AgentGallery({ columns = 3 }) {
 /**
  * AgentBuilder - Interactive agent customization component
  *
- * Allows users to mix and match different hats, accessories, and items
- * to create custom agent avatars.
+ * Allows users to select presets to preview different agent avatar
+ * configurations using the new mascot SVG design.
  */
 export function AgentBuilder() {
-  const [config, setConfig] = React.useState({
-    hat: 'fedora',
-    hatAccessory: null,
-    heldItem: 'terminal',
-  });
-
-  const hats = ['fedora', 'safari'];
-  const accessories = [null, 'feather', 'cherryBlossom', 'theaterMasks'];
-  const items = [null, 'terminal', 'browser', 'document', 'scroll', 'magnifyingGlass'];
+  const [selectedPreset, setSelectedPreset] = React.useState('terminal');
+  const presets = Object.keys(AGENT_PRESETS);
 
   return (
     <div className="agent-builder">
       <div className="builder-preview">
-        <AgentAvatar {...config} size={280} />
+        <PresetAgentAvatar preset={selectedPreset} size={280} />
       </div>
 
       <div className="builder-controls">
         <div className="control-group">
-          <label>Hat Style</label>
+          <label>Agent Preset</label>
           <div className="button-group">
-            {hats.map((hat) => (
+            {presets.map((preset) => (
               <button
-                key={hat}
-                className={config.hat === hat ? 'active' : ''}
-                onClick={() => setConfig({ ...config, hat })}
+                key={preset}
+                className={selectedPreset === preset ? 'active' : ''}
+                onClick={() => setSelectedPreset(preset)}
               >
-                {hat}
-              </button>
-            ))}
-          </div>
-        </div>
-
-        <div className="control-group">
-          <label>Hat Accessory</label>
-          <div className="button-group">
-            {accessories.map((acc) => (
-              <button
-                key={acc || 'none'}
-                className={config.hatAccessory === acc ? 'active' : ''}
-                onClick={() => setConfig({ ...config, hatAccessory: acc })}
-              >
-                {acc || 'None'}
-              </button>
-            ))}
-          </div>
-        </div>
-
-        <div className="control-group">
-          <label>Held Item</label>
-          <div className="button-group">
-            {items.map((item) => (
-              <button
-                key={item || 'none'}
-                className={config.heldItem === item ? 'active' : ''}
-                onClick={() => setConfig({ ...config, heldItem: item })}
-              >
-                {item || 'None'}
+                {preset}
               </button>
             ))}
           </div>
@@ -317,12 +280,12 @@ export function AgentBuilder() {
         }
 
         .button-group button:hover {
-          border-color: #E86B6B;
+          border-color: #EB5555;
         }
 
         .button-group button.active {
-          background: #E86B6B;
-          border-color: #E86B6B;
+          background: #EB5555;
+          border-color: #EB5555;
           color: white;
         }
       `}</style>

@@ -1,10 +1,9 @@
 import React, { useState } from 'react';
-import AgentAvatar, { AGENT_PRESETS } from '../AgentAvatar';
+import AgentAvatar, { AGENT_PRESETS, INSTRUCTIONS, TOOLS } from '../AgentAvatar';
 
 const STEPS = [
   { id: 'basics', label: 'Basics', icon: '📝' },
-  { id: 'appearance', label: 'Appearance', icon: '🎨' },
-  { id: 'capabilities', label: 'Capabilities', icon: '🛠️' },
+  { id: 'configure', label: 'Configure', icon: '🛠️' },
   { id: 'review', label: 'Review', icon: '✅' }
 ];
 
@@ -24,9 +23,8 @@ export default function AgentBuilder({ meta, onSave, onCancel, isLoading }) {
     model: 'gpt-4o-mini',
     instructions: '',
     preset_type: 'terminal',
-    appearance: {},
-    instruction_sets: [],
-    tools: [],
+    instruction_sets: ['github'],
+    tools: ['terminal', 'code'],
     model_config: {
       temperature: 0.7
     }
@@ -48,9 +46,10 @@ export default function AgentBuilder({ meta, onSave, onCancel, isLoading }) {
 
   const selectPreset = (presetId) => {
     updateField('preset_type', presetId);
-    // Apply preset appearance
     if (AGENT_PRESETS[presetId]) {
-      updateField('appearance', AGENT_PRESETS[presetId]);
+      const preset = AGENT_PRESETS[presetId];
+      updateField('instruction_sets', [...preset.instructions]);
+      updateField('tools', [...preset.tools]);
     }
   };
 
@@ -59,33 +58,12 @@ export default function AgentBuilder({ meta, onSave, onCancel, isLoading }) {
       case 0: return formData.name.trim().length >= 2;
       case 1: return true;
       case 2: return true;
-      case 3: return true;
       default: return false;
     }
   };
 
   const handleSubmit = () => {
     onSave(formData);
-  };
-
-  const getAppearanceConfig = () => {
-    const presetConfig = AGENT_PRESETS[formData.preset_type] || {};
-    return { ...presetConfig, ...formData.appearance };
-  };
-
-  const renderStep = () => {
-    switch (currentStep) {
-      case 0:
-        return <BasicsStep formData={formData} updateField={updateField} providerModels={PROVIDER_MODELS} />;
-      case 1:
-        return <AppearanceStep formData={formData} selectPreset={selectPreset} updateField={updateField} getAppearanceConfig={getAppearanceConfig} />;
-      case 2:
-        return <CapabilitiesStep formData={formData} meta={meta} toggleArrayItem={toggleArrayItem} updateField={updateField} />;
-      case 3:
-        return <ReviewStep formData={formData} getAppearanceConfig={getAppearanceConfig} />;
-      default:
-        return null;
-    }
   };
 
   return (
@@ -98,9 +76,9 @@ export default function AgentBuilder({ meta, onSave, onCancel, isLoading }) {
               <div
                 className={`flex items-center justify-center w-10 h-10 rounded-full border-2 transition-colors ${
                   index < currentStep
-                    ? 'bg-rose-500 border-rose-500 text-white'
+                    ? 'bg-red-500 border-red-500 text-white'
                     : index === currentStep
-                    ? 'border-rose-500 text-rose-500'
+                    ? 'border-red-500 text-red-500'
                     : 'border-gray-300 text-gray-400'
                 }`}
               >
@@ -112,8 +90,8 @@ export default function AgentBuilder({ meta, onSave, onCancel, isLoading }) {
                 {step.label}
               </span>
               {index < STEPS.length - 1 && (
-                <div className={`w-16 h-0.5 mx-4 ${
-                  index < currentStep ? 'bg-rose-500' : 'bg-gray-200'
+                <div className={`w-24 h-0.5 mx-4 ${
+                  index < currentStep ? 'bg-red-500' : 'bg-gray-200'
                 }`} />
               )}
             </div>
@@ -123,7 +101,21 @@ export default function AgentBuilder({ meta, onSave, onCancel, isLoading }) {
 
       {/* Step Content */}
       <div className="bg-white rounded-xl border border-gray-200 p-8">
-        {renderStep()}
+        {currentStep === 0 && (
+          <BasicsStep formData={formData} updateField={updateField} providerModels={PROVIDER_MODELS} />
+        )}
+        {currentStep === 1 && (
+          <ConfigureStep
+            formData={formData}
+            meta={meta}
+            toggleArrayItem={toggleArrayItem}
+            updateField={updateField}
+            selectPreset={selectPreset}
+          />
+        )}
+        {currentStep === 2 && (
+          <ReviewStep formData={formData} />
+        )}
       </div>
 
       {/* Navigation */}
@@ -140,7 +132,7 @@ export default function AgentBuilder({ meta, onSave, onCancel, isLoading }) {
           disabled={!canProceed() || isLoading}
           className={`px-6 py-2 rounded-lg transition-colors ${
             canProceed() && !isLoading
-              ? 'bg-rose-500 text-white hover:bg-rose-600'
+              ? 'bg-red-500 text-white hover:bg-red-600'
               : 'bg-gray-200 text-gray-400 cursor-not-allowed'
           }`}
         >
@@ -166,7 +158,7 @@ function BasicsStep({ formData, updateField, providerModels }) {
             value={formData.name}
             onChange={(e) => updateField('name', e.target.value)}
             placeholder="My Awesome Agent"
-            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-rose-500 focus:border-transparent"
+            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent"
           />
         </div>
 
@@ -177,7 +169,7 @@ function BasicsStep({ formData, updateField, providerModels }) {
             onChange={(e) => updateField('description', e.target.value)}
             placeholder="What does this agent do?"
             rows={3}
-            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-rose-500 focus:border-transparent"
+            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent"
           />
         </div>
 
@@ -190,7 +182,7 @@ function BasicsStep({ formData, updateField, providerModels }) {
                 updateField('provider', e.target.value);
                 updateField('model', providerModels[e.target.value][0]);
               }}
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-rose-500"
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500"
             >
               {Object.keys(providerModels).map(provider => (
                 <option key={provider} value={provider}>
@@ -205,7 +197,7 @@ function BasicsStep({ formData, updateField, providerModels }) {
             <select
               value={formData.model}
               onChange={(e) => updateField('model', e.target.value)}
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-rose-500"
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500"
             >
               {providerModels[formData.provider].map(model => (
                 <option key={model} value={model}>{model}</option>
@@ -225,7 +217,7 @@ function BasicsStep({ formData, updateField, providerModels }) {
             step="0.1"
             value={formData.model_config.temperature}
             onChange={(e) => updateField('model_config', { ...formData.model_config, temperature: parseFloat(e.target.value) })}
-            className="w-full"
+            className="w-full accent-red-500"
           />
           <div className="flex justify-between text-xs text-gray-400">
             <span>Precise</span>
@@ -237,180 +229,158 @@ function BasicsStep({ formData, updateField, providerModels }) {
   );
 }
 
-// Step 2: Appearance
-function AppearanceStep({ formData, selectPreset, updateField, getAppearanceConfig }) {
+// Step 2: Configure (instructions, tools, system prompt - matching lander pattern)
+function ConfigureStep({ formData, meta, toggleArrayItem, updateField, selectPreset }) {
   const presets = Object.keys(AGENT_PRESETS);
-  const appearance = getAppearanceConfig();
+  const allInstructions = Object.keys(INSTRUCTIONS);
+  const allTools = Object.keys(TOOLS);
 
   return (
     <div className="space-y-6">
-      <h2 className="text-xl font-semibold text-gray-900">Agent Appearance</h2>
-      <p className="text-gray-500">Choose a preset or customize your agent's look.</p>
+      <h2 className="text-xl font-semibold text-gray-900">Configure Agent</h2>
+      <p className="text-gray-500">Choose a preset or customize instructions and tools.</p>
 
-      {/* Preview */}
+      {/* Agent Preview - matching lander hero layout */}
       <div className="flex justify-center py-6 bg-gradient-to-br from-gray-50 to-gray-100 rounded-xl">
-        <AgentAvatar
-          hat={appearance.hat}
-          hatAccessory={appearance.hatAccessory}
-          heldItem={appearance.heldItem}
-          size={150}
-        />
+        <div className="flex flex-col items-center">
+          {/* Instructions above */}
+          <div className="flex gap-2 mb-2">
+            {formData.instruction_sets.map(id => {
+              const instr = INSTRUCTIONS[id];
+              return instr ? (
+                <span key={id} className="text-lg" title={instr.label}>{instr.emoji}</span>
+              ) : null;
+            })}
+          </div>
+          <AgentAvatar size={120} />
+          {/* Tools below */}
+          <div className="flex gap-2 mt-2">
+            {formData.tools.map(id => {
+              const tool = TOOLS[id];
+              return tool ? (
+                <span key={id} className="text-lg" title={tool.label}>{tool.emoji}</span>
+              ) : null;
+            })}
+          </div>
+        </div>
       </div>
 
-      {/* Preset Selection */}
+      {/* Preset Selection - matching lander's preset buttons */}
       <div>
-        <label className="block text-sm font-medium text-gray-700 mb-3">Agent Type</label>
-        <div className="grid grid-cols-5 gap-3">
+        <label className="block text-sm font-medium text-gray-700 mb-3">Quick Presets</label>
+        <div className="flex flex-wrap gap-2">
           {presets.map(preset => (
             <button
               key={preset}
               onClick={() => selectPreset(preset)}
-              className={`p-3 rounded-lg border-2 transition-all ${
+              className={`px-4 py-2 rounded-lg border-2 text-sm transition-all ${
                 formData.preset_type === preset
-                  ? 'border-rose-500 bg-rose-50'
-                  : 'border-gray-200 hover:border-gray-300'
+                  ? 'border-red-500 bg-red-50 text-red-700'
+                  : 'border-gray-200 hover:border-gray-300 text-gray-600'
               }`}
             >
-              <div className="flex flex-col items-center">
-                <AgentAvatar {...AGENT_PRESETS[preset]} size={60} />
-                <span className="text-xs mt-2 capitalize">{preset}</span>
-              </div>
+              <span className="capitalize">{preset.replace(/([A-Z])/g, ' $1').trim()}</span>
             </button>
           ))}
         </div>
       </div>
 
-      {/* Custom Options */}
-      <div className="grid grid-cols-3 gap-4">
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">Hat</label>
-          <select
-            value={appearance.hat || 'fedora'}
-            onChange={(e) => updateField('appearance', { ...formData.appearance, hat: e.target.value })}
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg"
-          >
-            <option value="fedora">Fedora</option>
-            <option value="safari">Safari</option>
-          </select>
-        </div>
-
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">Accessory</label>
-          <select
-            value={appearance.hatAccessory || ''}
-            onChange={(e) => updateField('appearance', { ...formData.appearance, hatAccessory: e.target.value || null })}
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg"
-          >
-            <option value="">None</option>
-            <option value="feather">Feather</option>
-            <option value="cherryBlossom">Cherry Blossom</option>
-            <option value="theaterMasks">Theater Masks</option>
-          </select>
-        </div>
-
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">Held Item</label>
-          <select
-            value={appearance.heldItem || ''}
-            onChange={(e) => updateField('appearance', { ...formData.appearance, heldItem: e.target.value || null })}
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg"
-          >
-            <option value="">None</option>
-            <option value="terminal">Terminal</option>
-            <option value="browser">Browser</option>
-            <option value="document">Document</option>
-            <option value="scroll">Scroll</option>
-            <option value="magnifyingGlass">Magnifying Glass</option>
-          </select>
+      {/* Instructions - matching lander's chip selector */}
+      <div>
+        <label className="block text-sm font-medium text-gray-700 mb-3">
+          <strong>Instructions</strong>
+          <span className="text-gray-400 font-normal ml-2">System/developer messages</span>
+        </label>
+        <div className="flex flex-wrap gap-2">
+          {allInstructions.map(id => {
+            const instr = INSTRUCTIONS[id];
+            return (
+              <button
+                key={id}
+                onClick={() => toggleArrayItem('instruction_sets', id)}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm transition-colors ${
+                  formData.instruction_sets.includes(id)
+                    ? 'bg-red-500 text-white'
+                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                }`}
+              >
+                <span>{instr.emoji}</span>
+                <span>{instr.label}</span>
+              </button>
+            );
+          })}
         </div>
       </div>
-    </div>
-  );
-}
 
-// Step 3: Capabilities
-function CapabilitiesStep({ formData, meta, toggleArrayItem, updateField }) {
-  return (
-    <div className="space-y-6">
-      <h2 className="text-xl font-semibold text-gray-900">Agent Capabilities</h2>
-      <p className="text-gray-500">Configure instructions, tools, and system prompts.</p>
+      {/* Tools - matching lander's chip selector */}
+      <div>
+        <label className="block text-sm font-medium text-gray-700 mb-3">
+          <strong>Tools</strong>
+          <span className="text-gray-400 font-normal ml-2">MCPs and integrations</span>
+        </label>
+        <div className="flex flex-wrap gap-2">
+          {allTools.map(id => {
+            const tool = TOOLS[id];
+            return (
+              <button
+                key={id}
+                onClick={() => toggleArrayItem('tools', id)}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm transition-colors ${
+                  formData.tools.includes(id)
+                    ? 'bg-red-500 text-white'
+                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                }`}
+              >
+                <span>{tool.emoji}</span>
+                <span>{tool.label}</span>
+              </button>
+            );
+          })}
+        </div>
+      </div>
 
-      {/* Instructions */}
+      {/* System Instructions */}
       <div>
         <label className="block text-sm font-medium text-gray-700 mb-2">System Instructions</label>
         <textarea
           value={formData.instructions}
           onChange={(e) => updateField('instructions', e.target.value)}
           placeholder="You are a helpful AI assistant that..."
-          rows={5}
-          className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-rose-500 focus:border-transparent font-mono text-sm"
+          rows={4}
+          className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent font-mono text-sm"
         />
-      </div>
-
-      {/* Instruction Sets */}
-      <div>
-        <label className="block text-sm font-medium text-gray-700 mb-3">Instruction Sets</label>
-        <div className="flex flex-wrap gap-2">
-          {meta.instructionSets?.map(instruction => (
-            <button
-              key={instruction}
-              onClick={() => toggleArrayItem('instruction_sets', instruction)}
-              className={`px-3 py-1.5 rounded-full text-sm transition-colors ${
-                formData.instruction_sets.includes(instruction)
-                  ? 'bg-rose-500 text-white'
-                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-              }`}
-            >
-              {instruction}
-            </button>
-          ))}
-        </div>
-      </div>
-
-      {/* Tools */}
-      <div>
-        <label className="block text-sm font-medium text-gray-700 mb-3">Available Tools</label>
-        <div className="grid grid-cols-4 gap-3">
-          {meta.availableTools?.map(tool => (
-            <button
-              key={tool}
-              onClick={() => toggleArrayItem('tools', tool)}
-              className={`p-3 rounded-lg border-2 text-center transition-all ${
-                formData.tools.includes(tool)
-                  ? 'border-rose-500 bg-rose-50 text-rose-700'
-                  : 'border-gray-200 hover:border-gray-300 text-gray-700'
-              }`}
-            >
-              <span className="text-xl block mb-1">
-                {getToolIcon(tool)}
-              </span>
-              <span className="text-xs capitalize">{tool}</span>
-            </button>
-          ))}
-        </div>
       </div>
     </div>
   );
 }
 
-// Step 4: Review
-function ReviewStep({ formData, getAppearanceConfig }) {
-  const appearance = getAppearanceConfig();
-
+// Step 3: Review
+function ReviewStep({ formData }) {
   return (
     <div className="space-y-6">
       <h2 className="text-xl font-semibold text-gray-900">Review Your Agent</h2>
       <p className="text-gray-500">Confirm the configuration before creating your agent.</p>
 
       <div className="grid grid-cols-2 gap-8">
-        {/* Preview */}
+        {/* Preview - matching lander layout */}
         <div className="flex flex-col items-center py-6 bg-gradient-to-br from-gray-50 to-gray-100 rounded-xl">
-          <AgentAvatar
-            hat={appearance.hat}
-            hatAccessory={appearance.hatAccessory}
-            heldItem={appearance.heldItem}
-            size={120}
-          />
+          <div className="flex gap-2 mb-2">
+            {formData.instruction_sets.map(id => {
+              const instr = INSTRUCTIONS[id];
+              return instr ? (
+                <span key={id} className="text-lg" title={instr.label}>{instr.emoji}</span>
+              ) : null;
+            })}
+          </div>
+          <AgentAvatar size={100} />
+          <div className="flex gap-2 mt-2">
+            {formData.tools.map(id => {
+              const tool = TOOLS[id];
+              return tool ? (
+                <span key={id} className="text-lg" title={tool.label}>{tool.emoji}</span>
+              ) : null;
+            })}
+          </div>
           <h3 className="mt-4 text-lg font-semibold text-gray-900">{formData.name}</h3>
           <p className="text-sm text-gray-500">{formData.description || 'No description'}</p>
         </div>
@@ -428,12 +398,17 @@ function ReviewStep({ formData, getAppearanceConfig }) {
           </div>
 
           <div>
-            <span className="text-sm font-medium text-gray-500">Instruction Sets</span>
+            <span className="text-sm font-medium text-gray-500">Instructions</span>
             <div className="flex flex-wrap gap-1 mt-1">
               {formData.instruction_sets.length > 0 ? (
-                formData.instruction_sets.map(i => (
-                  <span key={i} className="px-2 py-0.5 bg-gray-100 rounded text-xs">{i}</span>
-                ))
+                formData.instruction_sets.map(id => {
+                  const instr = INSTRUCTIONS[id];
+                  return instr ? (
+                    <span key={id} className="px-2 py-0.5 bg-gray-100 rounded text-xs">
+                      {instr.emoji} {instr.label}
+                    </span>
+                  ) : null;
+                })
               ) : (
                 <span className="text-gray-400 text-sm">None selected</span>
               )}
@@ -444,9 +419,14 @@ function ReviewStep({ formData, getAppearanceConfig }) {
             <span className="text-sm font-medium text-gray-500">Tools</span>
             <div className="flex flex-wrap gap-1 mt-1">
               {formData.tools.length > 0 ? (
-                formData.tools.map(t => (
-                  <span key={t} className="px-2 py-0.5 bg-rose-100 text-rose-700 rounded text-xs">{t}</span>
-                ))
+                formData.tools.map(id => {
+                  const tool = TOOLS[id];
+                  return tool ? (
+                    <span key={id} className="px-2 py-0.5 bg-red-100 text-red-700 rounded text-xs">
+                      {tool.emoji} {tool.label}
+                    </span>
+                  ) : null;
+                })
               ) : (
                 <span className="text-gray-400 text-sm">None selected</span>
               )}
@@ -465,21 +445,4 @@ function ReviewStep({ formData, getAppearanceConfig }) {
       )}
     </div>
   );
-}
-
-function getToolIcon(tool) {
-  const icons = {
-    terminal: '💻',
-    playwright: '🎭',
-    filesystem: '📁',
-    code: '📝',
-    database: '🗄️',
-    slack: '💬',
-    fetch: '🌐',
-    search: '🔍',
-    edit: '✏️',
-    translate: '🌍',
-    memory: '🧠'
-  };
-  return icons[tool] || '🔧';
 }
