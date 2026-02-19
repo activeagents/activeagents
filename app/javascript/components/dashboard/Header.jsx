@@ -20,7 +20,7 @@ export default function Header({ user, currentView, selectedAgent }) {
     ? 'Test and execute your agent'
     : currentView === 'builder'
     ? 'Configure your AI agent step by step'
-    : `${user?.name ? `Welcome back, ${user.name}` : 'Manage your AI agents'}`;
+    : `${user?.display_name ? `Welcome back, ${user.display_name}` : 'Manage your AI agents'}`;
 
   return (
     <header className="h-16 bg-white border-b border-gray-200 flex items-center justify-between px-6">
@@ -39,7 +39,7 @@ export default function Header({ user, currentView, selectedAgent }) {
         {/* User avatar */}
         <div className="w-8 h-8 bg-rose-100 rounded-full flex items-center justify-center">
           <span className="text-rose-600 font-medium text-sm">
-            {user?.name?.charAt(0).toUpperCase() || 'D'}
+            {user?.display_name?.charAt(0).toUpperCase() || user?.email_address?.charAt(0).toUpperCase() || 'U'}
           </span>
         </div>
       </div>
