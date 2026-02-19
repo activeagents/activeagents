@@ -9,6 +9,11 @@ import ConversationHistory from '../components/dashboard/ConversationHistory';
 import TemplateLibrary from '../components/dashboard/TemplateLibrary';
 import Sidebar from '../components/dashboard/Sidebar';
 import Header from '../components/dashboard/Header';
+import TracesView from '../components/dashboard/TracesView';
+import MetricsView from '../components/dashboard/MetricsView';
+import EvaluationsView from '../components/dashboard/EvaluationsView';
+import InteractionsView from '../components/dashboard/InteractionsView';
+import { ThemeProvider, useTheme } from '../contexts/ThemeContext';
 
 /**
  * Dashboard - Main dashboard application
@@ -16,7 +21,8 @@ import Header from '../components/dashboard/Header';
  * Routes are handled client-side for SPA-like experience
  * Real routes still go through Rails/Inertia for SSR benefits
  */
-export default function Dashboard({ user, initialAgents = [], meta = {} }) {
+function DashboardContent({ user, initialAgents = [], meta = {} }) {
+  const { darkMode } = useTheme();
   const [agents, setAgents] = useState(initialAgents);
   const [currentView, setCurrentView] = useState('list'); // list, builder, editor, runner, analytics, agent-analytics, history
   const [selectedAgent, setSelectedAgent] = useState(null);
@@ -27,7 +33,15 @@ export default function Dashboard({ user, initialAgents = [], meta = {} }) {
   // Parse URL to determine initial view
   useEffect(() => {
     const path = window.location.pathname;
-    if (path.includes('/analytics') && !path.includes('/agents/')) {
+    if (path.includes('/traces')) {
+      setCurrentView('traces');
+    } else if (path.includes('/metrics')) {
+      setCurrentView('metrics');
+    } else if (path.includes('/evaluations')) {
+      setCurrentView('evaluations');
+    } else if (path.includes('/interactions')) {
+      setCurrentView('interactions');
+    } else if (path.includes('/analytics') && !path.includes('/agents/')) {
       setCurrentView('analytics');
     } else if (path.includes('/agents/new')) {
       setCurrentView('builder');
@@ -189,6 +203,10 @@ export default function Dashboard({ user, initialAgents = [], meta = {} }) {
     else if (view === 'agent-analytics' && agent) path = `/dashboard/agents/${agent.id}/analytics`;
     else if (view === 'history' && agent) path = `/dashboard/agents/${agent.id}/history`;
     else if (view === 'analytics') path = '/dashboard/analytics';
+    else if (view === 'traces') path = '/dashboard/traces';
+    else if (view === 'metrics') path = '/dashboard/metrics';
+    else if (view === 'evaluations') path = '/dashboard/evaluations';
+    else if (view === 'interactions') path = '/dashboard/interactions';
 
     window.history.pushState({}, '', path);
   };
@@ -247,6 +265,14 @@ export default function Dashboard({ user, initialAgents = [], meta = {} }) {
             }}
           />
         );
+      case 'traces':
+        return <TracesView />;
+      case 'metrics':
+        return <MetricsView />;
+      case 'evaluations':
+        return <EvaluationsView />;
+      case 'interactions':
+        return <InteractionsView />;
       default:
         return (
           <AgentList
@@ -265,7 +291,10 @@ export default function Dashboard({ user, initialAgents = [], meta = {} }) {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 flex">
+    <div
+      className="min-h-screen flex"
+      style={{ backgroundColor: darkMode ? '#0f0f0f' : '#f9fafb' }}
+    >
       <Sidebar
         currentView={currentView}
         onNavigate={navigateTo}
@@ -305,11 +334,20 @@ export default function Dashboard({ user, initialAgents = [], meta = {} }) {
       {/* Loading Overlay */}
       {isLoading && (
         <div className="fixed inset-0 bg-black bg-opacity-20 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-4 shadow-xl">
+          <div className={`rounded-lg p-4 shadow-xl ${darkMode ? 'bg-gray-800' : 'bg-white'}`}>
             <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-red-500"></div>
           </div>
         </div>
       )}
     </div>
+  );
+}
+
+// Wrap with ThemeProvider
+export default function Dashboard(props) {
+  return (
+    <ThemeProvider>
+      <DashboardContent {...props} />
+    </ThemeProvider>
   );
 }
