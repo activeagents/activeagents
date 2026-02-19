@@ -1,10 +1,10 @@
+import React, { useState } from 'react'
 import { router } from '@inertiajs/react'
-import { useState } from 'react'
 
 export default function PlansIndex({ plans, current_plan, signed_in }) {
   const [billingInterval, setBillingInterval] = useState('monthly')
 
-  function handleSelectPlan(plan) {
+  async function handleSelectPlan(plan) {
     if (plan.free) return
 
     if (!signed_in) {
@@ -12,10 +12,27 @@ export default function PlansIndex({ plans, current_plan, signed_in }) {
       return
     }
 
-    router.post('/subscriptions/checkout', {
-      plan_id: plan.id,
-      billing_interval: billingInterval,
-    })
+    try {
+      const response = await fetch('/subscriptions/checkout', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Inertia': 'true',
+          'X-CSRF-Token': document.querySelector('meta[name="csrf-token"]')?.content || '',
+        },
+        body: JSON.stringify({
+          plan_id: plan.id,
+          billing_interval: billingInterval,
+        }),
+      })
+
+      const data = await response.json()
+      if (data.checkout_url) {
+        window.location.href = data.checkout_url
+      }
+    } catch (error) {
+      console.error('Checkout error:', error)
+    }
   }
 
   return (

@@ -1,5 +1,7 @@
 class SubscriptionsController < ApplicationController
-  before_action :require_account!
+  before_action :require_authentication
+  before_action :require_account!, except: [:checkout]
+  before_action :ensure_account_for_checkout, only: [:checkout]
 
   def index
     subscription = current_account.active_subscription
@@ -38,7 +40,12 @@ class SubscriptionsController < ApplicationController
       subscription_data: plan.trial_days.positive? ? { trial_period_days: plan.trial_days } : {}
     )
 
-    redirect_to checkout_session.url, allow_other_host: true
+    # For Inertia requests, return the URL as JSON so frontend can redirect
+    if request.headers["X-Inertia"]
+      render json: { checkout_url: checkout_session.url }
+    else
+      redirect_to checkout_session.url, allow_other_host: true
+    end
   end
 
   def billing_portal
@@ -111,6 +118,15 @@ class SubscriptionsController < ApplicationController
     unless current_account
       redirect_to dashboard_path, alert: "Please set up an account first."
     end
+  end
+
+  def ensure_account_for_checkout
+    return if current_account
+
+    # Create an account for the user if they don't have one
+    @current_account = current_user.owned_accounts.create!(
+      name: "#{current_user.email_address.split('@').first}'s Account"
+    )
   end
 
   def stripe_public_key

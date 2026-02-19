@@ -2,11 +2,17 @@
   "name": "app",
   "private": true,
   "devDependencies": {
+    "@playwright/test": "^1.58.2",
     "esbuild": "^0.27.2"
   },
   "scripts": {
     "build": "esbuild app/javascript/application.js app/javascript/inertia.jsx --bundle --sourcemap --format=esm --outdir=app/assets/builds --public-path=/assets --loader:.jsx=jsx",
-    "build:css": "npx @tailwindcss/cli -i ./app/assets/stylesheets/application.tailwind.css -o ./app/assets/builds/application.css --minify && cat ./app/assets/stylesheets/landing/base.css ./app/assets/stylesheets/landing/pricing.css ./app/assets/stylesheets/landing/tablet.css ./app/assets/stylesheets/landing/mobile.css > ./app/assets/builds/landing.css"
+    "build:css": "npx @tailwindcss/cli -i ./app/assets/stylesheets/application.tailwind.css -o ./app/assets/builds/application.css --minify && cat ./app/assets/stylesheets/landing/base.css ./app/assets/stylesheets/landing/pricing.css ./app/assets/stylesheets/landing/tablet.css ./app/assets/stylesheets/landing/mobile.css > ./app/assets/builds/landing.css",
+    "watch:js": "esbuild app/javascript/application.js app/javascript/inertia.jsx --bundle --sourcemap --format=esm --outdir=app/assets/builds --public-path=/assets --loader:.jsx=jsx --watch=forever",
+    "watch:css": "npx @tailwindcss/cli -i ./app/assets/stylesheets/application.tailwind.css -o ./app/assets/builds/application.css --watch",
+    "test:e2e": "npx playwright test",
+    "test:e2e:ui": "npx playwright test --ui",
+    "test:e2e:headed": "npx playwright test --headed"
   },
   "dependencies": {
     "@hotwired/stimulus": "^3.2.2",

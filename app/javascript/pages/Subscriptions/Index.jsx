@@ -1,3 +1,4 @@
+import React from 'react'
 import { router } from '@inertiajs/react'
 
 export default function SubscriptionsIndex({ subscription, plan, plans, stripe_public_key }) {
