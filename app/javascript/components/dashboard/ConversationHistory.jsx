@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import AgentAvatar, { AGENT_PRESETS } from '../AgentAvatar';
+import AgentAvatar from '../AgentAvatar';
 
 export default function ConversationHistory({ agent, onBack }) {
   const [runs, setRuns] = useState([]);
@@ -83,13 +83,6 @@ export default function ConversationHistory({ agent, onBack }) {
     return date.toLocaleDateString();
   };
 
-  const getAppearanceConfig = () => {
-    const presetConfig = AGENT_PRESETS[agent.presetType || agent.preset_type] || {};
-    return { ...presetConfig, ...(agent.appearance || {}) };
-  };
-
-  const appearance = getAppearanceConfig();
-
   return (
     <div className="flex h-full">
       {/* Conversation List */}
@@ -118,7 +111,7 @@ export default function ConversationHistory({ agent, onBack }) {
               setFilterStatus(e.target.value);
               setPage(1);
             }}
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-rose-500"
+            className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-red-500"
           >
             <option value="">All Runs</option>
             <option value="complete">Completed</option>
@@ -132,7 +125,7 @@ export default function ConversationHistory({ agent, onBack }) {
         <div className="flex-1 overflow-auto">
           {isLoading && runs.length === 0 ? (
             <div className="flex items-center justify-center h-32">
-              <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-rose-500"></div>
+              <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-red-500"></div>
             </div>
           ) : runs.length > 0 ? (
             <>
@@ -142,7 +135,7 @@ export default function ConversationHistory({ agent, onBack }) {
                   onClick={() => loadRunDetails(run.id)}
                   className={`p-4 border-b border-gray-100 cursor-pointer transition-colors ${
                     selectedRun?.id === run.id
-                      ? 'bg-rose-50 border-l-4 border-l-rose-500'
+                      ? 'bg-red-50 border-l-4 border-l-red-500'
                       : 'hover:bg-gray-50'
                   }`}
                 >
@@ -166,7 +159,7 @@ export default function ConversationHistory({ agent, onBack }) {
                 <button
                   onClick={() => setPage(prev => prev + 1)}
                   disabled={isLoading}
-                  className="w-full py-3 text-sm text-rose-600 hover:bg-gray-50 transition-colors"
+                  className="w-full py-3 text-sm text-red-600 hover:bg-gray-50 transition-colors"
                 >
                   {isLoading ? 'Loading...' : 'Load More'}
                 </button>
@@ -191,12 +184,7 @@ export default function ConversationHistory({ agent, onBack }) {
             <div className="p-4 bg-white border-b border-gray-200">
               <div className="flex items-center justify-between">
                 <div className="flex items-center space-x-3">
-                  <AgentAvatar
-                    hat={appearance.hat}
-                    hatAccessory={appearance.hatAccessory}
-                    heldItem={appearance.heldItem}
-                    size={40}
-                  />
+                  <AgentAvatar size={40} />
                   <div>
                     <h3 className="font-medium text-gray-900">Run #{selectedRun.id}</h3>
                     <p className="text-xs text-gray-500">
@@ -225,7 +213,7 @@ export default function ConversationHistory({ agent, onBack }) {
                       </svg>
                     </div>
                   </div>
-                  <div className="bg-rose-500 text-white rounded-2xl rounded-tr-sm px-4 py-3">
+                  <div className="bg-red-500 text-white rounded-2xl rounded-tr-sm px-4 py-3">
                     <p className="whitespace-pre-wrap">{selectedRun.input_prompt || selectedRun.input_preview}</p>
                   </div>
                 </div>
@@ -235,12 +223,7 @@ export default function ConversationHistory({ agent, onBack }) {
               <div className="flex justify-start">
                 <div className="max-w-2xl">
                   <div className="flex items-center space-x-2 mb-2">
-                    <AgentAvatar
-                      hat={appearance.hat}
-                      hatAccessory={appearance.hatAccessory}
-                      heldItem={appearance.heldItem}
-                      size={32}
-                    />
+                    <AgentAvatar size={32} />
                     <span className="text-sm font-medium text-gray-700">{agent.name}</span>
                   </div>
                   <div className="bg-white rounded-2xl rounded-tl-sm px-4 py-3 shadow-sm border border-gray-200">
@@ -297,12 +280,7 @@ export default function ConversationHistory({ agent, onBack }) {
         ) : (
           <div className="flex-1 flex items-center justify-center">
             <div className="text-center text-gray-400">
-              <AgentAvatar
-                hat={appearance.hat}
-                hatAccessory={appearance.hatAccessory}
-                heldItem={appearance.heldItem}
-                size={100}
-              />
+              <AgentAvatar size={100} />
               <p className="mt-4">Select a conversation to view details</p>
             </div>
           </div>

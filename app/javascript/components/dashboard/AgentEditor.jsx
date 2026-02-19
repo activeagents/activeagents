@@ -101,13 +101,6 @@ export default function AgentEditor({ agent, meta, onSave, onDelete, onRun, onAn
     onSave(formData);
   };
 
-  const getAppearanceConfig = () => {
-    const presetConfig = AGENT_PRESETS[formData.preset_type] || {};
-    return { ...presetConfig, ...formData.appearance };
-  };
-
-  const appearance = getAppearanceConfig();
-
   return (
     <div className="grid grid-cols-3 gap-6 h-full">
       {/* Main Editor */}
@@ -121,7 +114,7 @@ export default function AgentEditor({ agent, meta, onSave, onDelete, onRun, onAn
                 onClick={() => setActiveTab(tab.id)}
                 className={`flex items-center space-x-2 px-6 py-3 text-sm font-medium transition-colors ${
                   activeTab === tab.id
-                    ? 'text-rose-600 border-b-2 border-rose-500 bg-rose-50'
+                    ? 'text-red-600 border-b-2 border-red-500 bg-red-50'
                     : 'text-gray-500 hover:text-gray-700 hover:bg-gray-50'
                 }`}
               >
@@ -156,12 +149,7 @@ export default function AgentEditor({ agent, meta, onSave, onDelete, onRun, onAn
         {/* Preview Card */}
         <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
           <div className="h-48 bg-gradient-to-br from-gray-50 to-gray-100 flex items-center justify-center">
-            <AgentAvatar
-              hat={appearance.hat}
-              hatAccessory={appearance.hatAccessory}
-              heldItem={appearance.heldItem}
-              size={140}
-            />
+            <AgentAvatar size={140} />
           </div>
           <div className="p-4 border-t border-gray-100">
             <h3 className="font-semibold text-gray-900">{formData.name}</h3>
@@ -205,7 +193,7 @@ export default function AgentEditor({ agent, meta, onSave, onDelete, onRun, onAn
             disabled={!hasChanges || isLoading}
             className={`w-full flex items-center justify-center space-x-2 px-4 py-2 rounded-lg transition-colors ${
               hasChanges && !isLoading
-                ? 'bg-rose-500 text-white hover:bg-rose-600'
+                ? 'bg-red-500 text-white hover:bg-red-600'
                 : 'bg-gray-100 text-gray-400 cursor-not-allowed'
             }`}
           >
@@ -235,7 +223,7 @@ export default function AgentEditor({ agent, meta, onSave, onDelete, onRun, onAn
           <select
             value={formData.status}
             onChange={(e) => updateField('status', e.target.value)}
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-rose-500"
+            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500"
           >
             <option value="draft">Draft</option>
             <option value="active">Active</option>
@@ -272,7 +260,7 @@ function ConfigTab({ formData, updateField, providerModels }) {
             type="text"
             value={formData.name}
             onChange={(e) => updateField('name', e.target.value)}
-            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-rose-500"
+            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500"
           />
         </div>
         <div>
@@ -280,7 +268,7 @@ function ConfigTab({ formData, updateField, providerModels }) {
           <select
             value={formData.preset_type}
             onChange={(e) => updateField('preset_type', e.target.value)}
-            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-rose-500"
+            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500"
           >
             {Object.keys(AGENT_PRESETS).map(preset => (
               <option key={preset} value={preset}>{preset}</option>
@@ -295,7 +283,7 @@ function ConfigTab({ formData, updateField, providerModels }) {
           value={formData.description}
           onChange={(e) => updateField('description', e.target.value)}
           rows={3}
-          className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-rose-500"
+          className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500"
         />
       </div>
 
@@ -308,7 +296,7 @@ function ConfigTab({ formData, updateField, providerModels }) {
               updateField('provider', e.target.value);
               updateField('model', providerModels[e.target.value][0]);
             }}
-            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-rose-500"
+            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500"
           >
             {Object.keys(providerModels).map(p => (
               <option key={p} value={p}>{p.charAt(0).toUpperCase() + p.slice(1)}</option>
@@ -320,7 +308,7 @@ function ConfigTab({ formData, updateField, providerModels }) {
           <select
             value={formData.model}
             onChange={(e) => updateField('model', e.target.value)}
-            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-rose-500"
+            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500"
           >
             {providerModels[formData.provider]?.map(m => (
               <option key={m} value={m}>{m}</option>
@@ -357,7 +345,7 @@ function InstructionsTab({ formData, updateField, meta, toggleArrayItem }) {
           onChange={(e) => updateField('instructions', e.target.value)}
           placeholder="You are a helpful AI assistant..."
           rows={12}
-          className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-rose-500 font-mono text-sm"
+          className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 font-mono text-sm"
         />
       </div>
 
@@ -370,7 +358,7 @@ function InstructionsTab({ formData, updateField, meta, toggleArrayItem }) {
               onClick={() => toggleArrayItem('instruction_sets', instruction)}
               className={`px-3 py-1.5 rounded-full text-sm transition-colors ${
                 formData.instruction_sets.includes(instruction)
-                  ? 'bg-rose-500 text-white'
+                  ? 'bg-red-500 text-white'
                   : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
               }`}
             >
@@ -404,7 +392,7 @@ function ToolsTab({ formData, meta, toggleArrayItem }) {
             onClick={() => toggleArrayItem('tools', tool)}
             className={`p-4 rounded-xl border-2 text-center transition-all ${
               formData.tools.includes(tool)
-                ? 'border-rose-500 bg-rose-50 text-rose-700'
+                ? 'border-red-500 bg-red-50 text-red-700'
                 : 'border-gray-200 hover:border-gray-300 text-gray-700'
             }`}
           >
@@ -419,7 +407,7 @@ function ToolsTab({ formData, meta, toggleArrayItem }) {
           <h4 className="text-sm font-medium text-gray-700 mb-2">Selected Tools ({formData.tools.length})</h4>
           <div className="flex flex-wrap gap-2">
             {formData.tools.map(tool => (
-              <span key={tool} className="px-3 py-1 bg-white border border-rose-200 rounded-full text-sm text-rose-600">
+              <span key={tool} className="px-3 py-1 bg-white border border-red-200 rounded-full text-sm text-red-600">
                 {getToolIcon(tool)} {tool}
               </span>
             ))}
@@ -456,7 +444,7 @@ function VersionsTab({ versions, agentId, onRestore }) {
             <div
               key={version.id}
               className={`p-4 rounded-lg border ${
-                version.is_latest || version.isLatest ? 'border-rose-200 bg-rose-50' : 'border-gray-200'
+                version.is_latest || version.isLatest ? 'border-red-200 bg-red-50' : 'border-gray-200'
               }`}
             >
               <div className="flex items-center justify-between">
@@ -464,7 +452,7 @@ function VersionsTab({ versions, agentId, onRestore }) {
                   <div className="flex items-center space-x-2">
                     <span className="font-medium text-gray-900">Version {version.version_number || version.versionNumber}</span>
                     {(version.is_latest || version.isLatest) && (
-                      <span className="px-2 py-0.5 bg-rose-100 text-rose-600 text-xs rounded-full">Current</span>
+                      <span className="px-2 py-0.5 bg-red-100 text-red-600 text-xs rounded-full">Current</span>
                     )}
                   </div>
                   <p className="text-sm text-gray-500 mt-1">{version.change_summary || version.changeSummary}</p>
@@ -475,7 +463,7 @@ function VersionsTab({ versions, agentId, onRestore }) {
                 {!(version.is_latest || version.isLatest) && (
                   <button
                     onClick={() => handleRestore(version.id)}
-                    className="px-3 py-1 text-sm text-rose-600 hover:bg-rose-100 rounded transition-colors"
+                    className="px-3 py-1 text-sm text-red-600 hover:bg-red-100 rounded transition-colors"
                   >
                     Restore
                   </button>
@@ -504,7 +492,7 @@ function CodeTab({ code }) {
         <p className="text-gray-500">Generated Ruby code for this agent.</p>
         <button
           onClick={copyToClipboard}
-          className="flex items-center space-x-1 px-3 py-1 text-sm text-gray-600 hover:text-rose-600 transition-colors"
+          className="flex items-center space-x-1 px-3 py-1 text-sm text-gray-600 hover:text-red-600 transition-colors"
         >
           <span>📋</span>
           <span>Copy</span>

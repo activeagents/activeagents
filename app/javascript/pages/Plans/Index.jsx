@@ -62,12 +62,12 @@ export default function PlansIndex({ plans, current_plan, signed_in }) {
             <div
               key={plan.id}
               className={`relative flex flex-col rounded-2xl border ${
-                plan.slug === 'pro' ? 'border-indigo-600 shadow-xl' : 'border-gray-200'
+                plan.slug === 'pro' ? 'border-red-500 shadow-xl' : 'border-gray-200'
               } bg-white p-8`}
             >
               {plan.slug === 'pro' && (
                 <div className="absolute -top-4 left-1/2 -translate-x-1/2">
-                  <span className="inline-flex rounded-full bg-indigo-600 px-4 py-1 text-xs font-semibold text-white">
+                  <span className="inline-flex rounded-full bg-red-500 px-4 py-1 text-xs font-semibold text-white">
                     Most Popular
                   </span>
                 </div>
@@ -146,7 +146,7 @@ export default function PlansIndex({ plans, current_plan, signed_in }) {
                     onClick={() => handleSelectPlan(plan)}
                     className={`w-full rounded-md py-3 px-4 text-sm font-semibold text-white ${
                       plan.slug === 'pro'
-                        ? 'bg-indigo-600 hover:bg-indigo-700'
+                        ? 'bg-red-500 hover:bg-red-600'
                         : 'bg-gray-800 hover:bg-gray-900'
                     }`}
                   >

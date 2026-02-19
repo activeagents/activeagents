@@ -27,7 +27,7 @@ export default function SubscriptionsIndex({ subscription, plan, plans, stripe_p
       <nav className="bg-white shadow">
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
           <div className="flex h-16 justify-between items-center">
-            <span className="text-xl font-bold text-indigo-600">Active Agents</span>
+            <span className="text-xl font-bold text-red-600">Active Agent</span>
             <div className="flex items-center space-x-4">
               <a href="/dashboard" className="text-sm text-gray-700 hover:text-gray-900">Dashboard</a>
               <a href="/plans" className="text-sm text-gray-700 hover:text-gray-900">Plans</a>
@@ -101,7 +101,7 @@ export default function SubscriptionsIndex({ subscription, plan, plans, stripe_p
               {subscription.cancelled ? (
                 <button
                   onClick={handleResume}
-                  className="rounded-md bg-indigo-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-indigo-500"
+                  className="rounded-md bg-red-500 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-red-600"
                 >
                   Resume Subscription
                 </button>
@@ -141,10 +141,10 @@ export default function SubscriptionsIndex({ subscription, plan, plans, stripe_p
         ) : (
           <div className="mt-8 bg-white rounded-lg shadow p-8 text-center">
             <h2 className="text-xl font-semibold text-gray-900">No active subscription</h2>
-            <p className="mt-2 text-gray-600">Choose a plan to get started with Active Agents.</p>
+            <p className="mt-2 text-gray-600">Choose a plan to get started with Active Agent.</p>
             <a
               href="/plans"
-              className="mt-6 inline-flex items-center rounded-md bg-indigo-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-indigo-500"
+              className="mt-6 inline-flex items-center rounded-md bg-red-500 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-red-600"
             >
               View Plans
             </a>
