@@ -1,0 +1,6 @@
+# Production environment variables
+# Copy this to terraform.tfvars and fill in your values
+
+project_id = "active-agents-platform"
+region     = "us-central1"
+image      = "us-central1-docker.pkg.dev/active-agents-platform/activeagents/activeagents:production"
