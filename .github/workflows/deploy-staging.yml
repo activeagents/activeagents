@@ -91,6 +91,7 @@ jobs:
         uses: hashicorp/setup-terraform@v3
         with:
           terraform_version: 1.6.0
+          terraform_wrapper: false  # Required for terraform output to work correctly
 
       - name: Terraform Init
         working-directory: terraform/environments/staging
@@ -147,18 +148,33 @@ jobs:
   smoke-test:
     needs: [deploy, migrate]
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
 
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ secrets.GCP_SERVICE_ACCOUNT }}
+
+      - name: Set up Cloud SDK
+        uses: google-github-actions/setup-gcloud@v2
 
       - name: Health check
         run: |
           URL="${{ needs.deploy.outputs.url }}"
           echo "Testing health endpoint at $URL/up"
 
+          # Get an identity token for authenticated Cloud Run access
+          TOKEN=$(gcloud auth print-identity-token --audiences="$URL")
+
           for i in {1..10}; do
-            STATUS=$(curl -s -o /dev/null -w "%{http_code}" "$URL/up" || echo "000")
+            STATUS=$(curl -s -o /dev/null -w "%{http_code}" -H "Authorization: Bearer $TOKEN" "$URL/up" || echo "000")
             if [ "$STATUS" = "200" ]; then
               echo "✅ Health check passed!"
               exit 0
