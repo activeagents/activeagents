@@ -33,5 +33,6 @@ module "activeagents" {
   database_tier = "db-f1-micro"
 
   # Access control
-  allow_public_access = var.allow_public_access
+  allow_public_access   = var.allow_public_access
+  authorized_domain     = var.authorized_domain
 }

@@ -95,3 +95,9 @@ variable "allow_public_access" {
   type        = bool
   default     = true
 }
+
+variable "authorized_domain" {
+  description = "Domain to grant invoker access (e.g., 'activeagents.ai'). Used when allow_public_access is false."
+  type        = string
+  default     = null
+}
