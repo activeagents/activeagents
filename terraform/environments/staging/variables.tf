@@ -25,3 +25,9 @@ variable "authorized_domain" {
   type        = string
   default     = "activeagents.ai"
 }
+
+variable "ci_service_account" {
+  description = "CI/CD service account email for health checks"
+  type        = string
+  default     = "github-actions@active-agents-platform.iam.gserviceaccount.com"
+}

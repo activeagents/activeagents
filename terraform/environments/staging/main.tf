@@ -35,4 +35,5 @@ module "activeagents" {
   # Access control
   allow_public_access   = var.allow_public_access
   authorized_domain     = var.authorized_domain
+  ci_service_account    = var.ci_service_account
 }

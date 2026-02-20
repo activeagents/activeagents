@@ -192,6 +192,9 @@ module "cloud_run" {
   # Domain to grant access when public access is blocked
   authorized_domain = var.authorized_domain
 
+  # CI service account for health checks
+  ci_service_account = var.ci_service_account
+
   depends_on = [
     module.cloud_sql,
     module.secrets,

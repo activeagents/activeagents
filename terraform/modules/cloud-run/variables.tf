@@ -92,3 +92,9 @@ variable "authorized_domain" {
   type        = string
   default     = null
 }
+
+variable "ci_service_account" {
+  description = "CI/CD service account email to grant invoker access for health checks"
+  type        = string
+  default     = null
+}

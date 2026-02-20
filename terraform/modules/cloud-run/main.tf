@@ -136,6 +136,16 @@ resource "google_cloud_run_v2_service_iam_member" "domain" {
   member   = "domain:${var.authorized_domain}"
 }
 
+# Allow CI/CD service account to invoke for health checks
+resource "google_cloud_run_v2_service_iam_member" "ci" {
+  count    = var.ci_service_account != null ? 1 : 0
+  project  = var.project_id
+  location = var.region
+  name     = google_cloud_run_v2_service.main.name
+  role     = "roles/run.invoker"
+  member   = "serviceAccount:${var.ci_service_account}"
+}
+
 # Custom domain mapping (optional, configured if domain is provided)
 resource "google_cloud_run_domain_mapping" "main" {
   count    = var.domain != null ? 1 : 0
