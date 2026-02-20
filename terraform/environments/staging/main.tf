@@ -27,7 +27,7 @@ module "activeagents" {
   min_instances = 0  # Scale to zero for cost savings
   max_instances = 5
   cpu           = "1"
-  memory        = "512Mi"
+  memory        = "1Gi"  # Rails 8 requires more memory
 
   # Database configuration (smaller for staging)
   database_tier = "db-f1-micro"
