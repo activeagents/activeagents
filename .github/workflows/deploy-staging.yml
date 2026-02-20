@@ -73,6 +73,9 @@ jobs:
       contents: read
       id-token: write
 
+    outputs:
+      url: ${{ steps.deploy.outputs.url }}
+
     environment:
       name: staging
       url: ${{ steps.deploy.outputs.url }}
