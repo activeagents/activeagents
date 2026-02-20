@@ -1,0 +1,227 @@
+name: Deploy to Production
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      image_tag:
+        description: 'Docker image tag to deploy (default: latest staging)'
+        required: false
+        type: string
+
+concurrency:
+  group: production-deployment
+  cancel-in-progress: false
+
+env:
+  PROJECT_ID: active-agents-platform
+  REGION: us-central1
+  REPOSITORY: activeagents
+  SERVICE_NAME: activeagents-production
+
+jobs:
+  # Require staging deployment success before production
+  verify-staging:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Verify staging is healthy
+        run: |
+          STAGING_URL="https://activeagents-staging-${{ secrets.GCP_PROJECT_ID }}.run.app"
+          STATUS=$(curl -s -o /dev/null -w "%{http_code}" "$STAGING_URL/up" || echo "000")
+          if [ "$STATUS" != "200" ]; then
+            echo "❌ Staging environment is not healthy (status: $STATUS)"
+            echo "Please ensure staging is working before deploying to production"
+            exit 1
+          fi
+          echo "✅ Staging is healthy"
+
+  determine-image:
+    runs-on: ubuntu-latest
+    outputs:
+      image_tag: ${{ steps.image.outputs.tag }}
+    steps:
+      - name: Determine image tag
+        id: image
+        run: |
+          if [ "${{ github.event_name }}" = "release" ]; then
+            # For releases, use the release tag
+            TAG="${{ github.event.release.tag_name }}"
+          elif [ -n "${{ inputs.image_tag }}" ]; then
+            # For manual dispatch with specified tag
+            TAG="${{ inputs.image_tag }}"
+          else
+            # Default to staging image
+            TAG="staging"
+          fi
+          echo "tag=$TAG" >> $GITHUB_OUTPUT
+          echo "Using image tag: $TAG"
+
+  build-production:
+    needs: [verify-staging, determine-image]
+    if: github.event_name == 'release'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ secrets.GCP_SERVICE_ACCOUNT }}
+
+      - name: Set up Cloud SDK
+        uses: google-github-actions/setup-gcloud@v2
+
+      - name: Configure Docker for Artifact Registry
+        run: gcloud auth configure-docker ${{ env.REGION }}-docker.pkg.dev --quiet
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          push: true
+          tags: |
+            ${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.REPOSITORY }}/activeagents:${{ github.event.release.tag_name }}
+            ${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.REPOSITORY }}/activeagents:production
+            ${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.REPOSITORY }}/activeagents:latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  deploy:
+    needs: [verify-staging, determine-image, build-production]
+    if: always() && needs.verify-staging.result == 'success' && needs.determine-image.result == 'success'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+
+    environment:
+      name: production
+      url: ${{ steps.deploy.outputs.url }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ secrets.GCP_SERVICE_ACCOUNT }}
+
+      - name: Set up Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: 1.6.0
+
+      - name: Determine image to deploy
+        id: image
+        run: |
+          if [ "${{ github.event_name }}" = "release" ]; then
+            IMAGE="${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.REPOSITORY }}/activeagents:${{ github.event.release.tag_name }}"
+          else
+            IMAGE="${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.REPOSITORY }}/activeagents:${{ needs.determine-image.outputs.image_tag }}"
+          fi
+          echo "image=$IMAGE" >> $GITHUB_OUTPUT
+
+      - name: Terraform Init
+        working-directory: terraform/environments/production
+        run: terraform init
+
+      - name: Terraform Plan
+        working-directory: terraform/environments/production
+        run: |
+          terraform plan \
+            -var="project_id=${{ env.PROJECT_ID }}" \
+            -var="region=${{ env.REGION }}" \
+            -var="image=${{ steps.image.outputs.image }}" \
+            -out=tfplan
+
+      - name: Terraform Apply
+        working-directory: terraform/environments/production
+        run: terraform apply -auto-approve tfplan
+
+      - name: Get Cloud Run URL
+        id: deploy
+        working-directory: terraform/environments/production
+        run: |
+          URL=$(terraform output -raw cloud_run_url)
+          echo "url=$URL" >> $GITHUB_OUTPUT
+          echo "### 🚀 Deployed to Production" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**URL:** $URL" >> $GITHUB_STEP_SUMMARY
+          echo "**Image:** ${{ steps.image.outputs.image }}" >> $GITHUB_STEP_SUMMARY
+
+  migrate:
+    needs: deploy
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+
+    steps:
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ secrets.GCP_SERVICE_ACCOUNT }}
+
+      - name: Set up Cloud SDK
+        uses: google-github-actions/setup-gcloud@v2
+
+      - name: Run database migrations
+        run: |
+          gcloud run jobs execute activeagents-production-migrate \
+            --region=${{ env.REGION }} \
+            --wait
+
+  smoke-test:
+    needs: [deploy, migrate]
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Health check
+        run: |
+          URL="${{ needs.deploy.outputs.url }}"
+          echo "Testing health endpoint at $URL/up"
+
+          for i in {1..10}; do
+            STATUS=$(curl -s -o /dev/null -w "%{http_code}" "$URL/up" || echo "000")
+            if [ "$STATUS" = "200" ]; then
+              echo "✅ Health check passed!"
+              exit 0
+            fi
+            echo "Attempt $i: Status $STATUS, retrying in 10s..."
+            sleep 10
+          done
+
+          echo "❌ Health check failed after 10 attempts"
+          exit 1
+
+  notify:
+    needs: [deploy, smoke-test]
+    if: always()
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Notify on success
+        if: needs.smoke-test.result == 'success'
+        run: |
+          echo "🎉 Production deployment successful!"
+          # Add Slack/Discord notification here if needed
+
+      - name: Notify on failure
+        if: needs.smoke-test.result == 'failure'
+        run: |
+          echo "❌ Production deployment failed!"
+          # Add alert notification here if needed
+          exit 1

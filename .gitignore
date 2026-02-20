@@ -45,3 +45,18 @@
 # Ignore key files for decrypting credentials and more.
 /config/*.key
 
+# Terraform
+terraform/.terraform/
+terraform/**/.terraform/
+terraform/*.tfstate
+terraform/**/*.tfstate
+terraform/*.tfstate.backup
+terraform/**/*.tfstate.backup
+terraform/*.tfplan
+terraform/**/*.tfplan
+terraform/environments/**/terraform.tfvars
+terraform/**/.terraform.lock.hcl
+
+# Playwright MCP screenshots (per CLAUDE.md)
+tmp/
+
