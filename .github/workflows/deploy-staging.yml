@@ -113,16 +113,41 @@ jobs:
         working-directory: terraform/environments/staging
         run: terraform apply -auto-approve tfplan
 
-      - name: Get Cloud Run URL
+      - name: Set up Cloud SDK
+        uses: google-github-actions/setup-gcloud@v2
+
+      - name: Get Service URLs
         id: deploy
+        working-directory: terraform/environments/staging
         run: |
-          # Get URL using gcloud (more reliable than terraform output)
-          URL=$(gcloud run services describe ${{ env.SERVICE_NAME }} --region=${{ env.REGION }} --format="value(status.url)")
-          echo "Cloud Run URL: $URL"
-          echo "url=$URL" >> $GITHUB_OUTPUT
+          # Get Cloud Run URL
+          CLOUD_RUN_URL=$(gcloud run services describe ${{ env.SERVICE_NAME }} --region=${{ env.REGION }} --format="value(status.url)")
+          echo "Cloud Run URL: $CLOUD_RUN_URL"
+
+          # Get Load Balancer URL if available (includes http/https scheme)
+          LB_URL=$(terraform output -raw lb_url 2>/dev/null || echo "")
+          LB_IP=$(terraform output -raw lb_ip_address 2>/dev/null || echo "")
+
+          # Determine public URL (prefer load balancer)
+          if [ -n "$LB_URL" ] && [ "$LB_URL" != "null" ] && [ "$LB_URL" != "" ]; then
+            PUBLIC_URL="$LB_URL"
+            echo "Load Balancer URL: $LB_URL"
+          else
+            PUBLIC_URL="$CLOUD_RUN_URL"
+          fi
+
+          echo "Public URL: $PUBLIC_URL"
+          echo "url=$PUBLIC_URL" >> $GITHUB_OUTPUT
+          echo "cloud_run_url=$CLOUD_RUN_URL" >> $GITHUB_OUTPUT
+
           echo "### 🚀 Deployed to Staging" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "**URL:** $URL" >> $GITHUB_STEP_SUMMARY
+          echo "**Public URL:** $PUBLIC_URL" >> $GITHUB_STEP_SUMMARY
+          echo "**Cloud Run URL:** $CLOUD_RUN_URL" >> $GITHUB_STEP_SUMMARY
+          if [ -n "$LB_URL" ] && [ "$LB_URL" != "null" ] && [ "$LB_URL" != "" ]; then
+            echo "**Load Balancer URL:** $LB_URL" >> $GITHUB_STEP_SUMMARY
+            echo "**Load Balancer IP:** $LB_IP" >> $GITHUB_STEP_SUMMARY
+          fi
           echo "**Image:** ${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.REPOSITORY }}/activeagents:${{ github.sha }}" >> $GITHUB_STEP_SUMMARY
 
   migrate:
@@ -164,18 +189,17 @@ jobs:
             exit 1
           fi
 
-          # For authenticated Cloud Run, use gcloud run services proxy
-          # Or simply verify the service responds (even 403 means service is up)
-          for i in {1..10}; do
+          # Wait for load balancer to be ready (may take a few minutes to provision)
+          for i in {1..20}; do
             STATUS=$(curl -s -o /dev/null -w "%{http_code}" "$URL/up" || echo "000")
             # 200 = healthy, 403 = auth required but service is up
             if [ "$STATUS" = "200" ] || [ "$STATUS" = "403" ]; then
               echo "✅ Health check passed! (Status: $STATUS)"
               exit 0
             fi
-            echo "Attempt $i: Status $STATUS, retrying in 10s..."
-            sleep 10
+            echo "Attempt $i: Status $STATUS, retrying in 15s..."
+            sleep 15
           done
 
-          echo "❌ Health check failed after 10 attempts"
+          echo "❌ Health check failed after 20 attempts"
           exit 1

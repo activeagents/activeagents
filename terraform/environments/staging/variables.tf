@@ -31,3 +31,22 @@ variable "ci_service_account" {
   type        = string
   default     = "github-actions@active-agents-platform.iam.gserviceaccount.com"
 }
+
+# Load Balancer configuration
+variable "enable_load_balancer" {
+  description = "Enable external load balancer for public access (bypasses org policy)"
+  type        = bool
+  default     = true  # Enable by default for staging
+}
+
+variable "lb_domain" {
+  description = "Custom domain for the load balancer SSL certificate"
+  type        = string
+  default     = null  # Will use IP address until domain is configured
+}
+
+variable "enable_cdn" {
+  description = "Enable Cloud CDN for caching static assets"
+  type        = bool
+  default     = true
+}

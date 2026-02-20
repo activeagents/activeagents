@@ -12,3 +12,19 @@ output "artifact_registry_url" {
   description = "Artifact Registry URL for Docker images"
   value       = module.activeagents.artifact_registry_url
 }
+
+# Load Balancer outputs
+output "lb_ip_address" {
+  description = "External IP address of the load balancer"
+  value       = module.activeagents.lb_ip_address
+}
+
+output "lb_url" {
+  description = "Public URL via load balancer (use this for public access)"
+  value       = module.activeagents.lb_url
+}
+
+output "public_url" {
+  description = "The publicly accessible URL (load balancer if enabled, otherwise Cloud Run URL)"
+  value       = module.activeagents.lb_url != null ? module.activeagents.lb_url : module.activeagents.cloud_run_url
+}
