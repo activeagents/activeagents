@@ -46,6 +46,7 @@ resource "google_project_service" "apis" {
     "artifactregistry.googleapis.com",
     "cloudtasks.googleapis.com",
     "pubsub.googleapis.com",
+    "dns.googleapis.com",
   ])
 
   project = var.project_id
@@ -246,5 +247,34 @@ module "sandbox" {
   depends_on = [
     module.networking,
     google_project_service.apis,
+  ]
+}
+
+# DNS configuration for activeagents.ai
+module "dns" {
+  count  = var.enable_dns ? 1 : 0
+  source = "./modules/dns"
+
+  project_id = var.project_id
+  domain     = var.dns_domain
+
+  # Point staging subdomain to the load balancer IP
+  staging_ip = var.enable_load_balancer && var.environment == "staging" ? module.load_balancer[0].ip_address : null
+
+  # Production IP (for future use)
+  production_ip = var.enable_load_balancer && var.environment == "production" ? module.load_balancer[0].ip_address : null
+
+  # Keep main site on Framer during migration
+  framer_cname = var.framer_cname
+
+  # Email and verification records
+  mx_records  = var.mx_records
+  txt_records = var.txt_records
+
+  labels = local.common_labels
+
+  depends_on = [
+    google_project_service.apis,
+    module.load_balancer,
   ]
 }

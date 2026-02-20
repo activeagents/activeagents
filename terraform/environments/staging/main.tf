@@ -39,6 +39,10 @@ module "activeagents" {
 
   # Load Balancer for public access (bypasses org policy restrictions)
   enable_load_balancer = var.enable_load_balancer
-  lb_domain            = var.lb_domain
+  lb_domain            = var.enable_dns ? "staging.${var.dns_domain}" : var.lb_domain
   enable_cdn           = var.enable_cdn
+
+  # DNS configuration
+  enable_dns = var.enable_dns
+  dns_domain = var.dns_domain
 }

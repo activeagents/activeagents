@@ -126,3 +126,34 @@ variable "enable_cdn" {
   type        = bool
   default     = true
 }
+
+# DNS configuration
+variable "enable_dns" {
+  description = "Enable Cloud DNS management for the domain"
+  type        = bool
+  default     = false
+}
+
+variable "dns_domain" {
+  description = "Root domain name (e.g., activeagents.ai)"
+  type        = string
+  default     = "activeagents.ai"
+}
+
+variable "framer_cname" {
+  description = "Framer CNAME target for main site during migration (e.g., proxy-ssl.webflow.com)"
+  type        = string
+  default     = null
+}
+
+variable "mx_records" {
+  description = "MX records for email (e.g., ['10 mail.google.com.'])"
+  type        = list(string)
+  default     = []
+}
+
+variable "txt_records" {
+  description = "TXT records for SPF, DKIM, domain verification"
+  type        = list(string)
+  default     = []
+}
