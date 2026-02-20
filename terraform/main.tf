@@ -189,6 +189,9 @@ module "cloud_run" {
   # Set to false if GCP org policy restricts public access
   allow_public_access = var.allow_public_access
 
+  # Domain to grant access when public access is blocked
+  authorized_domain = var.authorized_domain
+
   depends_on = [
     module.cloud_sql,
     module.secrets,

@@ -126,6 +126,16 @@ resource "google_cloud_run_v2_service_iam_member" "public" {
   member   = "allUsers"
 }
 
+# Allow domain-based access (when public access is blocked by org policy)
+resource "google_cloud_run_v2_service_iam_member" "domain" {
+  count    = var.authorized_domain != null ? 1 : 0
+  project  = var.project_id
+  location = var.region
+  name     = google_cloud_run_v2_service.main.name
+  role     = "roles/run.invoker"
+  member   = "domain:${var.authorized_domain}"
+}
+
 # Custom domain mapping (optional, configured if domain is provided)
 resource "google_cloud_run_domain_mapping" "main" {
   count    = var.domain != null ? 1 : 0

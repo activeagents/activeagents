@@ -19,3 +19,9 @@ variable "allow_public_access" {
   type        = bool
   default     = false  # GCP org policy may block this
 }
+
+variable "authorized_domain" {
+  description = "Domain to grant invoker access when public access is blocked"
+  type        = string
+  default     = "activeagents.ai"
+}
