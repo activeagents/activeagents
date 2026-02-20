@@ -1,0 +1,58 @@
+<section id="services">
+  <div class="text-centered full-width">
+    <h2>Services</h2>
+    <p class="paragraph m secondary">We'll help you ship agents faster</p>
+  </div>
+  <div class="grid columns-3 margin-top-xl">
+    <%= render "pages/components/service_card",
+      icon: "fa-graduation-cap",
+      name: "Workshops",
+      price: "$2,500 half-day | $4,500 full-day",
+      features: [
+        "Build your first agent in a day",
+        "Hands-on coding, not slides",
+        "Architecture patterns that scale",
+        "Code review & Q&A",
+        "Custom curriculum available"
+      ],
+      tagline: "Learn by building",
+      cta_text: "Join a Workshop",
+      cta_link: "mailto:workshops@activeagents.ai?subject=Workshop%20Inquiry",
+      cta_style: "tertiary",
+      highlighted: false %>
+
+    <%= render "pages/components/service_card",
+      icon: "fa-compass",
+      name: "Advisory",
+      price: "From $3,000/month",
+      features: [
+        "Your dedicated AI architect",
+        "Strategy, code reviews, PR feedback",
+        "Train your team as you build",
+        "Async Slack access",
+        "Cancel anytime, 30-day notice"
+      ],
+      tagline: "Expert on your team",
+      cta_text: "Schedule a Call",
+      cta_link: "mailto:consulting@activeagents.ai?subject=Advisory%20Inquiry",
+      cta_style: "primary",
+      highlighted: true %>
+
+    <%= render "pages/components/service_card",
+      icon: "fa-code",
+      name: "Development",
+      price: "$250/hr or project-based",
+      features: [
+        "We build your agents for you",
+        "Integrate with your Rails app",
+        "Optimize & deploy to production",
+        "Flexible: hourly or fixed-price",
+        "SOW with clear milestones"
+      ],
+      tagline: "We ship, you own",
+      cta_text: "Get in Touch",
+      cta_link: "mailto:dev@activeagents.ai?subject=Development%20Inquiry",
+      cta_style: "tertiary",
+      highlighted: false %>
+  </div>
+</section>

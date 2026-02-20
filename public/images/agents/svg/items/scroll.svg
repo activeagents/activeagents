@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 70 90" width="70" height="90">
+  <defs>
+    <linearGradient id="parchmentGradient" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#F5E6C8"/>
+      <stop offset="50%" stop-color="#FDF8EE"/>
+      <stop offset="100%" stop-color="#F5E6C8"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Scroll -->
+  <g id="scroll">
+    <!-- Top roll -->
+    <ellipse cx="35" cy="8" rx="30" ry="8" fill="#D4C4A0"/>
+    <rect x="5" y="8" width="60" height="6" fill="url(#parchmentGradient)"/>
+
+    <!-- Main paper -->
+    <rect x="8" y="14" width="54" height="65" fill="url(#parchmentGradient)"/>
+
+    <!-- Bottom roll -->
+    <ellipse cx="35" cy="79" rx="30" ry="8" fill="#D4C4A0"/>
+
+    <!-- Text lines (writing) -->
+    <path d="M 15 25 Q 25 23 35 25 Q 45 27 50 25" fill="none" stroke="#8B7355" stroke-width="1.5"/>
+    <path d="M 15 35 Q 30 33 45 35" fill="none" stroke="#8B7355" stroke-width="1.5"/>
+    <path d="M 15 45 Q 28 43 42 45 Q 48 46 52 45" fill="none" stroke="#8B7355" stroke-width="1.5"/>
+    <path d="M 15 55 Q 22 53 35 55" fill="none" stroke="#8B7355" stroke-width="1.5"/>
+    <path d="M 15 65 Q 32 63 48 65" fill="none" stroke="#8B7355" stroke-width="1.5"/>
+  </g>
+</svg>

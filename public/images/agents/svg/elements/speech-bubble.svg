@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 60 45" width="60" height="45">
+  <!-- Speech Bubble (customizable text via CSS/JS) -->
+  <g id="speech-bubble">
+    <!-- Bubble -->
+    <path
+      d="M 5 5 L 55 5 Q 58 5 58 8 L 58 30 Q 58 33 55 33 L 20 33 L 12 42 L 14 33 L 5 33 Q 2 33 2 30 L 2 8 Q 2 5 5 5 Z"
+      fill="#4A90D9"
+      stroke="#3A7BC8"
+      stroke-width="1"
+    />
+
+    <!-- Text placeholder -->
+    <text x="30" y="22" font-family="sans-serif" font-size="12" font-weight="bold" fill="#FFFFFF" text-anchor="middle">Yes</text>
+  </g>
+</svg>

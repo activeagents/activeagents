@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 80" width="40" height="80">
+  <!-- Quill Feather -->
+  <g id="feather">
+    <!-- Feather shaft -->
+    <path
+      d="M 20 75 Q 18 40 25 5"
+      fill="none"
+      stroke="#8B8B8B"
+      stroke-width="2"
+    />
+
+    <!-- Left vanes -->
+    <path
+      d="M 20 70 Q 5 65 8 55 Q 15 58 18 50
+         Q 3 48 6 38 Q 14 42 17 35
+         Q 5 30 10 20 Q 16 28 20 25"
+      fill="#C0C0C0"
+      stroke="#A0A0A0"
+      stroke-width="0.5"
+    />
+
+    <!-- Right vanes -->
+    <path
+      d="M 22 65 Q 35 62 32 52 Q 26 55 24 48
+         Q 37 45 33 35 Q 27 40 25 32
+         Q 35 28 30 18 Q 26 25 25 20"
+      fill="#D8D8D8"
+      stroke="#B8B8B8"
+      stroke-width="0.5"
+    />
+  </g>
+</svg>

@@ -15,11 +15,11 @@
   <meta name="twitter:description" content="Build AI in Rails - Now Agents are Controllers. The Ruby-native way to build AI features." />
   <meta name="twitter:image" content="images/activeagent-logo.png" />
   <link href="vendor/font-awesome-6.7.2/css/all.min.css" rel="stylesheet" />
-  <link href="css/index.css" rel="stylesheet" type="text/css" />
+  <link href="css/index.css?v=2" rel="stylesheet" type="text/css" />
   <link href="css/pricing.css" rel="stylesheet" type="text/css" />
   <link href="css/tablet.css" rel="stylesheet" type="text/css" />
   <link href="css/mobile.css" rel="stylesheet" type="text/css" />
-  <script src="/landing/js/main.js"></script>
+  <script src="/landing/js/main.js?v=4" defer></script>
 </head>
 
 <body>
@@ -30,6 +30,11 @@
         <img src="images/activeagent-logo.png" alt="Active Agent" style="height: 32px; width: 32px;" />
         <span style="font-size: 1.25rem; font-weight: 600;">Active Agent</span>
       </a>
+      <button class="nav-hamburger" data-mobile-toggle aria-label="Toggle navigation menu" style="flex-direction: column; justify-content: center; align-items: center; gap: 5px; width: 44px; height: 44px; padding: 10px;">
+        <span class="hamburger-line" style="display: block; width: 20px; height: 2px; background-color: var(--color-text-primary); border-radius: 1px;"></span>
+        <span class="hamburger-line" style="display: block; width: 20px; height: 2px; background-color: var(--color-text-primary); border-radius: 1px;"></span>
+        <span class="hamburger-line" style="display: block; width: 20px; height: 2px; background-color: var(--color-text-primary); border-radius: 1px;"></span>
+      </button>
       <nav role="navigation" class="nav-menu" data-navigation>
         <a href="https://docs.activeagents.ai" class="nav-link">Docs</a>
         <a href="#pricing" class="nav-link">Pricing</a>
@@ -43,6 +48,10 @@
         <a href="https://discord.gg/activeagent" class="button ghost compact hide-on-mobile">
           <div class="fa-brands fa-discord icon l"></div>
         </a>
+        <button class="button ghost compact" data-theme-toggle aria-label="Toggle dark mode">
+          <div class="fa-solid fa-moon icon l theme-icon-dark"></div>
+          <div class="fa-solid fa-sun icon l theme-icon-light"></div>
+        </button>
         <a href="/dashboard" class="button tertiary compact hide-on-mobile">Sign In</a>
         <a href="https://docs.activeagents.ai/getting-started" class="button primary compact">Getting Started</a>
       </div>

@@ -1,0 +1,357 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Agent Builder - ActiveAgents.ai</title>
+  <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
+  <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <style>
+    * { box-sizing: border-box; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+      min-height: 100vh;
+      margin: 0;
+      padding: 2rem;
+      color: #fff;
+    }
+
+    .header {
+      text-align: center;
+      margin-bottom: 2rem;
+    }
+
+    .header h1 {
+      font-size: 2.5rem;
+      margin-bottom: 0.5rem;
+      background: linear-gradient(135deg, #E86B6B, #F28B8B);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+
+    .header p {
+      color: #888;
+      font-size: 1.1rem;
+    }
+
+    .builder-container {
+      max-width: 900px;
+      margin: 0 auto;
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 2rem;
+      align-items: start;
+    }
+
+    @media (max-width: 768px) {
+      .builder-container {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    .preview-panel {
+      background: rgba(255,255,255,0.05);
+      border-radius: 20px;
+      padding: 2rem;
+      text-align: center;
+      border: 1px solid rgba(255,255,255,0.1);
+      position: sticky;
+      top: 2rem;
+    }
+
+    .preview-panel h2 {
+      margin-top: 0;
+      font-size: 1.2rem;
+      color: #E86B6B;
+    }
+
+    .agent-preview {
+      width: 280px;
+      height: 280px;
+      margin: 0 auto;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      position: relative;
+    }
+
+    .agent-preview img {
+      max-width: 100%;
+      max-height: 100%;
+      object-fit: contain;
+      transition: all 0.3s ease;
+    }
+
+    .controls-panel {
+      background: rgba(255,255,255,0.05);
+      border-radius: 20px;
+      padding: 2rem;
+      border: 1px solid rgba(255,255,255,0.1);
+    }
+
+    .controls-panel h2 {
+      margin-top: 0;
+      font-size: 1.2rem;
+      color: #E86B6B;
+    }
+
+    .control-group {
+      margin-bottom: 1.5rem;
+    }
+
+    .control-group label {
+      display: block;
+      font-weight: 600;
+      margin-bottom: 0.75rem;
+      color: #ccc;
+      font-size: 0.9rem;
+    }
+
+    .options-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 0.5rem;
+    }
+
+    .option-btn {
+      padding: 0.75rem 1rem;
+      border: 2px solid rgba(255,255,255,0.1);
+      border-radius: 10px;
+      background: rgba(255,255,255,0.03);
+      color: #fff;
+      cursor: pointer;
+      font-size: 0.85rem;
+      transition: all 0.2s ease;
+      text-align: center;
+    }
+
+    .option-btn:hover {
+      border-color: rgba(232, 107, 107, 0.5);
+      background: rgba(232, 107, 107, 0.1);
+    }
+
+    .option-btn.active {
+      border-color: #E86B6B;
+      background: rgba(232, 107, 107, 0.2);
+      color: #fff;
+    }
+
+    .option-btn .emoji {
+      display: block;
+      font-size: 1.5rem;
+      margin-bottom: 0.25rem;
+    }
+
+    .agent-name-display {
+      margin-top: 1rem;
+      padding: 1rem;
+      background: rgba(0,0,0,0.3);
+      border-radius: 10px;
+      font-family: monospace;
+      font-size: 0.9rem;
+      color: #888;
+    }
+
+    .preset-buttons {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.5rem;
+      margin-top: 1rem;
+      padding-top: 1rem;
+      border-top: 1px solid rgba(255,255,255,0.1);
+    }
+
+    .preset-btn {
+      padding: 0.5rem 0.75rem;
+      border: 1px solid rgba(255,255,255,0.2);
+      border-radius: 6px;
+      background: transparent;
+      color: #888;
+      cursor: pointer;
+      font-size: 0.75rem;
+      transition: all 0.2s ease;
+    }
+
+    .preset-btn:hover {
+      border-color: #E86B6B;
+      color: #E86B6B;
+    }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <h1>Agent Builder</h1>
+    <p>Mix and match to create your perfect agent avatar</p>
+  </div>
+
+  <div id="root"></div>
+
+  <script type="text/babel">
+    const { useState } = React;
+
+    // Map configurations to actual PNG files
+    const AGENT_IMAGES = {
+      'computer_use': '/images/agents/computer_use_agent.png',
+      'terminal': '/images/agents/terminal_agent.png',
+      'web_developer': '/images/agents/web_developer_agent.png',
+      'document_analysis': '/images/agents/document_analysis_agent.png',
+      'image_analysis': '/images/agents/image_analysis_agent.png',
+      'research': '/images/agents/research_agent.png',
+      'playwright': '/images/agents/playwright_agent.png',
+      'translation': '/images/agents/translation_agent.png',
+      'writing': '/images/agents/writing_agent.png',
+      'product_design': '/images/agents/product_design_agent.png',
+    };
+
+    // Configuration options
+    const AGENT_TYPES = [
+      { id: 'terminal', name: 'Terminal', emoji: '💻', desc: 'CLI & Shell' },
+      { id: 'web_developer', name: 'Web Dev', emoji: '🌐', desc: 'Web Apps' },
+      { id: 'computer_use', name: 'Computer', emoji: '🖥️', desc: 'Desktop' },
+      { id: 'document_analysis', name: 'Document', emoji: '📄', desc: 'PDFs & Docs' },
+      { id: 'image_analysis', name: 'Image', emoji: '🖼️', desc: 'Vision' },
+      { id: 'research', name: 'Research', emoji: '🔍', desc: 'Web Search' },
+      { id: 'playwright', name: 'Playwright', emoji: '🎭', desc: 'Browser Auto' },
+      { id: 'translation', name: 'Translation', emoji: '🌸', desc: 'Languages' },
+      { id: 'writing', name: 'Writing', emoji: '✍️', desc: 'Content' },
+      { id: 'product_design', name: 'Design', emoji: '🎨', desc: 'UI/UX' },
+    ];
+
+    const ACCESSORIES = [
+      { id: 'none', name: 'None', emoji: '➖' },
+      { id: 'fedora', name: 'Fedora', emoji: '🎩' },
+      { id: 'safari', name: 'Safari Hat', emoji: '🪖' },
+      { id: 'feather', name: 'Quill', emoji: '🪶' },
+      { id: 'flower', name: 'Flower', emoji: '🌸' },
+      { id: 'masks', name: 'Masks', emoji: '🎭' },
+    ];
+
+    const TOOLS = [
+      { id: 'none', name: 'None', emoji: '➖' },
+      { id: 'terminal', name: 'Terminal', emoji: '⬛' },
+      { id: 'browser', name: 'Browser', emoji: '🌐' },
+      { id: 'document', name: 'Document', emoji: '📄' },
+      { id: 'magnifier', name: 'Magnifier', emoji: '🔍' },
+      { id: 'scroll', name: 'Scroll', emoji: '📜' },
+    ];
+
+    function AgentBuilder() {
+      const [agentType, setAgentType] = useState('terminal');
+      const [accessory, setAccessory] = useState('fedora');
+      const [tool, setTool] = useState('terminal');
+
+      const currentAgent = AGENT_TYPES.find(a => a.id === agentType);
+      const imagePath = AGENT_IMAGES[agentType];
+
+      const presets = [
+        { name: 'Terminal Pro', type: 'terminal', acc: 'fedora', tool: 'terminal' },
+        { name: 'Web Wizard', type: 'web_developer', acc: 'fedora', tool: 'browser' },
+        { name: 'Doc Detective', type: 'document_analysis', acc: 'fedora', tool: 'magnifier' },
+        { name: 'Globe Trotter', type: 'research', acc: 'safari', tool: 'magnifier' },
+        { name: 'Wordsmith', type: 'writing', acc: 'feather', tool: 'scroll' },
+        { name: 'Polyglot', type: 'translation', acc: 'flower', tool: 'none' },
+        { name: 'Stage Master', type: 'playwright', acc: 'masks', tool: 'browser' },
+        { name: 'Pixel Perfect', type: 'product_design', acc: 'fedora', tool: 'browser' },
+      ];
+
+      return (
+        <div className="builder-container">
+          <div className="preview-panel">
+            <h2>Preview</h2>
+            <div className="agent-preview">
+              <img
+                src={imagePath}
+                alt={currentAgent?.name || 'Agent'}
+                key={agentType}
+              />
+            </div>
+            <div className="agent-name-display">
+              <strong>{currentAgent?.emoji} {currentAgent?.name} Agent</strong>
+              <br />
+              <span style={{fontSize: '0.8rem'}}>
+                {accessory !== 'none' && `+ ${ACCESSORIES.find(a => a.id === accessory)?.name} `}
+                {tool !== 'none' && `+ ${TOOLS.find(t => t.id === tool)?.name}`}
+              </span>
+            </div>
+
+            <div className="preset-buttons">
+              <span style={{color: '#666', fontSize: '0.75rem', width: '100%', marginBottom: '0.5rem'}}>Quick Presets:</span>
+              {presets.map(preset => (
+                <button
+                  key={preset.name}
+                  className="preset-btn"
+                  onClick={() => {
+                    setAgentType(preset.type);
+                    setAccessory(preset.acc);
+                    setTool(preset.tool);
+                  }}
+                >
+                  {preset.name}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div className="controls-panel">
+            <h2>Customize Your Agent</h2>
+
+            <div className="control-group">
+              <label>Agent Type</label>
+              <div className="options-grid">
+                {AGENT_TYPES.map(type => (
+                  <button
+                    key={type.id}
+                    className={`option-btn ${agentType === type.id ? 'active' : ''}`}
+                    onClick={() => setAgentType(type.id)}
+                  >
+                    <span className="emoji">{type.emoji}</span>
+                    {type.name}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div className="control-group">
+              <label>Hat / Accessory</label>
+              <div className="options-grid">
+                {ACCESSORIES.map(acc => (
+                  <button
+                    key={acc.id}
+                    className={`option-btn ${accessory === acc.id ? 'active' : ''}`}
+                    onClick={() => setAccessory(acc.id)}
+                  >
+                    <span className="emoji">{acc.emoji}</span>
+                    {acc.name}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div className="control-group">
+              <label>Held Tool</label>
+              <div className="options-grid">
+                {TOOLS.map(t => (
+                  <button
+                    key={t.id}
+                    className={`option-btn ${tool === t.id ? 'active' : ''}`}
+                    onClick={() => setTool(t.id)}
+                  >
+                    <span className="emoji">{t.emoji}</span>
+                    {t.name}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    ReactDOM.createRoot(document.getElementById('root')).render(<AgentBuilder />);
+  </script>
+</body>
+</html>

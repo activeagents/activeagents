@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 50 50" width="50" height="50">
+  <defs>
+    <radialGradient id="petalGradient" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#FFCCD5"/>
+      <stop offset="100%" stop-color="#FFB3C1"/>
+    </radialGradient>
+  </defs>
+
+  <!-- Cherry Blossom -->
+  <g id="cherry-blossom">
+    <!-- Petals -->
+    <ellipse cx="25" cy="12" rx="8" ry="12" fill="url(#petalGradient)" transform="rotate(0 25 25)"/>
+    <ellipse cx="25" cy="12" rx="8" ry="12" fill="url(#petalGradient)" transform="rotate(72 25 25)"/>
+    <ellipse cx="25" cy="12" rx="8" ry="12" fill="url(#petalGradient)" transform="rotate(144 25 25)"/>
+    <ellipse cx="25" cy="12" rx="8" ry="12" fill="url(#petalGradient)" transform="rotate(216 25 25)"/>
+    <ellipse cx="25" cy="12" rx="8" ry="12" fill="url(#petalGradient)" transform="rotate(288 25 25)"/>
+
+    <!-- Center -->
+    <circle cx="25" cy="25" r="6" fill="#FFE5E5"/>
+
+    <!-- Stamens -->
+    <circle cx="23" cy="23" r="1.5" fill="#FFD700"/>
+    <circle cx="27" cy="23" r="1.5" fill="#FFD700"/>
+    <circle cx="25" cy="27" r="1.5" fill="#FFD700"/>
+    <circle cx="22" cy="26" r="1" fill="#FFD700"/>
+    <circle cx="28" cy="26" r="1" fill="#FFD700"/>
+  </g>
+</svg>

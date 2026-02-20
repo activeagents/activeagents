@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 60" width="200" height="60">
+  <defs>
+    <linearGradient id="handGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#F28B8B"/>
+      <stop offset="100%" stop-color="#D45A5A"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Left Hand (holding position) -->
+  <g id="left-hand">
+    <ellipse cx="35" cy="30" rx="18" ry="16" fill="url(#handGradient)" stroke="#C44D4D" stroke-width="1.5"/>
+    <!-- Thumb hint -->
+    <ellipse cx="48" cy="22" rx="6" ry="8" fill="url(#handGradient)" stroke="#C44D4D" stroke-width="1"/>
+  </g>
+
+  <!-- Right Hand (holding position) -->
+  <g id="right-hand">
+    <ellipse cx="165" cy="30" rx="18" ry="16" fill="url(#handGradient)" stroke="#C44D4D" stroke-width="1.5"/>
+    <!-- Thumb hint -->
+    <ellipse cx="152" cy="22" rx="6" ry="8" fill="url(#handGradient)" stroke="#C44D4D" stroke-width="1"/>
+  </g>
+</svg>

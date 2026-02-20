@@ -1,0 +1,22 @@
+<%# locals: (icon:, name:, price:, features:, tagline:, cta_text:, cta_link:, cta_style:, highlighted:) %>
+<div class="feature-card justified-vertically <%= 'highlighted' if highlighted %>">
+  <div>
+    <div class="feature-heading">
+      <div class="service-icon">
+        <div class="fa-solid <%= icon %> icon l color-accent"></div>
+      </div>
+      <p class="paragraph l bold no-top-margin"><%= name %></p>
+      <p class="paragraph s secondary"><%= price %></p>
+    </div>
+    <div class="feature-list">
+      <% features.each do |feature| %>
+        <div class="feature-item paragraph s">
+          <div class="fa-solid fa-circle-check icon m color-success"></div>
+          <div><%= feature %></div>
+        </div>
+      <% end %>
+    </div>
+    <p class="paragraph xs secondary" style="margin-top: 1rem;"><%= tagline %></p>
+  </div>
+  <%= link_to cta_text, cta_link, class: "button #{cta_style} full-width margin-top-l" %>
+</div>

@@ -1,0 +1,139 @@
+<section id="hosting">
+  <div class="text-centered full-width">
+    <h2>The Platform</h2>
+    <p class="paragraph m secondary">See what your agents are up to. Hosted and monitored.</p>
+  </div>
+
+  <!-- Hosted Platform Features -->
+  <div class="grid columns-3 margin-top-xl">
+    <div class="feature-card">
+      <div class="feature-heading">
+        <h3 class="color-accent no-top-margin">Watch</h3>
+        <p class="paragraph s secondary">
+          Traces, costs, latency. Know exactly what your agents are doing and what they cost.
+        </p>
+      </div>
+    </div>
+    <div class="feature-card">
+      <div class="feature-heading">
+        <h3 class="color-accent no-top-margin">Judge</h3>
+        <p class="paragraph s secondary">
+          LLM-as-judge evals, A/B testing. Let agents grade each other's work.
+        </p>
+      </div>
+    </div>
+    <div class="feature-card">
+      <div class="feature-heading">
+        <h3 class="color-accent no-top-margin">Ship</h3>
+        <p class="paragraph s secondary">
+          Team workspaces, dashboards, SSO. Built for teams shipping agents together.
+        </p>
+      </div>
+    </div>
+  </div>
+
+  <!-- Hosted Platform Pricing -->
+  <div class="grid columns-3 margin-top-xl">
+    <%= render "pages/components/pricing_card",
+      name: "Self-Hosted",
+      link: nil,
+      license: "For developers",
+      price: "Free",
+      price_suffix: nil,
+      features: [
+        "Run the Web UI locally",
+        "Unlimited agents & executions",
+        "Local trace storage",
+        "Community support on GitHub & Discord",
+        "MIT licensed, forever free"
+      ],
+      tagline: "Full control, your infrastructure",
+      cta_text: "Get Started",
+      cta_link: "https://docs.activeagents.ai/getting-started",
+      cta_style: "tertiary",
+      highlighted: false %>
+
+    <%= render "pages/components/pricing_card",
+      name: "Pro Platform",
+      link: nil,
+      license: "For small/medium teams",
+      price: "$99",
+      price_suffix: "/month or $500/yr",
+      features: [
+        "5 team seats, 1 workspace",
+        "25,000 traces/month (14-day retention)",
+        "10,000 agent executions/month",
+        "Analytics, A/B testing & 5 prebuilt evaluators",
+        "48-hour email support"
+      ],
+      tagline: "Let us watch your agents so you don't have to",
+      cta_text: "Start Free Trial",
+      cta_link: "/registration/new",
+      cta_style: "primary",
+      highlighted: true %>
+
+    <%= render "pages/components/pricing_card",
+      name: "Enterprise Platform",
+      link: nil,
+      license: "For serious agent deployments",
+      price: "$2,000+",
+      price_suffix: "/year",
+      features: [
+        "Unlimited seats & workspaces",
+        "500k+ traces/month, 400-day retention",
+        "Unlimited agent executions",
+        "SSO, SOC 2, HIPAA, Private VPC",
+        "Dedicated Slack, 4-hour SLA"
+      ],
+      tagline: "When your agents need enterprise-grade babysitting",
+      cta_text: "Contact Sales",
+      cta_link: "mailto:sales@activeagents.ai",
+      cta_style: "tertiary",
+      highlighted: false %>
+  </div>
+
+  <!-- Platform Comparison Table -->
+  <details class="accordion-item comparison-accordion margin-top-xl">
+    <summary class="accordion-toggle">
+      <h3 class="no-top-margin">Platform Feature Comparison</h3>
+      <span class="accordion-chevron fa-solid fa-chevron-down"></span>
+    </summary>
+    <div class="accordion-content">
+      <%= render "pages/components/platform_comparison_table" %>
+
+      <!-- Platform Add-Ons -->
+      <div class="text-centered full-width margin-top-xl">
+        <h3 class="no-top-margin">Platform Add-Ons</h3>
+        <p class="paragraph s secondary">Scale beyond your plan with usage-based pricing</p>
+      </div>
+      <div class="grid columns-2" style="margin-top: 1rem;">
+        <div class="feature-card">
+          <div class="feature-heading">
+            <p class="paragraph m bold no-top-margin">Pro Add-Ons</p>
+          </div>
+          <div class="feature-list">
+            <% ["Additional traces: $2.00/1k", "Additional executions: $0.01/exec", "Extended retention (400 days): $2.50/1k", "Additional team seats: $19/seat/mo", "Additional workspaces: $49/workspace/mo"].each do |addon| %>
+              <div class="feature-item paragraph s">
+                <div class="fa-regular fa-circle icon m"></div>
+                <div><%= addon %></div>
+              </div>
+            <% end %>
+          </div>
+        </div>
+        <div class="feature-card">
+          <div class="feature-heading">
+            <p class="paragraph m bold no-top-margin">Enterprise Add-Ons</p>
+          </div>
+          <div class="feature-list">
+            <% ["Additional traces: $1.50/1k", "Additional executions: $0.005/exec", "Extended retention: Included", "Additional seats & workspaces: Included", "Appliance/embedded license: $14,995/yr"].each do |addon| %>
+              <div class="feature-item paragraph s">
+                <div class="fa-regular fa-circle icon m"></div>
+                <div><%= addon %></div>
+              </div>
+            <% end %>
+          </div>
+        </div>
+      </div>
+    </div>
+  </details>
+</section>

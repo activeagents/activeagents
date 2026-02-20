@@ -1,14 +1,99 @@
 class DashboardController < ApplicationController
   def index
     render inertia: "Dashboard", props: {
-      user: current_user_props
+      user: current_user_props,
+      initialAgents: agents_data,
+      meta: meta_data,
+      account: current_account_props,
+      subscription: subscription_props
     }
   end
 
   private
 
+  def current_user
+    Current.session&.user
+  end
+
   def current_user_props
-    # Placeholder for user data
-    { name: "Developer" }
+    return { name: "Guest" } unless current_user
+
+    {
+      id: current_user.id,
+      name: current_user.display_name,
+      email: current_user.email_address
+    }
+  end
+
+  def agents_data
+    return [] unless current_user
+
+    current_user.agents.order(updated_at: :desc).limit(20).map do |agent|
+      {
+        id: agent.id,
+        name: agent.name,
+        slug: agent.slug,
+        description: agent.description,
+        provider: agent.provider,
+        model: agent.model,
+        status: agent.status,
+        presetType: agent.preset_type,
+        appearance: agent.appearance,
+        versionCount: agent.version_count,
+        createdAt: agent.created_at,
+        updatedAt: agent.updated_at
+      }
+    end
+  rescue ActiveRecord::StatementInvalid
+    # Table doesn't exist yet
+    []
+  end
+
+  def meta_data
+    {
+      providers: Agent::PROVIDERS,
+      presetTypes: Agent::PRESET_TYPES,
+      instructionSets: Agent::INSTRUCTION_SETS,
+      availableTools: Agent::AVAILABLE_TOOLS
+    }
+  rescue NameError
+    # Agent class not loaded yet
+    {
+      providers: %w[openai anthropic ollama openrouter],
+      presetTypes: %w[terminal webDeveloper research writing],
+      instructionSets: %w[github ruby rails aws gcp python typescript docker kubernetes],
+      availableTools: %w[terminal playwright filesystem code database slack fetch search edit translate memory]
+    }
+  end
+
+  def current_account_props
+    return nil unless current_user
+    account = current_user.primary_account
+    return nil unless account
+    {
+      id: account.id,
+      name: account.name,
+      subscribed: account.subscribed?
+    }
+  rescue NoMethodError
+    nil
+  end
+
+  def subscription_props
+    return nil unless current_user
+    account = current_user.primary_account
+    return nil unless account
+    subscription = account.active_subscription
+    return nil unless subscription
+    plan = account.current_plan
+    {
+      plan_name: plan&.name || "Unknown",
+      status: subscription.status,
+      on_trial: subscription.on_trial?,
+      trial_ends_at: subscription.trial_ends_at&.iso8601,
+      ends_at: subscription.ends_at&.iso8601
+    }
+  rescue NoMethodError
+    nil
   end
 end

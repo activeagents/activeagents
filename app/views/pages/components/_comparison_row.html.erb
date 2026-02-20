@@ -1,0 +1,16 @@
+<%# locals: (feature:, values:) %>
+<tr class="pricing-table-row">
+  <td class="paragraph s"><%= feature.is_a?(String) ? feature.html_safe : feature %></td>
+  <% values.each do |value| %>
+    <td>
+      <% case value %>
+      <% when true %>
+        <div class="fa-solid fa-circle-check icon m color-success"></div>
+      <% when false %>
+        <div class="fa-solid fa-circle-xmark icon m color-danger"></div>
+      <% else %>
+        <span class="paragraph s"><%= value %></span>
+      <% end %>
+    </td>
+  <% end %>
+</tr>
