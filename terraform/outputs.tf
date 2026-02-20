@@ -56,3 +56,14 @@ output "sandbox_events_topic" {
   description = "Pub/Sub topic for sandbox events"
   value       = module.sandbox.sandbox_events_topic
 }
+
+# Load Balancer outputs
+output "lb_ip_address" {
+  description = "The external IP address of the load balancer"
+  value       = var.enable_load_balancer ? module.load_balancer[0].ip_address : null
+}
+
+output "lb_url" {
+  description = "The public URL via load balancer"
+  value       = var.enable_load_balancer ? module.load_balancer[0].url : null
+}

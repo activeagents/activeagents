@@ -107,3 +107,22 @@ variable "ci_service_account" {
   type        = string
   default     = null
 }
+
+# Load Balancer configuration
+variable "enable_load_balancer" {
+  description = "Enable external load balancer for public access (bypasses org policy)"
+  type        = bool
+  default     = false
+}
+
+variable "lb_domain" {
+  description = "Custom domain for the load balancer SSL certificate (optional)"
+  type        = string
+  default     = null
+}
+
+variable "enable_cdn" {
+  description = "Enable Cloud CDN for caching static assets"
+  type        = bool
+  default     = true
+}

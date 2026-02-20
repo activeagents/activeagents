@@ -36,4 +36,9 @@ module "activeagents" {
   allow_public_access   = var.allow_public_access
   authorized_domain     = var.authorized_domain
   ci_service_account    = var.ci_service_account
+
+  # Load Balancer for public access (bypasses org policy restrictions)
+  enable_load_balancer = var.enable_load_balancer
+  lb_domain            = var.lb_domain
+  enable_cdn           = var.enable_cdn
 }

@@ -204,6 +204,25 @@ module "cloud_run" {
   ]
 }
 
+# Load Balancer for public access (bypasses org policy restrictions)
+module "load_balancer" {
+  count  = var.enable_load_balancer ? 1 : 0
+  source = "./modules/load-balancer"
+
+  project_id             = var.project_id
+  region                 = var.region
+  name                   = "activeagents-${var.environment}"
+  cloud_run_service_name = module.cloud_run.service_name
+  domain                 = var.lb_domain
+  enable_cdn             = var.enable_cdn
+  enable_http_redirect   = true
+
+  depends_on = [
+    module.cloud_run,
+    google_project_service.apis,
+  ]
+}
+
 # Sandbox infrastructure for dynamic agent execution environments
 # Similar to HuggingFace Spaces or Google Colab
 module "sandbox" {
