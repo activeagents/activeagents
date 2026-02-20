@@ -1,7 +1,7 @@
 source "https://rubygems.org"
 
-# Bundle edge Rails instead: gem "rails", github: "rails/rails", branch: "main"
-gem "rails", "~> 8.1.2"
+# Use edge Rails from main branch
+gem "rails", github: "rails/rails", branch: "main"
 # The modern asset pipeline for Rails [https://github.com/rails/propshaft]
 gem "propshaft"
 # Use postgresql as the database for Active Record
@@ -18,13 +18,24 @@ gem "stimulus-rails"
 gem "cssbundling-rails"
 # Build JSON APIs with ease [https://github.com/rails/jbuilder]
 gem "jbuilder"
+# Markdown rendering for landing pages [https://github.com/vmg/redcarpet]
+gem "redcarpet"
+# Syntax highlighting for code snippets [https://github.com/rouge-ruby/rouge]
+gem "rouge"
 # Inertia adapter for Rails [https://inertia-rails.dev]
 gem "inertia_rails"
 # Active Agent - AI agent framework for Rails [https://github.com/activeagents/activeagent]
 gem "activeagent", github: "activeagents/activeagent", branch: "main"
+# Solid Agent - Persistence and context management for ActiveAgent
+gem "solid_agent", github: "activeagents/solid_agent", branch: "main"
 
 # Use Active Model has_secure_password [https://guides.rubyonrails.org/active_model_basics.html#securepassword]
-# gem "bcrypt", "~> 3.1.7"
+gem "bcrypt", "~> 3.1.7"
+
+# Payment processing with Pay gem [https://github.com/pay-rails/pay]
+gem "pay", "~> 7.3"
+# Stripe payment processor [https://stripe.com/docs/api]
+gem "stripe", "~> 12.0"
 
 # Windows does not include zoneinfo files, so bundle the tzinfo-data gem
 gem "tzinfo-data"
@@ -49,6 +60,9 @@ gem "thruster", require: false
 group :development, :test do
   # See https://guides.rubyonrails.org/debugging_rails_applications.html#debugging-with-the-debug-gem
   gem "debug", platforms: %i[ mri windows ], require: "debug/prelude"
+
+  # Load environment variables from .env file [https://github.com/bkeepers/dotenv]
+  gem "dotenv-rails"
 
   # Static analysis for security vulnerabilities [https://brakemanscanner.org/]
   gem "brakeman", require: false

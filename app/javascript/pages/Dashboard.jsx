@@ -1,33 +1,353 @@
-export default function Dashboard({ user }) {
+import React, { useState, useEffect } from 'react';
+import AgentList from '../components/dashboard/AgentList';
+import AgentBuilder from '../components/dashboard/AgentBuilder';
+import AgentEditor from '../components/dashboard/AgentEditor';
+import AgentRunner from '../components/dashboard/AgentRunner';
+import AgentAnalytics from '../components/dashboard/AgentAnalytics';
+import DashboardAnalytics from '../components/dashboard/DashboardAnalytics';
+import ConversationHistory from '../components/dashboard/ConversationHistory';
+import TemplateLibrary from '../components/dashboard/TemplateLibrary';
+import Sidebar from '../components/dashboard/Sidebar';
+import Header from '../components/dashboard/Header';
+import TracesView from '../components/dashboard/TracesView';
+import MetricsView from '../components/dashboard/MetricsView';
+import EvaluationsView from '../components/dashboard/EvaluationsView';
+import InteractionsView from '../components/dashboard/InteractionsView';
+import { ThemeProvider, useTheme } from '../contexts/ThemeContext';
+
+/**
+ * Dashboard - Main dashboard application
+ *
+ * Routes are handled client-side for SPA-like experience
+ * Real routes still go through Rails/Inertia for SSR benefits
+ */
+function DashboardContent({ user, initialAgents = [], meta = {} }) {
+  const { darkMode } = useTheme();
+  const [agents, setAgents] = useState(initialAgents);
+  const [currentView, setCurrentView] = useState('list'); // list, builder, editor, runner, analytics, agent-analytics, history
+  const [selectedAgent, setSelectedAgent] = useState(null);
+  const [isLoading, setIsLoading] = useState(false);
+  const [notification, setNotification] = useState(null);
+  const [showTemplateLibrary, setShowTemplateLibrary] = useState(false);
+
+  // Parse URL to determine initial view
+  useEffect(() => {
+    const path = window.location.pathname;
+    if (path.includes('/traces')) {
+      setCurrentView('traces');
+    } else if (path.includes('/metrics')) {
+      setCurrentView('metrics');
+    } else if (path.includes('/evaluations')) {
+      setCurrentView('evaluations');
+    } else if (path.includes('/interactions')) {
+      setCurrentView('interactions');
+    } else if (path.includes('/analytics') && !path.includes('/agents/')) {
+      setCurrentView('analytics');
+    } else if (path.includes('/agents/new')) {
+      setCurrentView('builder');
+    } else if (path.match(/\/agents\/\d+\/history/)) {
+      const id = path.match(/\/agents\/(\d+)/)?.[1];
+      if (id) loadAgent(id, 'history');
+    } else if (path.match(/\/agents\/\d+\/analytics/)) {
+      const id = path.match(/\/agents\/(\d+)/)?.[1];
+      if (id) loadAgent(id, 'agent-analytics');
+    } else if (path.match(/\/agents\/\d+\/edit/)) {
+      const id = path.match(/\/agents\/(\d+)/)?.[1];
+      if (id) loadAgent(id, 'editor');
+    } else if (path.match(/\/agents\/\d+\/run/)) {
+      const id = path.match(/\/agents\/(\d+)/)?.[1];
+      if (id) loadAgent(id, 'runner');
+    }
+  }, []);
+
+  const loadAgent = async (id, view) => {
+    setIsLoading(true);
+    try {
+      const response = await fetch(`/api/agents/${id}`);
+      const data = await response.json();
+      setSelectedAgent(data.agent);
+      setCurrentView(view);
+    } catch (error) {
+      showNotification('Failed to load agent', 'error');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const refreshAgents = async () => {
+    setIsLoading(true);
+    try {
+      const response = await fetch('/api/agents');
+      const data = await response.json();
+      setAgents(data.agents);
+    } catch (error) {
+      showNotification('Failed to refresh agents', 'error');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const showNotification = (message, type = 'info') => {
+    setNotification({ message, type });
+    setTimeout(() => setNotification(null), 3000);
+  };
+
+  const handleCreateAgent = async (agentData) => {
+    setIsLoading(true);
+    try {
+      const response = await fetch('/api/agents', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ agent: agentData })
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        setAgents([data.agent, ...agents]);
+        setSelectedAgent(data.agent);
+        setCurrentView('editor');
+        showNotification('Agent created successfully!', 'success');
+        window.history.pushState({}, '', `/dashboard/agents/${data.agent.id}/edit`);
+      } else {
+        const error = await response.json();
+        showNotification(error.errors?.join(', ') || 'Failed to create agent', 'error');
+      }
+    } catch (error) {
+      showNotification('Failed to create agent', 'error');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleUpdateAgent = async (id, agentData) => {
+    setIsLoading(true);
+    try {
+      const response = await fetch(`/api/agents/${id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ agent: agentData })
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        setAgents(agents.map(a => a.id === id ? data.agent : a));
+        setSelectedAgent(data.agent);
+        showNotification('Agent updated!', 'success');
+      } else {
+        const error = await response.json();
+        showNotification(error.errors?.join(', ') || 'Failed to update agent', 'error');
+      }
+    } catch (error) {
+      showNotification('Failed to update agent', 'error');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleDeleteAgent = async (id) => {
+    if (!confirm('Are you sure you want to delete this agent?')) return;
+
+    setIsLoading(true);
+    try {
+      const response = await fetch(`/api/agents/${id}`, { method: 'DELETE' });
+
+      if (response.ok) {
+        setAgents(agents.filter(a => a.id !== id));
+        setSelectedAgent(null);
+        setCurrentView('list');
+        showNotification('Agent deleted', 'success');
+        window.history.pushState({}, '', '/dashboard');
+      }
+    } catch (error) {
+      showNotification('Failed to delete agent', 'error');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleDuplicateAgent = async (id) => {
+    setIsLoading(true);
+    try {
+      const response = await fetch(`/api/agents/${id}/duplicate`, { method: 'POST' });
+
+      if (response.ok) {
+        const data = await response.json();
+        setAgents([data.agent, ...agents]);
+        showNotification('Agent duplicated!', 'success');
+      }
+    } catch (error) {
+      showNotification('Failed to duplicate agent', 'error');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleUseTemplate = (agent) => {
+    setAgents([agent, ...agents]);
+    setSelectedAgent(agent);
+    setCurrentView('editor');
+    setShowTemplateLibrary(false);
+    showNotification('Agent created from template!', 'success');
+    window.history.pushState({}, '', `/dashboard/agents/${agent.id}/edit`);
+  };
+
+  const navigateTo = (view, agent = null) => {
+    setSelectedAgent(agent);
+    setCurrentView(view);
+
+    // Update URL
+    let path = '/dashboard';
+    if (view === 'builder') path = '/dashboard/agents/new';
+    else if (view === 'editor' && agent) path = `/dashboard/agents/${agent.id}/edit`;
+    else if (view === 'runner' && agent) path = `/dashboard/agents/${agent.id}/run`;
+    else if (view === 'agent-analytics' && agent) path = `/dashboard/agents/${agent.id}/analytics`;
+    else if (view === 'history' && agent) path = `/dashboard/agents/${agent.id}/history`;
+    else if (view === 'analytics') path = '/dashboard/analytics';
+    else if (view === 'traces') path = '/dashboard/traces';
+    else if (view === 'metrics') path = '/dashboard/metrics';
+    else if (view === 'evaluations') path = '/dashboard/evaluations';
+    else if (view === 'interactions') path = '/dashboard/interactions';
+
+    window.history.pushState({}, '', path);
+  };
+
+  const renderContent = () => {
+    switch (currentView) {
+      case 'builder':
+        return (
+          <AgentBuilder
+            meta={meta}
+            onSave={handleCreateAgent}
+            onCancel={() => navigateTo('list')}
+            isLoading={isLoading}
+          />
+        );
+      case 'editor':
+        return selectedAgent ? (
+          <AgentEditor
+            agent={selectedAgent}
+            meta={meta}
+            onSave={(data) => handleUpdateAgent(selectedAgent.id, data)}
+            onDelete={() => handleDeleteAgent(selectedAgent.id)}
+            onRun={() => navigateTo('runner', selectedAgent)}
+            onAnalytics={() => navigateTo('agent-analytics', selectedAgent)}
+            onHistory={() => navigateTo('history', selectedAgent)}
+            onBack={() => navigateTo('list')}
+            isLoading={isLoading}
+          />
+        ) : null;
+      case 'runner':
+        return selectedAgent ? (
+          <AgentRunner
+            agent={selectedAgent}
+            onBack={() => navigateTo('editor', selectedAgent)}
+          />
+        ) : null;
+      case 'agent-analytics':
+        return selectedAgent ? (
+          <AgentAnalytics
+            agent={selectedAgent}
+            onBack={() => navigateTo('editor', selectedAgent)}
+          />
+        ) : null;
+      case 'history':
+        return selectedAgent ? (
+          <ConversationHistory
+            agent={selectedAgent}
+            onBack={() => navigateTo('editor', selectedAgent)}
+          />
+        ) : null;
+      case 'analytics':
+        return (
+          <DashboardAnalytics
+            onSelectAgent={(agent) => {
+              loadAgent(agent.id, 'agent-analytics');
+            }}
+          />
+        );
+      case 'traces':
+        return <TracesView />;
+      case 'metrics':
+        return <MetricsView />;
+      case 'evaluations':
+        return <EvaluationsView />;
+      case 'interactions':
+        return <InteractionsView />;
+      default:
+        return (
+          <AgentList
+            agents={agents}
+            meta={meta}
+            onSelect={(agent) => navigateTo('editor', agent)}
+            onNew={() => navigateTo('builder')}
+            onBrowseTemplates={() => setShowTemplateLibrary(true)}
+            onDuplicate={handleDuplicateAgent}
+            onDelete={handleDeleteAgent}
+            onRefresh={refreshAgents}
+            isLoading={isLoading}
+          />
+        );
+    }
+  };
+
   return (
-    <div className="min-h-screen bg-gray-100">
-      <nav className="bg-white shadow">
-        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-          <div className="flex h-16 justify-between">
-            <div className="flex">
-              <div className="flex flex-shrink-0 items-center">
-                <span className="text-xl font-bold text-indigo-600">Active Agent</span>
-              </div>
-            </div>
+    <div
+      className="min-h-screen flex"
+      style={{ backgroundColor: darkMode ? '#0f0f0f' : '#f9fafb' }}
+    >
+      <Sidebar
+        currentView={currentView}
+        onNavigate={navigateTo}
+        agentCount={agents.length}
+      />
+
+      <div className="flex-1 flex flex-col">
+        <Header
+          user={user}
+          currentView={currentView}
+          selectedAgent={selectedAgent}
+        />
+
+        <main className="flex-1 p-6 overflow-auto">
+          {renderContent()}
+        </main>
+      </div>
+
+      {/* Template Library Modal */}
+      {showTemplateLibrary && (
+        <TemplateLibrary
+          onUseTemplate={handleUseTemplate}
+          onClose={() => setShowTemplateLibrary(false)}
+        />
+      )}
+
+      {/* Notification Toast */}
+      {notification && (
+        <div className={`fixed bottom-4 right-4 px-6 py-3 rounded-lg shadow-lg transition-all transform ${
+          notification.type === 'error' ? 'bg-red-500' :
+          notification.type === 'success' ? 'bg-green-500' : 'bg-blue-500'
+        } text-white`}>
+          {notification.message}
+        </div>
+      )}
+
+      {/* Loading Overlay */}
+      {isLoading && (
+        <div className="fixed inset-0 bg-black bg-opacity-20 flex items-center justify-center z-50">
+          <div className={`rounded-lg p-4 shadow-xl ${darkMode ? 'bg-gray-800' : 'bg-white'}`}>
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-red-500"></div>
           </div>
         </div>
-      </nav>
-
-      <header className="bg-white shadow">
-        <div className="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8">
-          <h1 className="text-3xl font-bold tracking-tight text-gray-900">Dashboard</h1>
-        </div>
-      </header>
-
-      <main>
-        <div className="mx-auto max-w-7xl py-6 sm:px-6 lg:px-8">
-          <div className="px-4 py-6 sm:px-0">
-            <div className="rounded-lg border-4 border-dashed border-gray-200 p-8">
-              <p className="text-gray-500">Welcome to Active Agent! Your AI-powered development assistant.</p>
-            </div>
-          </div>
-        </div>
-      </main>
+      )}
     </div>
-  )
+  );
+}
+
+// Wrap with ThemeProvider
+export default function Dashboard(props) {
+  return (
+    <ThemeProvider>
+      <DashboardContent {...props} />
+    </ThemeProvider>
+  );
 }

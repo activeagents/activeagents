@@ -1,0 +1,518 @@
+<!DOCTYPE html>
+<html lang="en" class="theme-light">
+
+<head>
+  <meta charset="utf-8" />
+  <title><%= content_for(:title) || "Active Agent | The AI Framework For Ruby on Rails" %></title>
+  <meta content="Build AI in Rails - Now Agents are Controllers. The Ruby-native way to build AI features." name="description" />
+  <meta content="width=device-width, initial-scale=1" name="viewport" />
+
+  <!-- Open Graph -->
+  <meta property="og:type" content="website" />
+  <meta property="og:site_name" content="Active Agent" />
+  <meta property="og:locale" content="en_US" />
+  <meta property="og:title" content="Active Agent | The AI Framework For Ruby on Rails" />
+  <meta property="og:description" content="Build AI in Rails - Now Agents are Controllers. Makes code tons of fun!" />
+  <meta property="og:url" content="https://activeagents.ai" />
+  <meta name="twitter:site" content="@activeagents" />
+  <meta name="twitter:card" content="summary_large_image" />
+  <meta name="twitter:title" content="Active Agent | The AI Framework For Ruby on Rails" />
+  <meta name="twitter:description" content="Build AI in Rails - Now Agents are Controllers." />
+
+  <!-- Favicon and icons -->
+  <link rel="icon" href="/images/activeagent-logo.png" sizes="32x32" />
+  <link rel="apple-touch-icon" href="/images/activeagent-logo.png" />
+
+  <!-- Preload fonts -->
+  <link rel="preload" href="/fonts/InterVariable.woff2" as="font" type="font/woff2" crossorigin />
+
+  <!-- Styles (absolute paths - converted to relative by rake task) -->
+  <link href="/vendor/font-awesome-6.7.2/css/all.min.css" rel="stylesheet" />
+  <link href="/css/base.css" rel="stylesheet" />
+  <link href="/css/pricing.css" rel="stylesheet" />
+  <link href="/css/tablet.css" rel="stylesheet" media="(max-width: 1024px)" />
+  <link href="/css/mobile.css" rel="stylesheet" media="(max-width: 767px)" />
+</head>
+
+<body>
+  <div class="background-gradient"></div>
+  <div class="page-container">
+    <%= render "layouts/landing/header" %>
+
+    <main>
+      <%= yield %>
+    </main>
+
+    <%= render "layouts/landing/footer" %>
+  </div>
+
+  <!-- JS for mobile nav and theme toggle -->
+  <script>
+    // Mobile navigation toggle
+    (function() {
+      const hamburger = document.querySelector('.nav-hamburger');
+      const navMenu = document.querySelector('.nav-menu');
+
+      if (hamburger && navMenu) {
+        hamburger.addEventListener('click', () => {
+          navMenu.classList.toggle('open');
+          hamburger.classList.toggle('active');
+        });
+
+        // Close menu when clicking outside
+        document.addEventListener('click', (e) => {
+          if (!hamburger.contains(e.target) && !navMenu.contains(e.target)) {
+            navMenu.classList.remove('open');
+            hamburger.classList.remove('active');
+          }
+        });
+
+        // Close menu when clicking nav links
+        navMenu.querySelectorAll('.nav-link').forEach(link => {
+          link.addEventListener('click', (e) => {
+            const href = link.getAttribute('href');
+            if (href && href.startsWith('#')) {
+              e.preventDefault();
+              navMenu.classList.remove('open');
+              hamburger.classList.remove('active');
+              setTimeout(() => {
+                const target = document.querySelector(href);
+                if (target) {
+                  target.scrollIntoView({ behavior: 'smooth' });
+                  history.pushState(null, null, href);
+                }
+              }, 150);
+            } else {
+              navMenu.classList.remove('open');
+              hamburger.classList.remove('active');
+            }
+          });
+        });
+      }
+    })();
+
+    // Theme toggle
+    (function() {
+      const html = document.documentElement;
+      const themeBtn = document.querySelector('[aria-label="Toggle dark mode"]');
+
+      // Check saved preference or system preference
+      const savedTheme = localStorage.getItem('theme');
+      if (savedTheme) {
+        html.className = savedTheme;
+      } else if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
+        html.className = 'theme-dark';
+      }
+
+      if (themeBtn) {
+        themeBtn.addEventListener('click', () => {
+          const newTheme = html.className === 'theme-light' ? 'theme-dark' : 'theme-light';
+          html.className = newTheme;
+          localStorage.setItem('theme', newTheme);
+        });
+      }
+
+      // Listen for system theme changes
+      window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', (e) => {
+        if (!localStorage.getItem('theme')) {
+          html.className = e.matches ? 'theme-dark' : 'theme-light';
+        }
+      });
+    })();
+
+    // Agent Builder (hero section) - Multi-select version
+    (function() {
+      const instructions = {
+        github: { emoji: '🐙', label: 'GitHub' },
+        ruby: { emoji: '💎', label: 'Ruby' },
+        rails: { emoji: '🛤️', label: 'Rails' },
+        aws: { emoji: '☁️', label: 'AWS' },
+        gcp: { emoji: '🌐', label: 'GCP' },
+        python: { emoji: '🐍', label: 'Python' },
+        typescript: { emoji: '📘', label: 'TypeScript' },
+        docker: { emoji: '🐳', label: 'Docker' },
+        kubernetes: { emoji: '☸️', label: 'Kubernetes' },
+      };
+
+      const tools = {
+        terminal: { emoji: '💻', label: 'Terminal' },
+        playwright: { emoji: '🎭', label: 'Playwright' },
+        filesystem: { emoji: '📁', label: 'Filesystem' },
+        code: { emoji: '👨‍💻', label: 'Code' },
+        database: { emoji: '🗄️', label: 'Database' },
+        slack: { emoji: '💬', label: 'Slack' },
+        fetch: { emoji: '🌐', label: 'Fetch' },
+        search: { emoji: '🔍', label: 'Search' },
+        edit: { emoji: '✏️', label: 'Edit' },
+        translate: { emoji: '🌍', label: 'Translate' },
+        memory: { emoji: '🧠', label: 'Memory' },
+      };
+
+      const presets = {
+        'claude-code': { instructions: ['github'], tools: ['terminal', 'code'] },
+        'web-scraper': { instructions: ['typescript'], tools: ['playwright', 'fetch'] },
+        'data-analyst': { instructions: ['python'], tools: ['database', 'search', 'code'] },
+        'devops': { instructions: ['github', 'aws'], tools: ['terminal', 'slack', 'code'] },
+        'polyglot': { instructions: ['ruby', 'python', 'typescript'], tools: ['translate', 'code'] },
+        'research': { instructions: ['github'], tools: ['fetch', 'search', 'memory'] },
+      };
+
+      const instructionsContainer = document.querySelector('.agent-instructions');
+      const toolsContainer = document.querySelector('.agent-tools');
+      const speechLeft = document.querySelector('.agent-speech-left');
+      const speechRight = document.querySelector('.agent-speech-right');
+      const configInstructions = document.querySelector('[data-agent-builder-target="configInstructions"]');
+      const configTools = document.querySelector('[data-agent-builder-target="configTools"]');
+      const presetBtns = document.querySelectorAll('.preset-btn');
+      const instructionChips = document.querySelectorAll('[data-instruction]');
+      const toolChips = document.querySelectorAll('[data-tool]');
+
+      // Track selected items
+      let selectedInstructions = new Set(['github']);
+      let selectedTools = new Set(['terminal', 'code']);
+
+      function renderFromSelections() {
+        // Render instructions (head/hat)
+        if (instructionsContainer) {
+          const ids = Array.from(selectedInstructions);
+          instructionsContainer.innerHTML = ids.map((id, i) => {
+            const inst = instructions[id];
+            return inst ? `<span class="instruction-item" style="animation-delay: ${i * 0.1}s" title="${inst.label}">${inst.emoji}</span>` : '';
+          }).join('') || '<span class="instruction-item empty">💬</span>';
+        }
+
+        // Render tools (hands) - excluding translate
+        if (toolsContainer) {
+          const ids = Array.from(selectedTools).filter(id => id !== 'translate');
+          toolsContainer.innerHTML = ids.map(id => {
+            const tool = tools[id];
+            return tool ? `<span class="tool-item" title="${tool.label}">${tool.emoji}</span>` : '';
+          }).join('') || '<span class="tool-item empty">🔧</span>';
+        }
+
+        // Handle translation speech bubbles
+        const hasTranslate = selectedTools.has('translate');
+        if (speechLeft) speechLeft.style.display = hasTranslate ? 'block' : 'none';
+        if (speechRight) speechRight.style.display = hasTranslate ? 'block' : 'none';
+
+        // Update config display
+        if (configInstructions) {
+          const labels = Array.from(selectedInstructions).map(id => {
+            const inst = instructions[id];
+            return inst ? `${inst.emoji} ${inst.label}` : '';
+          }).filter(Boolean).join(', ');
+          configInstructions.textContent = labels || 'None selected';
+        }
+        if (configTools) {
+          const labels = Array.from(selectedTools).map(id => {
+            const tool = tools[id];
+            return tool ? `${tool.emoji} ${tool.label}` : '';
+          }).filter(Boolean).join(', ');
+          configTools.textContent = labels || 'None selected';
+        }
+      }
+
+      function updateChipStates() {
+        instructionChips.forEach(chip => {
+          const id = chip.dataset.instruction;
+          chip.classList.toggle('selected', selectedInstructions.has(id));
+        });
+        toolChips.forEach(chip => {
+          const id = chip.dataset.tool;
+          chip.classList.toggle('selected', selectedTools.has(id));
+        });
+      }
+
+      function clearPresetActive() {
+        presetBtns.forEach(b => b.classList.remove('active'));
+      }
+
+      function applyPreset(presetName) {
+        const preset = presets[presetName];
+        if (!preset) return;
+        selectedInstructions = new Set(preset.instructions);
+        selectedTools = new Set(preset.tools);
+        updateChipStates();
+        renderFromSelections();
+      }
+
+      // Bind preset buttons
+      presetBtns.forEach(btn => {
+        btn.addEventListener('click', () => {
+          presetBtns.forEach(b => b.classList.remove('active'));
+          btn.classList.add('active');
+          applyPreset(btn.dataset.preset);
+        });
+      });
+
+      // Bind instruction chip toggles
+      instructionChips.forEach(chip => {
+        chip.addEventListener('click', () => {
+          const id = chip.dataset.instruction;
+          if (selectedInstructions.has(id)) {
+            selectedInstructions.delete(id);
+            chip.classList.remove('selected');
+          } else {
+            selectedInstructions.add(id);
+            chip.classList.add('selected');
+          }
+          clearPresetActive();
+          renderFromSelections();
+        });
+      });
+
+      // Bind tool chip toggles
+      toolChips.forEach(chip => {
+        chip.addEventListener('click', () => {
+          const id = chip.dataset.tool;
+          if (selectedTools.has(id)) {
+            selectedTools.delete(id);
+            chip.classList.remove('selected');
+          } else {
+            selectedTools.add(id);
+            chip.classList.add('selected');
+          }
+          clearPresetActive();
+          renderFromSelections();
+        });
+      });
+
+      // Initialize with claude-code preset
+      applyPreset('claude-code');
+    })();
+
+    // Session Replay - Agent typing animation
+    (function() {
+      const viewport = document.querySelector('[data-replay-viewport]');
+      if (!viewport) return;
+
+      const cursor = viewport.querySelector('[data-replay-cursor]');
+      const cardInput = viewport.querySelector('[data-replay-card]');
+      const expiryInput = viewport.querySelector('[data-replay-expiry]');
+      const cvcInput = viewport.querySelector('[data-replay-cvc]');
+      const payBtn = viewport.querySelector('[data-replay-pay]');
+
+      if (!cursor || !cardInput || !expiryInput || !cvcInput || !payBtn) return;
+
+      let isPaused = false;
+      let animationTimer = null;
+
+      const fields = [
+        { input: cardInput, position: 'at-card', text: cardInput.dataset.typed },
+        { input: expiryInput, position: 'at-expiry', text: expiryInput.dataset.typed },
+        { input: cvcInput, position: 'at-cvc', text: cvcInput.dataset.typed },
+      ];
+
+      function typeText(input, text, callback) {
+        let i = 0;
+        const parent = input.closest('.form-input');
+        parent.classList.add('typing');
+
+        function typeChar() {
+          if (isPaused) {
+            animationTimer = setTimeout(typeChar, 100);
+            return;
+          }
+          if (i < text.length) {
+            input.value = text.substring(0, i + 1);
+            i++;
+            animationTimer = setTimeout(typeChar, 60 + Math.random() * 40);
+          } else {
+            parent.classList.remove('typing');
+            animationTimer = setTimeout(callback, 300);
+          }
+        }
+        typeChar();
+      }
+
+      function runAnimation() {
+        // Reset
+        fields.forEach(f => {
+          f.input.value = '';
+          f.input.closest('.form-input').classList.remove('typing');
+        });
+        payBtn.textContent = 'Pay $99.00';
+        payBtn.style.background = '';
+
+        let fieldIndex = 0;
+
+        function nextField() {
+          if (isPaused) {
+            animationTimer = setTimeout(nextField, 100);
+            return;
+          }
+
+          if (fieldIndex < fields.length) {
+            const field = fields[fieldIndex];
+            cursor.className = 'agent-cursor ' + field.position;
+
+            animationTimer = setTimeout(() => {
+              typeText(field.input, field.text, () => {
+                fieldIndex++;
+                nextField();
+              });
+            }, 400);
+          } else {
+            // Move to pay button
+            cursor.className = 'agent-cursor at-pay';
+            animationTimer = setTimeout(() => {
+              payBtn.textContent = 'Processing...';
+              payBtn.style.opacity = '0.7';
+              animationTimer = setTimeout(() => {
+                payBtn.textContent = 'Payment Successful!';
+                payBtn.style.background = 'linear-gradient(135deg, #10b981, #059669)';
+                payBtn.style.opacity = '1';
+                cursor.classList.add('hidden');
+                // Wait then restart
+                animationTimer = setTimeout(() => {
+                  payBtn.style.background = '';
+                  payBtn.style.opacity = '';
+                  runAnimation();
+                }, 2500);
+              }, 1000);
+            }, 500);
+          }
+        }
+
+        // Start with cursor at card field
+        cursor.className = 'agent-cursor at-card';
+        animationTimer = setTimeout(nextField, 600);
+      }
+
+      // Pause on hover/focus
+      viewport.addEventListener('mouseenter', () => { isPaused = true; });
+      viewport.addEventListener('mouseleave', () => { isPaused = false; });
+      [cardInput, expiryInput, cvcInput].forEach(input => {
+        input.addEventListener('focus', () => { isPaused = true; cursor.classList.add('hidden'); });
+        input.addEventListener('blur', () => { isPaused = false; cursor.classList.remove('hidden'); });
+      });
+
+      // Handle user clicking Pay
+      payBtn.addEventListener('click', (e) => {
+        e.preventDefault();
+        payBtn.textContent = 'Processing...';
+        payBtn.style.opacity = '0.7';
+        setTimeout(() => {
+          payBtn.textContent = 'Payment Successful!';
+          payBtn.style.background = 'linear-gradient(135deg, #10b981, #059669)';
+          payBtn.style.opacity = '1';
+        }, 1000);
+        setTimeout(() => {
+          payBtn.textContent = 'Pay $99.00';
+          payBtn.style.background = '';
+          payBtn.style.opacity = '';
+        }, 3000);
+      });
+
+      // Start animation
+      runAnimation();
+    })();
+
+    // Flip Cards - tap to flip on mobile, hover on desktop, expand for long code
+    (function() {
+      const flipCards = document.querySelectorAll('.flip-card');
+
+      const isTouchDevice = () => {
+        return (
+          'ontouchstart' in window ||
+          navigator.maxTouchPoints > 0 ||
+          window.matchMedia('(max-width: 767px)').matches
+        );
+      };
+
+      flipCards.forEach((card) => {
+        const originalHeight = card.offsetHeight;
+        let backHeight = originalHeight;
+
+        // Measure back content height
+        const back = card.querySelector('.flip-card-back');
+        if (back) {
+          const inner = card.querySelector('.flip-card-inner');
+          const origTransform = inner.style.transform;
+          inner.style.transform = 'rotateY(180deg)';
+          back.style.visibility = 'hidden';
+          back.style.position = 'relative';
+          back.style.height = 'auto';
+          backHeight = back.scrollHeight + 20;
+          back.style.visibility = '';
+          back.style.position = '';
+          back.style.height = '';
+          inner.style.transform = origTransform;
+        }
+
+        const expand = () => {
+          if (backHeight > originalHeight) {
+            card.style.height = backHeight + 'px';
+          }
+        };
+
+        const collapse = () => {
+          card.style.height = originalHeight + 'px';
+        };
+
+        // Desktop hover expand/collapse
+        if (!isTouchDevice()) {
+          card.addEventListener('mouseenter', expand);
+          card.addEventListener('mouseleave', collapse);
+        }
+
+        // Set up scroll-to-flip on mobile using IntersectionObserver
+        if (isTouchDevice()) {
+          const observer = new IntersectionObserver(
+            (entries) => {
+              entries.forEach((entry) => {
+                if (entry.isIntersecting) {
+                  card.classList.add('flipped');
+                  expand();
+                } else {
+                  card.classList.remove('flipped');
+                  collapse();
+                }
+              });
+            },
+            {
+              rootMargin: '-30% 0px -30% 0px',
+              threshold: 0.5
+            }
+          );
+          observer.observe(card);
+        }
+
+        // Tap to toggle on mobile
+        card.addEventListener('click', (event) => {
+          if (!isTouchDevice()) return;
+
+          const isFlipped = card.classList.contains('flipped');
+          const clickedDocsLink = event.target.closest('.docs-link');
+
+          if (isFlipped && clickedDocsLink) return;
+
+          if (isFlipped) {
+            card.classList.remove('flipped');
+            collapse();
+          } else {
+            card.classList.add('flipped');
+            expand();
+          }
+        });
+
+        // Keyboard accessibility
+        card.addEventListener('keydown', (event) => {
+          if (event.key === 'Enter' || event.key === ' ') {
+            event.preventDefault();
+            const isFlipped = card.classList.contains('flipped');
+            if (isFlipped) {
+              card.classList.remove('flipped');
+              collapse();
+            } else {
+              card.classList.add('flipped');
+              expand();
+            }
+          }
+        });
+      });
+    })();
+  </script>
+</body>
+
+</html>

@@ -6,3 +6,21 @@ import { application } from "./application"
 
 import HelloController from "./hello_controller"
 application.register("hello", HelloController)
+
+import ScrollAnimateController from "./scroll_animate_controller"
+application.register("scroll-animate", ScrollAnimateController)
+
+import ThemeToggleController from "./theme_toggle_controller"
+application.register("theme-toggle", ThemeToggleController)
+
+import MobileMenuController from "./mobile_menu_controller"
+application.register("mobile-menu", MobileMenuController)
+
+import FlipCardController from "./flip_card_controller"
+application.register("flip-card", FlipCardController)
+
+import AgentBuilderController from "./agent_builder_controller"
+application.register("agent-builder", AgentBuilderController)
+
+import SessionReplayController from "./session_replay_controller"
+application.register("session-replay", SessionReplayController)

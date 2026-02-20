@@ -1,0 +1,547 @@
+<%# locals: (title:, description:, preview_type:) %>
+<div class="product-preview-card">
+  <div class="preview-header">
+    <div class="preview-dots">
+      <span class="dot red"></span>
+      <span class="dot yellow"></span>
+      <span class="dot green"></span>
+    </div>
+    <span class="preview-title"><%= title %></span>
+  </div>
+  <div class="preview-content">
+    <% case preview_type %>
+    <% when :trace_timeline %>
+      <div class="preview-traces">
+        <div class="trace-header-row hoverable">
+          <div class="trace-id">
+            <span class="trace-badge">TRACE</span>
+            <span class="trace-hash">abc-7f2e</span>
+          </div>
+          <div class="trace-meta">
+            <span class="meta-item"><i class="fa-solid fa-clock"></i> 1.24s</span>
+            <span class="meta-item"><i class="fa-solid fa-coins"></i> $0.0034</span>
+            <span class="meta-item success"><i class="fa-solid fa-check"></i> 200</span>
+          </div>
+        </div>
+        <div class="trace-timeline">
+          <div class="timeline-scale">
+            <span>0ms</span>
+            <span>400ms</span>
+            <span>800ms</span>
+            <span>1.2s</span>
+          </div>
+          <div class="span-row hoverable" data-tooltip="TranslationAgent#translate&#10;Duration: 1.24s&#10;Status: success">
+            <div class="span-label">
+              <span class="span-icon">→</span>
+              <span class="span-name">TranslationAgent#translate</span>
+            </div>
+            <div class="span-bar-container">
+              <div class="span-bar root" style="left: 0%; width: 100%;"></div>
+            </div>
+          </div>
+          <div class="span-row nested-1 hoverable" data-tooltip="Prompt Construction&#10;Duration: 45ms&#10;Template: translate.erb">
+            <div class="span-label">
+              <span class="span-icon">◇</span>
+              <span class="span-name">prompt</span>
+            </div>
+            <div class="span-bar-container">
+              <div class="span-bar prompt" style="left: 2%; width: 6%;"></div>
+            </div>
+          </div>
+          <div class="span-row nested-1 hoverable" data-tooltip="Generate Call&#10;Provider: openai&#10;Duration: 987ms">
+            <div class="span-label">
+              <span class="span-icon generate">▶</span>
+              <span class="span-name">#generate</span>
+            </div>
+            <div class="span-bar-container">
+              <div class="span-bar generate" style="left: 10%; width: 80%;"></div>
+            </div>
+          </div>
+          <div class="span-row nested-2 hoverable" data-tooltip="Claude API Call&#10;Model: claude-sonnet-4&#10;Duration: 892ms">
+            <div class="span-label">
+              <span class="span-icon llm">◆</span>
+              <span class="span-name">anthropic.messages</span>
+            </div>
+            <div class="span-bar-container">
+              <div class="span-bar llm" style="left: 12%; width: 72%;">
+                <div class="span-popover">
+                  <div class="popover-title">anthropic.messages</div>
+                  <div class="popover-row"><span>Model</span><span>claude-sonnet-4</span></div>
+                  <div class="popover-row"><span>Duration</span><span>892ms</span></div>
+                  <div class="popover-row"><span>Tokens</span><span>2,847</span></div>
+                  <div class="popover-row"><span>Cost</span><span>$0.0089</span></div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="span-row nested-3 hoverable reasoning-row">
+            <div class="span-label">
+              <span class="span-icon thinking">💭</span>
+              <span class="span-name">extended_thinking</span>
+            </div>
+            <div class="span-bar-container">
+              <div class="span-bar thinking" style="left: 12%; width: 45%;">
+                <div class="span-popover reasoning-popover">
+                  <div class="popover-title"><i class="fa-solid fa-brain"></i> Reasoning Trace</div>
+                  <div class="reasoning-preview">
+                    "The user wants Spanish translation. I should use natural, conversational Spanish rather than formal. 'Hello world' is a greeting..."
+                  </div>
+                  <div class="popover-row"><span>Thinking tokens</span><span>1,600</span></div>
+                  <div class="popover-row"><span>Time</span><span>412ms</span></div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="span-row nested-3">
+            <div class="span-label">
+              <span class="span-icon">↳</span>
+              <span class="span-name tokens">2,847 tokens</span>
+            </div>
+            <div class="span-bar-container">
+              <div class="token-breakdown">
+                <span class="token-thinking">🧠 1,600</span>
+                <span class="token-in">↓ 892</span>
+                <span class="token-out">↑ 355</span>
+              </div>
+            </div>
+          </div>
+          <div class="span-row nested-1 hoverable" data-tooltip="Response Processing&#10;Duration: 52ms&#10;Format: text">
+            <div class="span-label">
+              <span class="span-icon">◇</span>
+              <span class="span-name">response</span>
+            </div>
+            <div class="span-bar-container">
+              <div class="span-bar response" style="left: 92%; width: 6%;"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    <% when :metrics_dashboard %>
+      <div class="preview-metrics">
+        <div class="metrics-grid">
+          <div class="metric-card hoverable">
+            <div class="metric-label">Total Requests</div>
+            <div class="metric-value">12,847</div>
+            <div class="metric-trend up"><i class="fa-solid fa-arrow-up"></i> 23% vs last week</div>
+            <div class="metric-sparkline">
+              <svg viewBox="0 0 60 20" class="sparkline">
+                <polyline points="0,15 10,12 20,14 30,8 40,10 50,5 60,7" />
+              </svg>
+            </div>
+          </div>
+          <div class="metric-card hoverable">
+            <div class="metric-label">Avg Latency</div>
+            <div class="metric-value">847<span class="metric-unit">ms</span></div>
+            <div class="metric-trend down"><i class="fa-solid fa-arrow-down"></i> 12% faster</div>
+            <div class="metric-sparkline">
+              <svg viewBox="0 0 60 20" class="sparkline green">
+                <polyline points="0,5 10,8 20,6 30,10 40,12 50,14 60,15" />
+              </svg>
+            </div>
+          </div>
+          <div class="metric-card hoverable">
+            <div class="metric-label">Total Cost</div>
+            <div class="metric-value">$42.18</div>
+            <div class="metric-trend neutral">this period</div>
+            <div class="metric-sparkline">
+              <svg viewBox="0 0 60 20" class="sparkline neutral">
+                <polyline points="0,10 10,11 20,9 30,10 40,10 50,11 60,10" />
+              </svg>
+            </div>
+          </div>
+          <div class="metric-card hoverable">
+            <div class="metric-label">Tokens Used</div>
+            <div class="metric-value">2.4<span class="metric-unit">M</span></div>
+            <div class="metric-breakdown">
+              <span class="breakdown-in">↓ 1.8M</span>
+              <span class="breakdown-out">↑ 0.6M</span>
+            </div>
+          </div>
+        </div>
+        <div class="metrics-chart hoverable">
+          <div class="chart-header">
+            <span class="chart-title">Requests / Hour</span>
+            <span class="chart-period">Last 24h</span>
+          </div>
+          <div class="chart-bars">
+            <div class="chart-bar" style="height: 40%;" data-value="423"></div>
+            <div class="chart-bar" style="height: 25%;" data-value="267"></div>
+            <div class="chart-bar" style="height: 60%;" data-value="634"></div>
+            <div class="chart-bar" style="height: 45%;" data-value="478"></div>
+            <div class="chart-bar" style="height: 80%;" data-value="847"></div>
+            <div class="chart-bar" style="height: 95%;" data-value="1,012"></div>
+            <div class="chart-bar" style="height: 70%;" data-value="743"></div>
+            <div class="chart-bar active" style="height: 55%;" data-value="582">
+              <span class="bar-tooltip">582 requests<br>12:00 - 13:00</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    <% when :evaluation %>
+      <div class="preview-evaluation">
+        <div class="eval-header hoverable">
+          <span class="eval-badge">EVALUATION</span>
+          <span class="eval-name">Translation Quality</span>
+          <span class="eval-time">2 min ago</span>
+        </div>
+        <div class="eval-scores">
+          <div class="score-item hoverable">
+            <div class="score-label">Accuracy</div>
+            <div class="score-bar-container">
+              <div class="score-bar high animated" style="width: 94%;"></div>
+            </div>
+            <div class="score-value high">0.94</div>
+            <div class="score-tooltip">
+              <strong>Accuracy Score</strong>
+              <p>Measures semantic correctness of translation</p>
+              <div class="tooltip-stat">Min: 0.89 | Max: 0.98 | Avg: 0.94</div>
+            </div>
+          </div>
+          <div class="score-item hoverable">
+            <div class="score-label">Fluency</div>
+            <div class="score-bar-container">
+              <div class="score-bar high animated" style="width: 88%;"></div>
+            </div>
+            <div class="score-value high">0.88</div>
+            <div class="score-tooltip">
+              <strong>Fluency Score</strong>
+              <p>Natural language flow and readability</p>
+              <div class="tooltip-stat">Min: 0.82 | Max: 0.95 | Avg: 0.88</div>
+            </div>
+          </div>
+          <div class="score-item hoverable">
+            <div class="score-label">Faithfulness</div>
+            <div class="score-bar-container">
+              <div class="score-bar medium animated" style="width: 72%;"></div>
+            </div>
+            <div class="score-value medium">0.72</div>
+            <div class="score-tooltip">
+              <strong>Faithfulness Score</strong>
+              <p>Preservation of original meaning</p>
+              <div class="tooltip-stat warning">⚠ Below threshold (0.80)</div>
+            </div>
+          </div>
+        </div>
+        <div class="eval-details">
+          <div class="eval-row hoverable">
+            <span class="eval-key">Model Judge</span>
+            <span class="eval-val">claude-3-haiku</span>
+          </div>
+          <div class="eval-row hoverable">
+            <span class="eval-key">Criteria</span>
+            <span class="eval-val">semantic_similarity, grammar, tone</span>
+          </div>
+          <div class="eval-row hoverable">
+            <span class="eval-key">Samples</span>
+            <span class="eval-val">50 / 50 passed</span>
+          </div>
+        </div>
+      </div>
+    <% when :session_log %>
+      <div class="preview-sessions">
+        <div class="session-header hoverable">
+          <span class="session-badge">SESSION</span>
+          <span class="session-id">user_8f2a_chat</span>
+          <span class="session-count">3 fragments</span>
+        </div>
+        <div class="session-fragments">
+          <div class="fragment hoverable">
+            <div class="fragment-header">
+              <span class="fragment-badge">FRAGMENT</span>
+              <span class="fragment-hash">frag_a8c2</span>
+              <span class="fragment-cache hit"><i class="fa-solid fa-bolt"></i> cache hit</span>
+            </div>
+            <div class="fragment-messages">
+              <div class="msg msg-user">
+                <span class="msg-role">user</span>
+                <span class="msg-content">"How do I reset my password?"</span>
+              </div>
+              <div class="msg msg-assistant">
+                <span class="msg-role">assistant</span>
+                <span class="msg-content truncate">"I can help with that. Let me look up..."</span>
+              </div>
+            </div>
+          </div>
+          <div class="fragment hoverable expanded">
+            <div class="fragment-header">
+              <span class="fragment-badge tool">TOOL FRAGMENT</span>
+              <span class="fragment-hash">frag_b3d1</span>
+              <span class="fragment-deterministic"><i class="fa-solid fa-lock"></i> deterministic</span>
+            </div>
+            <div class="fragment-messages">
+              <div class="msg msg-assistant">
+                <span class="msg-role">assistant</span>
+                <span class="msg-tool-call">
+                  <span class="tool-name">lookup_user</span>
+                  <span class="tool-args">{ email: "user@..." }</span>
+                </span>
+              </div>
+              <div class="msg msg-tool">
+                <span class="msg-role">tool</span>
+                <span class="msg-content">
+                  <span class="tool-result">{ found: true, user_id: 1847 }</span>
+                </span>
+              </div>
+            </div>
+            <div class="fragment-meta">
+              <span class="meta-item"><i class="fa-solid fa-fingerprint"></i> hash: 7f2e8a</span>
+              <span class="meta-item"><i class="fa-solid fa-clock"></i> 234ms</span>
+            </div>
+          </div>
+          <div class="fragment hoverable">
+            <div class="fragment-header">
+              <span class="fragment-badge">FRAGMENT</span>
+              <span class="fragment-hash">frag_c9e4</span>
+              <span class="fragment-cache miss"><i class="fa-solid fa-circle"></i> generated</span>
+            </div>
+            <div class="fragment-messages">
+              <div class="msg msg-assistant">
+                <span class="msg-role">assistant</span>
+                <span class="msg-content">
+                  "I found your account. I've sent a password reset link to your email."
+                  <span class="msg-citation">[<i class="fa-solid fa-quote-left"></i> user.email]</span>
+                </span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    <% when :session_replay %>
+      <div class="preview-replay" id="session-replay-container">
+        <div class="replay-browser">
+          <div class="browser-chrome">
+            <div class="browser-dots">
+              <span class="dot"></span><span class="dot"></span><span class="dot"></span>
+            </div>
+            <div class="browser-address">
+              <i class="fa-solid fa-lock"></i>
+              <span class="address-text">checkout.stripe.com/pay/cs_test_...</span>
+            </div>
+            <div class="cassette-badge">
+              <i class="fa-solid fa-circle recording"></i>
+              <span>REC</span>
+            </div>
+          </div>
+          <div class="browser-viewport" id="replay-viewport">
+            <div class="page-content checkout-page">
+              <div class="checkout-form">
+                <div class="form-section">
+                  <div class="form-label">Card number</div>
+                  <div class="form-input card-field" id="card-field">
+                    <span class="card-icon"><i class="fa-brands fa-cc-visa"></i></span>
+                    <input type="text" class="checkout-input" id="card-input" data-typed="4242 4242 4242 4242">
+                  </div>
+                </div>
+                <div class="form-row">
+                  <div class="form-section half">
+                    <div class="form-label">Expiry</div>
+                    <div class="form-input expiry-field" id="expiry-field">
+                      <input type="text" class="checkout-input" id="expiry-input" data-typed="12/25">
+                    </div>
+                  </div>
+                  <div class="form-section half">
+                    <div class="form-label">CVC</div>
+                    <div class="form-input cvc-field" id="cvc-field">
+                      <input type="text" class="checkout-input" id="cvc-input" data-typed="123">
+                    </div>
+                  </div>
+                </div>
+                <button class="checkout-btn" id="pay-btn">Pay $99.00</button>
+              </div>
+            </div>
+            <div class="agent-cursor at-card" id="agent-cursor">
+              <svg class="cursor-icon" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M4 4l16 8-7 2-2 7z"/>
+              </svg>
+              <span class="cursor-label">Agent</span>
+            </div>
+          </div>
+        </div>
+        <div class="replay-sidebar">
+          <div class="sidebar-header">
+            <span class="cassette-icon"><i class="fa-solid fa-tape"></i></span>
+            <span class="cassette-name">checkout_flow.vcr</span>
+          </div>
+          <div class="action-list">
+            <div class="action-item completed">
+              <span class="action-icon"><i class="fa-solid fa-globe"></i></span>
+              <span class="action-text">navigate</span>
+              <span class="action-status"><i class="fa-solid fa-check"></i></span>
+            </div>
+            <div class="action-item completed">
+              <span class="action-icon"><i class="fa-solid fa-camera"></i></span>
+              <span class="action-text">snapshot</span>
+              <span class="action-status"><i class="fa-solid fa-check"></i></span>
+            </div>
+            <div class="action-item active">
+              <span class="action-icon"><i class="fa-solid fa-keyboard"></i></span>
+              <span class="action-text">type card</span>
+              <span class="action-status"><i class="fa-solid fa-play"></i></span>
+            </div>
+            <div class="action-item pending">
+              <span class="action-icon"><i class="fa-solid fa-hand-pointer"></i></span>
+              <span class="action-text">click Pay</span>
+              <span class="action-status"></span>
+            </div>
+            <div class="action-item pending">
+              <span class="action-icon"><i class="fa-solid fa-camera"></i></span>
+              <span class="action-text">snapshot</span>
+              <span class="action-status"></span>
+            </div>
+          </div>
+        </div>
+        <div class="replay-controls">
+          <div class="replay-timeline">
+            <div class="timeline-track">
+              <div class="timeline-progress" style="width: 40%;"></div>
+              <div class="timeline-snapshots">
+                <span class="snapshot-marker" style="left: 5%;" title="Initial load"><i class="fa-solid fa-camera"></i></span>
+                <span class="snapshot-marker" style="left: 40%;" title="Form filled"><i class="fa-solid fa-camera"></i></span>
+                <span class="snapshot-marker pending" style="left: 85%;" title="Payment complete"><i class="fa-solid fa-camera"></i></span>
+              </div>
+              <div class="timeline-playhead" style="left: 40%;"></div>
+            </div>
+          </div>
+          <div class="replay-buttons">
+            <button class="replay-btn"><i class="fa-solid fa-backward-step"></i></button>
+            <button class="replay-btn play-btn"><i class="fa-solid fa-pause"></i></button>
+            <button class="replay-btn"><i class="fa-solid fa-forward-step"></i></button>
+            <span class="replay-speed">1x</span>
+            <span class="replay-time">Step 3/5</span>
+          </div>
+        </div>
+        <script>
+          (function() {
+            const cursor = document.getElementById('agent-cursor');
+            const cardInput = document.getElementById('card-input');
+            const expiryInput = document.getElementById('expiry-input');
+            const cvcInput = document.getElementById('cvc-input');
+            const payBtn = document.getElementById('pay-btn');
+            const viewport = document.getElementById('replay-viewport');
+
+            if (!cursor || !cardInput || !expiryInput || !cvcInput || !payBtn) return;
+
+            let isPaused = false;
+            let idleTimeout = null;
+            const IDLE_DELAY = 2000;
+
+            const fields = [
+              { input: cardInput, position: 'at-card', field: 'card-field' },
+              { input: expiryInput, position: 'at-expiry', field: 'expiry-field' },
+              { input: cvcInput, position: 'at-cvc', field: 'cvc-field' }
+            ];
+
+            function typeText(input, text, callback) {
+              let i = input.value.length;
+              const parent = document.getElementById(input.id.replace('-input', '-field'));
+              if (parent) parent.classList.add('typing');
+
+              function typeChar() {
+                if (isPaused) {
+                  setTimeout(typeChar, 100);
+                  return;
+                }
+                if (i < text.length) {
+                  input.value = text.substring(0, i + 1);
+                  i++;
+                  setTimeout(typeChar, 60 + Math.random() * 40);
+                } else {
+                  if (parent) parent.classList.remove('typing');
+                  setTimeout(callback, 300);
+                }
+              }
+              typeChar();
+            }
+
+            function runAnimation() {
+              fields.forEach(f => {
+                f.input.value = '';
+                const parent = document.getElementById(f.field);
+                if (parent) parent.classList.remove('typing');
+              });
+              payBtn.textContent = 'Pay $99.00';
+              payBtn.style.background = '';
+              payBtn.style.opacity = '';
+              cursor.classList.remove('hidden');
+
+              let fieldIndex = 0;
+
+              function nextField() {
+                if (isPaused) {
+                  setTimeout(nextField, 100);
+                  return;
+                }
+
+                if (fieldIndex < fields.length) {
+                  const field = fields[fieldIndex];
+                  cursor.className = 'agent-cursor ' + field.position;
+
+                  setTimeout(() => {
+                    typeText(field.input, field.input.dataset.typed || '', () => {
+                      fieldIndex++;
+                      nextField();
+                    });
+                  }, 400);
+                } else {
+                  cursor.className = 'agent-cursor at-pay';
+                  setTimeout(() => {
+                    payBtn.textContent = 'Processing...';
+                    payBtn.style.opacity = '0.7';
+                    setTimeout(() => {
+                      payBtn.textContent = 'Payment Successful!';
+                      payBtn.style.background = 'linear-gradient(135deg, #10b981, #059669)';
+                      payBtn.style.opacity = '1';
+                      cursor.classList.add('hidden');
+                      setTimeout(runAnimation, 2500);
+                    }, 1000);
+                  }, 500);
+                }
+              }
+
+              cursor.className = 'agent-cursor at-card';
+              setTimeout(nextField, 600);
+            }
+
+            function startIdleTimer() {
+              clearTimeout(idleTimeout);
+              idleTimeout = setTimeout(() => {
+                isPaused = false;
+                cursor.classList.remove('hidden');
+              }, IDLE_DELAY);
+            }
+
+            viewport.addEventListener('mouseenter', () => { isPaused = true; });
+            viewport.addEventListener('mouseleave', () => { isPaused = false; cursor.classList.remove('hidden'); });
+
+            [cardInput, expiryInput, cvcInput].forEach(input => {
+              input.addEventListener('focus', () => { isPaused = true; cursor.classList.add('hidden'); });
+              input.addEventListener('blur', () => { startIdleTimer(); });
+              input.addEventListener('input', () => { startIdleTimer(); });
+            });
+
+            payBtn.addEventListener('click', (e) => {
+              e.preventDefault();
+              payBtn.textContent = 'Processing...';
+              payBtn.style.opacity = '0.7';
+              setTimeout(() => {
+                payBtn.textContent = 'Payment Successful!';
+                payBtn.style.background = 'linear-gradient(135deg, #10b981, #059669)';
+                payBtn.style.opacity = '1';
+              }, 1000);
+              setTimeout(() => {
+                payBtn.textContent = 'Pay $99.00';
+                payBtn.style.background = '';
+                payBtn.style.opacity = '';
+              }, 3000);
+            });
+
+            runAnimation();
+          })();
+        </script>
+      </div>
+    <% end %>
+  </div>
+  <div class="preview-footer">
+    <p class="paragraph s secondary"><%= description %></p>
+  </div>
+</div>

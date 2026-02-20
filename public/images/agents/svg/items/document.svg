@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 80 100" width="80" height="100">
+  <!-- Document/PDF -->
+  <g id="document">
+    <!-- Paper -->
+    <path
+      d="M 5 0 L 55 0 L 75 20 L 75 100 L 5 100 Z"
+      fill="#FFFFFF"
+      stroke="#CCCCCC"
+      stroke-width="2"
+    />
+
+    <!-- Folded corner -->
+    <path
+      d="M 55 0 L 55 20 L 75 20 Z"
+      fill="#E8E8E8"
+      stroke="#CCCCCC"
+      stroke-width="1"
+    />
+
+    <!-- Text lines -->
+    <rect x="12" y="30" width="50" height="4" rx="1" fill="#E0E0E0"/>
+    <rect x="12" y="40" width="45" height="4" rx="1" fill="#E0E0E0"/>
+    <rect x="12" y="50" width="48" height="4" rx="1" fill="#E0E0E0"/>
+    <rect x="12" y="60" width="35" height="4" rx="1" fill="#E0E0E0"/>
+    <rect x="12" y="75" width="50" height="4" rx="1" fill="#E0E0E0"/>
+    <rect x="12" y="85" width="40" height="4" rx="1" fill="#E0E0E0"/>
+
+    <!-- PDF badge -->
+    <rect x="10" y="8" width="28" height="14" rx="2" fill="#E86B6B"/>
+    <text x="14" y="18" font-family="sans-serif" font-size="8" font-weight="bold" fill="#FFFFFF">PDF</text>
+  </g>
+</svg>

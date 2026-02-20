@@ -58,5 +58,28 @@
 
   .nav-hamburger {
     display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    gap: 5px;
+    width: 44px;
+    min-width: 44px;
+    height: 44px;
+    padding: 10px;
+    background: transparent;
+    border: none;
+    border-radius: var(--radius-s);
+    cursor: pointer;
+    flex-shrink: 0;
+  }
+
+  .hamburger-line {
+    display: block;
+    width: 20px;
+    height: 2px;
+    flex-shrink: 0;
+    background-color: var(--color-text-primary);
+    border-radius: 1px;
+    transition: transform 0.2s ease, opacity 0.2s ease;
   }
 }

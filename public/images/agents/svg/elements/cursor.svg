@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="24" height="24">
+  <!-- Mouse Cursor -->
+  <g id="cursor">
+    <path
+      d="M 4 2 L 4 20 L 9 15 L 14 22 L 17 20 L 12 13 L 19 13 Z"
+      fill="#FFFFFF"
+      stroke="#000000"
+      stroke-width="1.5"
+    />
+  </g>
+</svg>

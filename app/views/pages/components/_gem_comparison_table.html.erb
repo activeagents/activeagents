@@ -1,0 +1,46 @@
+<table class="pricing-table">
+  <thead>
+    <tr class="pricing-table-row">
+      <th class="paragraph s bold"></th>
+      <th class="paragraph s bold">activeagent</th>
+      <th class="paragraph s bold">activeagent-pro</th>
+      <th class="paragraph s bold">enterprise</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr class="pricing-table-row">
+      <td class="paragraph s bold" colspan="4" style="background: var(--color-bg-secondary);">Core Framework</td>
+    </tr>
+    <%= render "pages/components/comparison_row", feature: link_to("Active Agent", "https://docs.activeagents.ai/agents"), values: [true, true, true] %>
+    <%= render "pages/components/comparison_row", feature: link_to("Action Prompt", "https://docs.activeagents.ai/actions"), values: [true, true, true] %>
+    <%= render "pages/components/comparison_row", feature: "#{link_to("Generation Providers", "https://docs.activeagents.ai/providers")} (RubyLLM, OpenAI, Anthropic)".html_safe, values: [true, true, true] %>
+    <%= render "pages/components/comparison_row", feature: link_to("Instrumentation, Error Handling, Retries", "https://docs.activeagents.ai/agents/retries"), values: [true, true, true] %>
+    <%= render "pages/components/comparison_row", feature: "#{link_to("Streaming", "https://docs.activeagents.ai/agents/streaming")} & #{link_to("Structured Output", "https://docs.activeagents.ai/actions/structured_output")}".html_safe, values: [true, true, true] %>
+    <%= render "pages/components/comparison_row", feature: link_to("Agent Management Web UI", "https://docs.activeagents.ai/web-ui"), values: [true, true, true] %>
+
+    <tr class="pricing-table-row">
+      <td class="paragraph s bold" colspan="4" style="background: var(--color-bg-secondary);">Active Agent Pro</td>
+    </tr>
+    <%= render "pages/components/comparison_row", feature: "Observable Evaluations & Compliance", values: [false, true, true] %>
+    <%= render "pages/components/comparison_row", feature: "Generative UI & Generative Generators", values: [false, true, true] %>
+    <%= render "pages/components/comparison_row", feature: "Parallel tasks & advanced retries", values: [false, true, true] %>
+    <%= render "pages/components/comparison_row", feature: "HITL generative UI", values: [false, true, true] %>
+    <%= render "pages/components/comparison_row", feature: "Agentic workflows (pausable multi-agent)", values: [false, true, true] %>
+    <%= render "pages/components/comparison_row", feature: "Async tasks with external triggers", values: [false, true, true] %>
+    <%= render "pages/components/comparison_row", feature: "Agent rate limiting", values: [false, false, true] %>
+
+    <tr class="pricing-table-row">
+      <td class="paragraph s bold" colspan="4" style="background: var(--color-bg-secondary);">Licensing</td>
+    </tr>
+    <%= render "pages/components/comparison_row", feature: "License type", values: ["MIT", "Commercial", "Commercial"] %>
+    <%= render "pages/components/comparison_row", feature: "Multi-app / embedded licensing", values: [false, false, true] %>
+    <%= render "pages/components/comparison_row", feature: "Custom terms", values: [false, false, true] %>
+
+    <tr class="pricing-table-row">
+      <td class="paragraph s bold" colspan="4" style="background: var(--color-bg-secondary);">Support</td>
+    </tr>
+    <%= render "pages/components/comparison_row", feature: "Community (Discord, GitHub)", values: [true, true, true] %>
+    <%= render "pages/components/comparison_row", feature: "Email support", values: [false, true, true] %>
+    <%= render "pages/components/comparison_row", feature: "Priority support", values: [false, false, true] %>
+  </tbody>
+</table>
