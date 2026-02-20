@@ -28,3 +28,14 @@ output "public_url" {
   description = "The publicly accessible URL (load balancer if enabled, otherwise Cloud Run URL)"
   value       = module.activeagents.lb_url != null ? module.activeagents.lb_url : module.activeagents.cloud_run_url
 }
+
+# DNS outputs
+output "dns_name_servers" {
+  description = "Name servers for Cloud DNS zone - UPDATE THESE IN GODADDY"
+  value       = module.activeagents.dns_name_servers
+}
+
+output "staging_domain" {
+  description = "Staging domain name"
+  value       = module.activeagents.staging_domain
+}

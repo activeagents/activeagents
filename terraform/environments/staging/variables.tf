@@ -50,3 +50,16 @@ variable "enable_cdn" {
   type        = bool
   default     = true
 }
+
+# DNS configuration
+variable "enable_dns" {
+  description = "Enable Cloud DNS management for the domain"
+  type        = bool
+  default     = true
+}
+
+variable "dns_domain" {
+  description = "Root domain name"
+  type        = string
+  default     = "activeagents.ai"
+}

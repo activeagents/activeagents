@@ -67,3 +67,19 @@ output "lb_url" {
   description = "The public URL via load balancer"
   value       = var.enable_load_balancer ? module.load_balancer[0].url : null
 }
+
+# DNS outputs
+output "dns_name_servers" {
+  description = "Name servers for Cloud DNS zone - configure these in GoDaddy"
+  value       = var.enable_dns ? module.dns[0].name_servers : null
+}
+
+output "dns_zone_name" {
+  description = "Name of the Cloud DNS zone"
+  value       = var.enable_dns ? module.dns[0].zone_name : null
+}
+
+output "staging_domain" {
+  description = "Staging domain name"
+  value       = var.enable_dns && var.enable_load_balancer ? "staging.${var.dns_domain}" : null
+}
