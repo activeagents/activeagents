@@ -17,11 +17,14 @@
     </div>
   </nav>
   <div class="button-group">
-    <%= link_to "https://github.com/activeagents/activeagent", class: "button ghost compact hide-on-mobile", target: "_blank", rel: "noopener noreferrer" do %>
-      <div class="fa-brands fa-github icon l"></div>
-    <% end %>
     <%= link_to "https://discord.gg/activeagent", class: "button ghost compact hide-on-mobile", target: "_blank", rel: "noopener noreferrer" do %>
       <div class="fa-brands fa-discord icon l"></div>
+    <% end %>
+    <%= link_to "https://github.com/activeagents/activeagent", class: "github-stars-badge hide-on-mobile", target: "_blank", rel: "noopener noreferrer", data: { controller: "github-stars", github_stars_repo_value: "activeagents/activeagent" } do %>
+      <div class="fa-brands fa-github github-stars-icon"></div>
+      <span class="github-stars-label">Star</span>
+      <span class="github-stars-divider"></span>
+      <span class="github-stars-count" data-github-stars-target="count"></span>
     <% end %>
     <button class="button ghost compact" data-action="theme-toggle#toggle" aria-label="Toggle dark mode">
       <span class="theme-icon-sun fa-solid fa-sun icon m"></span>

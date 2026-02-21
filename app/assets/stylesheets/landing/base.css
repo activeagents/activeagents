@@ -652,6 +652,49 @@ section:first-of-type {
   }
 }
 
+/* GitHub Stars Badge */
+
+.github-stars-badge {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  text-decoration: none;
+  color: var(--color-text-primary);
+  background-color: var(--color-surface);
+  border: 1px solid var(--color-border-level-3);
+  border-radius: var(--radius-s);
+  padding: 6px 12px;
+  font-size: var(--font-size-s);
+  font-weight: var(--ui-button-font-weight);
+  line-height: var(--line-height-ui-s);
+  transition: background-color 0.15s ease, border-color 0.15s ease;
+
+  &:hover {
+    background-color: var(--color-border-level-2);
+    border-color: var(--color-border-level-3);
+    color: var(--color-text-primary);
+  }
+}
+
+.github-stars-icon {
+  font-size: 16px;
+  color: var(--color-text-secondary);
+}
+
+.github-stars-label {
+  color: var(--color-text-primary);
+}
+
+.github-stars-divider {
+  width: 1px;
+  height: 14px;
+  background-color: var(--color-border-level-3);
+}
+
+.github-stars-count {
+  color: var(--color-text-secondary);
+}
+
 .background-gradient {
   position: absolute;
   background-image: linear-gradient(
