@@ -24,3 +24,6 @@ application.register("agent-builder", AgentBuilderController)
 
 import SessionReplayController from "./session_replay_controller"
 application.register("session-replay", SessionReplayController)
+
+import GitHubStarsController from "./github_stars_controller"
+application.register("github-stars", GitHubStarsController)
