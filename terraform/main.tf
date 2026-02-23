@@ -265,11 +265,14 @@ module "dns" {
   production_ip = var.enable_load_balancer && var.environment == "production" ? module.load_balancer[0].ip_address : null
 
   # Keep main site on Framer during migration
-  framer_cname = var.framer_cname
+  framer_ips       = var.framer_ips
+  framer_www_cname = var.framer_www_cname
 
   # Email and verification records
-  mx_records  = var.mx_records
-  txt_records = var.txt_records
+  mx_records             = var.mx_records
+  txt_records            = var.txt_records
+  dmarc_record           = var.dmarc_record
+  additional_txt_records = var.additional_txt_records
 
   labels = local.common_labels
 

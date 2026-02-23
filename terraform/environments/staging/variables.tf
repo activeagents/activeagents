@@ -63,3 +63,45 @@ variable "dns_domain" {
   type        = string
   default     = "activeagents.ai"
 }
+
+# Framer website configuration (during migration)
+variable "framer_ips" {
+  description = "Framer A record IPs for apex domain during migration"
+  type        = list(string)
+  default     = []
+}
+
+variable "framer_www_cname" {
+  description = "Framer CNAME target for www subdomain (e.g., sites.framer.app)"
+  type        = string
+  default     = null
+}
+
+# Email configuration
+variable "mx_records" {
+  description = "MX records for email (e.g., ['1 aspmx.l.google.com.'])"
+  type        = list(string)
+  default     = []
+}
+
+# TXT records
+variable "txt_records" {
+  description = "TXT records for SPF, DKIM, domain verification"
+  type        = list(string)
+  default     = []
+}
+
+variable "dmarc_record" {
+  description = "DMARC TXT record value (without quotes)"
+  type        = string
+  default     = null
+}
+
+variable "additional_txt_records" {
+  description = "Additional TXT records for subdomains (e.g., SPF subdomain)"
+  type = list(object({
+    name  = string
+    value = string
+  }))
+  default = []
+}

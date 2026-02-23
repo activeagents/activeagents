@@ -45,4 +45,14 @@ module "activeagents" {
   # DNS configuration
   enable_dns = var.enable_dns
   dns_domain = var.dns_domain
+
+  # Framer website (during migration)
+  framer_ips       = var.framer_ips
+  framer_www_cname = var.framer_www_cname
+
+  # Email and verification records
+  mx_records             = var.mx_records
+  txt_records            = var.txt_records
+  dmarc_record           = var.dmarc_record
+  additional_txt_records = var.additional_txt_records
 }
