@@ -48,7 +48,7 @@ resource "google_dns_record_set" "www" {
   rrdatas      = var.framer_www_cname != null ? ["${var.framer_www_cname}."] : ["${var.domain}."]
 }
 
-# CAA record - allow Google to issue SSL certificates
+# CAA record - allow SSL certificate issuers
 resource "google_dns_record_set" "caa" {
   project      = var.project_id
   managed_zone = google_dns_managed_zone.main.name
@@ -58,6 +58,8 @@ resource "google_dns_record_set" "caa" {
   rrdatas      = [
     "0 issue \"pki.goog\"",
     "0 issue \"letsencrypt.org\"",
+    "0 issue \"digicert.com\"",      # Framer SSL certificates
+    "0 issue \"sectigo.com\"",       # Framer SSL certificates (alternative)
   ]
 }
 

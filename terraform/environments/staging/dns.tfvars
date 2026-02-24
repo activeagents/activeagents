@@ -2,9 +2,10 @@
 # These records will be created in Cloud DNS
 
 # Framer website A records (apex domain)
+# Updated 2026-02-24 - IPs from Framer custom domain settings
 framer_ips = [
-  "35.71.142.77",
-  "52.223.52.2"
+  "31.43.160.6",
+  "31.43.161.6"
 ]
 
 # Framer www CNAME
