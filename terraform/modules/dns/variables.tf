@@ -59,6 +59,12 @@ variable "additional_txt_records" {
   default = []
 }
 
+variable "docs_cname" {
+  description = "CNAME target for docs subdomain (e.g., activeagents.github.io)"
+  type        = string
+  default     = null
+}
+
 variable "labels" {
   description = "Labels to apply to resources"
   type        = map(string)

@@ -274,6 +274,9 @@ module "dns" {
   dmarc_record           = var.dmarc_record
   additional_txt_records = var.additional_txt_records
 
+  # Docs subdomain (GitHub Pages)
+  docs_cname = var.docs_cname
+
   labels = local.common_labels
 
   depends_on = [

@@ -36,3 +36,6 @@ additional_txt_records = [
     value = "v=spf1 include:_spf.google.com ~all"
   }
 ]
+
+# Docs subdomain - GitHub Pages for activeagent gem documentation
+docs_cname = "activeagents.github.io"

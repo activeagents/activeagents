@@ -118,3 +118,14 @@ resource "google_dns_record_set" "additional_txt" {
   ttl          = 3600
   rrdatas      = ["\"${each.value.value}\""]
 }
+
+# Docs subdomain - points to GitHub Pages
+resource "google_dns_record_set" "docs" {
+  count        = var.docs_cname != null ? 1 : 0
+  project      = var.project_id
+  managed_zone = google_dns_managed_zone.main.name
+  name         = "docs.${var.domain}."
+  type         = "CNAME"
+  ttl          = 300
+  rrdatas      = ["${var.docs_cname}."]
+}
