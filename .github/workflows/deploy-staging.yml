@@ -107,6 +107,7 @@ jobs:
             -var="project_id=${{ env.PROJECT_ID }}" \
             -var="region=${{ env.REGION }}" \
             -var="image=${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.REPOSITORY }}/activeagents:${{ github.sha }}" \
+            -var-file=dns.tfvars \
             -out=tfplan
 
       - name: Terraform Apply
