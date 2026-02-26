@@ -105,3 +105,9 @@ variable "additional_txt_records" {
   }))
   default = []
 }
+
+variable "docs_cname" {
+  description = "CNAME target for docs subdomain (e.g., activeagents.github.io)"
+  type        = string
+  default     = null
+}
