@@ -1,0 +1,16 @@
+<h2>Your Portal Access Expires Soon</h2>
+
+<p>Hi <%= @investor.name %>,</p>
+
+<p>Your access to the <strong><%= @account.name %></strong> investor portal will expire in <strong><%= @days_remaining %> day<%= @days_remaining == 1 ? '' : 's' %></strong> (on <%= @expires_at.strftime("%B %d, %Y") %>).</p>
+
+<p>If you still need access to view your investment details, documents, and SAFE agreements, please contact us to request a new access link.</p>
+
+<p>
+  <%= link_to "Access Portal Now", investor_portal_dashboard_url, style: "display: inline-block; padding: 12px 24px; background-color: #FA343B; color: white; text-decoration: none; border-radius: 6px; font-weight: 600;" %>
+</p>
+
+<p>
+  Best regards,<br>
+  The <%= @account.name %> Team
+</p>

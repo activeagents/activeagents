@@ -7,6 +7,12 @@ class Account < ApplicationRecord
   has_many :account_memberships, dependent: :destroy
   has_many :members, through: :account_memberships, source: :user
 
+  # Investor portal associations
+  has_many :investors, dependent: :destroy
+  has_many :safe_agreements, dependent: :destroy
+  has_many :investor_documents, dependent: :destroy
+  has_many :cap_table_entries, dependent: :destroy
+
   validates :name, presence: true
 
   def stripe_attributes(pay_customer)
@@ -35,5 +41,18 @@ class Account < ApplicationRecord
       # Default to free plan for users without a subscription
       Plan.free.first
     end
+  end
+
+  # Investor portal helpers
+  def total_raised
+    safe_agreements.signed.sum(:investment_amount) + safe_agreements.converted.sum(:investment_amount)
+  end
+
+  def pending_safes_amount
+    safe_agreements.pending.sum(:investment_amount)
+  end
+
+  def investor_count
+    investors.count
   end
 end

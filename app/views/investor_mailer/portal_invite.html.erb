@@ -1,0 +1,23 @@
+<h2>Welcome to the <%= @account.name %> Investor Portal</h2>
+
+<p>Hi <%= @investor.name %>,</p>
+
+<p>You've been invited to access the investor portal for <strong><%= @account.name %></strong>.</p>
+
+<p>
+  <%= link_to "Access Investor Portal", @portal_url, style: "display: inline-block; padding: 12px 24px; background-color: #FA343B; color: white; text-decoration: none; border-radius: 6px; font-weight: 600;" %>
+</p>
+
+<p>Through the portal, you can:</p>
+<ul>
+  <li>View your investment details and SAFE agreements</li>
+  <li>Access important documents like the pitch deck and PPM</li>
+  <li>Track your ownership percentage</li>
+</ul>
+
+<p>This link will expire in 30 days. If you need a new link, please contact us.</p>
+
+<p>
+  Best regards,<br>
+  The <%= @account.name %> Team
+</p>

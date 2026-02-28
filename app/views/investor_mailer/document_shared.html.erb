@@ -1,0 +1,21 @@
+<h2>New Document Available</h2>
+
+<p>Hi <%= @investor.name %>,</p>
+
+<p>A new document has been shared with you by <strong><%= @account.name %></strong>:</p>
+
+<div style="background-color: #f5f5f5; padding: 16px; border-radius: 8px; margin: 16px 0;">
+  <strong><%= @document.name %></strong>
+  <% if @document.description.present? %>
+    <p style="margin: 8px 0 0 0; color: #666;"><%= @document.description %></p>
+  <% end %>
+</div>
+
+<p>
+  <%= link_to "View Document", @portal_url, style: "display: inline-block; padding: 12px 24px; background-color: #FA343B; color: white; text-decoration: none; border-radius: 6px; font-weight: 600;" %>
+</p>
+
+<p>
+  Best regards,<br>
+  The <%= @account.name %> Team
+</p>

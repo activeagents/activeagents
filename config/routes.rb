@@ -16,6 +16,45 @@ Rails.application.routes.draw do
   root to: "pages#home"
   get "pricing", to: "pages#pricing"
 
+  # Investor Portal (public-facing, magic link authenticated)
+  scope :investor, as: :investor_portal do
+    get "login", to: "investor_portal#login"
+    get "auth/:token", to: "investor_portal#authenticate", as: :authenticate
+    get "dashboard", to: "investor_portal#dashboard"
+    get "documents", to: "investor_portal#documents"
+    get "documents/:id", to: "investor_portal#show_document", as: :document
+    get "documents/:id/download", to: "investor_portal#download_document", as: :download_document
+    delete "logout", to: "investor_portal#logout"
+  end
+
+  # Admin Dashboard (Inertia pages for founders)
+  namespace :admin do
+    resources :investors do
+      member do
+        post :send_portal_invite
+        post :regenerate_access_token
+      end
+    end
+
+    resources :safe_agreements do
+      member do
+        post :send_for_signature
+        post :mark_signed
+        post :convert
+        post :cancel
+      end
+    end
+
+    resources :investor_documents do
+      member do
+        get :analytics
+      end
+      resources :access_grants, only: [ :create, :destroy ], controller: "document_access_grants"
+    end
+
+    resources :cap_table, only: [ :index ]
+  end
+
   # App dashboard (Inertia) - all dashboard routes render React app
   get "dashboard", to: "dashboard#index"
   get "dashboard/*path", to: "dashboard#index"
@@ -35,6 +74,32 @@ Rails.application.routes.draw do
 
   # API endpoints
   namespace :api do
+    # Admin API for investor portal management
+    namespace :admin do
+      resources :investors, only: [ :index, :show, :create, :update, :destroy ] do
+        member do
+          post :send_portal_invite
+        end
+      end
+
+      resources :safe_agreements, only: [ :index, :show, :create, :update, :destroy ] do
+        member do
+          post :send_for_signature
+          post :mark_signed
+          post :convert
+        end
+      end
+
+      resources :investor_documents, only: [ :index, :show, :create, :update, :destroy ] do
+        member do
+          get :analytics
+        end
+        resources :access_grants, only: [ :create, :destroy ], controller: "document_access_grants"
+      end
+
+      resource :cap_table, only: [ :show ], controller: "cap_table"
+    end
+
     resources :agents do
       member do
         get :versions

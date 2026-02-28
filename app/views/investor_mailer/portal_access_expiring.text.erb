@@ -1,0 +1,12 @@
+Your Portal Access Expires Soon
+
+Hi <%= @investor.name %>,
+
+Your access to the <%= @account.name %> investor portal will expire in <%= @days_remaining %> day<%= @days_remaining == 1 ? '' : 's' %> (on <%= @expires_at.strftime("%B %d, %Y") %>).
+
+If you still need access to view your investment details, documents, and SAFE agreements, please contact us to request a new access link.
+
+Access Portal Now: <%= investor_portal_dashboard_url %>
+
+Best regards,
+The <%= @account.name %> Team

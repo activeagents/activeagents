@@ -1,0 +1,15 @@
+New Document Available
+
+Hi <%= @investor.name %>,
+
+A new document has been shared with you by <%= @account.name %>:
+
+<%= @document.name %>
+<% if @document.description.present? %>
+<%= @document.description %>
+<% end %>
+
+View Document: <%= @portal_url %>
+
+Best regards,
+The <%= @account.name %> Team

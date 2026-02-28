@@ -1,0 +1,42 @@
+SAFE Agreement Update
+
+Hi <%= @investor.name %>,
+
+<% case @safe.status %>
+<% when "sent" %>
+Your SAFE agreement with <%= @account.name %> is ready for your signature.
+
+Investment Amount: $<%= number_with_delimiter(@safe.investment_amount) %>
+<% if @safe.valuation_cap %>
+Valuation Cap: $<%= number_with_delimiter(@safe.valuation_cap) %>
+<% end %>
+<% if @safe.discount_percent %>
+Discount: <%= @safe.discount_percent %>%
+<% end %>
+Type: <%= @safe.safe_type.titleize %> SAFE
+
+Please review and sign your agreement at your earliest convenience.
+
+<% when "signed" %>
+Great news! Your SAFE agreement with <%= @account.name %> has been fully executed.
+
+Investment Amount: $<%= number_with_delimiter(@safe.investment_amount) %>
+Status: Signed on <%= @safe.signed_at.strftime("%B %d, %Y") %>
+
+Thank you for your investment. You can view your SAFE agreement in the investor portal.
+
+<% when "converted" %>
+Your SAFE agreement with <%= @account.name %> has converted to equity!
+
+Original Investment: $<%= number_with_delimiter(@safe.investment_amount) %>
+Shares Received: <%= number_with_delimiter(@safe.conversion_shares) %>
+Price Per Share: $<%= number_with_precision(@safe.conversion_price_per_share, precision: 4) %>
+Round: <%= @safe.conversion_round_name %>
+
+Congratulations! You are now a shareholder in <%= @account.name %>.
+<% end %>
+
+View in Investor Portal: <%= @portal_url %>
+
+Best regards,
+The <%= @account.name %> Team

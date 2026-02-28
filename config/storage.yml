@@ -14,12 +14,12 @@ local:
 #   region: us-east-1
 #   bucket: your_own_bucket-<%= Rails.env %>
 
-# Remember not to checkin your GCS keyfile to a repository
-# google:
-#   service: GCS
-#   project: your_project
-#   credentials: <%= Rails.root.join("path/to/gcs.keyfile") %>
-#   bucket: your_own_bucket-<%= Rails.env %>
+# Google Cloud Storage for investor documents
+google:
+  service: GCS
+  project: <%= Rails.application.credentials.dig(:gcs, :project_id) || ENV["GCS_PROJECT_ID"] %>
+  credentials: <%= Rails.application.credentials.dig(:gcs, :credentials) || ENV["GCS_CREDENTIALS"] %>
+  bucket: <%= Rails.application.credentials.dig(:gcs, :bucket) || ENV["GCS_BUCKET"] || "activeagents-#{Rails.env}" %>
 
 # Use bin/rails credentials:edit to set the Azure Storage secret (as azure_storage:storage_access_key)
 # microsoft:
