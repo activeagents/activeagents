@@ -1,5 +1,6 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import AgentAvatar from '../AgentAvatar';
+import { useActionCable } from '../../hooks/useActionCable';
 
 const PROVIDERS = [
   { id: 'anthropic', name: 'Anthropic', model: 'claude-sonnet-4-20250514', color: 'bg-orange-500' },
@@ -77,6 +78,98 @@ export default function SandboxRunner({ initialType = 'playwright_mcp', onClose 
   const [comparisonMode, setComparisonMode] = useState(false);
   const [comparisonResults, setComparisonResults] = useState({});
   const [runningProviders, setRunningProviders] = useState([]);
+
+  // ActionCable message handler
+  const handleCableMessage = useCallback((data) => {
+    console.log('[SandboxRunner] Received ActionCable message:', data);
+
+    switch (data.type) {
+      case 'run_started':
+        // Update comparison results to show this provider is running
+        if (comparisonMode) {
+          setComparisonResults(prev => ({
+            ...prev,
+            [data.provider]: {
+              status: 'running',
+              started_at: data.started_at,
+              provider: data.provider
+            }
+          }));
+        } else {
+          setCurrentRun(prev => ({
+            ...prev,
+            status: 'running',
+            provider: data.provider
+          }));
+        }
+        break;
+
+      case 'run_complete':
+        if (comparisonMode) {
+          setComparisonResults(prev => ({
+            ...prev,
+            [data.provider]: { ...data.run, provider: data.provider }
+          }));
+          setRunningProviders(prev => prev.filter(p => p !== data.provider));
+
+          // Update session from broadcast
+          if (data.sandbox) {
+            setSession(data.sandbox);
+            setRuns(data.sandbox.runs || []);
+          }
+        } else {
+          setCurrentRun(data.run);
+          setIsRunning(false);
+          if (data.sandbox) {
+            setSession(data.sandbox);
+            setRuns(data.sandbox.runs || []);
+          }
+        }
+
+        // Check if all providers are done
+        setRunningProviders(prev => {
+          const remaining = prev.filter(p => p !== data.provider);
+          if (remaining.length === 0) {
+            setIsRunning(false);
+          }
+          return remaining;
+        });
+        break;
+
+      case 'run_error':
+        if (comparisonMode) {
+          setComparisonResults(prev => ({
+            ...prev,
+            [data.provider]: {
+              status: 'failed',
+              error: data.error,
+              provider: data.provider
+            }
+          }));
+          setRunningProviders(prev => prev.filter(p => p !== data.provider));
+        } else {
+          setCurrentRun(prev => ({
+            ...prev,
+            status: 'failed',
+            error: data.error
+          }));
+          setIsRunning(false);
+        }
+
+        if (data.sandbox) {
+          setSession(data.sandbox);
+        }
+        break;
+    }
+  }, [comparisonMode]);
+
+  // Subscribe to ActionCable when session is available
+  useActionCable(
+    'SandboxChannel',
+    { session_id: session?.session_id },
+    handleCableMessage,
+    !!session?.session_id
+  );
 
   // Create session on mount
   useEffect(() => {
@@ -197,13 +290,14 @@ export default function SandboxRunner({ initialType = 'playwright_mcp', onClose 
 
     try {
       // Use compare endpoint with existing sandbox - spawns multiple generation jobs
+      // ActionCable will handle real-time updates via the subscription
       const response = await fetch('/api/sandboxes/compare', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           task: task,
           providers: selectedProviders,
-          sandbox_id: session?.session_id,  // Use existing sandbox
+          sandbox_id: session?.session_id,
           sandbox_type: sandboxType
         })
       });
@@ -220,14 +314,15 @@ export default function SandboxRunner({ initialType = 'playwright_mcp', onClose 
         setSession(data.sandbox);
       }
 
-      // Build map of run_id -> provider for polling
-      const runProviderMap = {};
-      data.runs.forEach(({ provider, run_id }) => {
-        runProviderMap[run_id] = provider;
-      });
+      // ActionCable will handle the real-time updates
+      // Set a timeout fallback in case ActionCable doesn't work
+      setTimeout(() => {
+        // If still running after 60s, poll for status
+        if (runningProviders.length > 0) {
+          pollForCompletion();
+        }
+      }, 60000);
 
-      // Poll single sandbox for all runs
-      await pollComparisonRuns(data.sandbox?.session_id || session?.session_id, runProviderMap);
     } catch (err) {
       selectedProviders.forEach(provider => {
         setComparisonResults(prev => ({
@@ -235,70 +330,46 @@ export default function SandboxRunner({ initialType = 'playwright_mcp', onClose 
           [provider]: { status: 'failed', error: err.message }
         }));
       });
+      setIsRunning(false);
+      setRunningProviders([]);
     }
-
-    setIsRunning(false);
-    setRunningProviders([]);
   };
 
-  // Poll a single sandbox for multiple run results
-  const pollComparisonRuns = (sessionId, runProviderMap) => {
-    const runIds = Object.keys(runProviderMap);
-    const completedRuns = new Set();
+  // Fallback polling if ActionCable doesn't deliver
+  const pollForCompletion = async () => {
+    if (!session?.session_id) return;
 
-    return new Promise((resolve) => {
-      const checkStatus = async () => {
-        try {
-          const response = await fetch(`/api/sandboxes/${sessionId}`);
-          const data = await response.json();
+    try {
+      const response = await fetch(`/api/sandboxes/${session.session_id}`);
+      const data = await response.json();
 
-          // Update session
-          setSession(data.sandbox);
-          setRuns(data.sandbox.runs || []);
+      setSession(data.sandbox);
+      setRuns(data.sandbox.runs || []);
 
-          // Check each run
-          const allRuns = data.sandbox.runs || [];
-          runIds.forEach(runId => {
-            const run = allRuns.find(r => r.id === runId);
-            const provider = runProviderMap[runId];
-
-            if (run) {
-              setComparisonResults(prev => ({
-                ...prev,
-                [provider]: { ...run, provider }
-              }));
-
-              if ((run.status === 'completed' || run.status === 'failed') && !completedRuns.has(runId)) {
-                completedRuns.add(runId);
-                setRunningProviders(prev => prev.filter(p => p !== provider));
-              }
-            }
-          });
-
-          // All runs complete?
-          if (completedRuns.size === runIds.length) {
-            resolve();
-            return;
-          }
-
-          // Continue polling
-          setTimeout(checkStatus, 1000);
-        } catch (err) {
-          runIds.forEach(runId => {
-            const provider = runProviderMap[runId];
-            if (!completedRuns.has(runId)) {
-              setComparisonResults(prev => ({
-                ...prev,
-                [provider]: { status: 'failed', error: err.message }
-              }));
-            }
-          });
-          resolve();
+      // Update comparison results from runs
+      const runs = data.sandbox.runs || [];
+      runs.forEach(run => {
+        if (run.provider) {
+          setComparisonResults(prev => ({
+            ...prev,
+            [run.provider]: { ...run, provider: run.provider }
+          }));
         }
-      };
+      });
 
-      checkStatus();
-    });
+      // Check if all done
+      const allComplete = selectedProviders.every(p => {
+        const result = comparisonResults[p];
+        return result?.status === 'completed' || result?.status === 'failed';
+      });
+
+      if (allComplete) {
+        setIsRunning(false);
+        setRunningProviders([]);
+      }
+    } catch (err) {
+      console.error('Polling error:', err);
+    }
   };
 
   const toggleProvider = (providerId) => {

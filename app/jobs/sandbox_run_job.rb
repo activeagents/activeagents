@@ -16,6 +16,9 @@ class SandboxRunJob < ApplicationJob
 
     started_at = Time.current
 
+    # Broadcast that run has started
+    broadcast_run_started(sandbox, run_id, task, provider)
+
     begin
       # Use ActiveAgent with generate_later for async processing
       # The agent's after_generation callback will handle recording results
@@ -28,7 +31,7 @@ class SandboxRunJob < ApplicationJob
     rescue => e
       Rails.logger.error("Sandbox run failed: #{e.message}")
       sandbox.update!(status: :ready, error_message: e.message)
-      broadcast_run_error(sandbox, run_id, e.message)
+      broadcast_run_error(sandbox, run_id, provider, e.message)
     end
   end
 
@@ -258,27 +261,45 @@ class SandboxRunJob < ApplicationJob
     PROMPT
   end
 
+  def broadcast_run_started(sandbox, run_id, task, provider)
+    ActionCable.server.broadcast(
+      "sandbox_#{sandbox.session_id}",
+      {
+        type: "run_started",
+        run_id: run_id,
+        provider: provider,
+        task: task,
+        started_at: Time.current.iso8601
+      }
+    )
+    Rails.logger.info "[SandboxRunJob] Broadcast run_started for #{provider} (#{run_id})"
+  end
+
   def broadcast_run_complete(sandbox, run_id, run)
     ActionCable.server.broadcast(
       "sandbox_#{sandbox.session_id}",
       {
         type: "run_complete",
         run_id: run_id,
+        provider: run[:provider],
         run: run,
         sandbox: sandbox.summary
       }
     )
+    Rails.logger.info "[SandboxRunJob] Broadcast run_complete for #{run[:provider]} (#{run_id})"
   end
 
-  def broadcast_run_error(sandbox, run_id, error)
+  def broadcast_run_error(sandbox, run_id, provider, error)
     ActionCable.server.broadcast(
       "sandbox_#{sandbox.session_id}",
       {
         type: "run_error",
         run_id: run_id,
+        provider: provider,
         error: error,
         sandbox: sandbox.summary
       }
     )
+    Rails.logger.info "[SandboxRunJob] Broadcast run_error for #{provider} (#{run_id})"
   end
 end
