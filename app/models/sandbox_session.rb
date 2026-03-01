@@ -52,7 +52,7 @@ class SandboxSession < ApplicationRecord
   end
 
   # Record a new run
-  def record_run!(task:, result:, duration_ms:, tokens:, screenshots: [])
+  def record_run!(task:, result:, duration_ms:, tokens:, screenshots: [], provider: nil)
     run = {
       id: SecureRandom.uuid,
       task: task,
@@ -60,6 +60,8 @@ class SandboxSession < ApplicationRecord
       duration_ms: duration_ms,
       tokens: tokens,
       screenshots: screenshots,
+      provider: provider,
+      status: "completed",
       created_at: Time.current.iso8601
     }
 
