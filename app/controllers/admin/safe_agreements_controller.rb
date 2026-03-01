@@ -4,13 +4,14 @@ module Admin
 
     def index
       @safes = @account.safe_agreements.includes(:investor).order(created_at: :desc)
+      all_safes = @account.safe_agreements
 
       render inertia: "Admin/SafeAgreements/Index", props: {
         safe_agreements: @safes.map { |s| safe_props(s) },
         summary: {
-          total_amount: @safes.sum(:investment_amount).to_f,
-          by_status: @safes.group(:status).count,
-          signed_amount: @safes.where(status: %w[signed converted]).sum(:investment_amount).to_f
+          total_amount: all_safes.sum(:investment_amount).to_f,
+          by_status: all_safes.group(:status).count,
+          signed_amount: all_safes.where(status: %w[signed converted]).sum(:investment_amount).to_f
         },
         investors: @account.investors.map { |i| { id: i.id, name: i.name } }
       }
