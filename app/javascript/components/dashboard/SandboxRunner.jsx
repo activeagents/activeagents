@@ -196,13 +196,14 @@ export default function SandboxRunner({ initialType = 'playwright_mcp', onClose 
     setComparisonResults(initialResults);
 
     try {
-      // Use the new compare endpoint - creates separate sandboxes for each provider
+      // Use compare endpoint with existing sandbox - spawns multiple generation jobs
       const response = await fetch('/api/sandboxes/compare', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           task: task,
           providers: selectedProviders,
+          sandbox_id: session?.session_id,  // Use existing sandbox
           sandbox_type: sandboxType
         })
       });
@@ -214,12 +215,19 @@ export default function SandboxRunner({ initialType = 'playwright_mcp', onClose 
 
       const data = await response.json();
 
-      // Poll each sandbox independently
-      const pollPromises = data.sandboxes.map(({ provider, sandbox, run_id }) => {
-        return pollIndependentSandbox(provider, sandbox.session_id, run_id);
+      // Update session if returned
+      if (data.sandbox) {
+        setSession(data.sandbox);
+      }
+
+      // Build map of run_id -> provider for polling
+      const runProviderMap = {};
+      data.runs.forEach(({ provider, run_id }) => {
+        runProviderMap[run_id] = provider;
       });
 
-      await Promise.all(pollPromises);
+      // Poll single sandbox for all runs
+      await pollComparisonRuns(data.sandbox?.session_id || session?.session_id, runProviderMap);
     } catch (err) {
       selectedProviders.forEach(provider => {
         setComparisonResults(prev => ({
@@ -233,40 +241,59 @@ export default function SandboxRunner({ initialType = 'playwright_mcp', onClose 
     setRunningProviders([]);
   };
 
-  // Poll an independent sandbox for its run result
-  const pollIndependentSandbox = (provider, sessionId, runId) => {
+  // Poll a single sandbox for multiple run results
+  const pollComparisonRuns = (sessionId, runProviderMap) => {
+    const runIds = Object.keys(runProviderMap);
+    const completedRuns = new Set();
+
     return new Promise((resolve) => {
       const checkStatus = async () => {
         try {
           const response = await fetch(`/api/sandboxes/${sessionId}`);
           const data = await response.json();
 
-          // Find the run by ID
-          const runs = data.sandbox.runs || [];
-          const run = runs.find(r => r.id === runId) || runs[runs.length - 1];
+          // Update session
+          setSession(data.sandbox);
+          setRuns(data.sandbox.runs || []);
 
-          if (run) {
-            setComparisonResults(prev => ({
-              ...prev,
-              [provider]: { ...run, provider }
-            }));
+          // Check each run
+          const allRuns = data.sandbox.runs || [];
+          runIds.forEach(runId => {
+            const run = allRuns.find(r => r.id === runId);
+            const provider = runProviderMap[runId];
 
-            if (run.status === 'completed' || run.status === 'failed') {
-              setRunningProviders(prev => prev.filter(p => p !== provider));
-              resolve(run);
-              return;
+            if (run) {
+              setComparisonResults(prev => ({
+                ...prev,
+                [provider]: { ...run, provider }
+              }));
+
+              if ((run.status === 'completed' || run.status === 'failed') && !completedRuns.has(runId)) {
+                completedRuns.add(runId);
+                setRunningProviders(prev => prev.filter(p => p !== provider));
+              }
             }
+          });
+
+          // All runs complete?
+          if (completedRuns.size === runIds.length) {
+            resolve();
+            return;
           }
 
           // Continue polling
           setTimeout(checkStatus, 1000);
         } catch (err) {
-          setComparisonResults(prev => ({
-            ...prev,
-            [provider]: { status: 'failed', error: err.message }
-          }));
-          setRunningProviders(prev => prev.filter(p => p !== provider));
-          resolve({ error: err.message });
+          runIds.forEach(runId => {
+            const provider = runProviderMap[runId];
+            if (!completedRuns.has(runId)) {
+              setComparisonResults(prev => ({
+                ...prev,
+                [provider]: { status: 'failed', error: err.message }
+              }));
+            }
+          });
+          resolve();
         }
       };
 
