@@ -7,6 +7,47 @@ module Api
 
     before_action :set_sandbox, only: [:show, :run, :destroy]
 
+    # POST /api/sandboxes/compare
+    # Create separate sandboxes for each provider to compare
+    def compare
+      providers = params[:providers] || %w[anthropic openai ollama]
+      task = params[:task]
+
+      return render json: { error: "Task required" }, status: :bad_request unless task.present?
+      return render json: { error: "At least 2 providers required" }, status: :bad_request if providers.size < 2
+
+      # Validate providers
+      invalid = providers - %w[anthropic openai ollama]
+      return render json: { error: "Invalid providers: #{invalid.join(', ')}" }, status: :bad_request if invalid.any?
+
+      # Create a separate sandbox for each provider
+      sandboxes = providers.map do |provider|
+        sandbox = SandboxSession.create!(
+          sandbox_type: params[:sandbox_type] || "playwright_mcp",
+          user: current_user
+        )
+        sandbox.provision!
+        sandbox.reload
+
+        # Start the run immediately
+        sandbox.update!(status: :running)
+        run_id = SecureRandom.uuid
+        SandboxRunJob.perform_later(sandbox.id, run_id, task, provider)
+
+        {
+          provider: provider,
+          sandbox: sandbox.summary,
+          run_id: run_id
+        }
+      end
+
+      render json: {
+        comparison_id: SecureRandom.uuid,
+        task: task,
+        sandboxes: sandboxes
+      }, status: :created
+    end
+
     # GET /api/sandboxes
     # List available sandbox types and sample tasks
     def index

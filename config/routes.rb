@@ -82,6 +82,9 @@ Rails.application.routes.draw do
 
     # Sandbox sessions (free tier demo runners)
     resources :sandboxes, param: :id, only: [ :index, :create, :show, :destroy ] do
+      collection do
+        post :compare
+      end
       member do
         post :run
       end

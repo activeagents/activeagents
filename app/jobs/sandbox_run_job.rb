@@ -6,10 +6,10 @@ class SandboxRunJob < ApplicationJob
   PROVIDER_MODELS = {
     "anthropic" => "claude-sonnet-4-20250514",
     "openai" => "gpt-4o",
-    "ollama" => "llama3.2"
+    "ollama" => "llama3.1:8b"
   }.freeze
 
-  # Execute a task in the sandbox
+  # Execute a task in the sandbox using ActiveAgent's generate_later
   def perform(sandbox_session_id, run_id, task, provider = "anthropic")
     sandbox = SandboxSession.find(sandbox_session_id)
     return unless sandbox.can_run?
@@ -17,34 +17,14 @@ class SandboxRunJob < ApplicationJob
     started_at = Time.current
 
     begin
-      # Execute the task based on sandbox type
-      result = case sandbox.sandbox_type
-      when "playwright_mcp"
-        execute_playwright_task(sandbox, task, provider)
-      when "terminal"
-        execute_terminal_task(sandbox, task, provider)
-      when "research"
-        execute_research_task(sandbox, task, provider)
+      # Use ActiveAgent with generate_later for async processing
+      # The agent's after_generation callback will handle recording results
+      if defined?(ActiveAgent::Base)
+        execute_with_active_agent(sandbox, run_id, task, provider, started_at)
       else
-        { content: "Unknown sandbox type", tokens: 0 }
+        # Fallback to direct API calls if ActiveAgent not available
+        execute_with_fallback(sandbox, run_id, task, provider, started_at)
       end
-
-      duration_ms = ((Time.current - started_at) * 1000).to_i
-
-      # Record the run
-      run = sandbox.record_run!(
-        task: task,
-        result: result[:content],
-        duration_ms: duration_ms,
-        tokens: result[:tokens] || 0,
-        screenshots: result[:screenshots] || [],
-        provider: provider
-      )
-
-      sandbox.update!(status: :ready)
-
-      # Broadcast completion
-      broadcast_run_complete(sandbox, run_id, run)
     rescue => e
       Rails.logger.error("Sandbox run failed: #{e.message}")
       sandbox.update!(status: :ready, error_message: e.message)
@@ -54,35 +34,73 @@ class SandboxRunJob < ApplicationJob
 
   private
 
-  def execute_playwright_task(sandbox, task, provider)
-    # If we have a Cloud Run URL, call it
-    if sandbox.cloud_run_url.present? && !sandbox.cloud_run_url.include?("localhost")
-      execute_remote_task(sandbox.cloud_run_url, task, provider)
-    else
-      execute_local_task(task, provider)
-    end
+  def execute_with_active_agent(sandbox, run_id, task, provider, started_at)
+    # Use generate_now here since we're already in a background job
+    # The ActiveAgent will handle the API call and callbacks
+    response = SandboxDemoAgent.with(
+      task: task,
+      provider: provider,
+      sandbox_session_id: sandbox.id,
+      run_id: run_id,
+      started_at: started_at
+    ).ask.generate_now
+
+    duration_ms = ((Time.current - started_at) * 1000).to_i
+
+    # Extract result from response
+    content = response&.message&.content || "No response generated"
+    input_tokens = response&.usage&.[](:input_tokens) || 0
+    output_tokens = response&.usage&.[](:output_tokens) || 0
+    tokens = input_tokens + output_tokens
+
+    # Record the run
+    run = sandbox.record_run!(
+      task: task,
+      result: content,
+      duration_ms: duration_ms,
+      tokens: tokens,
+      screenshots: [],
+      provider: provider
+    )
+
+    sandbox.update!(status: :ready)
+    broadcast_run_complete(sandbox, run_id, run)
+
+  rescue => e
+    Rails.logger.error("ActiveAgent execution failed: #{e.message}")
+    # Fallback to direct API
+    execute_with_fallback(sandbox, run_id, task, provider, started_at)
   end
 
-  def execute_local_task(task, provider)
-    system_prompt = <<~PROMPT
-      You are a helpful AI assistant. Answer the user's question or complete their task concisely and accurately.
-
-      If the task involves browser automation, describe what actions you would take step by step.
-    PROMPT
-
-    case provider
+  def execute_with_fallback(sandbox, run_id, task, provider, started_at)
+    result = case provider
     when "anthropic"
-      execute_with_anthropic(system_prompt, task)
+      execute_with_anthropic(task)
     when "openai"
-      execute_with_openai(system_prompt, task)
+      execute_with_openai(task)
     when "ollama"
-      execute_with_ollama(system_prompt, task)
+      execute_with_ollama(task)
     else
       execute_mock_task(task, provider)
     end
+
+    duration_ms = ((Time.current - started_at) * 1000).to_i
+
+    # Record the run
+    run = sandbox.record_run!(
+      task: task,
+      result: result[:content],
+      duration_ms: duration_ms,
+      tokens: result[:tokens] || 0,
+      screenshots: result[:screenshots] || [],
+      provider: provider
+    )
+
+    sandbox.update!(status: :ready)
+    broadcast_run_complete(sandbox, run_id, run)
   end
 
-  def execute_with_anthropic(system_prompt, task)
+  def execute_with_anthropic(task)
     api_key = Rails.application.credentials.dig(:anthropic, :api_key) || ENV["ANTHROPIC_API_KEY"]
 
     unless api_key.present?
@@ -106,7 +124,7 @@ class SandboxRunJob < ApplicationJob
     request.body = {
       model: PROVIDER_MODELS["anthropic"],
       max_tokens: 1024,
-      system: system_prompt,
+      system: default_system_prompt,
       messages: [{ role: "user", content: task }]
     }.to_json
 
@@ -127,7 +145,7 @@ class SandboxRunJob < ApplicationJob
     { content: "Error: #{e.message}", tokens: 0, screenshots: [] }
   end
 
-  def execute_with_openai(system_prompt, task)
+  def execute_with_openai(task)
     api_key = Rails.application.credentials.dig(:openai, :api_key) || ENV["OPENAI_API_KEY"]
 
     unless api_key.present?
@@ -151,7 +169,7 @@ class SandboxRunJob < ApplicationJob
       model: PROVIDER_MODELS["openai"],
       max_tokens: 1024,
       messages: [
-        { role: "system", content: system_prompt },
+        { role: "system", content: default_system_prompt },
         { role: "user", content: task }
       ]
     }.to_json
@@ -173,7 +191,7 @@ class SandboxRunJob < ApplicationJob
     { content: "Error: #{e.message}", tokens: 0, screenshots: [] }
   end
 
-  def execute_with_ollama(system_prompt, task)
+  def execute_with_ollama(task)
     ollama_url = Rails.application.credentials.dig(:ollama, :url) || ENV["OLLAMA_URL"] || "http://localhost:11434"
 
     require "net/http"
@@ -189,7 +207,7 @@ class SandboxRunJob < ApplicationJob
 
     request.body = {
       model: PROVIDER_MODELS["ollama"],
-      prompt: "#{system_prompt}\n\nUser: #{task}\n\nAssistant:",
+      prompt: "#{default_system_prompt}\n\nUser: #{task}\n\nAssistant:",
       stream: false
     }.to_json
 
@@ -232,35 +250,12 @@ class SandboxRunJob < ApplicationJob
     { content: content, tokens: task.split.size * 2 + 50, screenshots: [] }
   end
 
-  def execute_terminal_task(sandbox, task, provider)
-    execute_local_task(task, provider)
-  end
+  def default_system_prompt
+    <<~PROMPT
+      You are a helpful AI assistant. Answer the user's question or complete their task concisely and accurately.
 
-  def execute_research_task(sandbox, task, provider)
-    execute_local_task(task, provider)
-  end
-
-  def execute_remote_task(url, task, provider)
-    require "net/http"
-    require "json"
-
-    uri = URI("#{url}/run")
-    http = Net::HTTP.new(uri.host, uri.port)
-    http.use_ssl = uri.scheme == "https"
-    http.read_timeout = 300
-
-    request = Net::HTTP::Post.new(uri)
-    request["Content-Type"] = "application/json"
-    request.body = { task: task, provider: provider }.to_json
-
-    response = http.request(request)
-    result = JSON.parse(response.body)
-
-    {
-      content: result["result"],
-      tokens: result["tokens"] || 0,
-      screenshots: result["screenshots"] || []
-    }
+      If the task involves browser automation, describe what actions you would take step by step.
+    PROMPT
   end
 
   def broadcast_run_complete(sandbox, run_id, run)

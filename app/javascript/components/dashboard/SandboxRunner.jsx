@@ -4,7 +4,7 @@ import AgentAvatar from '../AgentAvatar';
 const PROVIDERS = [
   { id: 'anthropic', name: 'Anthropic', model: 'claude-sonnet-4-20250514', color: 'bg-orange-500' },
   { id: 'openai', name: 'OpenAI', model: 'gpt-4o', color: 'bg-green-500' },
-  { id: 'ollama', name: 'Ollama', model: 'llama3.2', color: 'bg-purple-500' },
+  { id: 'ollama', name: 'Ollama', model: 'llama3.1:8b', color: 'bg-purple-500' },
 ];
 
 const SAMPLE_TASKS = {
@@ -195,46 +195,51 @@ export default function SandboxRunner({ initialType = 'playwright_mcp', onClose 
     });
     setComparisonResults(initialResults);
 
-    // Run all providers in parallel
-    const promises = selectedProviders.map(async (provider) => {
-      try {
-        const response = await fetch(`/api/sandboxes/${session.session_id}/run`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ task: task, provider: provider })
-        });
+    try {
+      // Use the new compare endpoint - creates separate sandboxes for each provider
+      const response = await fetch('/api/sandboxes/compare', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          task: task,
+          providers: selectedProviders,
+          sandbox_type: sandboxType
+        })
+      });
 
-        if (!response.ok) {
-          const error = await response.json();
-          throw new Error(error.error || 'Task execution failed');
-        }
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || 'Comparison failed');
+      }
 
-        const data = await response.json();
+      const data = await response.json();
 
-        // Poll this specific run
-        return pollComparisonRun(provider, data.run_id);
-      } catch (err) {
+      // Poll each sandbox independently
+      const pollPromises = data.sandboxes.map(({ provider, sandbox, run_id }) => {
+        return pollIndependentSandbox(provider, sandbox.session_id, run_id);
+      });
+
+      await Promise.all(pollPromises);
+    } catch (err) {
+      selectedProviders.forEach(provider => {
         setComparisonResults(prev => ({
           ...prev,
           [provider]: { status: 'failed', error: err.message }
         }));
-        return { provider, error: err.message };
-      }
-    });
+      });
+    }
 
-    await Promise.all(promises);
     setIsRunning(false);
     setRunningProviders([]);
   };
 
-  const pollComparisonRun = (provider, runId) => {
+  // Poll an independent sandbox for its run result
+  const pollIndependentSandbox = (provider, sessionId, runId) => {
     return new Promise((resolve) => {
       const checkStatus = async () => {
         try {
-          const response = await fetch(`/api/sandboxes/${session.session_id}`);
+          const response = await fetch(`/api/sandboxes/${sessionId}`);
           const data = await response.json();
-
-          setSession(data.sandbox);
 
           // Find the run by ID
           const runs = data.sandbox.runs || [];
@@ -260,6 +265,7 @@ export default function SandboxRunner({ initialType = 'playwright_mcp', onClose 
             ...prev,
             [provider]: { status: 'failed', error: err.message }
           }));
+          setRunningProviders(prev => prev.filter(p => p !== provider));
           resolve({ error: err.message });
         }
       };
