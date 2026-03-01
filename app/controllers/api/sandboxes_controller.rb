@@ -2,6 +2,9 @@
 
 module Api
   class SandboxesController < BaseController
+    # Allow anonymous access to sandbox API for free tier
+    allow_unauthenticated_access
+
     before_action :set_sandbox, only: [:show, :run, :destroy]
 
     # GET /api/sandboxes
@@ -50,15 +53,22 @@ module Api
       task = params[:task]
       return render json: { error: "Task required" }, status: :bad_request unless task.present?
 
+      # Provider selection (default to anthropic)
+      provider = params[:provider] || "anthropic"
+      unless %w[anthropic openai ollama].include?(provider)
+        return render json: { error: "Invalid provider" }, status: :bad_request
+      end
+
       @sandbox.update!(status: :running)
 
       # Execute via job for async processing
       run_id = SecureRandom.uuid
-      SandboxRunJob.perform_later(@sandbox.id, run_id, task)
+      SandboxRunJob.perform_later(@sandbox.id, run_id, task, provider)
 
       render json: {
         run_id: run_id,
         status: "running",
+        provider: provider,
         sandbox: @sandbox.summary
       }, status: :accepted
     end

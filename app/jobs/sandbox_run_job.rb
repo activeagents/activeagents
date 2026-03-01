@@ -3,8 +3,14 @@
 class SandboxRunJob < ApplicationJob
   queue_as :sandboxes
 
+  PROVIDER_MODELS = {
+    "anthropic" => "claude-sonnet-4-20250514",
+    "openai" => "gpt-4o",
+    "ollama" => "llama3.2"
+  }.freeze
+
   # Execute a task in the sandbox
-  def perform(sandbox_session_id, run_id, task)
+  def perform(sandbox_session_id, run_id, task, provider = "anthropic")
     sandbox = SandboxSession.find(sandbox_session_id)
     return unless sandbox.can_run?
 
@@ -14,11 +20,11 @@ class SandboxRunJob < ApplicationJob
       # Execute the task based on sandbox type
       result = case sandbox.sandbox_type
       when "playwright_mcp"
-        execute_playwright_task(sandbox, task)
+        execute_playwright_task(sandbox, task, provider)
       when "terminal"
-        execute_terminal_task(sandbox, task)
+        execute_terminal_task(sandbox, task, provider)
       when "research"
-        execute_research_task(sandbox, task)
+        execute_research_task(sandbox, task, provider)
       else
         { content: "Unknown sandbox type", tokens: 0 }
       end
@@ -31,7 +37,8 @@ class SandboxRunJob < ApplicationJob
         result: result[:content],
         duration_ms: duration_ms,
         tokens: result[:tokens] || 0,
-        screenshots: result[:screenshots] || []
+        screenshots: result[:screenshots] || [],
+        provider: provider
       )
 
       sandbox.update!(status: :ready)
@@ -47,108 +54,193 @@ class SandboxRunJob < ApplicationJob
 
   private
 
-  def execute_playwright_task(sandbox, task)
+  def execute_playwright_task(sandbox, task, provider)
     # If we have a Cloud Run URL, call it
     if sandbox.cloud_run_url.present? && !sandbox.cloud_run_url.include?("localhost")
-      execute_remote_task(sandbox.cloud_run_url, task)
+      execute_remote_task(sandbox.cloud_run_url, task, provider)
     else
-      execute_local_playwright_task(task)
+      execute_local_task(task, provider)
     end
   end
 
-  def execute_local_playwright_task(task)
+  def execute_local_task(task, provider)
     system_prompt = <<~PROMPT
-      You are a browser automation assistant using Playwright MCP.
+      You are a helpful AI assistant. Answer the user's question or complete their task concisely and accurately.
 
-      Available actions:
-      - browser_navigate: Go to a URL
-      - browser_snapshot: Get the accessibility tree of current page
-      - browser_click: Click on an element (use ref from snapshot)
-      - browser_type: Type text into an input
-      - browser_take_screenshot: Capture the current page
-      - browser_wait_for: Wait for text or element
-
-      Guidelines:
-      1. Always take a snapshot first to understand the page structure
-      2. Use element refs from snapshots for interactions
-      3. Wait for page loads before taking actions
-      4. Handle errors gracefully
-      5. Describe what you would do step by step
-
-      Note: In this demo environment, describe the actions you would take rather than executing them directly.
+      If the task involves browser automation, describe what actions you would take step by step.
     PROMPT
 
-    # Use ActiveAgent if available and properly configured, otherwise mock
-    if defined?(ActiveAgent::Base) && ENV["ANTHROPIC_API_KEY"].present?
-      begin
-        execute_with_active_agent(system_prompt, task)
-      rescue => e
-        Rails.logger.warn("ActiveAgent execution failed, using mock: #{e.message}")
-        execute_mock_task(task)
-      end
+    case provider
+    when "anthropic"
+      execute_with_anthropic(system_prompt, task)
+    when "openai"
+      execute_with_openai(system_prompt, task)
+    when "ollama"
+      execute_with_ollama(system_prompt, task)
     else
-      execute_mock_task(task)
+      execute_mock_task(task, provider)
     end
   end
 
-  def execute_with_active_agent(system_prompt, task)
-    agent_class = Class.new(ActiveAgent::Base) do
-      generate_with :anthropic, model: "claude-sonnet-4-20250514"
+  def execute_with_anthropic(system_prompt, task)
+    api_key = Rails.application.credentials.dig(:anthropic, :api_key) || ENV["ANTHROPIC_API_KEY"]
 
-      define_method :perform do
-        prompt instructions: system_prompt, message: task
-      end
+    unless api_key.present?
+      Rails.logger.warn("Anthropic API key not configured")
+      return execute_mock_task(task, "anthropic")
     end
 
-    response = agent_class.perform.generate_now
+    require "net/http"
+    require "json"
 
-    content = response.message&.content || "No response generated"
-    tokens = (response.usage&.[](:input_tokens) || 0) + (response.usage&.[](:output_tokens) || 0)
+    uri = URI("https://api.anthropic.com/v1/messages")
+    http = Net::HTTP.new(uri.host, uri.port)
+    http.use_ssl = true
+    http.read_timeout = 60
+
+    request = Net::HTTP::Post.new(uri)
+    request["Content-Type"] = "application/json"
+    request["x-api-key"] = api_key
+    request["anthropic-version"] = "2023-06-01"
+
+    request.body = {
+      model: PROVIDER_MODELS["anthropic"],
+      max_tokens: 1024,
+      system: system_prompt,
+      messages: [{ role: "user", content: task }]
+    }.to_json
+
+    response = http.request(request)
+    result = JSON.parse(response.body)
+
+    if result["error"]
+      raise "Anthropic API error: #{result['error']['message']}"
+    end
+
+    content = result.dig("content", 0, "text") || "No response generated"
+    input_tokens = result.dig("usage", "input_tokens") || 0
+    output_tokens = result.dig("usage", "output_tokens") || 0
+
+    { content: content, tokens: input_tokens + output_tokens, screenshots: [] }
+  rescue => e
+    Rails.logger.error("Anthropic API call failed: #{e.message}")
+    { content: "Error: #{e.message}", tokens: 0, screenshots: [] }
+  end
+
+  def execute_with_openai(system_prompt, task)
+    api_key = Rails.application.credentials.dig(:openai, :api_key) || ENV["OPENAI_API_KEY"]
+
+    unless api_key.present?
+      Rails.logger.warn("OpenAI API key not configured")
+      return execute_mock_task(task, "openai")
+    end
+
+    require "net/http"
+    require "json"
+
+    uri = URI("https://api.openai.com/v1/chat/completions")
+    http = Net::HTTP.new(uri.host, uri.port)
+    http.use_ssl = true
+    http.read_timeout = 60
+
+    request = Net::HTTP::Post.new(uri)
+    request["Content-Type"] = "application/json"
+    request["Authorization"] = "Bearer #{api_key}"
+
+    request.body = {
+      model: PROVIDER_MODELS["openai"],
+      max_tokens: 1024,
+      messages: [
+        { role: "system", content: system_prompt },
+        { role: "user", content: task }
+      ]
+    }.to_json
+
+    response = http.request(request)
+    result = JSON.parse(response.body)
+
+    if result["error"]
+      raise "OpenAI API error: #{result['error']['message']}"
+    end
+
+    content = result.dig("choices", 0, "message", "content") || "No response generated"
+    prompt_tokens = result.dig("usage", "prompt_tokens") || 0
+    completion_tokens = result.dig("usage", "completion_tokens") || 0
+
+    { content: content, tokens: prompt_tokens + completion_tokens, screenshots: [] }
+  rescue => e
+    Rails.logger.error("OpenAI API call failed: #{e.message}")
+    { content: "Error: #{e.message}", tokens: 0, screenshots: [] }
+  end
+
+  def execute_with_ollama(system_prompt, task)
+    ollama_url = Rails.application.credentials.dig(:ollama, :url) || ENV["OLLAMA_URL"] || "http://localhost:11434"
+
+    require "net/http"
+    require "json"
+
+    uri = URI("#{ollama_url}/api/generate")
+    http = Net::HTTP.new(uri.host, uri.port)
+    http.use_ssl = uri.scheme == "https"
+    http.read_timeout = 120 # Ollama can be slower
+
+    request = Net::HTTP::Post.new(uri)
+    request["Content-Type"] = "application/json"
+
+    request.body = {
+      model: PROVIDER_MODELS["ollama"],
+      prompt: "#{system_prompt}\n\nUser: #{task}\n\nAssistant:",
+      stream: false
+    }.to_json
+
+    response = http.request(request)
+    result = JSON.parse(response.body)
+
+    if result["error"]
+      raise "Ollama API error: #{result['error']}"
+    end
+
+    content = result["response"] || "No response generated"
+    # Ollama doesn't provide token counts in the same way
+    tokens = (result["prompt_eval_count"] || 0) + (result["eval_count"] || 0)
 
     { content: content, tokens: tokens, screenshots: [] }
+  rescue => e
+    Rails.logger.error("Ollama API call failed: #{e.message}")
+    { content: "Error: #{e.message}\n\nMake sure Ollama is running locally with: ollama serve", tokens: 0, screenshots: [] }
   end
 
-  def execute_mock_task(task)
-    # Mock response for development without ActiveAgent
+  def execute_mock_task(task, provider = "unknown")
+    # Mock response for development without API keys
     sleep(1)
 
     content = <<~RESPONSE
-      Browser Automation Plan for: "#{task}"
+      [Mock Response - #{provider.upcase}]
 
-      Step 1: Navigate to target URL
-      - Use browser_navigate to go to the specified URL
+      Task: "#{task}"
 
-      Step 2: Wait for page load
-      - Use browser_wait_for to ensure page is fully loaded
+      This is a simulated response because the #{provider} API key is not configured.
 
-      Step 3: Take snapshot
-      - Use browser_snapshot to capture the accessibility tree
+      To enable real responses:
+      - Anthropic: Add ANTHROPIC_API_KEY or set in credentials
+      - OpenAI: Add OPENAI_API_KEY or set in credentials
+      - Ollama: Run `ollama serve` locally
 
-      Step 4: Take screenshot
-      - Use browser_take_screenshot to capture visual state
-
-      Note: This is a simulated response. In production, the agent would execute these actions using Playwright MCP.
+      In production, the agent would provide a real response using the #{provider} model.
     RESPONSE
 
-    { content: content, tokens: task.split.size * 2 + 100, screenshots: [] }
+    { content: content, tokens: task.split.size * 2 + 50, screenshots: [] }
   end
 
-  def execute_terminal_task(sandbox, task)
-    # Terminal sandbox implementation
-    { content: "Terminal sandbox: #{task}", tokens: 0 }
+  def execute_terminal_task(sandbox, task, provider)
+    execute_local_task(task, provider)
   end
 
-  def execute_research_task(sandbox, task)
-    system_prompt = "You are a research assistant. Help the user research and summarize information."
-
-    if defined?(ActiveAgent::Base)
-      execute_with_active_agent(system_prompt, task)
-    else
-      { content: "Research response for: #{task}\n\nThis is a mock response.", tokens: 50 }
-    end
+  def execute_research_task(sandbox, task, provider)
+    execute_local_task(task, provider)
   end
 
-  def execute_remote_task(url, task)
+  def execute_remote_task(url, task, provider)
     require "net/http"
     require "json"
 
@@ -159,7 +251,7 @@ class SandboxRunJob < ApplicationJob
 
     request = Net::HTTP::Post.new(uri)
     request["Content-Type"] = "application/json"
-    request.body = { task: task }.to_json
+    request.body = { task: task, provider: provider }.to_json
 
     response = http.request(request)
     result = JSON.parse(response.body)

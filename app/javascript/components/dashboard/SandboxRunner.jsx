@@ -1,6 +1,12 @@
 import React, { useState, useEffect, useRef } from 'react';
 import AgentAvatar from '../AgentAvatar';
 
+const PROVIDERS = [
+  { id: 'anthropic', name: 'Anthropic', model: 'claude-sonnet-4-20250514', color: 'bg-orange-500' },
+  { id: 'openai', name: 'OpenAI', model: 'gpt-4o', color: 'bg-green-500' },
+  { id: 'ollama', name: 'Ollama', model: 'llama3.2', color: 'bg-purple-500' },
+];
+
 const SAMPLE_TASKS = {
   playwright_mcp: [
     {
@@ -23,6 +29,28 @@ const SAMPLE_TASKS = {
       task: "Visit https://github.com/trending and list the top 3 trending repositories",
       description: "Check GitHub's trending repositories"
     }
+  ],
+  comparison: [
+    {
+      name: "Explain Ruby Blocks",
+      task: "Explain how Ruby blocks work with a simple example",
+      description: "Compare how each model explains Ruby concepts"
+    },
+    {
+      name: "Write a Haiku",
+      task: "Write a haiku about programming",
+      description: "Compare creative output across models"
+    },
+    {
+      name: "Debug This Code",
+      task: "What's wrong with this code? def add(a, b); a - b; end; puts add(2, 3)",
+      description: "Compare debugging abilities"
+    },
+    {
+      name: "Summarize AI",
+      task: "Summarize the current state of AI in 3 sentences",
+      description: "Compare factual knowledge and conciseness"
+    }
   ]
 };
 
@@ -43,6 +71,12 @@ export default function SandboxRunner({ initialType = 'playwright_mcp', onClose 
   const [error, setError] = useState(null);
   const [timeRemaining, setTimeRemaining] = useState(null);
   const outputRef = useRef(null);
+
+  // Provider comparison state
+  const [selectedProviders, setSelectedProviders] = useState(['anthropic']);
+  const [comparisonMode, setComparisonMode] = useState(false);
+  const [comparisonResults, setComparisonResults] = useState({});
+  const [runningProviders, setRunningProviders] = useState([]);
 
   // Create session on mount
   useEffect(() => {
@@ -104,10 +138,21 @@ export default function SandboxRunner({ initialType = 'playwright_mcp', onClose 
   const handleRun = async () => {
     if (!task.trim() || isRunning || !session) return;
 
+    if (comparisonMode && selectedProviders.length > 1) {
+      // Run comparison across multiple providers
+      await runComparison();
+    } else {
+      // Single provider run
+      await runSingleProvider(selectedProviders[0] || 'anthropic');
+    }
+  };
+
+  const runSingleProvider = async (provider) => {
     setIsRunning(true);
     setCurrentRun({
       status: 'running',
       task: task,
+      provider: provider,
       result: '',
       started_at: new Date().toISOString()
     });
@@ -116,7 +161,7 @@ export default function SandboxRunner({ initialType = 'playwright_mcp', onClose 
       const response = await fetch(`/api/sandboxes/${session.session_id}/run`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ task: task })
+        body: JSON.stringify({ task: task, provider: provider })
       });
 
       if (!response.ok) {
@@ -136,6 +181,103 @@ export default function SandboxRunner({ initialType = 'playwright_mcp', onClose 
       }));
       setIsRunning(false);
     }
+  };
+
+  const runComparison = async () => {
+    setIsRunning(true);
+    setRunningProviders([...selectedProviders]);
+    setComparisonResults({});
+
+    // Initialize all as running
+    const initialResults = {};
+    selectedProviders.forEach(p => {
+      initialResults[p] = { status: 'running', result: '', started_at: new Date().toISOString() };
+    });
+    setComparisonResults(initialResults);
+
+    // Run all providers in parallel
+    const promises = selectedProviders.map(async (provider) => {
+      try {
+        const response = await fetch(`/api/sandboxes/${session.session_id}/run`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ task: task, provider: provider })
+        });
+
+        if (!response.ok) {
+          const error = await response.json();
+          throw new Error(error.error || 'Task execution failed');
+        }
+
+        const data = await response.json();
+
+        // Poll this specific run
+        return pollComparisonRun(provider, data.run_id);
+      } catch (err) {
+        setComparisonResults(prev => ({
+          ...prev,
+          [provider]: { status: 'failed', error: err.message }
+        }));
+        return { provider, error: err.message };
+      }
+    });
+
+    await Promise.all(promises);
+    setIsRunning(false);
+    setRunningProviders([]);
+  };
+
+  const pollComparisonRun = (provider, runId) => {
+    return new Promise((resolve) => {
+      const checkStatus = async () => {
+        try {
+          const response = await fetch(`/api/sandboxes/${session.session_id}`);
+          const data = await response.json();
+
+          setSession(data.sandbox);
+
+          // Find the run by ID
+          const runs = data.sandbox.runs || [];
+          const run = runs.find(r => r.id === runId) || runs[runs.length - 1];
+
+          if (run) {
+            setComparisonResults(prev => ({
+              ...prev,
+              [provider]: { ...run, provider }
+            }));
+
+            if (run.status === 'completed' || run.status === 'failed') {
+              setRunningProviders(prev => prev.filter(p => p !== provider));
+              resolve(run);
+              return;
+            }
+          }
+
+          // Continue polling
+          setTimeout(checkStatus, 1000);
+        } catch (err) {
+          setComparisonResults(prev => ({
+            ...prev,
+            [provider]: { status: 'failed', error: err.message }
+          }));
+          resolve({ error: err.message });
+        }
+      };
+
+      checkStatus();
+    });
+  };
+
+  const toggleProvider = (providerId) => {
+    setSelectedProviders(prev => {
+      if (prev.includes(providerId)) {
+        // Don't allow deselecting the last provider
+        if (prev.length === 1) return prev;
+        return prev.filter(p => p !== providerId);
+      } else {
+        return [...prev, providerId];
+      }
+    });
   };
 
   const pollRunStatus = async (runId) => {
@@ -295,44 +437,112 @@ export default function SandboxRunner({ initialType = 'playwright_mcp', onClose 
             {/* Output */}
             <div className="flex-1 bg-white rounded-xl border border-gray-200 flex flex-col overflow-hidden">
               <div className="px-4 py-3 border-b border-gray-200 flex items-center justify-between">
-                <h3 className="font-medium text-gray-900">Output</h3>
-                {currentRun && (
+                <h3 className="font-medium text-gray-900">
+                  {comparisonMode && Object.keys(comparisonResults).length > 0 ? 'Comparison Results' : 'Output'}
+                </h3>
+                {currentRun && !comparisonMode && (
                   <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${getStatusColor(currentRun.status)}`}>
                     {currentRun.status}
+                  </span>
+                )}
+                {comparisonMode && runningProviders.length > 0 && (
+                  <span className="text-xs text-blue-600">
+                    Running {runningProviders.length} provider(s)...
                   </span>
                 )}
               </div>
 
               <div
                 ref={outputRef}
-                className="flex-1 p-4 overflow-auto bg-gray-50 font-mono text-sm"
+                className="flex-1 overflow-auto bg-gray-50"
               >
                 {isCreating ? (
-                  <div className="flex items-center justify-center h-full text-gray-500">
+                  <div className="flex items-center justify-center h-full text-gray-500 p-4">
                     <span className="animate-pulse">Starting sandbox...</span>
                   </div>
                 ) : error ? (
-                  <div className="text-red-600">{error}</div>
+                  <div className="text-red-600 p-4">{error}</div>
+                ) : comparisonMode && Object.keys(comparisonResults).length > 0 ? (
+                  /* Comparison View */
+                  <div className="grid grid-cols-1 divide-y divide-gray-200">
+                    {selectedProviders.map((providerId) => {
+                      const provider = PROVIDERS.find(p => p.id === providerId);
+                      const result = comparisonResults[providerId];
+                      return (
+                        <div key={providerId} className="p-4">
+                          <div className="flex items-center justify-between mb-2">
+                            <div className="flex items-center space-x-2">
+                              <div className={`w-3 h-3 rounded-full ${provider?.color || 'bg-gray-400'}`} />
+                              <span className="font-medium text-gray-900">{provider?.name || providerId}</span>
+                              <span className="text-xs text-gray-500">{provider?.model}</span>
+                            </div>
+                            {result && (
+                              <div className="flex items-center space-x-2">
+                                <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${getStatusColor(result.status)}`}>
+                                  {result.status}
+                                </span>
+                                {result.tokens && (
+                                  <span className="text-xs text-gray-500">{result.tokens} tokens</span>
+                                )}
+                                {result.duration_ms && (
+                                  <span className="text-xs text-gray-500">{(result.duration_ms / 1000).toFixed(1)}s</span>
+                                )}
+                              </div>
+                            )}
+                          </div>
+                          <div className="bg-white rounded-lg border border-gray-200 p-3 font-mono text-sm max-h-48 overflow-auto">
+                            {result?.status === 'running' ? (
+                              <div className="flex items-center space-x-2 text-gray-500">
+                                <span className="animate-pulse">&#9679;</span>
+                                <span>Processing...</span>
+                              </div>
+                            ) : result?.error ? (
+                              <div className="text-red-600">{result.error}</div>
+                            ) : result?.result ? (
+                              <pre className="whitespace-pre-wrap text-gray-800">{result.result}</pre>
+                            ) : (
+                              <span className="text-gray-400">Waiting...</span>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
                 ) : currentRun ? (
-                  currentRun.status === 'running' ? (
-                    <div className="flex items-center space-x-2 text-gray-500">
-                      <span className="animate-pulse">&#9679;</span>
-                      <span>Executing browser automation...</span>
-                    </div>
-                  ) : currentRun.error ? (
-                    <div className="text-red-600">
-                      <div className="font-semibold mb-2">Error:</div>
-                      <pre className="whitespace-pre-wrap">{currentRun.error}</pre>
-                    </div>
-                  ) : (
-                    <pre className="whitespace-pre-wrap text-gray-800">
-                      {currentRun.result || 'Processing...'}
-                    </pre>
-                  )
+                  /* Single Provider View */
+                  <div className="p-4 font-mono text-sm">
+                    {currentRun.provider && (
+                      <div className="flex items-center space-x-2 mb-3 pb-2 border-b border-gray-200">
+                        <div className={`w-2 h-2 rounded-full ${PROVIDERS.find(p => p.id === currentRun.provider)?.color || 'bg-gray-400'}`} />
+                        <span className="text-sm text-gray-600">
+                          {PROVIDERS.find(p => p.id === currentRun.provider)?.name || currentRun.provider}
+                        </span>
+                      </div>
+                    )}
+                    {currentRun.status === 'running' ? (
+                      <div className="flex items-center space-x-2 text-gray-500">
+                        <span className="animate-pulse">&#9679;</span>
+                        <span>Executing task...</span>
+                      </div>
+                    ) : currentRun.error ? (
+                      <div className="text-red-600">
+                        <div className="font-semibold mb-2">Error:</div>
+                        <pre className="whitespace-pre-wrap">{currentRun.error}</pre>
+                      </div>
+                    ) : (
+                      <pre className="whitespace-pre-wrap text-gray-800">
+                        {currentRun.result || 'Processing...'}
+                      </pre>
+                    )}
+                  </div>
                 ) : (
                   <div className="text-gray-400 text-center py-12">
                     <p className="mb-2">Select a sample task or enter your own</p>
-                    <p className="text-xs">Browser automation will execute in an isolated container</p>
+                    <p className="text-xs">
+                      {comparisonMode
+                        ? `Compare results across ${selectedProviders.length} providers`
+                        : 'Task will execute using the selected provider'}
+                    </p>
                   </div>
                 )}
               </div>
@@ -341,9 +551,66 @@ export default function SandboxRunner({ initialType = 'playwright_mcp', onClose 
 
           {/* Sidebar */}
           <div className="space-y-4 overflow-auto">
+            {/* Provider Selection */}
+            <div className="bg-white rounded-xl border border-gray-200 p-4">
+              <div className="flex items-center justify-between mb-3">
+                <h4 className="font-medium text-gray-900">Providers</h4>
+                <label className="flex items-center space-x-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={comparisonMode}
+                    onChange={(e) => setComparisonMode(e.target.checked)}
+                    className="rounded border-gray-300 text-rose-500 focus:ring-rose-500"
+                  />
+                  <span className="text-xs text-gray-600">Compare</span>
+                </label>
+              </div>
+              <div className="space-y-2">
+                {PROVIDERS.map((provider) => (
+                  <label
+                    key={provider.id}
+                    className={`flex items-center justify-between p-2 rounded-lg border cursor-pointer transition-colors ${
+                      selectedProviders.includes(provider.id)
+                        ? 'border-rose-300 bg-rose-50'
+                        : 'border-gray-200 hover:bg-gray-50'
+                    }`}
+                  >
+                    <div className="flex items-center space-x-3">
+                      <input
+                        type="checkbox"
+                        checked={selectedProviders.includes(provider.id)}
+                        onChange={() => toggleProvider(provider.id)}
+                        className="rounded border-gray-300 text-rose-500 focus:ring-rose-500"
+                      />
+                      <div className={`w-2 h-2 rounded-full ${provider.color}`} />
+                      <span className="text-sm font-medium text-gray-900">{provider.name}</span>
+                    </div>
+                    <span className="text-xs text-gray-500">{provider.model}</span>
+                  </label>
+                ))}
+              </div>
+              {comparisonMode && selectedProviders.length > 1 && (
+                <div className="mt-3 p-2 bg-purple-50 rounded-lg">
+                  <p className="text-xs text-purple-700">
+                    Comparison mode: Run task on {selectedProviders.length} providers simultaneously
+                  </p>
+                </div>
+              )}
+            </div>
+
             {/* Sample Tasks */}
             <div className="bg-white rounded-xl border border-gray-200 p-4">
-              <h4 className="font-medium text-gray-900 mb-3">Sample Tasks</h4>
+              <div className="flex items-center justify-between mb-3">
+                <h4 className="font-medium text-gray-900">Sample Tasks</h4>
+                {comparisonMode && (
+                  <button
+                    onClick={() => setSandboxType(sandboxType === 'playwright_mcp' ? 'comparison' : 'playwright_mcp')}
+                    className="text-xs text-rose-600 hover:text-rose-700"
+                  >
+                    {sandboxType === 'comparison' ? 'Browser Tasks' : 'Comparison Tasks'}
+                  </button>
+                )}
+              </div>
               <div className="space-y-2">
                 {SAMPLE_TASKS[sandboxType]?.map((sample, i) => (
                   <button
