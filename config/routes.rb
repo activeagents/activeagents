@@ -33,8 +33,25 @@ Rails.application.routes.draw do
     end
   end
 
+  # Admin dashboard
+  namespace :admin do
+    resources :spaces, only: [:index, :show] do
+      member do
+        post :terminate
+        get :logs
+      end
+    end
+
+    root to: "spaces#index"
+  end
+
   # API endpoints
   namespace :api do
+    # Sandbox-mode endpoints (only available in sandbox containers)
+    namespace :sandbox do
+      get :status, to: "runs#status"
+      resources :runs, only: [:index, :show, :create]
+    end
     resources :agents do
       member do
         get :versions
@@ -60,6 +77,13 @@ Rails.application.routes.draw do
     resources :runs, controller: "agent_runs", only: [ :index, :show ] do
       member do
         post :cancel
+      end
+    end
+
+    # Sandbox sessions (free tier demo runners)
+    resources :sandboxes, param: :id, only: [ :index, :create, :show, :destroy ] do
+      member do
+        post :run
       end
     end
 

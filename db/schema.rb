@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.2].define(version: 2026_02_17_003028) do
+ActiveRecord::Schema[8.2].define(version: 2026_03_01_000004) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
 
@@ -64,9 +64,11 @@ ActiveRecord::Schema[8.2].define(version: 2026_02_17_003028) do
     t.datetime "created_at", null: false
     t.text "description"
     t.boolean "featured", default: false
+    t.boolean "free_tier", default: false
     t.string "icon"
     t.jsonb "instruction_sets", default: []
     t.text "instructions"
+    t.jsonb "mcp_servers", default: {}
     t.string "model", default: "gpt-4o-mini"
     t.jsonb "model_config", default: {}
     t.string "name", null: false
@@ -79,6 +81,7 @@ ActiveRecord::Schema[8.2].define(version: 2026_02_17_003028) do
     t.integer "usage_count", default: 0
     t.index ["category"], name: "index_agent_templates_on_category"
     t.index ["featured"], name: "index_agent_templates_on_featured"
+    t.index ["free_tier"], name: "index_agent_templates_on_free_tier"
     t.index ["slug"], name: "index_agent_templates_on_slug", unique: true
     t.index ["usage_count"], name: "index_agent_templates_on_usage_count"
   end
@@ -119,6 +122,106 @@ ActiveRecord::Schema[8.2].define(version: 2026_02_17_003028) do
     t.index ["status"], name: "index_agents_on_status"
     t.index ["user_id", "slug"], name: "index_agents_on_user_id_and_slug", unique: true
     t.index ["user_id"], name: "index_agents_on_user_id"
+  end
+
+  create_table "cap_table_entries", force: :cascade do |t|
+    t.bigint "account_id", null: false
+    t.datetime "created_at", null: false
+    t.decimal "exercise_price", precision: 15, scale: 6
+    t.datetime "expiration_date"
+    t.datetime "grant_date"
+    t.bigint "investor_id"
+    t.jsonb "metadata", default: {}
+    t.decimal "ownership_percent", precision: 10, scale: 6
+    t.string "pulley_id"
+    t.bigint "safe_agreement_id"
+    t.string "security_class"
+    t.string "security_type", null: false
+    t.decimal "shares", precision: 15
+    t.string "stakeholder_name", null: false
+    t.string "stakeholder_type", null: false
+    t.datetime "updated_at", null: false
+    t.decimal "vested_shares", precision: 15
+    t.index ["account_id"], name: "index_cap_table_entries_on_account_id"
+    t.index ["investor_id"], name: "index_cap_table_entries_on_investor_id"
+    t.index ["pulley_id"], name: "index_cap_table_entries_on_pulley_id"
+    t.index ["safe_agreement_id"], name: "index_cap_table_entries_on_safe_agreement_id"
+    t.index ["security_type"], name: "index_cap_table_entries_on_security_type"
+    t.index ["stakeholder_type"], name: "index_cap_table_entries_on_stakeholder_type"
+  end
+
+  create_table "document_access_grants", force: :cascade do |t|
+    t.datetime "created_at", null: false
+    t.datetime "expires_at"
+    t.datetime "granted_at", null: false
+    t.bigint "investor_document_id", null: false
+    t.bigint "investor_id", null: false
+    t.datetime "revoked_at"
+    t.datetime "updated_at", null: false
+    t.index ["investor_document_id", "investor_id"], name: "idx_doc_grants_unique", unique: true
+    t.index ["investor_document_id"], name: "index_document_access_grants_on_investor_document_id"
+    t.index ["investor_id"], name: "index_document_access_grants_on_investor_id"
+  end
+
+  create_table "document_access_logs", force: :cascade do |t|
+    t.string "action", null: false
+    t.datetime "created_at", null: false
+    t.integer "duration_seconds"
+    t.bigint "investor_document_id", null: false
+    t.bigint "investor_id", null: false
+    t.string "ip_address"
+    t.string "user_agent"
+    t.index ["created_at"], name: "index_document_access_logs_on_created_at"
+    t.index ["investor_document_id", "created_at"], name: "idx_on_investor_document_id_created_at_a40801d0d5"
+    t.index ["investor_document_id"], name: "index_document_access_logs_on_investor_document_id"
+    t.index ["investor_id"], name: "index_document_access_logs_on_investor_id"
+  end
+
+  create_table "investor_documents", force: :cascade do |t|
+    t.bigint "account_id", null: false
+    t.datetime "created_at", null: false
+    t.text "description"
+    t.string "document_type", null: false
+    t.string "name", null: false
+    t.boolean "public_to_all_investors", default: false
+    t.boolean "requires_accreditation", default: false
+    t.bigint "safe_agreement_id"
+    t.datetime "updated_at", null: false
+    t.string "version"
+    t.index ["account_id"], name: "index_investor_documents_on_account_id"
+    t.index ["document_type"], name: "index_investor_documents_on_document_type"
+    t.index ["safe_agreement_id"], name: "index_investor_documents_on_safe_agreement_id"
+  end
+
+  create_table "investors", force: :cascade do |t|
+    t.string "access_token"
+    t.datetime "access_token_expires_at"
+    t.bigint "account_id", null: false
+    t.string "address_line1"
+    t.string "address_line2"
+    t.string "city"
+    t.string "country", default: "US"
+    t.datetime "created_at", null: false
+    t.string "email", null: false
+    t.string "entity_name"
+    t.string "entity_type"
+    t.string "investor_type", default: "individual"
+    t.datetime "last_accessed_at"
+    t.string "legal_name"
+    t.jsonb "metadata", default: {}
+    t.string "name", null: false
+    t.string "phone"
+    t.boolean "portal_enabled", default: true
+    t.string "postal_code"
+    t.string "pulley_id"
+    t.string "state"
+    t.datetime "updated_at", null: false
+    t.bigint "user_id"
+    t.index ["access_token"], name: "index_investors_on_access_token", unique: true
+    t.index ["account_id", "email"], name: "index_investors_on_account_id_and_email", unique: true
+    t.index ["account_id"], name: "index_investors_on_account_id"
+    t.index ["pulley_id"], name: "index_investors_on_pulley_id"
+    t.index ["user_id"], name: "index_investors_on_user_id"
   end
 
   create_table "pay_charges", force: :cascade do |t|
@@ -230,6 +333,78 @@ ActiveRecord::Schema[8.2].define(version: 2026_02_17_003028) do
     t.index ["slug"], name: "index_plans_on_slug", unique: true
   end
 
+  create_table "safe_agreements", force: :cascade do |t|
+    t.bigint "account_id", null: false
+    t.string "atlas_safe_id"
+    t.datetime "cancelled_at"
+    t.decimal "conversion_price_per_share", precision: 15, scale: 6
+    t.string "conversion_round_name"
+    t.decimal "conversion_shares", precision: 15
+    t.datetime "converted_at"
+    t.datetime "created_at", null: false
+    t.decimal "discount_percent", precision: 5, scale: 2
+    t.decimal "investment_amount", precision: 15, scale: 2, null: false
+    t.bigint "investor_id", null: false
+    t.jsonb "metadata", default: {}
+    t.boolean "pro_rata_rights", default: false
+    t.string "pulley_id"
+    t.string "safe_type", default: "post_money"
+    t.datetime "sent_at"
+    t.datetime "signed_at"
+    t.string "status", default: "draft"
+    t.datetime "updated_at", null: false
+    t.decimal "valuation_cap", precision: 15, scale: 2
+    t.index ["account_id"], name: "index_safe_agreements_on_account_id"
+    t.index ["atlas_safe_id"], name: "index_safe_agreements_on_atlas_safe_id"
+    t.index ["investor_id"], name: "index_safe_agreements_on_investor_id"
+    t.index ["pulley_id"], name: "index_safe_agreements_on_pulley_id"
+    t.index ["status"], name: "index_safe_agreements_on_status"
+  end
+
+  create_table "sandbox_runs", force: :cascade do |t|
+    t.datetime "completed_at"
+    t.datetime "created_at", null: false
+    t.integer "duration_ms"
+    t.text "error"
+    t.text "result"
+    t.json "screenshots", default: []
+    t.datetime "started_at"
+    t.integer "status", default: 0, null: false
+    t.text "task", null: false
+    t.integer "tokens_used", default: 0
+    t.datetime "updated_at", null: false
+    t.index ["created_at"], name: "index_sandbox_runs_on_created_at"
+    t.index ["status"], name: "index_sandbox_runs_on_status"
+  end
+
+  create_table "sandbox_sessions", force: :cascade do |t|
+    t.bigint "agent_template_id"
+    t.string "cloud_run_job_id"
+    t.string "cloud_run_url"
+    t.datetime "created_at", null: false
+    t.text "error_message"
+    t.datetime "expires_at"
+    t.datetime "last_activity_at"
+    t.integer "max_runs", default: 10
+    t.jsonb "runs", default: []
+    t.integer "runs_count", default: 0
+    t.string "sandbox_type", default: "playwright_mcp"
+    t.string "session_id", null: false
+    t.integer "status", default: 0
+    t.integer "timeout_seconds", default: 300
+    t.integer "total_duration_ms", default: 0
+    t.integer "total_tokens", default: 0
+    t.datetime "updated_at", null: false
+    t.bigint "user_id"
+    t.index ["agent_template_id"], name: "index_sandbox_sessions_on_agent_template_id"
+    t.index ["cloud_run_job_id"], name: "index_sandbox_sessions_on_cloud_run_job_id"
+    t.index ["expires_at"], name: "index_sandbox_sessions_on_expires_at"
+    t.index ["sandbox_type"], name: "index_sandbox_sessions_on_sandbox_type"
+    t.index ["session_id"], name: "index_sandbox_sessions_on_session_id", unique: true
+    t.index ["status"], name: "index_sandbox_sessions_on_status"
+    t.index ["user_id"], name: "index_sandbox_sessions_on_user_id"
+  end
+
   create_table "sessions", force: :cascade do |t|
     t.datetime "created_at", null: false
     t.string "ip_address"
@@ -240,10 +415,12 @@ ActiveRecord::Schema[8.2].define(version: 2026_02_17_003028) do
   end
 
   create_table "users", force: :cascade do |t|
+    t.boolean "admin", default: false, null: false
     t.datetime "created_at", null: false
     t.string "email_address", null: false
     t.string "password_digest", null: false
     t.datetime "updated_at", null: false
+    t.index ["admin"], name: "index_users_on_admin"
     t.index ["email_address"], name: "index_users_on_email_address", unique: true
   end
 
@@ -253,9 +430,24 @@ ActiveRecord::Schema[8.2].define(version: 2026_02_17_003028) do
   add_foreign_key "agent_runs", "agents"
   add_foreign_key "agent_versions", "agents"
   add_foreign_key "agents", "users"
+  add_foreign_key "cap_table_entries", "accounts"
+  add_foreign_key "cap_table_entries", "investors"
+  add_foreign_key "cap_table_entries", "safe_agreements"
+  add_foreign_key "document_access_grants", "investor_documents"
+  add_foreign_key "document_access_grants", "investors"
+  add_foreign_key "document_access_logs", "investor_documents"
+  add_foreign_key "document_access_logs", "investors"
+  add_foreign_key "investor_documents", "accounts"
+  add_foreign_key "investor_documents", "safe_agreements"
+  add_foreign_key "investors", "accounts"
+  add_foreign_key "investors", "users"
   add_foreign_key "pay_charges", "pay_customers", column: "customer_id"
   add_foreign_key "pay_charges", "pay_subscriptions", column: "subscription_id"
   add_foreign_key "pay_payment_methods", "pay_customers", column: "customer_id"
   add_foreign_key "pay_subscriptions", "pay_customers", column: "customer_id"
+  add_foreign_key "safe_agreements", "accounts"
+  add_foreign_key "safe_agreements", "investors"
+  add_foreign_key "sandbox_sessions", "agent_templates"
+  add_foreign_key "sandbox_sessions", "users"
   add_foreign_key "sessions", "users"
 end

@@ -8,6 +8,7 @@ export default function Sidebar({ currentView, onNavigate, agentCount }) {
   const agentItems = [
     { id: 'list', label: 'Agents', icon: '🤖', badge: agentCount },
     { id: 'builder', label: 'New Agent', icon: '✨' },
+    { id: 'sandbox', label: 'Try Demo', icon: '🎭', highlight: true },
   ];
 
   const observabilityItems = [

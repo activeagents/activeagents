@@ -13,6 +13,7 @@ import TracesView from '../components/dashboard/TracesView';
 import MetricsView from '../components/dashboard/MetricsView';
 import EvaluationsView from '../components/dashboard/EvaluationsView';
 import InteractionsView from '../components/dashboard/InteractionsView';
+import SandboxRunner from '../components/dashboard/SandboxRunner';
 import { ThemeProvider, useTheme } from '../contexts/ThemeContext';
 
 /**
@@ -57,6 +58,8 @@ function DashboardContent({ user, initialAgents = [], meta = {} }) {
     } else if (path.match(/\/agents\/\d+\/run/)) {
       const id = path.match(/\/agents\/(\d+)/)?.[1];
       if (id) loadAgent(id, 'runner');
+    } else if (path.includes('/sandbox') || path.includes('/demo')) {
+      setCurrentView('sandbox');
     }
   }, []);
 
@@ -207,6 +210,7 @@ function DashboardContent({ user, initialAgents = [], meta = {} }) {
     else if (view === 'metrics') path = '/dashboard/metrics';
     else if (view === 'evaluations') path = '/dashboard/evaluations';
     else if (view === 'interactions') path = '/dashboard/interactions';
+    else if (view === 'sandbox') path = '/dashboard/sandbox';
 
     window.history.pushState({}, '', path);
   };
@@ -273,6 +277,13 @@ function DashboardContent({ user, initialAgents = [], meta = {} }) {
         return <EvaluationsView />;
       case 'interactions':
         return <InteractionsView />;
+      case 'sandbox':
+        return (
+          <SandboxRunner
+            initialType="playwright_mcp"
+            onClose={() => navigateTo('list')}
+          />
+        );
       default:
         return (
           <AgentList

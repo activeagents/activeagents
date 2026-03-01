@@ -19,4 +19,8 @@ class User < ApplicationRecord
   def primary_account
     owned_accounts.first || accounts.first
   end
+
+  def admin?
+    admin == true
+  end
 end
