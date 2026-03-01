@@ -6,11 +6,15 @@ import { createRoot } from 'react-dom/client'
 import Dashboard from './pages/Dashboard'
 import PlansIndex from './pages/Plans/Index'
 import SubscriptionsIndex from './pages/Subscriptions/Index'
+import AdminSpacesIndex from './pages/Admin/Spaces/Index'
+import AdminSpacesShow from './pages/Admin/Spaces/Show'
 
 const pages = {
   'Dashboard': Dashboard,
   'Plans/Index': PlansIndex,
   'Subscriptions/Index': SubscriptionsIndex,
+  'Admin/Spaces/Index': AdminSpacesIndex,
+  'Admin/Spaces/Show': AdminSpacesShow,
 }
 
 createInertiaApp({

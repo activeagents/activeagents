@@ -57,6 +57,7 @@ terraform/**/*.tfplan
 terraform/environments/**/terraform.tfvars
 terraform/**/.terraform.lock.hcl
 
-# Playwright MCP screenshots (per CLAUDE.md)
+# Playwright MCP screenshots and data (per CLAUDE.md)
 tmp/
+.playwright-mcp/
 

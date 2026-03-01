@@ -11,6 +11,7 @@ class AgentTemplate < ApplicationRecord
   scope :by_category, ->(cat) { where(category: cat) }
   scope :popular, -> { order(usage_count: :desc) }
   scope :public_templates, -> { where(public: true) }
+  scope :free_tier, -> { where(free_tier: true) }
 
   # Categories
   CATEGORIES = %w[
@@ -34,6 +35,7 @@ class AgentTemplate < ApplicationRecord
       appearance: appearance,
       instruction_sets: instruction_sets,
       tools: tools,
+      mcp_servers: mcp_servers,
       model_config: model_config,
       status: :draft
     )
@@ -143,6 +145,29 @@ class AgentTemplate < ApplicationRecord
         instructions: "You are a DevOps engineer. Help users with:\n- Infrastructure setup and management\n- CI/CD pipeline configuration\n- Container orchestration\n- Cloud resource management\n\nAlways prioritize security and follow best practices.",
         icon: "🚀",
         featured: false
+      },
+      {
+        name: "PlaywrightMCP Demo",
+        slug: "playwright-mcp-demo",
+        description: "Free browser automation demo using Playwright MCP. Navigate sites, take screenshots, and extract content.",
+        category: "automation",
+        provider: "anthropic",
+        model: "claude-sonnet-4-20250514",
+        preset_type: "playwright",
+        appearance: { hat: "fedora", hatAccessory: "theaterMasks", heldItem: "browser" },
+        instruction_sets: [],
+        tools: %w[playwright],
+        mcp_servers: {
+          playwright: {
+            command: "npx",
+            args: ["-y", "@anthropic/mcp-server-playwright"]
+          }
+        },
+        model_config: { temperature: 0.2, max_tokens: 4096 },
+        instructions: "You are a browser automation assistant using Playwright MCP.\n\nAvailable actions:\n- browser_navigate: Go to a URL\n- browser_snapshot: Get the accessibility tree\n- browser_click: Click on an element\n- browser_type: Type text into an input\n- browser_take_screenshot: Capture the page\n- browser_wait_for: Wait for text or element\n\nGuidelines:\n1. Always take a snapshot first to understand the page\n2. Use element refs from snapshots for interactions\n3. Wait for page loads before taking actions\n4. Handle errors gracefully\n5. Limit yourself to 10 steps maximum\n\nAlways describe what you see and what actions you're taking.",
+        icon: "🎭",
+        featured: true,
+        free_tier: true
       }
     ]
 

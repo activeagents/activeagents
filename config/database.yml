@@ -98,3 +98,11 @@ production:
     <<: *primary_production
     database: <%= ENV.fetch("DB_NAME", "activeagents_temp_production") %>_cable
     migrations_paths: db/cable_migrate
+
+# Sandbox environment uses SQLite for isolated, ephemeral state
+# Each sandbox container has its own database that is not persisted
+sandbox:
+  adapter: sqlite3
+  database: db/sandbox/sandbox.sqlite3
+  pool: 5
+  timeout: 5000
