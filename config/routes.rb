@@ -92,6 +92,11 @@ Rails.application.routes.draw do
 
     resource :analytics, only: [ :show ], controller: "analytics", action: :index
 
+    # Ragents benchmark results — accepts POSTed JSON from bin/bench
+    # GET  /api/benchmarks     — list recent runs
+    # POST /api/benchmarks     — ingest a new benchmark run from bin/bench
+    resources :benchmarks, only: [ :index, :create ]
+
     namespace :v1 do
       resources :plans, only: [ :index ]
     end
