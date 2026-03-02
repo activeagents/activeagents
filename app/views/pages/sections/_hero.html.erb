@@ -17,16 +17,19 @@
   <!-- Agent Builder Preview -->
   <div class="agent-builder-hero" data-controller="agent-builder">
     <div class="agent-preview-container">
-      <!-- Instructions floating above (head/hat) -->
-      <div class="agent-instructions" data-agent-builder-target="instructions"></div>
+      <!-- Instructions pinned to hat like a brooch -->
+      <div class="agent-instructions-badge" data-agent-builder-target="instructions"></div>
 
       <!-- Base Logo -->
       <div class="logo-container hero-logo">
         <%= inline_svg("activeagent-hero.svg") %>
       </div>
 
-      <!-- MCPs/Tools below (hands) -->
-      <div class="agent-tools" data-agent-builder-target="tools"></div>
+      <!-- CLI Tools (left hand) -->
+      <div class="agent-tools-left" data-agent-builder-target="toolsLeft"></div>
+
+      <!-- MCP Services (right hand) -->
+      <div class="agent-tools-right" data-agent-builder-target="toolsRight"></div>
 
       <!-- Speech bubbles for translation -->
       <div class="agent-speech-left" data-agent-builder-target="speechLeft" style="display: none;">Hello</div>
@@ -98,41 +101,68 @@
         </div>
       </div>
 
-      <!-- MCPs/Tools Selector -->
+      <!-- CLI Tools Selector (left hand) -->
       <div class="selector-group">
-        <span class="selector-label"><strong>Tools:</strong></span>
-        <div class="selector-chips" data-agent-builder-target="toolChips">
-          <button class="chip-btn selected" data-action="click->agent-builder#toggleTool" data-tool="terminal">
-            <span class="chip-icon">💻</span>
-            <span class="chip-label">Terminal</span>
+        <span class="selector-label"><strong>CLI Tools:</strong></span>
+        <div class="selector-chips" data-agent-builder-target="cliChips">
+          <button class="chip-btn selected" data-action="click->agent-builder#toggleCli" data-cli="bash">
+            <img src="images/mcp-logos/bash.svg" alt="Bash" class="chip-logo">
+            <span class="chip-label">Bash</span>
           </button>
-          <button class="chip-btn" data-action="click->agent-builder#toggleTool" data-tool="playwright">
-            <span class="chip-icon">🎭</span>
+          <button class="chip-btn selected" data-action="click->agent-builder#toggleCli" data-cli="git">
+            <img src="images/mcp-logos/git.svg" alt="Git" class="chip-logo">
+            <span class="chip-label">Git</span>
+          </button>
+          <button class="chip-btn" data-action="click->agent-builder#toggleCli" data-cli="ruby">
+            <img src="images/mcp-logos/ruby.svg" alt="Ruby" class="chip-logo">
+            <span class="chip-label">Ruby</span>
+          </button>
+          <button class="chip-btn" data-action="click->agent-builder#toggleCli" data-cli="gh">
+            <img src="images/mcp-logos/github.svg" alt="GitHub CLI" class="chip-logo">
+            <span class="chip-label">gh CLI</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- MCP Services Selector (right hand) -->
+      <div class="selector-group">
+        <span class="selector-label"><strong>MCP Services:</strong></span>
+        <div class="selector-chips" data-agent-builder-target="mcpChips">
+          <button class="chip-btn" data-action="click->agent-builder#toggleMcp" data-mcp="playwright">
+            <img src="images/mcp-logos/playwright.svg" alt="Playwright" class="chip-logo">
             <span class="chip-label">Playwright</span>
           </button>
-          <button class="chip-btn" data-action="click->agent-builder#toggleTool" data-tool="filesystem">
-            <span class="chip-icon">📁</span>
-            <span class="chip-label">Filesystem</span>
-          </button>
-          <button class="chip-btn selected" data-action="click->agent-builder#toggleTool" data-tool="code">
-            <span class="chip-icon">👨‍💻</span>
-            <span class="chip-label">Code</span>
-          </button>
-          <button class="chip-btn" data-action="click->agent-builder#toggleTool" data-tool="database">
-            <span class="chip-icon">🗄️</span>
-            <span class="chip-label">Database</span>
-          </button>
-          <button class="chip-btn" data-action="click->agent-builder#toggleTool" data-tool="slack">
-            <span class="chip-icon">💬</span>
+          <button class="chip-btn" data-action="click->agent-builder#toggleMcp" data-mcp="slack">
+            <img src="images/mcp-logos/slack.svg" alt="Slack" class="chip-logo">
             <span class="chip-label">Slack</span>
           </button>
-          <button class="chip-btn" data-action="click->agent-builder#toggleTool" data-tool="fetch">
-            <span class="chip-icon">🌐</span>
-            <span class="chip-label">Fetch</span>
+          <button class="chip-btn" data-action="click->agent-builder#toggleMcp" data-mcp="github">
+            <img src="images/mcp-logos/github.svg" alt="GitHub" class="chip-logo">
+            <span class="chip-label">GitHub</span>
           </button>
-          <button class="chip-btn" data-action="click->agent-builder#toggleTool" data-tool="search">
-            <span class="chip-icon">🔍</span>
-            <span class="chip-label">Search</span>
+          <button class="chip-btn" data-action="click->agent-builder#toggleMcp" data-mcp="linear">
+            <img src="images/mcp-logos/linear.svg" alt="Linear" class="chip-logo">
+            <span class="chip-label">Linear</span>
+          </button>
+          <button class="chip-btn" data-action="click->agent-builder#toggleMcp" data-mcp="sentry">
+            <img src="images/mcp-logos/sentry.svg" alt="Sentry" class="chip-logo">
+            <span class="chip-label">Sentry</span>
+          </button>
+          <button class="chip-btn" data-action="click->agent-builder#toggleMcp" data-mcp="postgres">
+            <img src="images/mcp-logos/postgresql.svg" alt="PostgreSQL" class="chip-logo">
+            <span class="chip-label">Postgres</span>
+          </button>
+          <button class="chip-btn" data-action="click->agent-builder#toggleMcp" data-mcp="notion">
+            <img src="images/mcp-logos/notion.svg" alt="Notion" class="chip-logo">
+            <span class="chip-label">Notion</span>
+          </button>
+          <button class="chip-btn" data-action="click->agent-builder#toggleMcp" data-mcp="figma">
+            <img src="images/mcp-logos/figma.svg" alt="Figma" class="chip-logo">
+            <span class="chip-label">Figma</span>
+          </button>
+          <button class="chip-btn" data-action="click->agent-builder#toggleMcp" data-mcp="huggingface">
+            <img src="images/mcp-logos/huggingface.svg" alt="HuggingFace" class="chip-logo">
+            <span class="chip-label">HuggingFace</span>
           </button>
         </div>
       </div>
@@ -141,7 +171,8 @@
     <!-- Config Display -->
     <div class="agent-config" data-agent-builder-target="config">
       <span class="config-instructions"><strong>Instructions:</strong> <span data-agent-builder-target="configInstructions">🐙 GitHub</span></span>
-      <span class="config-tools"><strong>Tools:</strong> <span data-agent-builder-target="configTools">💻 Terminal, 👨‍💻 Code</span></span>
+      <span class="config-tools"><strong>CLI:</strong> <span data-agent-builder-target="configCli">bash, git</span></span>
+      <span class="config-mcp"><strong>MCP:</strong> <span data-agent-builder-target="configMcp">None</span></span>
     </div>
   </div>
 
