@@ -8,7 +8,7 @@ Gem::Specification.new do |spec|
   spec.authors = ["ActiveAgents"]
   spec.email = ["hello@activeagents.ai"]
 
-  spec.summary = "Ractor-based AI Agents for true parallel AI workloads in pure Ruby"
+  spec.summary = "Ractor-based AI agents with a Charm-inspired TUI — pure Ruby, no dependencies"
   spec.description = <<~DESC
     Ragents brings the Ractor concurrency model to AI agent orchestration. Each agent
     runs in its own Ractor — an isolated parallel execution context with its own GVL —
@@ -45,9 +45,11 @@ Gem::Specification.new do |spec|
   spec.executables = spec.files.grep(%r{\Abin/}) { |f| File.basename(f) }
   spec.require_paths = ["lib"]
 
-  # Pure Ruby — no C extensions.
+  # Pure Ruby — no C extensions, no Go binaries.
+  # The TUI is styled after the Charm (charm.sh) aesthetic — rounded borders,
+  # gradient text, Lipgloss-inspired colour palette — implemented entirely via
+  # ANSI/VT100 escape sequences using Ruby's stdlib io/console + io/wait.
   # Provider SDKs are optional dependencies brought in by the consuming app.
-  # Ragents works with any HTTP-based LLM provider through its adapter interface.
   spec.add_dependency "json", ">= 2.7"
 
   spec.add_development_dependency "minitest", "~> 5.0"

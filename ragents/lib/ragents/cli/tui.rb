@@ -6,35 +6,30 @@ module Ragents
   module CLI
     # Terminal — raw ANSI escape helpers
     #
-    # All output goes through this module so we have one place to control
-    # whether we're writing to a real TTY or piped stdout.
+    # Charm-inspired aesthetic: rounded borders, gradient header, styled bubbles.
+    # Pure stdlib — no ncurses, no Charm Go binaries required.
     module Terminal
-      # ANSI escape sequences
       CSI = "\e["
 
       # Cursor
-      def self.hide_cursor  = print "#{CSI}?25l"
-      def self.show_cursor  = print "#{CSI}?25h"
-      def self.save_cursor  = print "#{CSI}s"
+      def self.hide_cursor    = print "#{CSI}?25l"
+      def self.show_cursor    = print "#{CSI}?25h"
+      def self.save_cursor    = print "#{CSI}s"
       def self.restore_cursor = print "#{CSI}u"
-
       def self.move_to(row, col) = print "#{CSI}#{row};#{col}H"
       def self.move_up(n = 1)    = print "#{CSI}#{n}A"
       def self.move_down(n = 1)  = print "#{CSI}#{n}B"
       def self.move_right(n = 1) = print "#{CSI}#{n}C"
       def self.move_left(n = 1)  = print "#{CSI}#{n}D"
-
-      def self.col(n)            = print "#{CSI}#{n}G"  # move to column N
+      def self.col(n)            = print "#{CSI}#{n}G"
 
       # Erasure
-      def self.clear_screen      = print "#{CSI}2J#{CSI}H"
-      def self.clear_line        = print "#{CSI}2K"
-      def self.clear_to_eol      = print "#{CSI}K"
-      def self.clear_lines(n)
-        n.times { move_up; clear_line }
-      end
+      def self.clear_screen   = print "#{CSI}2J#{CSI}H"
+      def self.clear_line     = print "#{CSI}2K"
+      def self.clear_to_eol   = print "#{CSI}K"
+      def self.clear_lines(n) = n.times { move_up; clear_line }
 
-      # Attributes
+      # Text attributes
       RESET     = "#{CSI}0m"
       BOLD      = "#{CSI}1m"
       DIM       = "#{CSI}2m"
@@ -43,45 +38,116 @@ module Ragents
       BLINK     = "#{CSI}5m"
       REVERSE   = "#{CSI}7m"
 
-      # 256-colour foreground (works on every modern terminal)
-      def self.fg(code)           = "#{CSI}38;5;#{code}m"
-      def self.bg(code)           = "#{CSI}48;5;#{code}m"
+      # True-color (24-bit) — used for the Charm gradient header and accents
+      def self.fg_rgb(r, g, b)        = "#{CSI}38;2;#{r};#{g};#{b}m"
+      def self.bg_rgb(r, g, b)        = "#{CSI}48;2;#{r};#{g};#{b}m"
 
-      # Named 256-colour palette used throughout the TUI
+      # 256-colour fallback
+      def self.fg(code)               = "#{CSI}38;5;#{code}m"
+      def self.bg(code)               = "#{CSI}48;5;#{code}m"
+
+      # ── Charm-inspired colour palette ────────────────────────────────────────
+      # Mirrors the Lipgloss "Charm" dark theme used in bubbletea apps.
       module Colors
-        RED       = 196
-        RED_SOFT  = 203
-        ORANGE    = 208
-        YELLOW    = 220
-        GREEN     = 46
-        GREEN_DIM = 34
-        CYAN      = 51
-        BLUE      = 69
-        PURPLE    = 135
-        PINK      = 211
-        WHITE     = 255
-        LIGHT     = 252
-        MID       = 245
-        DIM_C     = 238
-        DARK      = 234
-        BLACK     = 232
+        # Grays
+        BASE       = 235   # very dark bg
+        SURFACE    = 237   # slightly lighter panel bg
+        OVERLAY    = 240   # border / separator
+        MUTED      = 244   # secondary text
+        TEXT       = 252   # primary text
+        BRIGHT     = 255   # emphasized text
 
-        PROVIDER_OPENAI    = CYAN
-        PROVIDER_ANTHROPIC = ORANGE
-        PROVIDER_MOCK      = PURPLE
-        PROVIDER_DEFAULT   = MID
+        # Charm accent palette (close to charm.sh brand colors)
+        PINK       = 212   # #FF87D7  Charm pink
+        PINK_DIM   = 175   # muted pink
+        LAVENDER   = 147   # #AFAFFF  Charm lavender
+        PEACH      = 215   # #FFAF5F  warm orange
+        TEAL       = 86    # #5FD7AF  cool teal
+        SKY        = 111   # #87AFFF  sky blue
+        LIME       = 120   # #87FF87  soft green
+        ROSE       = 203   # #FF5F5F  error / warning red
 
-        USER_BUBBLE   = BLUE
-        AGENT_BUBBLE  = RED_SOFT
-        TOOL_BUBBLE   = YELLOW
-        SYSTEM_BUBBLE = DIM_C
-        ERROR_BUBBLE  = RED
+        # Semantic roles
+        PROVIDER_OPENAI    = TEAL
+        PROVIDER_ANTHROPIC = PEACH
+        PROVIDER_OLLAMA    = LAVENDER
+        PROVIDER_MOCK      = PINK_DIM
+        PROVIDER_DEFAULT   = MUTED
 
-        HEADER_BG = DARK
-        INPUT_FG  = WHITE
-        BORDER    = DIM_C
-        MUTED     = MID
-        STATUS    = GREEN_DIM
+        USER_ACCENT    = SKY
+        AGENT_ACCENT   = PINK
+        TOOL_ACCENT    = PEACH
+        RESULT_ACCENT  = LIME
+        SYSTEM_ACCENT  = OVERLAY
+        ERROR_ACCENT   = ROSE
+
+        INPUT_FG       = TEXT
+        INPUT_CURSOR   = BRIGHT
+        BORDER         = OVERLAY
+        HINT           = MUTED
+        STATUS_KEY     = PINK
+        STATUS_DESC    = MUTED
+
+        HEADER_BG      = BASE
+      end
+
+      # ── Box-drawing helpers (Charm uses rounded corners everywhere) ───────────
+      module Box
+        # Rounded border characters
+        TL = "╭"
+        TR = "╮"
+        BL = "╰"
+        BR = "╯"
+        H  = "─"
+        V  = "│"
+        # Separators
+        LT = "├"
+        RT = "┤"
+        TT = "┬"
+        BT = "┴"
+
+        # Render a rounded box around content lines.
+        # content_lines — array of already-styled strings (no trailing newline)
+        # width         — total outer width including borders
+        # title         — optional styled title for the top border
+        def self.render(content_lines, width:, fg:, title: nil)
+          inner_w = width - 2
+          border_color = Terminal.fg(fg)
+          reset = Terminal::RESET
+
+          top = if title
+                  plain_title = title.gsub(/\e\[[0-9;]*m/, "")
+                  pad = [inner_w - plain_title.length - 2, 0].max
+                  "#{border_color}#{TL}#{H} #{reset}#{title}#{border_color} #{H * pad}#{TR}#{reset}"
+                else
+                  "#{border_color}#{TL}#{H * inner_w}#{TR}#{reset}"
+                end
+
+          bottom = "#{border_color}#{BL}#{H * inner_w}#{BR}#{reset}"
+
+          lines = [top]
+          content_lines.each do |line|
+            plain = line.gsub(/\e\[[0-9;]*m/, "")
+            pad   = [inner_w - 2 - plain.length, 0].max
+            lines << "#{border_color}#{V}#{reset} #{line}#{" " * pad} #{border_color}#{V}#{reset}"
+          end
+          lines << bottom
+          lines
+        end
+
+        # A single horizontal rule with optional label
+        def self.rule(width, label: nil, fg: Colors::OVERLAY)
+          border_color = Terminal.fg(fg)
+          reset = Terminal::RESET
+          if label
+            plain = label.gsub(/\e\[[0-9;]*m/, "")
+            left  = (width - plain.length - 4) / 2
+            right = width - plain.length - 4 - left
+            "#{border_color}#{H * left} #{reset}#{label}#{border_color} #{H * right}#{reset}"
+          else
+            "#{border_color}#{H * width}#{reset}"
+          end
+        end
       end
 
       def self.colored(text, fg_code, bold: false)
@@ -92,72 +158,84 @@ module Ragents
         "#{fg(fg_code)}#{bg(bg_code)}#{text}#{RESET}"
       end
 
-      # Terminal dimensions
+      # Gradient text: interpolates between two RGB tuples across the string
+      def self.gradient(text, from_rgb:, to_rgb:)
+        chars = text.chars
+        n     = [chars.length - 1, 1].max
+        chars.each_with_index.map do |ch, i|
+          t = i.to_f / n
+          r = (from_rgb[0] + (to_rgb[0] - from_rgb[0]) * t).round
+          g = (from_rgb[1] + (to_rgb[1] - from_rgb[1]) * t).round
+          b = (from_rgb[2] + (to_rgb[2] - from_rgb[2]) * t).round
+          "#{fg_rgb(r, g, b)}#{ch}"
+        end.join + RESET
+      end
+
       def self.size
-        if $stdout.respond_to?(:winsize)
-          rows, cols = $stdout.winsize
-          [rows, cols]
-        else
-          [24, 80]
-        end
+        rows, cols = $stdout.winsize
+        [rows, cols]
       rescue
         [24, 80]
       end
 
       def self.width  = size[1]
       def self.height = size[0]
-
-      def self.tty? = $stdout.isatty
+      def self.tty?   = $stdout.isatty
     end
 
     # =========================================================================
-    # TUI — the visual layout engine
+    # TUI — Charm-inspired visual layout
     #
-    # Renders a split layout:
+    # Layout (Lipgloss-style, all rounded borders):
     #
-    #   ┌──────────────────────────────────────────────────────┐
-    #   │ ⚡ ragents  │ gpt-4o-mini │ 3 tools │ 142 tok        │  ← header
-    #   ├──────────────────────────────────────────────────────┤
-    #   │                                                      │
-    #   │   [System] You are a helpful assistant.              │  ← chat
-    #   │                                                      │  ← scroll
-    #   │   You  Hello, what can you do?                       │  ← area
-    #   │                                                      │
-    #   │   Agent  I can help with...         12tok  340ms     │
-    #   │                                                      │
-    #   │   ◎ Tool: search("Ruby Ractors")                     │
-    #   │   ✓ Tool result: "Found 42 results"                  │
-    #   │                                                      │
-    #   ├──────────────────────────────────────────────────────┤
-    #   │ ❯  _                                           [↵ send]│  ← input
-    #   └──────────────────────────────────────────────────────┘
-    #   │ /help · /tools · /context · /clear · /quit          │  ← status
+    #  ╭─────────────────────────────────────────────────────────────────╮
+    #  │  ⚡ ragents    openai · gpt-4o-mini     3 tools  ·  142 tok     │  header
+    #  ╰─────────────────────────────────────────────────────────────────╯
     #
-    # On non-TTY stdout (piped), falls back to plain line mode.
+    #   ╭── You ──────────────────────────────────────────────────╮
+    #   │  Hello, what can you do?                                │
+    #   ╰─────────────────────────────────────────────────────────╯
+    #
+    #   ╭── Agent ────────────────────────────────────────────────╮
+    #   │  I can help you with...                                 │
+    #   │                                        12in 8out 340ms  │
+    #   ╰─────────────────────────────────────────────────────────╯
+    #
+    #   ◆ search("Ruby Ractors")
+    #   ✔ "Found 42 results about..."
+    #
+    #  ╭──────────────────────────────────────────────────────────╮
+    #  │ ❯ _                                      ↵ send  /help   │  input
+    #  ╰──────────────────────────────────────────────────────────╯
+    #   /help  /tools  /context  /clear  /parallel  /quit         status
+    #
     # =========================================================================
     class TUI
-      HEADER_HEIGHT = 1
+      HEADER_HEIGHT = 3   # top box: ╭─╮ + content + ╰─╯  (but drawn as 3 lines)
       STATUS_HEIGHT = 1
-      INPUT_HEIGHT  = 3   # border + prompt + border
+      INPUT_HEIGHT  = 3   # ╭─╮ + prompt + ╰─╯
       MIN_CHAT_ROWS = 5
+
+      # Charm brand gradient: pink → lavender
+      BRAND_FROM = [255, 99,  186].freeze   # #FF63BA
+      BRAND_TO   = [134, 142, 255].freeze   # #868EFF
 
       attr_reader :width, :height, :chat_rows
 
       def initialize(session)
-        @session      = session
+        @session       = session
         @scroll_offset = 0
-        @rendered_lines = []  # current logical chat lines
+        @rendered_lines = []
         refresh_dimensions
       end
 
-      # ── Layout ─────────────────────────────────────────────────────────────
-
       def refresh_dimensions
         @height, @width = Terminal.size
-        @chat_rows = [@height - HEADER_HEIGHT - INPUT_HEIGHT - STATUS_HEIGHT - 2, MIN_CHAT_ROWS].max
+        @chat_rows = [@height - HEADER_HEIGHT - INPUT_HEIGHT - STATUS_HEIGHT - 1,
+                      MIN_CHAT_ROWS].max
       end
 
-      # ── Full redraw ─────────────────────────────────────────────────────────
+      # ── Full redraw ──────────────────────────────────────────────────────────
 
       def draw_all(input_buf, cursor_pos)
         refresh_dimensions
@@ -172,116 +250,124 @@ module Ragents
         Terminal.show_cursor
       end
 
-      # ── Header ──────────────────────────────────────────────────────────────
+      # ── Header ───────────────────────────────────────────────────────────────
+      # Charm-style: rounded box, gradient brand name, pill-shaped badges
 
       def draw_header
-        T = Terminal
-        C = Terminal::Colors
+        T  = Terminal
+        C  = Terminal::Colors
+        bw = width - 2   # inner width
+
+        # Brand wordmark with Charm pink→lavender gradient
+        brand = "#{Terminal::BOLD}#{T.gradient(" ⚡ ragents ", from_rgb: BRAND_FROM, to_rgb: BRAND_TO)}"
 
         provider_color = provider_color_code(@session.provider_name)
-        total_tokens   = @session.total_tokens
+        sep   = T.colored(" · ", C::OVERLAY)
+        pname = T.colored(@session.provider_name, provider_color, bold: true)
+        model = T.colored(@session.model_name || "default", C::MUTED)
 
-        left = [
-          T.colored(" ⚡ ragents ", C::RED, bold: true),
-          T.colored("│", C::BORDER),
-          " #{T.colored(@session.provider_name, provider_color)} ",
-          T.colored("│", C::BORDER),
-          " #{T.colored(@session.model_name || "default", C::MID)} "
-        ].join
+        left_parts = [brand, T.colored("│", C::OVERLAY), " #{pname}#{sep}#{model} "]
 
         right_parts = []
-        if @session.tool_count > 0
-          right_parts << T.colored("#{@session.tool_count} tools", C::YELLOW)
-        end
-        if total_tokens > 0
-          right_parts << T.colored("#{total_tokens} tok", C::CYAN)
-        end
-        right_parts << T.colored("#{@session.message_count} msgs", C::MID)
+        right_parts << pill(@session.tool_count.to_s + " tools", C::PEACH)  if @session.tool_count > 0
+        right_parts << pill(@session.total_tokens.to_s + " tok",  C::TEAL)  if @session.total_tokens > 0
+        right_parts << T.colored("#{@session.message_count} msgs", C::MUTED)
 
-        right = right_parts.join(T.colored(" · ", C::BORDER)) + " "
+        left_plain  = strip_ansi(left_parts.join)
+        right_plain = strip_ansi(right_parts.join(sep))
+        gap         = [bw - left_plain.length - right_plain.length, 0].max
 
-        # Pad to fill width
-        left_plain  = strip_ansi(left)
-        right_plain = strip_ansi(right)
-        padding     = [width - left_plain.length - right_plain.length, 0].max
+        inner = "#{left_parts.join}#{" " * gap}#{right_parts.join(sep)} "
 
-        line = "#{T.bg(C::HEADER_BG)}#{left}#{" " * padding}#{right}#{Terminal::RESET}"
-        puts line
-        puts T.colored("─" * width, C::BORDER)
+        # Rounded box
+        top_border    = "#{T.fg(C::BORDER)}╭#{T.colored("─" * bw, C::BORDER)}╮#{Terminal::RESET}"
+        inner_line    = "#{T.fg(C::BORDER)}│#{Terminal::RESET}#{inner}#{T.fg(C::BORDER)}│#{Terminal::RESET}"
+        bottom_border = "#{T.fg(C::BORDER)}╰#{T.colored("─" * bw, C::BORDER)}╯#{Terminal::RESET}"
+
+        puts top_border
+        puts inner_line
+        puts bottom_border
       end
 
-      # ── Chat area ───────────────────────────────────────────────────────────
+      # ── Chat area ────────────────────────────────────────────────────────────
 
       def draw_chat_area
-        T = Terminal
-        C = Terminal::Colors
-
-        # Build all logical display lines
         lines = build_chat_lines
         @rendered_lines = lines
 
-        # Scroll: show last @chat_rows lines by default
         total = lines.length
         @scroll_offset = [[total - @chat_rows, 0].max, @scroll_offset].min
         visible = lines[@scroll_offset, @chat_rows] || []
 
-        # Render each line, pad to @chat_rows
         visible.each { |l| puts l }
-        padding = @chat_rows - visible.length
-        padding.times { puts "" }
+        (@chat_rows - visible.length).times { puts "" }
       end
 
-      # ── Build logical display lines from session messages ─────────────────
+      # ── Build chat lines ─────────────────────────────────────────────────────
 
-      def build_chat_lines  # rubocop:disable Metrics/MethodLength
-        T = Terminal
-        C = Terminal::Colors
+      def build_chat_lines # rubocop:disable Metrics/MethodLength,Metrics/AbcSize
+        T  = Terminal
+        C  = Terminal::Colors
         lines = []
-        w = [width - 4, 20].max  # usable width after margins
+        # Bubble width: narrower than full terminal for visual breathing room
+        bw = [[width - 6, 40].max, width - 4].min
 
         @session.display_messages.each do |msg|
           case msg[:type]
+
           when :system
             lines << ""
-            lines << "  #{T.colored("┄ System ┄", C::DIM_C)}"
-            wrap(msg[:content], w - 4).each do |l|
-              lines << "  #{T.colored("  #{l}", C::DIM_C)}"
+            rule_text = T.colored(" system ", C::MUTED)
+            lines << " " + Terminal::Box.rule(bw, label: rule_text, fg: C::OVERLAY)
+            wrap(msg[:content], bw - 4).each do |l|
+              lines << "  #{T.colored(l, C::MUTED)}"
             end
+            lines << " " + Terminal::Box.rule(bw, fg: C::OVERLAY)
             lines << ""
 
           when :user
             lines << ""
-            label = T.colored("  You", C::USER_BUBBLE, bold: true)
-            wrap(msg[:content], w - 8).each_with_index do |l, i|
-              lines << (i.zero? ? "#{label}  #{T.colored(l, C::WHITE)}" : "        #{T.colored(l, C::WHITE)}")
+            title = "#{T.fg(C::USER_ACCENT)}#{Terminal::BOLD}You#{Terminal::RESET}"
+            content_lines = wrap(msg[:content], bw - 4).map { |l| T.colored(l, C::TEXT) }
+            Terminal::Box.render(content_lines, width: bw, fg: C::USER_ACCENT, title: title).each do |l|
+              lines << "  #{l}"
             end
+            lines << ""
 
           when :assistant
             lines << ""
-            label = T.colored("  Agent", C::AGENT_BUBBLE, bold: true)
-            meta  = build_assistant_meta(msg, T, C)
-            wrap(msg[:content].to_s, w - 8).each_with_index do |l, i|
-              if i.zero?
-                lines << "#{label}  #{T.colored(l, C::LIGHT)}"
-              else
-                lines << "        #{T.colored(l, C::LIGHT)}"
-              end
+            title = "#{T.fg(C::AGENT_ACCENT)}#{Terminal::BOLD}Agent#{Terminal::RESET}"
+            content_lines = wrap(msg[:content].to_s, bw - 4).map { |l| T.colored(l, C::BRIGHT) }
+            # Append meta line inside the box
+            meta = build_assistant_meta(msg, T, C)
+            unless meta.empty?
+              pad  = [bw - 4 - strip_ansi(meta).length, 0].max
+              content_lines << "#{" " * pad}#{meta}"
             end
-            lines << "        #{meta}" unless meta.empty?
+            Terminal::Box.render(content_lines, width: bw, fg: C::AGENT_ACCENT, title: title).each do |l|
+              lines << "  #{l}"
+            end
+            lines << ""
 
           when :tool_call
             args_str = format_args(msg[:arguments])
-            lines << "  #{T.colored("◎", C::YELLOW)} #{T.colored("Tool:", C::YELLOW, bold: true)} #{T.colored(msg[:name], C::WHITE)}#{T.colored("(#{args_str})", C::MID)}"
+            name_s   = T.colored(msg[:name], C::PEACH, bold: true)
+            args_s   = T.colored("(#{args_str})", C::MUTED)
+            lines << "   #{T.colored("◆", C::PEACH)} #{name_s}#{args_s}"
 
           when :tool_result
-            icon    = msg[:error] ? T.colored("✗", C::ERROR_BUBBLE) : T.colored("✓", C::GREEN_DIM)
+            icon    = msg[:error] ? T.colored("✖", C::ERROR_ACCENT) : T.colored("✔", C::RESULT_ACCENT)
             content = (msg[:content] || msg[:error] || "").to_s
-            preview = content.length > 80 ? "#{content[0, 77]}…" : content
-            lines << "  #{icon} #{T.colored("Result:", C::MID)} #{T.colored(preview, C::DIM_C)}"
+            preview = content.length > width - 12 ? "#{content[0, width - 15]}…" : content
+            lines << "   #{icon} #{T.colored(preview, C::MUTED)}"
 
           when :error
             lines << ""
-            lines << "  #{T.colored("⚠ Error:", C::ERROR_BUBBLE, bold: true)} #{T.colored(msg[:content], C::ERROR_BUBBLE)}"
+            err_title = "#{T.fg(C::ERROR_ACCENT)}#{Terminal::BOLD}Error#{Terminal::RESET}"
+            content_lines = wrap(msg[:content], bw - 4).map { |l| T.colored(l, C::ERROR_ACCENT) }
+            Terminal::Box.render(content_lines, width: bw, fg: C::ERROR_ACCENT, title: err_title).each do |l|
+              lines << "  #{l}"
+            end
             lines << ""
           end
         end
@@ -290,91 +376,103 @@ module Ragents
         lines
       end
 
-      # ── Input box ───────────────────────────────────────────────────────────
+      # ── Input box ────────────────────────────────────────────────────────────
 
       def draw_input_box(buf, cursor_pos)
-        T = Terminal
-        C = Terminal::Colors
+        T  = Terminal
+        C  = Terminal::Colors
+        bw = width - 2
 
-        puts T.colored("─" * width, C::BORDER)
+        prompt   = "#{T.fg(C::PINK)}#{Terminal::BOLD}❯#{Terminal::RESET} "
+        hint     = @session.thinking? \
+                     ? T.colored(" thinking…", C::MUTED) \
+                     : T.colored(" ↵ send  /help", C::HINT)
 
-        # Prompt line with buffer content
-        prompt   = T.colored("❯ ", C::RED, bold: true)
-        hint     = T.colored(@session.thinking? ? " [thinking…]" : " [↵ send  /help]", C::DIM_C)
-        max_buf  = width - strip_ansi(prompt).length - strip_ansi(hint).length - 2
+        prompt_plain = strip_ansi(prompt)
+        hint_plain   = strip_ansi(hint)
+        max_buf = bw - prompt_plain.length - hint_plain.length - 2
 
-        displayed = buf.length > max_buf ? "…#{buf[-(max_buf - 1)..] }" : buf
-        cursor_display = cursor_pos > displayed.length ? displayed.length : cursor_pos
+        displayed = buf.length > max_buf ? "…#{buf[-(max_buf - 1)..]}" : buf
+        cpos      = [[cursor_pos, 0].max, displayed.length].min
 
-        # Build the line with a visible cursor block
-        before_cursor = displayed[0, cursor_display] || ""
-        at_cursor     = displayed[cursor_display] || " "
-        after_cursor  = displayed[(cursor_display + 1)..] || ""
+        before = displayed[0, cpos] || ""
+        at     = displayed[cpos] || " "
+        after  = displayed[(cpos + 1)..] || ""
 
-        cursor_char = @session.thinking? ? T.colored(at_cursor, C::DIM_C) : "#{Terminal::REVERSE}#{at_cursor}#{Terminal::RESET}"
+        cursor_char = @session.thinking? \
+          ? T.colored(at, C::MUTED) \
+          : "#{Terminal::REVERSE}#{T.fg(C::INPUT_CURSOR)}#{at}#{Terminal::RESET}"
 
-        print prompt
-        print T.colored(before_cursor, C::INPUT_FG)
-        print cursor_char
-        print T.colored(after_cursor, C::INPUT_FG)
-        print T.colored(" " * [max_buf - displayed.length, 0].max, C::INPUT_FG)
-        puts hint
+        input_content = "#{prompt}#{T.colored(before, C::INPUT_FG)}" \
+                        "#{cursor_char}" \
+                        "#{T.colored(after, C::INPUT_FG)}" \
+                        "#{T.colored(" " * [max_buf - displayed.length, 0].max, C::INPUT_FG)}" \
+                        "#{hint}"
 
-        puts T.colored("─" * width, C::BORDER)
+        top_border    = "#{T.fg(C::BORDER)}╭#{"─" * bw}╮#{Terminal::RESET}"
+        inner_line    = "#{T.fg(C::BORDER)}│#{Terminal::RESET}#{input_content}#{T.fg(C::BORDER)}│#{Terminal::RESET}"
+        bottom_border = "#{T.fg(C::BORDER)}╰#{"─" * bw}╯#{Terminal::RESET}"
+
+        puts top_border
+        puts inner_line
+        puts bottom_border
       end
 
-      # ── Status bar ──────────────────────────────────────────────────────────
+      # ── Status bar ───────────────────────────────────────────────────────────
 
       def draw_status_bar
-        T = Terminal
-        C = Terminal::Colors
+        T  = Terminal
+        C  = Terminal::Colors
 
         shortcuts = [
-          ["/help", "commands"],
-          ["/tools", "list tools"],
-          ["/context", "show ctx"],
-          ["/clear", "new chat"],
-          ["/parallel", "batch run"],
-          ["/quit", "exit"]
-        ].map { |cmd, desc| "#{T.colored(cmd, C::RED)}#{T.colored(":#{desc}", C::MID)}" }.join("  ")
+          ["/help",     "help"],
+          ["/tools",    "tools"],
+          ["/context",  "ctx"],
+          ["/clear",    "clear"],
+          ["/parallel", "batch"],
+          ["/quit",     "quit"]
+        ].map do |cmd, desc|
+          "#{T.colored(cmd, C::STATUS_KEY)}#{T.colored(":#{desc}", C::STATUS_DESC)}"
+        end.join("  ")
 
-        scroll_hint = @rendered_lines.length > @chat_rows ? T.colored("  scroll: alt+↑↓", C::DIM_C) : ""
+        scroll_hint = @rendered_lines.length > @chat_rows \
+          ? "  #{T.colored("alt+↑↓ scroll", C::OVERLAY)}" : ""
 
-        print T.colored(" ", C::MUTED)
-        print shortcuts
-        print scroll_hint
-        print T.clear_to_eol
+        print " #{shortcuts}#{scroll_hint}"
+        print Terminal::CSI + "K"   # clear to EOL
       end
 
-      # ── In-place update helpers ──────────────────────────────────────────────
+      # ── In-place input update (fast keystroke) ───────────────────────────────
 
-      # Redraw just the input line (for fast keystroke feedback)
       def redraw_input(buf, cursor_pos)
-        T = Terminal
-        # Move to input row (header + separator + chat_rows + separator = header+1+chat_rows+1 lines)
-        input_row = HEADER_HEIGHT + 1 + @chat_rows + 2
-        T.move_to(input_row, 1)
-        T.clear_line
+        input_row = HEADER_HEIGHT + @chat_rows + 2  # +2 for separator + box top
+        Terminal.move_to(input_row, 1)
+        Terminal.clear_line
         draw_input_row(buf, cursor_pos)
       end
 
       def draw_input_row(buf, cursor_pos)
-        T = Terminal
-        C = Terminal::Colors
-        prompt   = T.colored("❯ ", C::RED, bold: true)
-        hint     = T.colored(@session.thinking? ? " [thinking…]" : " [↵ send  /help]", C::DIM_C)
-        max_buf  = width - strip_ansi(prompt).length - strip_ansi(hint).length - 2
-        displayed = buf.length > max_buf ? "…#{buf[-(max_buf - 1)..]}" : buf
-        cursor_display = [[cursor_pos, 0].max, displayed.length].min
-        before_cursor = displayed[0, cursor_display] || ""
-        at_cursor     = displayed[cursor_display] || " "
-        after_cursor  = displayed[(cursor_display + 1)..] || ""
-        cursor_char   = @session.thinking? ? T.colored(at_cursor, C::DIM_C) : "#{Terminal::REVERSE}#{at_cursor}#{Terminal::RESET}"
-        print "#{prompt}#{T.colored(before_cursor, C::INPUT_FG)}#{cursor_char}#{T.colored(after_cursor, C::INPUT_FG)}#{hint}"
-        T.clear_to_eol
+        T  = Terminal
+        C  = Terminal::Colors
+        prompt      = "#{T.fg(C::PINK)}#{Terminal::BOLD}❯#{Terminal::RESET} "
+        hint        = @session.thinking? \
+                        ? T.colored(" thinking…", C::MUTED) \
+                        : T.colored(" ↵ send  /help", C::HINT)
+        max_buf     = width - strip_ansi(prompt).length - strip_ansi(hint).length - 4
+        displayed   = buf.length > max_buf ? "…#{buf[-(max_buf - 1)..]}" : buf
+        cpos        = [[cursor_pos, 0].max, displayed.length].min
+        before      = displayed[0, cpos] || ""
+        at          = displayed[cpos] || " "
+        after       = displayed[(cpos + 1)..] || ""
+        cursor_char = @session.thinking? \
+          ? T.colored(at, C::MUTED) \
+          : "#{Terminal::REVERSE}#{T.fg(C::INPUT_CURSOR)}#{at}#{Terminal::RESET}"
+        print "#{T.fg(C::BORDER)}│#{Terminal::RESET}#{prompt}" \
+              "#{T.colored(before, C::INPUT_FG)}#{cursor_char}#{T.colored(after, C::INPUT_FG)}#{hint}" \
+              "#{T.fg(C::BORDER)}│#{Terminal::RESET}"
+        Terminal.clear_to_eol
       end
 
-      # Scroll the chat area
       def scroll(delta)
         max_scroll = [@rendered_lines.length - @chat_rows, 0].max
         @scroll_offset = [[@scroll_offset + delta, 0].max, max_scroll].min
@@ -386,12 +484,18 @@ module Ragents
 
       private
 
+      # ── Charm "pill" badge ── e.g.  ❮ 3 tools ❯  in accent color ────────────
+      def pill(text, color)
+        T = Terminal
+        "#{T.fg(color)}#{text}#{Terminal::RESET}"
+      end
+
       def build_assistant_meta(msg, t, c)
         parts = []
-        parts << t.colored("#{msg[:input_tokens]}in", c::BLUE)      if msg[:input_tokens]&.positive?
-        parts << t.colored("#{msg[:output_tokens]}out", c::PURPLE)  if msg[:output_tokens]&.positive?
-        parts << t.colored("#{msg[:duration_ms]}ms", c::MID)        if msg[:duration_ms]&.positive?
-        parts.join(t.colored(" · ", c::BORDER))
+        parts << t.colored("#{msg[:input_tokens]}in",  c::SKY)    if msg[:input_tokens]&.positive?
+        parts << t.colored("#{msg[:output_tokens]}out", c::LAVENDER) if msg[:output_tokens]&.positive?
+        parts << t.colored("#{msg[:duration_ms]}ms",   c::MUTED)  if msg[:duration_ms]&.positive?
+        parts.join(t.colored(" · ", c::OVERLAY))
       end
 
       def format_args(args)
@@ -399,12 +503,11 @@ module Ragents
 
         args.map do |k, v|
           val = v.to_s
-          val = val.length > 30 ? "#{val[0, 27]}…" : val
+          val = "#{val[0, 27]}…" if val.length > 30
           "#{k}: #{val.inspect}"
         end.join(", ")
       end
 
-      # Word-wrap text to max_width characters
       def wrap(text, max_width)
         return [""] if text.nil? || text.empty?
 
@@ -417,17 +520,18 @@ module Ragents
         end
       end
 
-      # Strip ANSI escape codes for length calculation
       def strip_ansi(str)
         str.to_s.gsub(/\e\[[0-9;]*[mGKHABCDJsurh]/, "")
       end
 
       def provider_color_code(name)
+        C = Terminal::Colors
         case name.to_s.downcase
-        when /openai/    then Terminal::Colors::PROVIDER_OPENAI
-        when /anthropic/ then Terminal::Colors::PROVIDER_ANTHROPIC
-        when /mock/      then Terminal::Colors::PROVIDER_MOCK
-        else                  Terminal::Colors::PROVIDER_DEFAULT
+        when /openai/    then C::PROVIDER_OPENAI
+        when /anthropic/ then C::PROVIDER_ANTHROPIC
+        when /ollama/    then C::PROVIDER_OLLAMA
+        when /mock/      then C::PROVIDER_MOCK
+        else                  C::PROVIDER_DEFAULT
         end
       end
     end
