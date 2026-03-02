@@ -11,7 +11,7 @@ class CloudRunService
       job_config = {
         template: {
           template: {
-            containers: [{
+            containers: [ {
               image: sandbox_image,
               env: sandbox_env_vars(sandbox_session),
               resources: {
@@ -20,7 +20,7 @@ class CloudRunService
                   memory: "512Mi"
                 }
               }
-            }],
+            } ],
             maxRetries: 0,
             timeout: "#{sandbox_session.timeout_seconds}s"
           }
@@ -94,7 +94,7 @@ class CloudRunService
       filter += " AND severity>=#{severity.upcase}" if severity.present?
 
       entries = logging_client.list_log_entries(
-        resource_names: ["projects/#{project_id}"],
+        resource_names: [ "projects/#{project_id}" ],
         filter: filter,
         order_by: "timestamp desc",
         page_size: limit
@@ -191,7 +191,7 @@ class CloudRunService
     def mock_job_status(job_id)
       {
         status: "running",
-        conditions: [{ type: "Ready", status: "True" }],
+        conditions: [ { type: "Ready", status: "True" } ],
         execution_count: 1,
         created_at: Time.current.iso8601,
         updated_at: Time.current.iso8601

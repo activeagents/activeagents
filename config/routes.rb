@@ -35,7 +35,7 @@ Rails.application.routes.draw do
 
   # Admin dashboard
   namespace :admin do
-    resources :spaces, only: [:index, :show] do
+    resources :spaces, only: [ :index, :show ] do
       member do
         post :terminate
         get :logs
@@ -50,7 +50,7 @@ Rails.application.routes.draw do
     # Sandbox-mode endpoints (only available in sandbox containers)
     namespace :sandbox do
       get :status, to: "runs#status"
-      resources :runs, only: [:index, :show, :create]
+      resources :runs, only: [ :index, :show, :create ]
     end
     resources :agents do
       member do
