@@ -29,6 +29,7 @@ require "json"
 require "time"
 require "net/http"
 require "uri"
+require "etc"
 
 $LOAD_PATH.unshift File.expand_path("../lib", __dir__)
 require "ragents"
@@ -67,7 +68,9 @@ OptionParser.new do |opts|
   opts.on("-n", "--requests N", Integer, "Number of concurrent requests (default: #{options[:requests]})") { |v| options[:requests] = v }
   opts.on("--io-ms MS", Integer, "Simulated LLM I/O latency in ms (default: #{options[:io_ms]})") { |v| options[:io_ms] = v }
   opts.on("--cpu-iters N", Integer, "CPU work iterations per response (default: #{options[:cpu_iters]})") { |v| options[:cpu_iters] = v }
-  opts.on("--provider PROVIDER", "Provider: mock, openai, anthropic (default: mock)") { |v| options[:provider] = v }
+  opts.on("--provider PROVIDER", "Provider: mock, realistic, openai, anthropic (default: mock)") { |v| options[:provider] = v }
+  opts.on("--median-latency MS", Integer, "Realistic provider: median latency in ms (default: 3000)") { |v| options[:median_latency] = v }
+  opts.on("--latency-sigma N", Float, "Realistic provider: log-normal sigma (default: 0.8)") { |v| options[:latency_sigma] = v }
   opts.on("--pool-size N", Integer, "Ractor pool size (default: CPU count)") { |v| options[:pool_size] = v }
   opts.on("--output FILE", "Save JSON results to file") { |v| options[:output] = v }
   opts.on("--post URL", "POST JSON results to this URL (e.g. http://localhost:3000)") { |v| options[:post_url] = v }
@@ -84,7 +87,7 @@ end.parse!
 N         = options[:requests]
 IO_MS     = options[:io_ms]
 CPU_ITERS = options[:cpu_iters]
-POOL_SIZE = options[:pool_size] || [Etc.nprocessors rescue 4, N].min
+POOL_SIZE = options[:pool_size] || [(Etc.nprocessors rescue 4), N].min
 
 def log(msg, quiet: false)
   $stderr.puts msg unless quiet
@@ -95,8 +98,17 @@ when "openai"
   [Ragents::Providers::OpenAIProvider, { api_key: ENV.fetch("OPENAI_API_KEY", "") }]
 when "anthropic"
   [Ragents::Providers::AnthropicProvider, { api_key: ENV.fetch("ANTHROPIC_API_KEY", "") }]
+when "realistic"
+  # Realistic LLM simulator with variable latency (1-30s), variable tokens, log-normal distribution
+  [Ragents::Providers::RealisticLLMProvider, {
+    median_latency_ms: options[:median_latency] || 3000,
+    latency_sigma: options[:latency_sigma] || 0.8,
+    token_rate_range: 30..100,
+    response_length_range: 50..500,
+    cpu_work_per_token: 100
+  }]
 else
-  # Simulated provider that sleeps IO_MS then does CPU_ITERS arithmetic
+  # Fast simulated provider for quick testing
   sim_class = Class.new(Ragents::Providers::BaseProvider) do
     define_method(:initialize) do
       @io_secs  = IO_MS / 1000.0

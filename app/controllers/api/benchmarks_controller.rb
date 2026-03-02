@@ -8,6 +8,7 @@ module Api
   # is needed.  The cache key is shared between all processes via Solid Cache.
   # The last 20 benchmark runs are retained.
   class BenchmarksController < BaseController
+    skip_before_action :require_authentication, raise: false
     CACHE_KEY    = "ragents:benchmarks:runs"
     MAX_RETAINED = 20
 
