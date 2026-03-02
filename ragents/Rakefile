@@ -1,0 +1,33 @@
+# frozen_string_literal: true
+
+require "rake/testtask"
+
+Rake::TestTask.new(:test) do |t|
+  t.libs << "test"
+  t.libs << "lib"
+  t.test_files = FileList["test/test_*.rb"]
+  t.verbose    = true
+end
+
+# Run all benchmarks
+namespace :bench do
+  desc "Run concurrent LLM benchmark (simulated)"
+  task :concurrent do
+    ruby "lib/ragents/benchmarks/concurrent_llm_benchmark.rb"
+  end
+
+  desc "Run Puma vs Falcon vs Ractors comparison"
+  task :servers do
+    ruby "lib/ragents/benchmarks/puma_vs_falcon_comparison.rb"
+  end
+
+  desc "Run Ractor object passing benchmark"
+  task :objects do
+    ruby "lib/ragents/benchmarks/ractor_object_passing_benchmark.rb"
+  end
+
+  desc "Run all benchmarks"
+  task all: %i[concurrent servers objects]
+end
+
+task default: :test

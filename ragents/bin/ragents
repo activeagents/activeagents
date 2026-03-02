@@ -1,0 +1,361 @@
+#!/usr/bin/env ruby
+# frozen_string_literal: true
+
+# =============================================================================
+# ragents — Ractor-based AI Agent TUI
+#
+# A full terminal user interface for interactive AI agent sessions,
+# built entirely on Ruby stdlib (io/console, io/wait) — no ncurses, no gems.
+#
+# Features:
+#   • Live chat with any LLM provider (OpenAI, Anthropic, Ollama, Mock)
+#   • Animated Braille spinner while the Ractor is thinking
+#   • Tool call + result display inline in chat history
+#   • Persistent context across turns via frozen Ractor-safe snapshots
+#   • Command history (↑/↓) and full readline-style editing (Ctrl+A/E/U/W/K)
+#   • Slash commands: /help /tools /context /clear /parallel /model /system /export /quit
+#   • /parallel — run multiple prompts concurrently in a Ractor pool
+#   • Alt+↑/↓ to scroll chat history
+#   • Graceful plain-text fallback when stdout is not a TTY (piped / CI)
+#
+# Usage:
+#   ragents                                        # mock provider, TUI
+#   ragents --provider openai                      # OpenAI
+#   ragents --provider anthropic --model claude-3-5-haiku-latest
+#   ragents --provider ollama --model llama3.2     # local Ollama
+#   ragents --tool calculator --tool time          # with built-in tools
+#   ragents --system "You are a Ruby expert"
+#   ragents --pipe                                 # force plain-text mode
+#   echo "What is Ruby?" | ragents --provider openai  # one-shot pipe
+#
+# =============================================================================
+
+require "optparse"
+
+$LOAD_PATH.unshift File.expand_path("../lib", __dir__)
+
+require "ragents"
+require "ragents/cli/tui"
+require "ragents/cli/input_handler"
+require "ragents/cli/spinner"
+require "ragents/cli/chat_session"
+
+# ---------------------------------------------------------------------------
+# CLI Options
+# ---------------------------------------------------------------------------
+options = {
+  provider:       "mock",
+  model:          nil,
+  system:         nil,
+  tools:          [],
+  max_iterations: 10,
+  pipe:           false
+}
+
+OptionParser.new do |opts|
+  opts.banner = <<~BANNER
+
+    \e[1m\e[38;5;196m⚡ ragents\e[0m — Ractor-based AI Agent TUI  (v#{Ragents::VERSION})
+
+    Usage:
+      ragents [options]
+      echo "prompt" | ragents [options]
+
+    Provider options:
+  BANNER
+
+  opts.on("--provider PROVIDER",
+          "LLM provider: openai | anthropic | ollama | mock  (default: mock)") { |v| options[:provider] = v }
+  opts.on("--model MODEL",
+          "Model override  e.g. --model gpt-4o") { |v| options[:model] = v }
+
+  opts.separator "\n    Agent options:"
+  opts.on("--system PROMPT",
+          "System prompt") { |v| options[:system] = v }
+  opts.on("--max-iter N", Integer,
+          "Max tool-call iterations per turn  (default: 10)") { |v| options[:max_iterations] = v }
+  opts.on("--tool TOOL",
+          "Enable a built-in tool: calculator | echo | time  (repeatable)") { |v| options[:tools] << v }
+
+  opts.separator "\n    Mode options:"
+  opts.on("--pipe",
+          "Force plain-text REPL mode (no TUI, useful for scripts)") { options[:pipe] = true }
+
+  opts.separator ""
+  opts.on("-v", "--version", "Show version") do
+    puts "ragents #{Ragents::VERSION} (Ruby #{RUBY_VERSION})"
+    exit
+  end
+  opts.on("-h", "--help", "Show this help") { puts opts; exit }
+end.parse!
+
+# ---------------------------------------------------------------------------
+# Resolve provider class + options
+# ---------------------------------------------------------------------------
+provider_class, provider_opts = case options[:provider].downcase
+when "openai"
+  api_key = ENV["OPENAI_API_KEY"] || ""
+  $stderr.puts "\e[33m⚠  OPENAI_API_KEY is not set\e[0m" if api_key.empty?
+  [Ragents::Providers::OpenAIProvider, { api_key: api_key }]
+when "anthropic"
+  api_key = ENV["ANTHROPIC_API_KEY"] || ""
+  $stderr.puts "\e[33m⚠  ANTHROPIC_API_KEY is not set\e[0m" if api_key.empty?
+  [Ragents::Providers::AnthropicProvider, { api_key: api_key }]
+when "ollama"
+  base_url = ENV.fetch("OLLAMA_BASE_URL", "http://localhost:11434/v1")
+  [Ragents::Providers::OpenAIProvider, { api_key: "", base_url: base_url,
+                                         default_model: options[:model] || "llama3.2" }]
+else
+  [Ragents::Providers::MockProvider, {
+    responses: [
+      { content: "Mock response #1. Use --provider openai or --provider anthropic for a real LLM." },
+      { content: "Mock response #2. Tip: try /parallel Hello | World | Ractors to see concurrent execution." },
+      { content: "Mock response #3. Use /help to see all available slash commands." }
+    ]
+  }]
+end
+
+# ---------------------------------------------------------------------------
+# Resolve built-in tools
+# ---------------------------------------------------------------------------
+BUILTIN_TOOLS = {
+  "echo" => Ragents::Tool.new(
+    name: "echo",
+    description: "Echo a string back verbatim — useful for testing tool dispatch",
+    parameters: {
+      type: "object",
+      properties: { text: { type: "string", description: "Text to echo" } },
+      required: ["text"]
+    }
+  ) { |text:| "ECHO: #{text}" },
+
+  "time" => Ragents::Tool.new(
+    name: "current_time",
+    description: "Return the current local date and time in ISO 8601 format",
+    parameters: { type: "object", properties: {}, required: [] }
+  ) { Time.now.iso8601 },
+
+  "calculator" => Ragents::Tool.new(
+    name: "calculator",
+    description: "Evaluate a safe arithmetic expression and return the numeric result",
+    parameters: {
+      type: "object",
+      properties: {
+        expression: { type: "string", description: "e.g. '(10 * 3) / 4' or '2 ** 10'" }
+      },
+      required: ["expression"]
+    }
+  ) do |expression:|
+    safe = expression.gsub(/[^0-9+\-*\/().\s%]/, "")
+    eval(safe).to_s  # rubocop:disable Security/Eval
+  rescue => e
+    "Error: #{e.message}"
+  end
+}.freeze
+
+tools = options[:tools].filter_map { |name| BUILTIN_TOOLS[name.downcase] }
+
+# ---------------------------------------------------------------------------
+# Detect pipe mode
+# ---------------------------------------------------------------------------
+use_tui = !options[:pipe] && $stdin.isatty && $stdout.isatty
+
+# ---------------------------------------------------------------------------
+# ── PLAIN-TEXT MODE ── (piped stdin, --pipe, CI)
+# ---------------------------------------------------------------------------
+unless use_tui
+  context_snapshot = nil
+
+  $stdin.each_line do |line|
+    input = line.chomp.strip
+    next if input.empty?
+
+    agent = Ragents::Ractor::AgentRactor.new(
+      provider_class: provider_class,
+      provider_opts:  provider_opts,
+      tools:          tools,
+      system_prompt:  options[:system],
+      model:          options[:model],
+      max_iterations: options[:max_iterations]
+    )
+    result = agent.run(input, context_snapshot: context_snapshot)
+    context_snapshot = result.context_snapshot
+    puts result.content
+    $stdout.flush
+  end
+
+  exit 0
+end
+
+# ---------------------------------------------------------------------------
+# ── TUI MODE ──
+# ---------------------------------------------------------------------------
+T = Ragents::CLI::Terminal
+
+# Ensure terminal is restored on exit
+at_exit do
+  T.show_cursor
+  print "\n"
+  system("stty sane 2>/dev/null")
+end
+
+# Trap SIGTERM gracefully
+Signal.trap("TERM") { T.show_cursor; exit(0) } rescue nil
+
+session = Ragents::CLI::ChatSession.new(
+  provider_class: provider_class,
+  provider_opts:  provider_opts,
+  system_prompt:  options[:system],
+  model:          options[:model],
+  tools:          tools,
+  max_iterations: options[:max_iterations]
+)
+
+tui     = Ragents::CLI::TUI.new(session)
+spinner = Ragents::CLI::Spinner.new(tui, session)
+editor  = Ragents::CLI::LineEditor.new
+handler = Ragents::CLI::InputHandler.new
+
+# Draw initial screen
+T.clear_screen
+tui.draw_all(editor.value, editor.cursor)
+$stdout.flush
+
+# ---------------------------------------------------------------------------
+# Main event loop
+# ---------------------------------------------------------------------------
+loop do
+  event = begin
+    handler.read_event
+  rescue Interrupt
+    break
+  end
+
+  case event.type
+
+  # ── Terminal resize ────────────────────────────────────────────────────────
+  when :resize
+    tui.refresh_dimensions
+    T.clear_screen
+    tui.draw_all(editor.value, editor.cursor)
+
+  # ── Ctrl+C — cancel thinking or quit ──────────────────────────────────────
+  when :ctrl_c
+    if session.thinking?
+      session.cancel!
+      spinner.stop
+      tui.draw_all(editor.value, editor.cursor)
+    else
+      break
+    end
+
+  # ── Ctrl+D — clear buffer or quit ─────────────────────────────────────────
+  when :ctrl_d
+    if editor.empty?
+      break
+    else
+      editor.handle(Ragents::CLI::InputEvent.new(type: :ctrl_u))
+      tui.draw_all(editor.value, editor.cursor)
+    end
+
+  # ── Ctrl+L — force redraw ─────────────────────────────────────────────────
+  when :ctrl_l
+    T.clear_screen
+    tui.draw_all(editor.value, editor.cursor)
+
+  # ── Arrow up — history nav or chat scroll ─────────────────────────────────
+  when :arrow_up
+    if event.meta[:alt]
+      tui.scroll(-3)
+      tui.draw_all(editor.value, editor.cursor)
+    elsif !session.thinking?
+      editor.handle(event)
+      tui.draw_all(editor.value, editor.cursor)
+    end
+
+  # ── Arrow down — history nav or chat scroll ───────────────────────────────
+  when :arrow_down
+    if event.meta[:alt]
+      tui.scroll(3)
+      tui.draw_all(editor.value, editor.cursor)
+    elsif !session.thinking?
+      editor.handle(event)
+      tui.draw_all(editor.value, editor.cursor)
+    end
+
+  # ── Tab — slash-command completion ────────────────────────────────────────
+  when :tab
+    next if session.thinking?
+
+    val = editor.value
+    if val.start_with?("/")
+      matches = Ragents::CLI::ChatSession::COMMANDS.keys.select { |c| c.start_with?(val) }
+      if matches.length == 1
+        # Autocomplete: delete current buffer, insert match
+        editor.length.times { editor.handle(Ragents::CLI::InputEvent.new(type: :backspace)) }
+        matches[0].chars.each { |c| editor.handle(Ragents::CLI::InputEvent.new(type: :char, char: c)) }
+        editor.handle(Ragents::CLI::InputEvent.new(type: :char, char: " "))
+      elsif matches.length > 1
+        # Show completions as a system message
+        session.instance_variable_get(:@display_messages) << {
+          type: :system,
+          content: "Commands matching #{val.inspect}:\n" +
+                   matches.map { |m| "  #{m}" }.join("\n")
+        }
+      end
+    end
+    tui.draw_all(editor.value, editor.cursor)
+
+  # ── Enter — submit ────────────────────────────────────────────────────────
+  when :enter
+    next if session.thinking?
+
+    input = editor.submit!
+    next if input.strip.empty?
+
+    label = spinner_label(input, provider_class)
+    spinner.start(label)
+    tui.scroll_to_bottom
+
+    # Run session in a thread so the event loop stays live for Ctrl+C
+    worker = Thread.new do
+      outcome = session.submit(input)
+      spinner.stop
+
+      case outcome
+      when :quit then Thread.main.raise(Interrupt)
+      when :clear then T.clear_screen
+      end
+
+      tui.scroll_to_bottom
+      tui.draw_all(editor.value, editor.cursor)
+      $stdout.flush
+    end
+
+    worker.join  # block here — re-enters loop when done
+
+  # ── All other editing keys ────────────────────────────────────────────────
+  else
+    next if session.thinking?
+
+    editor.handle(event)
+    tui.draw_all(editor.value, editor.cursor)
+  end
+
+  $stdout.flush
+end
+
+# ---------------------------------------------------------------------------
+# Goodbye
+# ---------------------------------------------------------------------------
+T.clear_screen
+puts "\e[1m\e[38;5;196m⚡ ragents\e[0m  Goodbye!  " \
+     "#{session.message_count} messages · #{session.total_tokens} tokens"
+
+# ---------------------------------------------------------------------------
+def spinner_label(input, provider_class)
+  return "Running parallel Ractors" if input.start_with?("/parallel")
+  return input                       if input.start_with?("/")
+
+  "#{provider_class.name.split("::").last.sub("Provider", "")} thinking"
+end

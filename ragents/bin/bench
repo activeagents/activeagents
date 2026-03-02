@@ -1,0 +1,329 @@
+#!/usr/bin/env ruby
+# frozen_string_literal: true
+
+# =============================================================================
+# ragents/bin/bench — Interactive benchmark runner for Ragents
+#
+# Runs all three concurrency strategy benchmarks against a simulated LLM
+# provider (or a real one if API keys are present) and outputs structured
+# JSON results that can be visualized in the ActiveAgents dashboard at:
+#
+#   http://localhost:3000/dashboard/benchmarks
+#
+# Usage:
+#   bin/bench                               # simulated provider, 10 requests
+#   bin/bench --requests 50                 # increase concurrency load
+#   bin/bench --io-ms 500                   # simulate slower LLM (500ms/req)
+#   bin/bench --cpu-iters 500000            # heavier CPU parsing simulation
+#   bin/bench --provider openai             # use real OpenAI API
+#   bin/bench --output /tmp/bench.json      # save results to file
+#   bin/bench --post http://localhost:3000  # POST results to ActiveAgents dashboard
+#   bin/bench --watch                       # re-run every 30s (live dashboard mode)
+#
+# One-liner for M1 Pro local development:
+#   OPENAI_API_KEY=sk-... bin/bench --requests 20 --post http://localhost:3000 --watch
+# =============================================================================
+
+require "optparse"
+require "json"
+require "time"
+require "net/http"
+require "uri"
+
+$LOAD_PATH.unshift File.expand_path("../lib", __dir__)
+require "ragents"
+
+# ---------------------------------------------------------------------------
+# CLI Options
+# ---------------------------------------------------------------------------
+options = {
+  requests:   10,
+  io_ms:      100,
+  cpu_iters:  50_000,
+  provider:   "mock",
+  output:     nil,
+  post_url:   nil,
+  watch:      false,
+  watch_secs: 30,
+  pool_size:  nil,  # auto-detect from CPU count
+  async:      false,
+  quiet:      false
+}
+
+OptionParser.new do |opts|
+  opts.banner = <<~BANNER
+    Usage: bin/bench [options]
+
+    Benchmarks three concurrency strategies for LLM workloads:
+      1. Sequential   — one request at a time (baseline)
+      2. Threads      — one Thread per request
+      3. Ractors      — one Ractor per request (true parallelism)
+
+    Results are output as JSON and can be posted to the ActiveAgents
+    dashboard for visualization.
+
+  BANNER
+
+  opts.on("-n", "--requests N", Integer, "Number of concurrent requests (default: #{options[:requests]})") { |v| options[:requests] = v }
+  opts.on("--io-ms MS", Integer, "Simulated LLM I/O latency in ms (default: #{options[:io_ms]})") { |v| options[:io_ms] = v }
+  opts.on("--cpu-iters N", Integer, "CPU work iterations per response (default: #{options[:cpu_iters]})") { |v| options[:cpu_iters] = v }
+  opts.on("--provider PROVIDER", "Provider: mock, openai, anthropic (default: mock)") { |v| options[:provider] = v }
+  opts.on("--pool-size N", Integer, "Ractor pool size (default: CPU count)") { |v| options[:pool_size] = v }
+  opts.on("--output FILE", "Save JSON results to file") { |v| options[:output] = v }
+  opts.on("--post URL", "POST JSON results to this URL (e.g. http://localhost:3000)") { |v| options[:post_url] = v }
+  opts.on("--watch", "Re-run benchmark every --watch-secs seconds") { options[:watch] = true }
+  opts.on("--watch-secs N", Integer, "Seconds between watch runs (default: #{options[:watch_secs]})") { |v| options[:watch_secs] = v }
+  opts.on("--async", "Include Async fiber strategy (requires 'async' gem)") { options[:async] = true }
+  opts.on("-q", "--quiet", "Suppress progress output (JSON only)") { options[:quiet] = true }
+  opts.on("-h", "--help") { puts opts; exit }
+end.parse!
+
+# ---------------------------------------------------------------------------
+# Setup
+# ---------------------------------------------------------------------------
+N         = options[:requests]
+IO_MS     = options[:io_ms]
+CPU_ITERS = options[:cpu_iters]
+POOL_SIZE = options[:pool_size] || [Etc.nprocessors rescue 4, N].min
+
+def log(msg, quiet: false)
+  $stderr.puts msg unless quiet
+end
+
+provider_class, provider_opts = case options[:provider]
+when "openai"
+  [Ragents::Providers::OpenAIProvider, { api_key: ENV.fetch("OPENAI_API_KEY", "") }]
+when "anthropic"
+  [Ragents::Providers::AnthropicProvider, { api_key: ENV.fetch("ANTHROPIC_API_KEY", "") }]
+else
+  # Simulated provider that sleeps IO_MS then does CPU_ITERS arithmetic
+  sim_class = Class.new(Ragents::Providers::BaseProvider) do
+    define_method(:initialize) do
+      @io_secs  = IO_MS / 1000.0
+      @cpu_iter = CPU_ITERS
+      freeze
+    end
+
+    define_method(:chat) do |messages:, tools: [], model: nil, **_|
+      sleep @io_secs
+      _x = 0; @cpu_iter.times { |i| _x += i * i }
+      Ragents::Providers::GenerationResult.new(
+        content: "Simulated response for: #{(messages.last[:content] || "")[0, 40]}",
+        tool_calls: [],
+        input_tokens: 80 + rand(40),
+        output_tokens: 15 + rand(20),
+        model: "simulated-gpt",
+        stop_reason: "end_turn"
+      )
+    end
+  end
+  [sim_class, {}]
+end
+
+INPUTS      = N.times.map { |i| "Request #{i + 1}: Explain #{%w[Ractors fibers threads async parallelism][i % 5]} in Ruby." }.freeze
+SYSTEM      = "You are a concise Ruby expert."
+RUN_STARTED = Time.now.iso8601
+
+log("", quiet: options[:quiet])
+log("╔══════════════════════════════════════════════════════════════════════╗", quiet: options[:quiet])
+log("║          Ragents Benchmark — Concurrency Strategy Comparison         ║", quiet: options[:quiet])
+log("╚══════════════════════════════════════════════════════════════════════╝", quiet: options[:quiet])
+log("  Provider : #{options[:provider]}  |  N=#{N}  |  IO=#{IO_MS}ms  |  CPU=#{CPU_ITERS} iters  |  Pool=#{POOL_SIZE}", quiet: options[:quiet])
+log("  Hardware : #{Etc.respond_to?(:nprocessors) ? "#{Etc.nprocessors} CPU cores" : "unknown cores"}  |  Ruby #{RUBY_VERSION}  |  #{RbConfig::CONFIG["host_cpu"]}", quiet: options[:quiet])
+log("", quiet: options[:quiet])
+
+def run_agent(provider_class, provider_opts, system, input)
+  agent = Ragents::Ractor::AgentRactor.new(
+    provider_class: provider_class,
+    provider_opts: provider_opts,
+    system_prompt: system
+  )
+  start = Process.clock_gettime(Process::CLOCK_MONOTONIC, :millisecond)
+  result = agent.run(input)
+  elapsed = Process.clock_gettime(Process::CLOCK_MONOTONIC, :millisecond) - start
+  { result: result, duration_ms: elapsed }
+rescue => e
+  { error: e.message, duration_ms: 0 }
+end
+
+def bench_strategy(name, n, quiet:)
+  log("  ▶ #{name} ...", quiet: quiet)
+  wall_start = Process.clock_gettime(Process::CLOCK_MONOTONIC)
+  results    = yield
+  wall_ms    = ((Process.clock_gettime(Process::CLOCK_MONOTONIC) - wall_start) * 1000).round(1)
+
+  durations  = results.map { |r| r[:duration_ms] }
+  errors     = results.count { |r| r[:error] }
+  tokens_in  = results.sum { |r| r[:result]&.assistant_message&.input_tokens.to_i }
+  tokens_out = results.sum { |r| r[:result]&.assistant_message&.output_tokens.to_i }
+
+  stats = {
+    name:          name,
+    n_requests:    n,
+    wall_time_ms:  wall_ms,
+    throughput:    (n / (wall_ms / 1000.0)).round(2),
+    avg_latency_ms: durations.sum.to_f / durations.size,
+    min_latency_ms: durations.min,
+    max_latency_ms: durations.max,
+    p50_latency_ms: percentile(durations, 50),
+    p95_latency_ms: percentile(durations, 95),
+    errors:        errors,
+    total_input_tokens: tokens_in,
+    total_output_tokens: tokens_out
+  }
+
+  log("    ✓ #{wall_ms}ms  |  #{stats[:throughput]} req/s  |  p95=#{stats[:p95_latency_ms]}ms  |  errors=#{errors}", quiet: quiet)
+  stats
+end
+
+def percentile(arr, pct)
+  sorted = arr.sort
+  idx = ((pct / 100.0) * (sorted.size - 1)).round
+  sorted[idx] || 0
+end
+
+# ---------------------------------------------------------------------------
+# Main benchmark loop
+# ---------------------------------------------------------------------------
+def run_benchmarks(provider_class, provider_opts, n, pool_size, system, inputs, options)
+  strategies = []
+
+  # 1. Sequential
+  strategies << bench_strategy("Sequential", n, quiet: options[:quiet]) do
+    inputs.map { |input| run_agent(provider_class, provider_opts, system, input) }
+  end
+
+  sequential_ms = strategies.first[:wall_time_ms]
+
+  # 2. Threads
+  strategies << bench_strategy("Threads (N=#{n})", n, quiet: options[:quiet]) do
+    threads = inputs.map { |input| Thread.new { run_agent(provider_class, provider_opts, system, input) } }
+    threads.map(&:value)
+  end
+
+  # 3. Ractors (pool = N, unbounded)
+  strategies << bench_strategy("Ractors (N=#{n})", n, quiet: options[:quiet]) do
+    pool = Ragents::Ractor::AgentPool.new(
+      size: n,
+      provider_class: provider_class,
+      provider_opts: provider_opts,
+      system_prompt: system
+    )
+    results = pool.process(inputs)
+    results.map.with_index do |r, i|
+      r.is_a?(Ragents::Ractor::FailedResult) ? { error: r.content, duration_ms: 0 } : { result: r, duration_ms: 0 }
+    end
+  end
+
+  # 4. Ractor Pool (bounded by CPU cores)
+  strategies << bench_strategy("Ractor Pool (size=#{pool_size})", n, quiet: options[:quiet]) do
+    pool = Ragents::Ractor::AgentPool.new(
+      size: pool_size,
+      provider_class: provider_class,
+      provider_opts: provider_opts,
+      system_prompt: system
+    )
+    results = pool.process(inputs)
+    results.map do |r|
+      r.is_a?(Ragents::Ractor::FailedResult) ? { error: r.content, duration_ms: 0 } : { result: r, duration_ms: 0 }
+    end
+  end
+
+  # 5. Async (optional)
+  if options[:async]
+    begin
+      require "async"
+      strategies << bench_strategy("Async Fibers (N=#{n})", n, quiet: options[:quiet]) do
+        results = Array.new(n)
+        Async do
+          tasks = inputs.each_with_index.map do |input, idx|
+            Async do
+              result = run_agent(provider_class, provider_opts, system, input)
+              results[idx] = result
+            end
+          end
+          tasks.map(&:wait)
+        end
+        results
+      end
+    rescue LoadError
+      log("  ⚠ async gem not available — skipping Async strategy", quiet: options[:quiet])
+    end
+  end
+
+  # Add speedup ratios relative to sequential
+  strategies.each do |s|
+    s[:speedup_vs_sequential] = (sequential_ms / s[:wall_time_ms]).round(2)
+  end
+
+  strategies
+end
+
+# ---------------------------------------------------------------------------
+# Run once or in watch loop
+# ---------------------------------------------------------------------------
+require "etc"
+
+loop do
+  run_at = Time.now.iso8601
+  log("\n  Started: #{run_at}", quiet: options[:quiet])
+
+  strategies = run_benchmarks(
+    provider_class, provider_opts, N, POOL_SIZE, SYSTEM, INPUTS, options
+  )
+
+  # Hardware context
+  hardware = {
+    ruby_version:    RUBY_VERSION,
+    platform:        RUBY_PLATFORM,
+    cpu_cores:       (Etc.nprocessors rescue nil),
+    cpu_model:       RbConfig::CONFIG["host_cpu"]
+  }
+
+  config = {
+    n_requests:    N,
+    io_latency_ms: IO_MS,
+    cpu_iterations: CPU_ITERS,
+    pool_size:     POOL_SIZE,
+    provider:      options[:provider]
+  }
+
+  output = {
+    run_at:      run_at,
+    hardware:    hardware,
+    config:      config,
+    strategies:  strategies,
+    winner: strategies.min_by { |s| s[:wall_time_ms] }&.slice(:name, :throughput, :wall_time_ms)
+  }
+
+  json = JSON.pretty_generate(output)
+
+  # Print JSON to stdout (always)
+  puts json
+
+  # Optionally save to file
+  if options[:output]
+    File.write(options[:output], json)
+    log("  💾 Saved to #{options[:output]}", quiet: options[:quiet])
+  end
+
+  # Optionally POST to ActiveAgents dashboard
+  if options[:post_url]
+    begin
+      uri = URI.parse("#{options[:post_url].chomp("/")}/api/benchmarks")
+      http = Net::HTTP.new(uri.host, uri.port)
+      req  = Net::HTTP::Post.new(uri)
+      req["Content-Type"] = "application/json"
+      req.body = JSON.generate(output)
+      res = http.request(req)
+      log("  📊 Posted to dashboard → #{res.code}", quiet: options[:quiet])
+    rescue => e
+      log("  ⚠ Failed to post to dashboard: #{e.message}", quiet: options[:quiet])
+    end
+  end
+
+  break unless options[:watch]
+
+  log("\n  ⏱ Next run in #{options[:watch_secs]}s (Ctrl+C to stop)...", quiet: options[:quiet])
+  sleep options[:watch_secs]
+end
