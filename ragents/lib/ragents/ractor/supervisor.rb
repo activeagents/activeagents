@@ -100,7 +100,7 @@ module Ragents
                 description: "Whether to pass the current conversation context to this agent"
               }
             },
-            required: ["input"]
+            required: [ "input" ]
           }
         ) do |input:, forward_context: false, context_snapshot: nil|
           agent_ractor = AgentRactor.new(
@@ -145,10 +145,10 @@ module Ragents
       # @return [Hash<String => RunResult>]
       def run_parallel(tasks, context_snapshot: nil)
         threads = tasks.map do |agent_name, user_input|
-          [agent_name.to_s, Thread.new { run(agent_name, user_input, context_snapshot: context_snapshot) }]
+          [ agent_name.to_s, Thread.new { run(agent_name, user_input, context_snapshot: context_snapshot) } ]
         end
 
-        threads.to_h { |name, t| [name, t.value] }
+        threads.to_h { |name, t| [ name, t.value ] }
       end
     end
   end

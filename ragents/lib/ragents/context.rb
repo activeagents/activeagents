@@ -111,14 +111,14 @@ module Ragents
         {
           role: "assistant",
           content: nil,
-          tool_calls: [{
+          tool_calls: [ {
             id: message.tool_call_id,
             type: "function",
             function: {
               name: message.name,
               arguments: JSON.generate(message.arguments)
             }
-          }]
+          } ]
         }
       when ToolResultMessage
         {

@@ -201,9 +201,9 @@ module Ragents
       def run(user_input, context_snapshot)
         @context = if context_snapshot&.any?
                      ::Ragents::Context.import(context_snapshot, agent_id: "worker")
-                   else
+        else
                      ::Ragents::Context.new(agent_id: "worker")
-                   end
+        end
 
         @context.add(::Ragents::SystemMessage.new(content: @system_prompt)) if @system_prompt && @context.system_messages.empty?
         @context.add(::Ragents::UserMessage.new(content: user_input))

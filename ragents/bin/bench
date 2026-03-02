@@ -87,7 +87,7 @@ end.parse!
 N         = options[:requests]
 IO_MS     = options[:io_ms]
 CPU_ITERS = options[:cpu_iters]
-POOL_SIZE = options[:pool_size] || [(Etc.nprocessors rescue 4), N].min
+POOL_SIZE = options[:pool_size] || [ (Etc.nprocessors rescue 4), N ].min
 
 def log(msg, quiet: false)
   $stderr.puts msg unless quiet
@@ -95,18 +95,18 @@ end
 
 provider_class, provider_opts = case options[:provider]
 when "openai"
-  [Ragents::Providers::OpenAIProvider, { api_key: ENV.fetch("OPENAI_API_KEY", "") }]
+  [ Ragents::Providers::OpenAIProvider, { api_key: ENV.fetch("OPENAI_API_KEY", "") } ]
 when "anthropic"
-  [Ragents::Providers::AnthropicProvider, { api_key: ENV.fetch("ANTHROPIC_API_KEY", "") }]
+  [ Ragents::Providers::AnthropicProvider, { api_key: ENV.fetch("ANTHROPIC_API_KEY", "") } ]
 when "realistic"
   # Realistic LLM simulator with variable latency (1-30s), variable tokens, log-normal distribution
-  [Ragents::Providers::RealisticLLMProvider, {
+  [ Ragents::Providers::RealisticLLMProvider, {
     median_latency_ms: options[:median_latency] || 3000,
     latency_sigma: options[:latency_sigma] || 0.8,
     token_rate_range: 30..100,
     response_length_range: 50..500,
     cpu_work_per_token: 100
-  }]
+  } ]
 else
   # Fast simulated provider for quick testing
   sim_class = Class.new(Ragents::Providers::BaseProvider) do
@@ -129,7 +129,7 @@ else
       )
     end
   end
-  [sim_class, {}]
+  [ sim_class, {} ]
 end
 
 INPUTS      = N.times.map { |i| "Request #{i + 1}: Explain #{%w[Ractors fibers threads async parallelism][i % 5]} in Ruby." }.freeze

@@ -86,9 +86,9 @@ module Ragents
           Thread.new do
             agent  = AgentRactor.new(**@agent_opts)
             result = agent.run(input, context_snapshot: context_snapshot)
-            completed.push([idx, result])
+            completed.push([ idx, result ])
           rescue StandardError => e
-            completed.push([idx, FailedResult.new(error: e)])
+            completed.push([ idx, FailedResult.new(error: e) ])
           ensure
             semaphore.pop
           end

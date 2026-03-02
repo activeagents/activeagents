@@ -51,9 +51,9 @@ module Ragents
     def execute(**kwargs)
       result = if @callable
                  @callable.call(**kwargs)
-               else
+      else
                  call(**kwargs)
-               end
+      end
 
       normalise_result(result)
     rescue StandardError => e

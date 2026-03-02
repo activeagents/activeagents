@@ -138,7 +138,7 @@ module Ragents
 
         # Build response with ~4 chars per token
         target_chars = target_tokens * 4
-        response_parts = ["Regarding #{topic}:"]
+        response_parts = [ "Regarding #{topic}:" ]
 
         while response_parts.join(" ").length < target_chars
           sentence_length = rng.rand(8..20)

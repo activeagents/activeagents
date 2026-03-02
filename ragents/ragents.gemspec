@@ -5,8 +5,8 @@ require_relative "lib/ragents/version"
 Gem::Specification.new do |spec|
   spec.name = "ragents"
   spec.version = Ragents::VERSION
-  spec.authors = ["ActiveAgents"]
-  spec.email = ["hello@activeagents.ai"]
+  spec.authors = [ "ActiveAgents" ]
+  spec.email = [ "hello@activeagents.ai" ]
 
   spec.summary = "Ractor-based AI agents with a Charm-inspired TUI — pure Ruby, no dependencies"
   spec.description = <<~DESC
@@ -43,7 +43,7 @@ Gem::Specification.new do |spec|
 
   spec.bindir = "bin"
   spec.executables = spec.files.grep(%r{\Abin/}) { |f| File.basename(f) }
-  spec.require_paths = ["lib"]
+  spec.require_paths = [ "lib" ]
 
   # Pure Ruby — no C extensions, no Go binaries.
   # The TUI is styled after the Charm (charm.sh) aesthetic — rounded borders,

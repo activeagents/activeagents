@@ -10,12 +10,12 @@ require "minitest/autorun"
 # ---------------------------------------------------------------------------
 module TestHelpers
   # Build a MockProvider with scripted responses
-  def mock_provider(responses: [{ content: "Hello, I am a test assistant." }])
+  def mock_provider(responses: [ { content: "Hello, I am a test assistant." } ])
     Ragents::Providers::MockProvider.new(responses: responses)
   end
 
   # Build an AgentRactor backed by a MockProvider
-  def mock_agent(responses: [{ content: "Hello!" }], tools: [], system_prompt: nil, max_iterations: 5)
+  def mock_agent(responses: [ { content: "Hello!" } ], tools: [], system_prompt: nil, max_iterations: 5)
     Ragents::Ractor::AgentRactor.new(
       provider_class: Ragents::Providers::MockProvider,
       provider_opts: { responses: responses },
@@ -33,7 +33,7 @@ module TestHelpers
       parameters: {
         type: "object",
         properties: { text: { type: "string", description: "Text to echo" } },
-        required: ["text"]
+        required: [ "text" ]
       }
     ) { |text:| "ECHO: #{text}" }
   end

@@ -71,7 +71,7 @@ puts "\n=== A. Puma + Threads ==="
 puts "     #{THREADS} worker threads for #{N_USERS} users"
 puts
 
-thread_count = [THREADS, N_USERS].min
+thread_count = [ THREADS, N_USERS ].min
 puma_semaphore = SizedQueue.new(thread_count)
 
 puma_time = Benchmark.realtime do
@@ -90,7 +90,7 @@ puma_time = Benchmark.realtime do
 end
 
 puma_throughput = N_USERS / puma_time
-puma_queued = [N_USERS - THREADS, 0].max
+puma_queued = [ N_USERS - THREADS, 0 ].max
 puts "  Time      : #{puma_time.round(3)}s"
 puts "  Throughput: #{puma_throughput.round(1)} req/s"
 puts "  Queued    : #{puma_queued} users waited for a thread slot"
@@ -192,9 +192,9 @@ puts format("  %-30s %8s %10s %20s", "Architecture", "Time (s)", "req/s", "CPU p
 puts "-" * 72
 
 [
-  ["Puma + Threads (#{THREADS})",     puma_time,    puma_throughput,   "No (shared GVL)"],
-  ["Falcon + Async Fibers",           falcon_time,  falcon_throughput, "No (cooperative)"],
-  ["Ragents + Ractor Pool (#{RACTOR_POOL})", ractor_time, ractor_throughput, "Yes (#{RACTOR_POOL} GVLs)"]
+  [ "Puma + Threads (#{THREADS})",     puma_time,    puma_throughput,   "No (shared GVL)" ],
+  [ "Falcon + Async Fibers",           falcon_time,  falcon_throughput, "No (cooperative)" ],
+  [ "Ragents + Ractor Pool (#{RACTOR_POOL})", ractor_time, ractor_throughput, "Yes (#{RACTOR_POOL} GVLs)" ]
 ].each do |name, time, tput, parallel|
   puts format("  %-30s %8.3f %10.1f %20s", name, time, tput, parallel)
 end

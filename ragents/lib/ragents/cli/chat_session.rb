@@ -291,7 +291,7 @@ module Ragents
 
         begin
           pool = Ragents::Ractor::AgentPool.new(
-            size:           [prompts.length, 8].min,
+            size:           [ prompts.length, 8 ].min,
             provider_class: @provider_class,
             provider_opts:  @provider_opts,
             system_prompt:  effective_system_prompt,

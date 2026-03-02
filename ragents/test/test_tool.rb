@@ -12,7 +12,7 @@ class TestTool < Minitest::Test
         properties: {
           expression: { type: "string", description: "The arithmetic expression" }
         },
-        required: ["expression"]
+        required: [ "expression" ]
       }
     ) { |expression:| eval(expression).to_s }  # rubocop:disable Security/Eval
   end
@@ -89,7 +89,7 @@ class TestToolRegistry < Minitest::Test
     tool = Ragents::Tool.new(
       name: "greet",
       description: "d",
-      parameters: { type: "object", properties: { name: { type: "string" } }, required: ["name"] }
+      parameters: { type: "object", properties: { name: { type: "string" } }, required: [ "name" ] }
     ) { |name:| "Hello, #{name}!" }
     @registry.register(tool)
 

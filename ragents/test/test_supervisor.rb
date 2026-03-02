@@ -8,7 +8,7 @@ class TestSupervisor < Minitest::Test
     @supervisor.register(
       "helper",
       provider_class: Ragents::Providers::MockProvider,
-      provider_opts: { responses: [{ content: "I am the helper agent." }] },
+      provider_opts: { responses: [ { content: "I am the helper agent." } ] },
       system_prompt: "You are a helper"
     )
   end
@@ -44,12 +44,12 @@ class TestSupervisor < Minitest::Test
     @supervisor.register(
       "analyst",
       provider_class: Ragents::Providers::MockProvider,
-      provider_opts: { responses: [{ content: "Analyst response" }] }
+      provider_opts: { responses: [ { content: "Analyst response" } ] }
     )
     @supervisor.register(
       "writer",
       provider_class: Ragents::Providers::MockProvider,
-      provider_opts: { responses: [{ content: "Writer response" }] }
+      provider_opts: { responses: [ { content: "Writer response" } ] }
     )
 
     tasks = {
@@ -67,7 +67,7 @@ class TestSupervisor < Minitest::Test
     result = @supervisor.register(
       "new_agent",
       provider_class: Ragents::Providers::MockProvider,
-      provider_opts: { responses: [{ content: "ok" }] }
+      provider_opts: { responses: [ { content: "ok" } ] }
     )
     assert_equal @supervisor, result
   end

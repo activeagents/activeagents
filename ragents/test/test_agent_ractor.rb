@@ -11,7 +11,7 @@ class TestAgentRactor < Minitest::Test
   # ---------------------------------------------------------------------------
 
   def test_basic_run_returns_run_result
-    agent = mock_agent(responses: [{ content: "I am a helpful assistant." }])
+    agent = mock_agent(responses: [ { content: "I am a helpful assistant." } ])
     result = agent.run("Hello")
 
     assert_kind_of Ragents::Ractor::RunResult, result
@@ -19,7 +19,7 @@ class TestAgentRactor < Minitest::Test
   end
 
   def test_run_result_has_context_snapshot
-    agent = mock_agent(responses: [{ content: "Hi!" }])
+    agent = mock_agent(responses: [ { content: "Hi!" } ])
     result = agent.run("Hello")
 
     assert result.context_snapshot.is_a?(Array)
@@ -29,7 +29,7 @@ class TestAgentRactor < Minitest::Test
 
   def test_run_adds_system_message_when_provided
     agent = mock_agent(
-      responses: [{ content: "Helpful response" }],
+      responses: [ { content: "Helpful response" } ],
       system_prompt: "You are a test agent"
     )
     result = agent.run("Hi")
@@ -40,7 +40,7 @@ class TestAgentRactor < Minitest::Test
   end
 
   def test_run_includes_user_input_in_context
-    agent = mock_agent(responses: [{ content: "Got it" }])
+    agent = mock_agent(responses: [ { content: "Got it" } ])
     result = agent.run("What is Ruby?")
 
     user_msgs = result.context_snapshot.select { |m| m.is_a?(Ragents::UserMessage) }
@@ -56,13 +56,13 @@ class TestAgentRactor < Minitest::Test
     responses = [
       # First call: LLM requests a tool
       {
-        tool_calls: [{ id: "tc_1", name: "echo", arguments: { text: "hello" } }]
+        tool_calls: [ { id: "tc_1", name: "echo", arguments: { text: "hello" } } ]
       },
       # Second call: LLM responds after seeing the tool result
       { content: "The echo returned: ECHO: hello" }
     ]
 
-    agent = mock_agent(responses: responses, tools: [echo_tool])
+    agent = mock_agent(responses: responses, tools: [ echo_tool ])
     result = agent.run("Echo hello for me")
 
     assert_equal "The echo returned: ECHO: hello", result.content
@@ -70,11 +70,11 @@ class TestAgentRactor < Minitest::Test
 
   def test_tool_result_in_context
     responses = [
-      { tool_calls: [{ id: "tc_1", name: "echo", arguments: { text: "test" } }] },
+      { tool_calls: [ { id: "tc_1", name: "echo", arguments: { text: "test" } } ] },
       { content: "Done" }
     ]
 
-    agent = mock_agent(responses: responses, tools: [echo_tool])
+    agent = mock_agent(responses: responses, tools: [ echo_tool ])
     result = agent.run("Echo test")
 
     tool_calls   = result.context_snapshot.select { |m| m.is_a?(Ragents::ToolCallMessage) }
@@ -88,7 +88,7 @@ class TestAgentRactor < Minitest::Test
 
   def test_unknown_tool_returns_error_result
     responses = [
-      { tool_calls: [{ id: "tc_1", name: "nonexistent_tool", arguments: {} }] },
+      { tool_calls: [ { id: "tc_1", name: "nonexistent_tool", arguments: {} } ] },
       { content: "I see there was an error" }
     ]
 
@@ -110,7 +110,7 @@ class TestAgentRactor < Minitest::Test
       Ragents::AssistantMessage.new(content: "A dynamic language.")
     ].freeze
 
-    agent = mock_agent(responses: [{ content: "Follow-up answer" }])
+    agent = mock_agent(responses: [ { content: "Follow-up answer" } ])
     result = agent.run("Tell me more", context_snapshot: prior_context)
 
     all_msgs = result.context_snapshot
@@ -125,12 +125,12 @@ class TestAgentRactor < Minitest::Test
   def test_raises_when_max_iterations_exceeded
     # Keep returning tool calls to trigger the loop
     infinite_tool_responses = Array.new(20) do
-      { tool_calls: [{ id: "tc_1", name: "echo", arguments: { text: "loop" } }] }
+      { tool_calls: [ { id: "tc_1", name: "echo", arguments: { text: "loop" } } ] }
     end
 
     agent = mock_agent(
       responses: infinite_tool_responses,
-      tools: [echo_tool],
+      tools: [ echo_tool ],
       max_iterations: 3
     )
 
@@ -144,8 +144,8 @@ class TestAgentRactor < Minitest::Test
   # ---------------------------------------------------------------------------
 
   def test_run_parallel_returns_results_in_order
-    agent = mock_agent(responses: [{ content: "Answer" }])
-    inputs = ["Q1", "Q2", "Q3", "Q4", "Q5"]
+    agent = mock_agent(responses: [ { content: "Answer" } ])
+    inputs = [ "Q1", "Q2", "Q3", "Q4", "Q5" ]
     results = agent.run_parallel(inputs)
 
     assert_equal 5, results.size
@@ -156,8 +156,8 @@ class TestAgentRactor < Minitest::Test
   end
 
   def test_run_parallel_each_has_independent_context
-    agent = mock_agent(responses: [{ content: "Response" }])
-    inputs = ["Q1", "Q2"]
+    agent = mock_agent(responses: [ { content: "Response" } ])
+    inputs = [ "Q1", "Q2" ]
     results = agent.run_parallel(inputs)
 
     msgs_0 = results[0].context_snapshot.select { |m| m.is_a?(Ragents::UserMessage) }

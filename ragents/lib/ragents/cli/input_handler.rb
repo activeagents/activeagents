@@ -208,10 +208,10 @@ module Ragents
       def read_utf8(io, first_byte)
         b = first_byte.ord
         extra = if    b & 0b1111_1000 == 0b1111_0000 then 3
-                elsif b & 0b1111_0000 == 0b1110_0000 then 2
-                elsif b & 0b1110_0000 == 0b1100_0000 then 1
-                else 0
-                end
+        elsif b & 0b1111_0000 == 0b1110_0000 then 2
+        elsif b & 0b1110_0000 == 0b1100_0000 then 1
+        else 0
+        end
         buf = first_byte.dup
         extra.times do
           break unless io.wait_readable(0.05)
@@ -307,11 +307,11 @@ module Ragents
       end
 
       def move_left
-        @cursor = [@cursor - 1, 0].max
+        @cursor = [ @cursor - 1, 0 ].max
       end
 
       def move_right
-        @cursor = [@cursor + 1, @buffer.length].min
+        @cursor = [ @cursor + 1, @buffer.length ].min
       end
 
       def delete_word_backward

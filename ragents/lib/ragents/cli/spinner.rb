@@ -16,14 +16,14 @@ module Ragents
 
       # Label gradient steps (pink → lavender, 8 steps)
       GRADIENT_STEPS = [
-        [255,  99, 186],  # #FF63BA  pink
-        [255, 112, 192],
-        [240, 120, 220],
-        [210, 128, 240],
-        [180, 133, 255],
-        [160, 138, 255],
-        [147, 142, 255],  # #938EFF  lavender
-        [134, 142, 255]   # #868EFF
+        [ 255,  99, 186 ],  # #FF63BA  pink
+        [ 255, 112, 192 ],
+        [ 240, 120, 220 ],
+        [ 210, 128, 240 ],
+        [ 180, 133, 255 ],
+        [ 160, 138, 255 ],
+        [ 147, 142, 255 ],  # #938EFF  lavender
+        [ 134, 142, 255 ]   # #868EFF
       ].freeze
 
       INTERVAL = 0.08  # seconds — slightly faster than braille for dot style
@@ -70,38 +70,38 @@ module Ragents
       end
 
       def draw_frame(frame, rgb)
-        T = Terminal
-        C = Terminal::Colors
+        t = Terminal
+        c = Terminal::Colors
 
         input_row = TUI::HEADER_HEIGHT + @tui.chat_rows + 2  # same formula as input box inner line
 
         @mutex.synchronize do
-          T.save_cursor
-          T.move_to(input_row, 1)
-          T.clear_line
+          t.save_cursor
+          t.move_to(input_row, 1)
+          t.clear_line
 
           r, g, b   = rgb
-          frame_s   = "#{Terminal::BOLD}#{T.fg_rgb(r, g, b)}#{frame}#{Terminal::RESET}"
-          label_s   = T.colored(" #{@label}", C::MUTED)
-          cancel_s  = T.colored("   ctrl+c to cancel", C::OVERLAY)
-          border_fg = T.fg(C::BORDER)
+          frame_s   = "#{Terminal::BOLD}#{t.fg_rgb(r, g, b)}#{frame}#{Terminal::RESET}"
+          label_s   = t.colored(" #{@label}", c::MUTED)
+          cancel_s  = t.colored("   ctrl+c to cancel", c::OVERLAY)
+          border_fg = t.fg(c::BORDER)
           reset     = Terminal::RESET
 
           print "#{border_fg}│#{reset} #{frame_s}#{label_s}#{cancel_s}"
-          T.clear_to_eol
+          t.clear_to_eol
           print "  #{border_fg}│#{reset}"
-          T.restore_cursor
+          t.restore_cursor
           $stdout.flush
         end
       end
 
       def clear_spinner_row
-        T = Terminal
+        t = Terminal
         input_row = TUI::HEADER_HEIGHT + (@tui&.chat_rows || 10) + 2
-        T.save_cursor
-        T.move_to(input_row, 1)
-        T.clear_line
-        T.restore_cursor
+        t.save_cursor
+        t.move_to(input_row, 1)
+        t.clear_line
+        t.restore_cursor
         $stdout.flush
       end
     end

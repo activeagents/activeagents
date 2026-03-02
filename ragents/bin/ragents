@@ -96,23 +96,23 @@ provider_class, provider_opts = case options[:provider].downcase
 when "openai"
   api_key = ENV["OPENAI_API_KEY"] || ""
   $stderr.puts "\e[33m⚠  OPENAI_API_KEY is not set\e[0m" if api_key.empty?
-  [Ragents::Providers::OpenAIProvider, { api_key: api_key }]
+  [ Ragents::Providers::OpenAIProvider, { api_key: api_key } ]
 when "anthropic"
   api_key = ENV["ANTHROPIC_API_KEY"] || ""
   $stderr.puts "\e[33m⚠  ANTHROPIC_API_KEY is not set\e[0m" if api_key.empty?
-  [Ragents::Providers::AnthropicProvider, { api_key: api_key }]
+  [ Ragents::Providers::AnthropicProvider, { api_key: api_key } ]
 when "ollama"
   base_url = ENV.fetch("OLLAMA_BASE_URL", "http://localhost:11434/v1")
-  [Ragents::Providers::OpenAIProvider, { api_key: "", base_url: base_url,
-                                         default_model: options[:model] || "llama3.2" }]
+  [ Ragents::Providers::OpenAIProvider, { api_key: "", base_url: base_url,
+                                         default_model: options[:model] || "llama3.2" } ]
 else
-  [Ragents::Providers::MockProvider, {
+  [ Ragents::Providers::MockProvider, {
     responses: [
       { content: "Mock response #1. Use --provider openai or --provider anthropic for a real LLM." },
       { content: "Mock response #2. Tip: try /parallel Hello | World | Ractors to see concurrent execution." },
       { content: "Mock response #3. Use /help to see all available slash commands." }
     ]
-  }]
+  } ]
 end
 
 # ---------------------------------------------------------------------------
@@ -125,7 +125,7 @@ BUILTIN_TOOLS = {
     parameters: {
       type: "object",
       properties: { text: { type: "string", description: "Text to echo" } },
-      required: ["text"]
+      required: [ "text" ]
     }
   ) { |text:| "ECHO: #{text}" },
 
@@ -143,7 +143,7 @@ BUILTIN_TOOLS = {
       properties: {
         expression: { type: "string", description: "e.g. '(10 * 3) / 4' or '2 ** 10'" }
       },
-      required: ["expression"]
+      required: [ "expression" ]
     }
   ) do |expression:|
     safe = expression.gsub(/[^0-9+\-*\/().\s%]/, "")

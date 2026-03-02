@@ -170,7 +170,7 @@ puts <<~SUMMARY
 
   2. Mutable Hash-based messages MUST be Marshal-serialised when crossing
      Ractor boundaries.  For a 20-message context, Marshal.dump+load adds
-     ~#{(baseline * 5).round(0).to_s}µs overhead per Ractor boundary crossing.
+     ~#{(baseline * 5).round(0)}µs overhead per Ractor boundary crossing.
 
   3. Ragents Context#snapshot creates a frozen Array of frozen structs in
      one pass, making sub-agent spawning essentially free from a memory

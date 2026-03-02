@@ -181,7 +181,7 @@ end
 # ---------------------------------------------------------------------------
 # Strategy 5: Ractor Pool with rate-limiting semaphore
 # ---------------------------------------------------------------------------
-POOL_SIZE = [N_REQUESTS, 4].min
+POOL_SIZE = [ N_REQUESTS, 4 ].min
 puts "\n--- 5. Ractor Pool (size=#{POOL_SIZE}, rate-limited) ---"
 semaphore_time = Benchmark.realtime do
   pool = Ragents::Ractor::AgentPool.new(
@@ -206,10 +206,10 @@ puts format("  %-35s %8s %12s %12s", "Strategy", "Time (s)", "req/s", "Speedup")
 puts "-" * 72
 
 rows = [
-  ["Sequential",                         sequential_time,  1.0],
-  ["Threads (N=#{N_REQUESTS})",           threads_time,    sequential_time / threads_time],
-  ["Ractors (N=#{N_REQUESTS})",           ractors_time,    sequential_time / ractors_time],
-  ["Ractor Pool (N=#{POOL_SIZE})",        semaphore_time,  sequential_time / semaphore_time]
+  [ "Sequential",                         sequential_time,  1.0 ],
+  [ "Threads (N=#{N_REQUESTS})",           threads_time,    sequential_time / threads_time ],
+  [ "Ractors (N=#{N_REQUESTS})",           ractors_time,    sequential_time / ractors_time ],
+  [ "Ractor Pool (N=#{POOL_SIZE})",        semaphore_time,  sequential_time / semaphore_time ]
 ]
 
 rows.each do |name, time, speedup|
