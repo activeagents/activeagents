@@ -35,7 +35,7 @@ class SandboxSession < ApplicationRecord
   before_create :set_expiration
 
   # Scopes
-  scope :active, -> { where(status: [:pending, :provisioning, :ready, :running]) }
+  scope :active, -> { where(status: [ :pending, :provisioning, :ready, :running ]) }
   scope :expired_sessions, -> { where("expires_at < ?", Time.current) }
   scope :by_type, ->(type) { where(sandbox_type: type) }
   scope :anonymous, -> { where(user_id: nil) }
@@ -68,7 +68,7 @@ class SandboxSession < ApplicationRecord
     # Use pessimistic locking to prevent race conditions when multiple providers run in parallel
     with_lock do
       reload # Reload to get the latest state
-      self.runs = runs + [run]
+      self.runs = runs + [ run ]
       self.runs_count = runs.size
       self.total_tokens += tokens
       self.total_duration_ms += duration_ms

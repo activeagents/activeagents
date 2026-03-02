@@ -5,7 +5,7 @@ module Api
     # Allow anonymous access to sandbox API for free tier
     allow_unauthenticated_access
 
-    before_action :set_sandbox, only: [:show, :run, :destroy]
+    before_action :set_sandbox, only: [ :show, :run, :destroy ]
 
     # POST /api/sandboxes/compare
     # Run multiple providers in a single sandbox using parallel generation jobs

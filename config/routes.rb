@@ -35,7 +35,7 @@ Rails.application.routes.draw do
 
   # Admin dashboard
   namespace :admin do
-    resources :spaces, only: [:index, :show] do
+    resources :spaces, only: [ :index, :show ] do
       member do
         post :terminate
         get :logs
@@ -50,7 +50,7 @@ Rails.application.routes.draw do
     # Sandbox-mode endpoints (only available in sandbox containers)
     namespace :sandbox do
       get :status, to: "runs#status"
-      resources :runs, only: [:index, :show, :create]
+      resources :runs, only: [ :index, :show, :create ]
     end
     resources :agents do
       member do
@@ -91,6 +91,11 @@ Rails.application.routes.draw do
     end
 
     resource :analytics, only: [ :show ], controller: "analytics", action: :index
+
+    # Ragents benchmark results — accepts POSTed JSON from bin/bench
+    # GET  /api/benchmarks     — list recent runs
+    # POST /api/benchmarks     — ingest a new benchmark run from bin/bench
+    resources :benchmarks, only: [ :index, :create ]
 
     namespace :v1 do
       resources :plans, only: [ :index ]

@@ -16,6 +16,7 @@ export default function Sidebar({ currentView, onNavigate, agentCount }) {
     { id: 'metrics', label: 'Metrics', icon: '📊' },
     { id: 'evaluations', label: 'Evaluations', icon: '⚖️' },
     { id: 'interactions', label: 'Interactions', icon: '💬' },
+    { id: 'benchmarks', label: 'Benchmarks', icon: '⚡' },
   ];
 
   const NavButton = ({ item }) => (

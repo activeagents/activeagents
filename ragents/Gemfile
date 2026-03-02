@@ -1,0 +1,17 @@
+# frozen_string_literal: true
+
+source "https://rubygems.org"
+
+gemspec
+
+group :development, :test do
+  gem "minitest-reporters", "~> 1.7"
+  gem "benchmark-ips", "~> 2.13"
+  gem "webmock", "~> 3.23"
+  gem "rubocop", "~> 1.70", require: false
+  gem "rubocop-minitest", "~> 0.36", require: false
+  gem "rubocop-performance", "~> 1.22", require: false
+end
+
+# Optional: include for async benchmark strategy
+# gem "async", "~> 2.0"
