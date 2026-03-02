@@ -1,3 +1,5 @@
 web: env RUBY_DEBUG_OPEN=true bin/rails server
 js: npm run watch:js
+css: npm run watch:css
+landing: bash -c 'while true; do cat ./app/assets/stylesheets/landing/base.css ./app/assets/stylesheets/landing/pricing.css ./app/assets/stylesheets/landing/tablet.css ./app/assets/stylesheets/landing/mobile.css > ./app/assets/builds/landing.css; sleep 2; done'
 stripe: stripe listen --forward-to localhost:3000/pay/webhooks/stripe

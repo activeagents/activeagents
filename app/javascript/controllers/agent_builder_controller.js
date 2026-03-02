@@ -1,11 +1,16 @@
 import { Controller } from "@hotwired/stimulus"
 
 // Agent Builder Controller
-// Interactive agent preview for the hero section with multi-select capabilities
+// Interactive agent preview for the hero section with CLI tools and MCP services
 export default class extends Controller {
-  static targets = ["instructions", "tools", "speechLeft", "speechRight", "configInstructions", "configTools", "instructionChips", "toolChips"]
+  static targets = [
+    "instructions", "toolsLeft", "toolsRight",
+    "speechLeft", "speechRight",
+    "configInstructions", "configCli", "configMcp",
+    "instructionChips", "cliChips", "mcpChips"
+  ]
 
-  // Instructions - system/developer message types (displayed as head/hat)
+  // Instructions - system/developer message types (displayed as badge on hat)
   static instructions = {
     github: { emoji: '🐙', label: 'GitHub' },
     ruby: { emoji: '💎', label: 'Ruby' },
@@ -18,53 +23,66 @@ export default class extends Controller {
     kubernetes: { emoji: '☸️', label: 'Kubernetes' },
   }
 
-  // Tools/MCPs - actions and integrations the agent can use (displayed as hands)
-  static tools = {
-    terminal: { emoji: '💻', label: 'Terminal' },
-    playwright: { emoji: '🎭', label: 'Playwright' },
-    filesystem: { emoji: '📁', label: 'Filesystem' },
-    code: { emoji: '👨‍💻', label: 'Code' },
-    database: { emoji: '🗄️', label: 'Database' },
-    slack: { emoji: '💬', label: 'Slack' },
-    fetch: { emoji: '🌐', label: 'Fetch' },
-    search: { emoji: '🔍', label: 'Search' },
-    edit: { emoji: '✏️', label: 'Edit' },
-    translate: { emoji: '🌍', label: 'Translate' },
-    memory: { emoji: '🧠', label: 'Memory' },
+  // CLI Tools (left hand) - command line and code tools
+  static cliTools = {
+    bash: { logo: 'bash', label: 'Bash', emoji: '💻' },
+    git: { logo: 'git', label: 'Git', emoji: '📂' },
+    ruby: { logo: 'ruby', label: 'Ruby', emoji: '💎' },
+    gh: { logo: 'github', label: 'gh CLI', emoji: '🐙' },
+  }
+
+  // MCP Services (right hand) - Model Context Protocol integrations
+  static mcpServices = {
+    playwright: { logo: 'playwright', label: 'Playwright', emoji: '🎭' },
+    slack: { logo: 'slack', label: 'Slack', emoji: '💬' },
+    github: { logo: 'github', label: 'GitHub', emoji: '🐙' },
+    linear: { logo: 'linear', label: 'Linear', emoji: '📋' },
+    sentry: { logo: 'sentry', label: 'Sentry', emoji: '🐛' },
+    postgres: { logo: 'postgresql', label: 'Postgres', emoji: '🗄️' },
+    notion: { logo: 'notion', label: 'Notion', emoji: '📝' },
+    figma: { logo: 'figma', label: 'Figma', emoji: '🎨' },
+    huggingface: { logo: 'huggingface', label: 'HuggingFace', emoji: '🤗' },
   }
 
   // Presets - example agent configurations
   static presets = {
     'claude-code': {
       instructions: ['github'],
-      tools: ['terminal', 'code']
+      cli: ['bash', 'git'],
+      mcp: []
     },
     'web-scraper': {
       instructions: ['typescript'],
-      tools: ['playwright', 'fetch']
+      cli: ['bash'],
+      mcp: ['playwright']
     },
     'data-analyst': {
       instructions: ['python'],
-      tools: ['database', 'search', 'code']
+      cli: ['ruby'],
+      mcp: ['postgres']
     },
     'devops': {
       instructions: ['github', 'aws'],
-      tools: ['terminal', 'slack', 'code']
+      cli: ['bash', 'git', 'gh'],
+      mcp: ['slack', 'sentry']
     },
     'polyglot': {
       instructions: ['ruby', 'python', 'typescript'],
-      tools: ['translate', 'code']
+      cli: ['ruby'],
+      mcp: []
     },
     'research': {
       instructions: ['github'],
-      tools: ['fetch', 'search', 'memory']
+      cli: ['git'],
+      mcp: ['github', 'notion']
     },
   }
 
   connect() {
     // Track selected items
     this.selectedInstructions = new Set(['github'])
-    this.selectedTools = new Set(['terminal', 'code'])
+    this.selectedCli = new Set(['bash', 'git'])
+    this.selectedMcp = new Set()
 
     // Default to Claude Code preset
     this.currentPreset = 'claude-code'
@@ -89,7 +107,8 @@ export default class extends Controller {
 
     // Update selections from preset
     this.selectedInstructions = new Set(preset.instructions)
-    this.selectedTools = new Set(preset.tools)
+    this.selectedCli = new Set(preset.cli)
+    this.selectedMcp = new Set(preset.mcp)
 
     // Update chip button states
     this.updateChipStates()
@@ -109,23 +128,36 @@ export default class extends Controller {
       event.currentTarget.classList.add('selected')
     }
 
-    // Clear preset active state since user is customizing
     this.clearPresetActive()
     this.renderFromSelections()
   }
 
-  toggleTool(event) {
-    const tool = event.currentTarget.dataset.tool
+  toggleCli(event) {
+    const cli = event.currentTarget.dataset.cli
 
-    if (this.selectedTools.has(tool)) {
-      this.selectedTools.delete(tool)
+    if (this.selectedCli.has(cli)) {
+      this.selectedCli.delete(cli)
       event.currentTarget.classList.remove('selected')
     } else {
-      this.selectedTools.add(tool)
+      this.selectedCli.add(cli)
       event.currentTarget.classList.add('selected')
     }
 
-    // Clear preset active state since user is customizing
+    this.clearPresetActive()
+    this.renderFromSelections()
+  }
+
+  toggleMcp(event) {
+    const mcp = event.currentTarget.dataset.mcp
+
+    if (this.selectedMcp.has(mcp)) {
+      this.selectedMcp.delete(mcp)
+      event.currentTarget.classList.remove('selected')
+    } else {
+      this.selectedMcp.add(mcp)
+      event.currentTarget.classList.add('selected')
+    }
+
     this.clearPresetActive()
     this.renderFromSelections()
   }
@@ -146,18 +178,27 @@ export default class extends Controller {
       })
     }
 
-    // Update tool chip states
-    if (this.hasToolChipsTarget) {
-      this.toolChipsTarget.querySelectorAll('.chip-btn').forEach(btn => {
-        const tool = btn.dataset.tool
-        btn.classList.toggle('selected', this.selectedTools.has(tool))
+    // Update CLI chip states
+    if (this.hasCliChipsTarget) {
+      this.cliChipsTarget.querySelectorAll('.chip-btn').forEach(btn => {
+        const cli = btn.dataset.cli
+        btn.classList.toggle('selected', this.selectedCli.has(cli))
+      })
+    }
+
+    // Update MCP chip states
+    if (this.hasMcpChipsTarget) {
+      this.mcpChipsTarget.querySelectorAll('.chip-btn').forEach(btn => {
+        const mcp = btn.dataset.mcp
+        btn.classList.toggle('selected', this.selectedMcp.has(mcp))
       })
     }
   }
 
   renderFromSelections() {
     this.renderInstructions()
-    this.renderTools()
+    this.renderCliTools()
+    this.renderMcpServices()
     this.updateConfig()
     this.handleTranslation()
   }
@@ -169,25 +210,40 @@ export default class extends Controller {
     const html = instructionIds.map((id, i) => {
       const instruction = this.constructor.instructions[id]
       if (!instruction) return ''
-      return `<span class="instruction-item" style="animation-delay: ${i * 0.1}s" title="${instruction.label}">${instruction.emoji}</span>`
+      return `<span class="instruction-badge-item" title="${instruction.label}">${instruction.emoji}</span>`
     }).join('')
 
-    this.instructionsTarget.innerHTML = html || '<span class="instruction-item empty">💬</span>'
+    this.instructionsTarget.innerHTML = html || '<span class="instruction-badge-item empty">💬</span>'
   }
 
-  renderTools() {
-    if (!this.hasToolsTarget) return
+  renderCliTools() {
+    if (!this.hasToolsLeftTarget) return
 
-    // Filter out translate for display (shown as speech bubbles instead)
-    const toolIds = Array.from(this.selectedTools).filter(id => id !== 'translate')
-
-    const html = toolIds.map(id => {
-      const tool = this.constructor.tools[id]
-      if (!tool) return ''
-      return `<span class="tool-item" title="${tool.label}">${tool.emoji}</span>`
+    const cliIds = Array.from(this.selectedCli)
+    const html = cliIds.map(id => {
+      const cli = this.constructor.cliTools[id]
+      if (!cli) return ''
+      return `<span class="tool-item cli-tool" title="${cli.label}">
+        <img src="images/mcp-logos/${cli.logo}.svg" alt="${cli.label}" class="tool-logo" style="width: 28px; height: 28px;">
+      </span>`
     }).join('')
 
-    this.toolsTarget.innerHTML = html || '<span class="tool-item empty">🔧</span>'
+    this.toolsLeftTarget.innerHTML = html || '<span class="tool-item empty">💻</span>'
+  }
+
+  renderMcpServices() {
+    if (!this.hasToolsRightTarget) return
+
+    const mcpIds = Array.from(this.selectedMcp)
+    const html = mcpIds.map(id => {
+      const mcp = this.constructor.mcpServices[id]
+      if (!mcp) return ''
+      return `<span class="tool-item mcp-service" title="${mcp.label}">
+        <img src="images/mcp-logos/${mcp.logo}.svg" alt="${mcp.label}" class="tool-logo" style="width: 28px; height: 28px;">
+      </span>`
+    }).join('')
+
+    this.toolsRightTarget.innerHTML = html || '<span class="tool-item empty mcp-empty">🔌</span>'
   }
 
   updateConfig() {
@@ -196,20 +252,29 @@ export default class extends Controller {
         const instruction = this.constructor.instructions[id]
         return instruction ? `${instruction.emoji} ${instruction.label}` : ''
       }).filter(Boolean).join(', ')
-      this.configInstructionsTarget.textContent = labels || 'None selected'
+      this.configInstructionsTarget.textContent = labels || 'None'
     }
 
-    if (this.hasConfigToolsTarget) {
-      const labels = Array.from(this.selectedTools).map(id => {
-        const tool = this.constructor.tools[id]
-        return tool ? `${tool.emoji} ${tool.label}` : ''
+    if (this.hasConfigCliTarget) {
+      const labels = Array.from(this.selectedCli).map(id => {
+        const cli = this.constructor.cliTools[id]
+        return cli ? cli.label : ''
       }).filter(Boolean).join(', ')
-      this.configToolsTarget.textContent = labels || 'None selected'
+      this.configCliTarget.textContent = labels || 'None'
+    }
+
+    if (this.hasConfigMcpTarget) {
+      const labels = Array.from(this.selectedMcp).map(id => {
+        const mcp = this.constructor.mcpServices[id]
+        return mcp ? mcp.label : ''
+      }).filter(Boolean).join(', ')
+      this.configMcpTarget.textContent = labels || 'None'
     }
   }
 
   handleTranslation() {
-    const hasTranslate = this.selectedTools.has('translate')
+    // Show speech bubbles if translator MCP is selected (placeholder for future)
+    const hasTranslate = false // this.selectedMcp.has('translate')
 
     if (this.hasSpeechLeftTarget) {
       this.speechLeftTarget.style.display = hasTranslate ? 'block' : 'none'
