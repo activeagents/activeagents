@@ -22,7 +22,7 @@ class PlaywrightMCPDemoAgent < ApplicationAgent
     mcp_servers: {
       playwright: {
         command: "npx",
-        args: ["-y", "@anthropic/mcp-server-playwright"],
+        args: [ "-y", "@anthropic/mcp-server-playwright" ],
         env: {
           "PLAYWRIGHT_HEADLESS" => ENV.fetch("HEADLESS", "true"),
           "PLAYWRIGHT_TIMEOUT" => ENV.fetch("TIMEOUT", "30000")

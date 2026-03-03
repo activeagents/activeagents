@@ -15,7 +15,7 @@ class SandboxRun < ApplicationRecord
   validates :status, presence: true
 
   scope :recent, -> { order(created_at: :desc) }
-  scope :completed_runs, -> { where(status: [:completed, :failed]) }
+  scope :completed_runs, -> { where(status: [ :completed, :failed ]) }
 
   # Summary for API responses
   def summary
