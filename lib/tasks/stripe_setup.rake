@@ -19,6 +19,13 @@ namespace :stripe do
         monthly_price: 26_900,
         annual_price: 269_000,
         currency: "usd"
+      },
+      {
+        slug: "advisory",
+        product_name: "Advisory Retainer",
+        monthly_price: 300_000,
+        annual_price: 3_000_000,
+        currency: "usd"
       }
     ]
 
