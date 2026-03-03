@@ -160,7 +160,7 @@ class AgentTemplate < ApplicationRecord
         mcp_servers: {
           playwright: {
             command: "npx",
-            args: ["-y", "@anthropic/mcp-server-playwright"]
+            args: [ "-y", "@anthropic/mcp-server-playwright" ]
           }
         },
         model_config: { temperature: 0.2, max_tokens: 4096 },

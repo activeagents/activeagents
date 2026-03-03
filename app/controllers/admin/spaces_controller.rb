@@ -2,7 +2,7 @@
 
 module Admin
   class SpacesController < BaseController
-    before_action :set_space, only: [:show, :terminate, :logs]
+    before_action :set_space, only: [ :show, :terminate, :logs ]
 
     # GET /admin/spaces
     # List all sandbox spaces with their status
@@ -146,7 +146,7 @@ module Admin
         severity: params[:severity]
       )
     rescue StandardError => e
-      [{ severity: "ERROR", message: "Failed to fetch logs: #{e.message}" }]
+      [ { severity: "ERROR", message: "Failed to fetch logs: #{e.message}" } ]
     end
 
     def recent_logs(space)

@@ -107,7 +107,7 @@ class SandboxRunJob < ApplicationJob
       model: PROVIDER_MODELS["anthropic"],
       max_tokens: 1024,
       system: system_prompt,
-      messages: [{ role: "user", content: task }]
+      messages: [ { role: "user", content: task } ]
     }.to_json
 
     response = http.request(request)

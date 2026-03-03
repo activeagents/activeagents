@@ -35,7 +35,7 @@ class SandboxSession < ApplicationRecord
   before_create :set_expiration
 
   # Scopes
-  scope :active, -> { where(status: [:pending, :provisioning, :ready, :running]) }
+  scope :active, -> { where(status: [ :pending, :provisioning, :ready, :running ]) }
   scope :expired_sessions, -> { where("expires_at < ?", Time.current) }
   scope :by_type, ->(type) { where(sandbox_type: type) }
   scope :anonymous, -> { where(user_id: nil) }
@@ -65,7 +65,7 @@ class SandboxSession < ApplicationRecord
       created_at: Time.current.iso8601
     }
 
-    self.runs = runs + [run]
+    self.runs = runs + [ run ]
     self.runs_count = runs.size
     self.total_tokens += tokens
     self.total_duration_ms += duration_ms
