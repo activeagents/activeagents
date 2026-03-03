@@ -34,6 +34,10 @@ additional_txt_records = [
   {
     name  = "dc-aa8e722993._spfm"
     value = "v=spf1 include:_spf.google.com ~all"
+  },
+  {
+    name  = "_github-pages-challenge-activeagents"
+    value = "f0c8a02a4d095acfbfe0da71cf06e0"
   }
 ]
 
