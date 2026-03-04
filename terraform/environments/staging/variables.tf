@@ -17,7 +17,7 @@ variable "image" {
 variable "allow_public_access" {
   description = "Allow unauthenticated public access to Cloud Run"
   type        = bool
-  default     = true  # Staging should be publicly accessible
+  default     = false  # GCP org policy may block this
 }
 
 variable "authorized_domain" {
