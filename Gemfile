@@ -35,7 +35,7 @@ gem "bcrypt", "~> 3.1.7"
 # Payment processing with Pay gem [https://github.com/pay-rails/pay]
 gem "pay", "~> 7.3"
 # Stripe payment processor [https://stripe.com/docs/api]
-gem "stripe", "~> 12.0"
+gem "stripe", "~> 18.4"
 
 # Windows does not include zoneinfo files, so bundle the tzinfo-data gem
 gem "tzinfo-data"
