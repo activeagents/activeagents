@@ -27,6 +27,7 @@ resource "google_compute_backend_service" "default" {
   }
 
   # Enable Cloud CDN for caching
+  # NOTE: CDN is incompatible with IAP. If IAP is needed, disable CDN via gcloud.
   enable_cdn = var.enable_cdn
 
   dynamic "cdn_policy" {
@@ -47,6 +48,12 @@ resource "google_compute_backend_service" "default" {
       }
     }
   }
+
+  # NOTE: IAP is managed via gcloud when org policy blocks allUsers:
+  # gcloud compute backend-services update <backend> --global --no-enable-cdn
+  # gcloud compute backend-services update <backend> --global --iap=enabled
+  # gcloud iap web add-iam-policy-binding --project=<project> \
+  #   --member="domain:<domain>" --role="roles/iap.httpsResourceAccessor"
 
   log_config {
     enable      = true

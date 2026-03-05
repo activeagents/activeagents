@@ -46,9 +46,9 @@ variable "lb_domain" {
 }
 
 variable "enable_cdn" {
-  description = "Enable Cloud CDN for caching static assets"
+  description = "Enable Cloud CDN for caching static assets (disabled when IAP is used)"
   type        = bool
-  default     = true
+  default     = false  # Disabled since IAP is enabled via gcloud
 }
 
 # DNS configuration
