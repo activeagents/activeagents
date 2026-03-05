@@ -193,8 +193,8 @@ jobs:
           # Wait for load balancer to be ready (may take a few minutes to provision)
           for i in {1..20}; do
             STATUS=$(curl -s -o /dev/null -w "%{http_code}" "$URL/up" || echo "000")
-            # 200 = healthy, 403 = auth required but service is up
-            if [ "$STATUS" = "200" ] || [ "$STATUS" = "403" ]; then
+            # 200 = healthy, 302 = IAP redirect (service is up), 403 = auth required but service is up
+            if [ "$STATUS" = "200" ] || [ "$STATUS" = "302" ] || [ "$STATUS" = "403" ]; then
               echo "✅ Health check passed! (Status: $STATUS)"
               exit 0
             fi
