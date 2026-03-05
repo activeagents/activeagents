@@ -122,9 +122,28 @@ variable "lb_domain" {
 }
 
 variable "enable_cdn" {
-  description = "Enable Cloud CDN for caching static assets"
+  description = "Enable Cloud CDN for caching static assets (disabled when IAP is enabled)"
   type        = bool
   default     = true
+}
+
+# IAP configuration (for when org policy blocks allUsers)
+variable "enable_iap" {
+  description = "Enable Identity-Aware Proxy for load balancer authentication"
+  type        = bool
+  default     = false
+}
+
+variable "iap_support_email" {
+  description = "Support email for IAP OAuth consent screen"
+  type        = string
+  default     = null
+}
+
+variable "iap_authorized_domain" {
+  description = "Domain to grant IAP access (e.g., 'activeagents.ai')"
+  type        = string
+  default     = null
 }
 
 # DNS configuration

@@ -35,3 +35,28 @@ variable "enable_http_redirect" {
   type        = bool
   default     = true
 }
+
+# IAP configuration
+variable "enable_iap" {
+  description = "Enable Identity-Aware Proxy for authentication (disables CDN)"
+  type        = bool
+  default     = false
+}
+
+variable "iap_support_email" {
+  description = "Support email for IAP OAuth consent screen"
+  type        = string
+  default     = null
+}
+
+variable "iap_application_title" {
+  description = "Application title for IAP OAuth consent screen"
+  type        = string
+  default     = "ActiveAgents Staging"
+}
+
+variable "iap_authorized_domain" {
+  description = "Domain to grant IAP access (e.g., 'activeagents.ai')"
+  type        = string
+  default     = null
+}
