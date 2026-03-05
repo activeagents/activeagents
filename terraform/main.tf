@@ -206,6 +206,7 @@ module "cloud_run" {
 }
 
 # Load Balancer for public access (bypasses org policy restrictions)
+# NOTE: IAP is configured manually via gcloud (see modules/load-balancer/main.tf)
 module "load_balancer" {
   count  = var.enable_load_balancer ? 1 : 0
   source = "./modules/load-balancer"
@@ -217,11 +218,6 @@ module "load_balancer" {
   domain                 = var.lb_domain
   enable_cdn             = var.enable_cdn
   enable_http_redirect   = true
-
-  # IAP for authentication when org policy blocks allUsers
-  enable_iap            = var.enable_iap
-  iap_support_email     = var.iap_support_email
-  iap_authorized_domain = var.iap_authorized_domain
 
   depends_on = [
     module.cloud_run,
