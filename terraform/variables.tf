@@ -122,29 +122,13 @@ variable "lb_domain" {
 }
 
 variable "enable_cdn" {
-  description = "Enable Cloud CDN for caching static assets (disabled when IAP is enabled)"
+  description = "Enable Cloud CDN for caching static assets (disable if using IAP)"
   type        = bool
   default     = true
 }
 
-# IAP configuration (for when org policy blocks allUsers)
-variable "enable_iap" {
-  description = "Enable Identity-Aware Proxy for load balancer authentication"
-  type        = bool
-  default     = false
-}
-
-variable "iap_support_email" {
-  description = "Support email for IAP OAuth consent screen"
-  type        = string
-  default     = null
-}
-
-variable "iap_authorized_domain" {
-  description = "Domain to grant IAP access (e.g., 'activeagents.ai')"
-  type        = string
-  default     = null
-}
+# NOTE: IAP is configured manually via gcloud commands (APIs are deprecated)
+# See terraform/modules/load-balancer/main.tf for instructions
 
 # DNS configuration
 variable "enable_dns" {

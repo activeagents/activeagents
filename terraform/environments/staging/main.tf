@@ -38,14 +38,10 @@ module "activeagents" {
   ci_service_account    = var.ci_service_account
 
   # Load Balancer for public access (bypasses org policy restrictions)
+  # NOTE: IAP is configured manually via gcloud (see modules/load-balancer/main.tf)
   enable_load_balancer = var.enable_load_balancer
   lb_domain            = var.enable_dns ? "staging.${var.dns_domain}" : var.lb_domain
   enable_cdn           = var.enable_cdn
-
-  # IAP for authentication (required since org policy blocks allUsers)
-  enable_iap            = var.enable_iap
-  iap_support_email     = var.iap_support_email
-  iap_authorized_domain = var.iap_authorized_domain
 
   # DNS configuration
   enable_dns = var.enable_dns

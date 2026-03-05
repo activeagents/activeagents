@@ -1,25 +1,11 @@
 # Load Balancer module for Cloud Run with public access
 # This bypasses org policy restrictions on direct Cloud Run IAM
-
-# Get project number for IAP brand
-data "google_project" "current" {
-  project_id = var.project_id
-}
-
-# IAP OAuth brand (consent screen) - required for IAP
-resource "google_iap_brand" "default" {
-  count             = var.enable_iap ? 1 : 0
-  support_email     = var.iap_support_email
-  application_title = var.iap_application_title
-  project           = data.google_project.current.number
-}
-
-# IAP OAuth client
-resource "google_iap_client" "default" {
-  count        = var.enable_iap ? 1 : 0
-  display_name = "${var.name}-iap-client"
-  brand        = google_iap_brand.default[0].name
-}
+#
+# NOTE: IAP is configured manually via gcloud since the IAP OAuth APIs are deprecated:
+#   gcloud compute backend-services update <backend> --global --no-enable-cdn
+#   gcloud compute backend-services update <backend> --global --iap=enabled
+#   gcloud iap web add-iam-policy-binding --project=<project> \
+#     --member="domain:<domain>" --role="roles/iap.httpsResourceAccessor"
 
 # Serverless NEG pointing to Cloud Run
 resource "google_compute_region_network_endpoint_group" "serverless_neg" {
@@ -46,11 +32,12 @@ resource "google_compute_backend_service" "default" {
     group = google_compute_region_network_endpoint_group.serverless_neg.id
   }
 
-  # Enable Cloud CDN for caching (disabled when IAP is enabled - they're incompatible)
-  enable_cdn = var.enable_iap ? false : var.enable_cdn
+  # Enable Cloud CDN for caching
+  # NOTE: CDN is incompatible with IAP - disable via gcloud if using IAP
+  enable_cdn = var.enable_cdn
 
   dynamic "cdn_policy" {
-    for_each = var.enable_cdn && !var.enable_iap ? [1] : []
+    for_each = var.enable_cdn ? [1] : []
     content {
       cache_mode                   = "CACHE_ALL_STATIC"
       default_ttl                  = 3600
@@ -68,18 +55,15 @@ resource "google_compute_backend_service" "default" {
     }
   }
 
-  # Enable Identity-Aware Proxy for authentication
-  dynamic "iap" {
-    for_each = var.enable_iap ? [1] : []
-    content {
-      oauth2_client_id     = google_iap_client.default[0].client_id
-      oauth2_client_secret = google_iap_client.default[0].secret
-    }
-  }
-
   log_config {
     enable      = true
     sample_rate = 1.0
+  }
+
+  # IAP is managed manually via gcloud (APIs are deprecated)
+  # Prevent Terraform from resetting IAP configuration
+  lifecycle {
+    ignore_changes = [iap]
   }
 }
 
@@ -173,13 +157,4 @@ resource "google_compute_global_forwarding_rule" "http_redirect" {
   port_range            = "80"
   load_balancing_scheme = "EXTERNAL_MANAGED"
   ip_address            = google_compute_global_address.default.id
-}
-
-# IAP access for authorized domain
-resource "google_iap_web_backend_service_iam_member" "domain_access" {
-  count               = var.enable_iap && var.iap_authorized_domain != null ? 1 : 0
-  project             = var.project_id
-  web_backend_service = google_compute_backend_service.default.name
-  role                = "roles/iap.httpsResourceAccessor"
-  member              = "domain:${var.iap_authorized_domain}"
 }
