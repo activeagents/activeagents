@@ -75,6 +75,7 @@ OptionParser.new do |opts|
   opts.on("--median-latency MS", Integer, "Realistic provider: median latency in ms (default: 3000)") { |v| options[:median_latency] = v }
   opts.on("--latency-sigma N", Float, "Realistic provider: log-normal sigma (default: 0.8)") { |v| options[:latency_sigma] = v }
   opts.on("--pool-size N", Integer, "Ractor pool size (default: CPU count)") { |v| options[:pool_size] = v }
+  opts.on("--pool-scaling", "Run pool scaling analysis (1, 2, cores/2, cores, cores*2, N)") { options[:pool_scaling] = true }
   opts.on("--output FILE", "Save JSON results to file") { |v| options[:output] = v }
   opts.on("--post URL", "POST JSON results to this URL (e.g. http://localhost:3000)") { |v| options[:post_url] = v }
   opts.on("--watch", "Re-run benchmark every --watch-secs seconds") { options[:watch] = true }
@@ -308,6 +309,78 @@ def run_benchmarks(provider_class, provider_opts, n, pool_size, system, inputs, 
 end
 
 # ---------------------------------------------------------------------------
+# Pool Scaling Analysis - for sandbox resource optimization
+# Uses direct provider calls (no Ractors) to avoid Ruby 4.0 segfaults
+# ---------------------------------------------------------------------------
+def run_pool_scaling(provider_class, provider_opts, n, cores, system, inputs, options)
+  log("\n  ═══════════════════════════════════════════════════════════════════", quiet: options[:quiet])
+  log("  Pool Scaling Analysis — Finding optimal executor count for sandbox", quiet: options[:quiet])
+  log("  ═══════════════════════════════════════════════════════════════════", quiet: options[:quiet])
+  log("  N=#{n} requests  |  Cores=#{cores}", quiet: options[:quiet])
+  log("", quiet: options[:quiet])
+
+  pool_sizes = [1, 2, [cores / 2, 1].max, cores, cores * 2, n].uniq.sort
+  scaling_results = []
+
+  pool_sizes.each do |pool_size|
+    next if pool_size < 1
+
+    start = Process.clock_gettime(Process::CLOCK_MONOTONIC)
+
+    require "thread"
+    results = Array.new(n)
+    queue = Queue.new
+    inputs.each_with_index { |input, idx| queue << [input, idx] }
+    pool_size.times { queue << nil }
+
+    # Direct provider calls (thread-safe, no Ractor overhead)
+    workers = pool_size.times.map do
+      Thread.new do
+        # Each thread gets its own provider instance
+        provider = provider_class.new(**provider_opts)
+        while (item = queue.pop)
+          input, idx = item
+          messages = [
+            { role: "system", content: system },
+            { role: "user", content: input }
+          ]
+          results[idx] = provider.chat(messages: messages)
+        end
+      end
+    end
+    workers.each(&:join)
+
+    wall_ms = ((Process.clock_gettime(Process::CLOCK_MONOTONIC) - start) * 1000).round(1)
+    throughput = (n / (wall_ms / 1000.0)).round(1)
+
+    note = case pool_size
+           when 1 then "sequential"
+           when cores / 2 then "half cores"
+           when cores then "= cores"
+           when cores * 2 then "2x cores"
+           when n then "= requests"
+           else ""
+           end
+
+    scaling_results << {
+      pool_size: pool_size,
+      wall_time_ms: wall_ms,
+      throughput: throughput,
+      note: note
+    }
+
+    log("  Pool=%2d → %7.1fms | %6.1f req/s | %s" % [pool_size, wall_ms, throughput, note], quiet: options[:quiet])
+  end
+
+  # Find optimal (best throughput)
+  optimal = scaling_results.max_by { |r| r[:throughput] }
+  log("", quiet: options[:quiet])
+  log("  Optimal pool size: #{optimal[:pool_size]} (#{optimal[:throughput]} req/s)", quiet: options[:quiet])
+
+  scaling_results
+end
+
+# ---------------------------------------------------------------------------
 # Run once or in watch loop
 # ---------------------------------------------------------------------------
 require "etc"
@@ -319,6 +392,14 @@ loop do
   strategies = run_benchmarks(
     provider_class, provider_opts, N, POOL_SIZE, SYSTEM, INPUTS, options
   )
+
+  # Pool scaling analysis (optional)
+  pool_scaling = nil
+  if options[:pool_scaling]
+    pool_scaling = run_pool_scaling(
+      provider_class, provider_opts, N, POOL_SIZE, SYSTEM, INPUTS, options
+    )
+  end
 
   # Hardware context
   hardware = {
@@ -343,6 +424,13 @@ loop do
     strategies:  strategies,
     winner: strategies.min_by { |s| s[:wall_time_ms] }&.slice(:name, :throughput, :wall_time_ms)
   }
+
+  # Add pool scaling results if available
+  if pool_scaling
+    output[:pool_scaling] = pool_scaling
+    optimal = pool_scaling.max_by { |r| r[:throughput] }
+    output[:optimal_pool_size] = optimal[:pool_size] if optimal
+  end
 
   json = JSON.pretty_generate(output)
 
