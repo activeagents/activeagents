@@ -76,10 +76,12 @@ def measure_ractor_roundtrip(label, payload, iterations: 100)
   iterations.times do
     t0 = Process.clock_gettime(Process::CLOCK_MONOTONIC, :microsecond)
 
-    result = ::Ractor.new(payload) do |p|
+    # Ruby 4.0: use Ractor.select to get return value instead of .take
+    r = ::Ractor.new(payload) do |p|
       # Just return the payload — we're measuring transfer cost
       p
-    end.take
+    end
+    _, result = ::Ractor.select(r)
 
     total += Process.clock_gettime(Process::CLOCK_MONOTONIC, :microsecond) - t0
   end

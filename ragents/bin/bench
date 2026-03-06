@@ -55,10 +55,13 @@ OptionParser.new do |opts|
   opts.banner = <<~BANNER
     Usage: bin/bench [options]
 
-    Benchmarks three concurrency strategies for LLM workloads:
-      1. Sequential   — one request at a time (baseline)
-      2. Threads      — one Thread per request
-      3. Ractors      — one Ractor per request (true parallelism)
+    Benchmarks six concurrency strategies for LLM workloads:
+      1. Sequential     — one request at a time (baseline)
+      2. Threads        — one Thread per request (unbounded)
+      3. Thread Pool    — bounded Thread pool (CPU cores)
+      4. Ractors        — one Ractor per request (true parallelism)
+      5. Ractor Pool    — bounded Ractor pool (CPU cores)
+      6. Async Fibers   — cooperative scheduling (requires --async flag)
 
     Results are output as JSON and can be posted to the ActiveAgents
     dashboard for visualization.
@@ -108,28 +111,8 @@ when "realistic"
     cpu_work_per_token: 100
   } ]
 else
-  # Fast simulated provider for quick testing
-  sim_class = Class.new(Ragents::Providers::BaseProvider) do
-    define_method(:initialize) do
-      @io_secs  = IO_MS / 1000.0
-      @cpu_iter = CPU_ITERS
-      freeze
-    end
-
-    define_method(:chat) do |messages:, tools: [], model: nil, **_|
-      sleep @io_secs
-      _x = 0; @cpu_iter.times { |i| _x += i * i }
-      Ragents::Providers::GenerationResult.new(
-        content: "Simulated response for: #{(messages.last[:content] || "")[0, 40]}",
-        tool_calls: [],
-        input_tokens: 80 + rand(40),
-        output_tokens: 15 + rand(20),
-        model: "simulated-gpt",
-        stop_reason: "end_turn"
-      )
-    end
-  end
-  [ sim_class, {} ]
+  # Fast simulated provider for quick testing (Ractor-safe)
+  [ Ragents::Providers::SimulatedProvider, { io_ms: IO_MS, cpu_iterations: CPU_ITERS } ]
 end
 
 INPUTS      = N.times.map { |i| "Request #{i + 1}: Explain #{%w[Ractors fibers threads async parallelism][i % 5]} in Ruby." }.freeze
@@ -207,13 +190,33 @@ def run_benchmarks(provider_class, provider_opts, n, pool_size, system, inputs, 
 
   sequential_ms = strategies.first[:wall_time_ms]
 
-  # 2. Threads
+  # 2. Threads (unbounded - one thread per request)
   strategies << bench_strategy("Threads (N=#{n})", n, quiet: options[:quiet]) do
     threads = inputs.map { |input| Thread.new { run_agent(provider_class, provider_opts, system, input) } }
     threads.map(&:value)
   end
 
-  # 3. Ractors (pool = N, unbounded)
+  # 3. Thread Pool (bounded by CPU cores - production-style executor)
+  strategies << bench_strategy("Thread Pool (size=#{pool_size})", n, quiet: options[:quiet]) do
+    require "thread"
+    results = Array.new(n)
+    queue = Queue.new
+    inputs.each_with_index { |input, idx| queue << [input, idx] }
+    pool_size.times { queue << nil }  # Poison pills
+
+    workers = pool_size.times.map do
+      Thread.new do
+        while (item = queue.pop)
+          input, idx = item
+          results[idx] = run_agent(provider_class, provider_opts, system, input)
+        end
+      end
+    end
+    workers.each(&:join)
+    results
+  end
+
+  # 4. Ractors (pool = N, unbounded - one Ractor per request)
   strategies << bench_strategy("Ractors (N=#{n})", n, quiet: options[:quiet]) do
     pool = Ragents::Ractor::AgentPool.new(
       size: n,
@@ -227,7 +230,7 @@ def run_benchmarks(provider_class, provider_opts, n, pool_size, system, inputs, 
     end
   end
 
-  # 4. Ractor Pool (bounded by CPU cores)
+  # 5. Ractor Pool (bounded by CPU cores)
   strategies << bench_strategy("Ractor Pool (size=#{pool_size})", n, quiet: options[:quiet]) do
     pool = Ragents::Ractor::AgentPool.new(
       size: pool_size,
@@ -241,17 +244,50 @@ def run_benchmarks(provider_class, provider_opts, n, pool_size, system, inputs, 
     end
   end
 
-  # 5. Async (optional)
+  # 6. Async Fibers (optional) - bypasses Ractors for fair comparison
+  # Async fibers excel at I/O concurrency with cooperative scheduling.
+  # This strategy simulates what Falcon + RubyLLM would achieve.
   if options[:async]
     begin
       require "async"
+
       strategies << bench_strategy("Async Fibers (N=#{n})", n, quiet: options[:quiet]) do
         results = Array.new(n)
-        Async do
+        # Use AsyncSimulatedProvider which properly yields to fiber scheduler
+        # For mock provider, use AsyncSimulatedProvider; for real providers, use the original
+        async_provider = if provider_class == Ragents::Providers::SimulatedProvider
+          Ragents::Providers::AsyncSimulatedProvider.new(**provider_opts)
+        else
+          provider_class.new(**provider_opts)
+        end
+
+        Async do |task|
+          # Spawn N concurrent fibers
           tasks = inputs.each_with_index.map do |input, idx|
-            Async do
-              result = run_agent(provider_class, provider_opts, system, input)
-              results[idx] = result
+            task.async do
+              start = Process.clock_gettime(Process::CLOCK_MONOTONIC, :millisecond)
+
+              # Direct provider call - AsyncSimulatedProvider uses Async::Task.current.sleep
+              messages = [
+                { role: "system", content: system },
+                { role: "user", content: input }
+              ]
+
+              gen_result = async_provider.chat(messages: messages)
+
+              elapsed = Process.clock_gettime(Process::CLOCK_MONOTONIC, :millisecond) - start
+              results[idx] = {
+                result: Ragents::Ractor::RunResult.new(
+                  assistant_message: Ragents::AssistantMessage.new(
+                    content: gen_result.content,
+                    input_tokens: gen_result.input_tokens,
+                    output_tokens: gen_result.output_tokens,
+                    model: gen_result.model
+                  ),
+                  context_snapshot: [].freeze
+                ),
+                duration_ms: elapsed
+              }
             end
           end
           tasks.map(&:wait)

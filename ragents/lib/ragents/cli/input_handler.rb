@@ -30,7 +30,8 @@ module Ragents
     #   end
 
     InputEvent = Data.define(:type, :char, :meta) do
-      def self.new(type:, char: nil, meta: {})
+      # Ruby 4.0: override initialize instead of self.new
+      def initialize(type:, char: nil, meta: {})
         super(type: type, char: char, meta: meta.freeze)
       end
     end

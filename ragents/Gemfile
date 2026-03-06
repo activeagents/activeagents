@@ -5,6 +5,8 @@ source "https://rubygems.org"
 gemspec
 
 group :development, :test do
+  gem "benchmark"  # Required for Ruby 4.0+
+  gem "rake"       # Required for Ruby 4.0+
   gem "minitest-reporters", "~> 1.7"
   gem "benchmark-ips", "~> 2.13"
   gem "webmock", "~> 3.23"
@@ -13,5 +15,12 @@ group :development, :test do
   gem "rubocop-performance", "~> 1.22", require: false
 end
 
-# Optional: include for async benchmark strategy
-# gem "async", "~> 2.0"
+# Async benchmark strategy (fibers with cooperative scheduling)
+gem "async", "~> 2.0"
+gem "async-http", "~> 0.80"  # For HTTP client with async
+
+# Falcon web server for async comparisons
+gem "falcon", "~> 0.48"
+
+# Async job processing
+gem "async-job", "~> 0.4"
