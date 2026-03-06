@@ -17,7 +17,7 @@ variable "image" {
 variable "allow_public_access" {
   description = "Allow unauthenticated public access to Cloud Run"
   type        = bool
-  default     = false  # GCP org policy may block this
+  default     = true  # Org policy reset allows allUsers
 }
 
 variable "authorized_domain" {
@@ -46,10 +46,13 @@ variable "lb_domain" {
 }
 
 variable "enable_cdn" {
-  description = "Enable Cloud CDN for caching static assets"
+  description = "Enable Cloud CDN for caching static assets (disabled when IAP is used)"
   type        = bool
-  default     = true
+  default     = false  # Disabled since IAP is enabled manually via gcloud
 }
+
+# NOTE: IAP is configured manually via gcloud commands since APIs are deprecated
+# Commands documented in terraform/modules/load-balancer/main.tf
 
 # DNS configuration
 variable "enable_dns" {

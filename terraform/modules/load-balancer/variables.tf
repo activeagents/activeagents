@@ -35,3 +35,6 @@ variable "enable_http_redirect" {
   type        = bool
   default     = true
 }
+
+# NOTE: IAP is configured manually via gcloud commands (APIs are deprecated)
+# See comments at top of main.tf for instructions

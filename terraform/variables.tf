@@ -122,10 +122,13 @@ variable "lb_domain" {
 }
 
 variable "enable_cdn" {
-  description = "Enable Cloud CDN for caching static assets"
+  description = "Enable Cloud CDN for caching static assets (disable if using IAP)"
   type        = bool
   default     = true
 }
+
+# NOTE: IAP is configured manually via gcloud commands (APIs are deprecated)
+# See terraform/modules/load-balancer/main.tf for instructions
 
 # DNS configuration
 variable "enable_dns" {

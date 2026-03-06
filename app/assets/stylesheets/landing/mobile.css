@@ -69,6 +69,19 @@
       margin-top: 24px;
     }
   }
+
+  /* Newsletter responsive */
+  .newsletter-input-group {
+    flex-direction: column;
+  }
+
+  .newsletter-submit {
+    width: 100%;
+  }
+
+  .newsletter-form-container {
+    padding: 0 16px;
+  }
 }
 
 @media screen and (max-width: 767px) {

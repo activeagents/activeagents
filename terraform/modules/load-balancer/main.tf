@@ -1,5 +1,11 @@
 # Load Balancer module for Cloud Run with public access
 # This bypasses org policy restrictions on direct Cloud Run IAM
+#
+# NOTE: IAP is configured manually via gcloud since the IAP OAuth APIs are deprecated:
+#   gcloud compute backend-services update <backend> --global --no-enable-cdn
+#   gcloud compute backend-services update <backend> --global --iap=enabled
+#   gcloud iap web add-iam-policy-binding --project=<project> \
+#     --member="domain:<domain>" --role="roles/iap.httpsResourceAccessor"
 
 # Serverless NEG pointing to Cloud Run
 resource "google_compute_region_network_endpoint_group" "serverless_neg" {
@@ -27,6 +33,7 @@ resource "google_compute_backend_service" "default" {
   }
 
   # Enable Cloud CDN for caching
+  # NOTE: CDN is incompatible with IAP - disable via gcloud if using IAP
   enable_cdn = var.enable_cdn
 
   dynamic "cdn_policy" {
@@ -51,6 +58,12 @@ resource "google_compute_backend_service" "default" {
   log_config {
     enable      = true
     sample_rate = 1.0
+  }
+
+  # IAP is managed manually via gcloud (APIs are deprecated)
+  # Prevent Terraform from resetting IAP configuration
+  lifecycle {
+    ignore_changes = [iap]
   }
 }
 

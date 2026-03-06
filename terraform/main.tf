@@ -206,6 +206,7 @@ module "cloud_run" {
 }
 
 # Load Balancer for public access (bypasses org policy restrictions)
+# NOTE: IAP is configured manually via gcloud (see modules/load-balancer/main.tf)
 module "load_balancer" {
   count  = var.enable_load_balancer ? 1 : 0
   source = "./modules/load-balancer"
