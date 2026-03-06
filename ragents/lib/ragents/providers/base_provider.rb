@@ -40,7 +40,8 @@ module Ragents
       :model,
       :stop_reason
     ) do
-      def self.new(content: nil, tool_calls: [], input_tokens: nil, output_tokens: nil, model: nil, stop_reason: nil)
+      # Ruby 4.0: override initialize instead of self.new
+      def initialize(content: nil, tool_calls: [], input_tokens: nil, output_tokens: nil, model: nil, stop_reason: nil)
         super(
           content: content&.to_s,
           tool_calls: (tool_calls || []).map { |tc| ToolCallSpec.from(tc) }.freeze,
@@ -57,7 +58,8 @@ module Ragents
 
     # Describes a single tool invocation requested by the LLM.
     ToolCallSpec = Data.define(:id, :name, :arguments) do
-      def self.new(id:, name:, arguments: {})
+      # Ruby 4.0: override initialize instead of self.new
+      def initialize(id:, name:, arguments: {})
         super(id: id.to_s, name: name.to_s, arguments: arguments.transform_keys(&:to_sym).freeze)
       end
 

@@ -120,8 +120,10 @@ module Ragents
         end
 
         # Supervisor loop: dispatch tool requests from the worker
+        # Ruby 4.0: Worker sends messages to supervisor via @supervisor << msg
+        # Supervisor receives via Ractor.receive (from its own inbox)
         loop do
-          message = worker.take
+          message = ::Ractor.receive
 
           case message
           when ToolRequestMessage
@@ -145,8 +147,9 @@ module Ragents
           end
         end
       ensure
-        # Ensure the worker Ractor is collected even on exception
-        worker&.close_outgoing rescue nil
+        # Ensure the worker Ractor is terminated on exception
+        # Ruby 4.0: use close instead of close_outgoing
+        worker&.close rescue nil
       end
 
       # Run multiple inputs concurrently, each in its own Ractor.
@@ -235,20 +238,18 @@ module Ragents
             )
             @context.add(assistant_msg)
 
-            ::Ractor.yield(
-              FinalMessage.new(
-                assistant_message: assistant_msg,
-                context_snapshot: @context.snapshot
-              )
+            # Ruby 4.0: Send to supervisor via message passing instead of yield
+            @supervisor << FinalMessage.new(
+              assistant_message: assistant_msg,
+              context_snapshot: @context.snapshot
             )
             return
           end
         end
       rescue StandardError => e
-        ::Ractor.yield(
-          FailureMessage.new(
-            error_message: ::Ragents::ErrorMessage.from_exception(source: "AgentWorker", exception: e)
-          )
+        # Ruby 4.0: Send to supervisor via message passing instead of yield
+        @supervisor << FailureMessage.new(
+          error_message: ::Ragents::ErrorMessage.from_exception(source: "AgentWorker", exception: e)
         )
       end
 
@@ -260,8 +261,8 @@ module Ragents
           @context.add(tc.to_tool_call_message)
         end
 
-        # Ask supervisor to execute the tools
-        ::Ractor.yield(ToolRequestMessage.new(tool_calls: result.tool_calls.freeze))
+        # Ask supervisor to execute the tools (Ruby 4.0: send to supervisor)
+        @supervisor << ToolRequestMessage.new(tool_calls: result.tool_calls.freeze)
 
         # Wait for results
         results_msg = ::Ractor.receive
@@ -269,14 +270,13 @@ module Ragents
       end
 
       def yield_failure(message)
-        ::Ractor.yield(
-          FailureMessage.new(
-            error_message: ::Ragents::ErrorMessage.new(
-              source: "AgentWorker",
-              exception_class: "Ragents::MaxIterationsError",
-              message: message,
-              backtrace: []
-            )
+        # Ruby 4.0: Send to supervisor via message passing instead of yield
+        @supervisor << FailureMessage.new(
+          error_message: ::Ragents::ErrorMessage.new(
+            source: "AgentWorker",
+            exception_class: "Ragents::MaxIterationsError",
+            message: message,
+            backtrace: []
           )
         )
       end

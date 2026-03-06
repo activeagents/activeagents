@@ -53,7 +53,8 @@ module Ragents
   UserMessage = Data.define(:content, :name) do
     include MessageBase
 
-    def self.new(content:, name: nil)
+    # Ruby 4.0: override initialize instead of self.new
+    def initialize(content:, name: nil)
       super(content: content.to_s, name: name&.to_s)
     end
 
@@ -64,7 +65,8 @@ module Ragents
   AssistantMessage = Data.define(:content, :input_tokens, :output_tokens, :model) do
     include MessageBase
 
-    def self.new(content:, input_tokens: nil, output_tokens: nil, model: nil)
+    # Ruby 4.0: override initialize instead of self.new
+    def initialize(content:, input_tokens: nil, output_tokens: nil, model: nil)
       super(content: content.to_s, input_tokens: input_tokens, output_tokens: output_tokens, model: model&.to_s)
     end
 
@@ -75,7 +77,8 @@ module Ragents
   SystemMessage = Data.define(:content) do
     include MessageBase
 
-    def self.new(content:)
+    # Ruby 4.0: override initialize instead of self.new
+    def initialize(content:)
       super(content: content.to_s)
     end
 
@@ -87,12 +90,13 @@ module Ragents
   ToolCallMessage = Data.define(:tool_call_id, :name, :arguments) do
     include MessageBase
 
-    def self.new(tool_call_id:, name:, arguments: {})
+    # Ruby 4.0: override initialize instead of self.new
+    def initialize(tool_call_id:, name:, arguments: {})
       super(
         tool_call_id: tool_call_id.to_s,
         name: name.to_s,
         # arguments must be a plain Hash of shareable primitives
-        arguments: deep_freeze_hash(arguments)
+        arguments: self.class.deep_freeze_hash(arguments)
       )
     end
 
@@ -114,7 +118,8 @@ module Ragents
   ToolResultMessage = Data.define(:tool_call_id, :name, :content, :error) do
     include MessageBase
 
-    def self.new(tool_call_id:, name:, content: nil, error: nil)
+    # Ruby 4.0: override initialize instead of self.new
+    def initialize(tool_call_id:, name:, content: nil, error: nil)
       super(
         tool_call_id: tool_call_id.to_s,
         name: name.to_s,
@@ -132,7 +137,8 @@ module Ragents
   AgentCallMessage = Data.define(:call_id, :agent_name, :input, :context_id) do
     include MessageBase
 
-    def self.new(call_id:, agent_name:, input:, context_id: nil)
+    # Ruby 4.0: override initialize instead of self.new
+    def initialize(call_id:, agent_name:, input:, context_id: nil)
       super(
         call_id: call_id.to_s,
         agent_name: agent_name.to_s,
@@ -146,7 +152,8 @@ module Ragents
   AgentResultMessage = Data.define(:call_id, :agent_name, :output, :error) do
     include MessageBase
 
-    def self.new(call_id:, agent_name:, output: nil, error: nil)
+    # Ruby 4.0: override initialize instead of self.new
+    def initialize(call_id:, agent_name:, output: nil, error: nil)
       super(
         call_id: call_id.to_s,
         agent_name: agent_name.to_s,
