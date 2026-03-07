@@ -26,8 +26,12 @@ module "activeagents" {
   image         = var.image
   min_instances = 0  # Scale to zero for cost savings
   max_instances = 5
-  cpu           = "1"
-  memory        = "1Gi"  # Rails 8 requires more memory
+  cpu           = var.cpu      # 2 vCPUs for benchmark API and concurrent operations
+  memory        = var.memory   # 2Gi for Rails 8 + ActionCable
+
+  # Sandbox configuration for agent execution (ephemeral containers)
+  sandbox_cpu    = var.sandbox_cpu     # 4 vCPUs for parallel Ractor/Thread execution
+  sandbox_memory = var.sandbox_memory  # 4Gi for LLM context and agent workloads
 
   # Database configuration (smaller for staging)
   database_tier = "db-f1-micro"

@@ -114,3 +114,28 @@ variable "docs_cname" {
   type        = string
   default     = null
 }
+
+# Resource allocation for main app and sandboxes
+variable "cpu" {
+  description = "CPU allocation for main Cloud Run service"
+  type        = string
+  default     = "2"  # 2 vCPUs for benchmark API and ActionCable
+}
+
+variable "memory" {
+  description = "Memory allocation for main Cloud Run service"
+  type        = string
+  default     = "2Gi"  # 2Gi for Rails 8 + concurrent operations
+}
+
+variable "sandbox_cpu" {
+  description = "CPU allocation for agent sandbox containers"
+  type        = string
+  default     = "4"  # 4 vCPUs for parallel Ractor/Thread execution
+}
+
+variable "sandbox_memory" {
+  description = "Memory allocation for agent sandbox containers"
+  type        = string
+  default     = "4Gi"  # 4Gi for LLM context and agent workloads
+}
