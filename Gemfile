@@ -33,7 +33,7 @@ gem "solid_agent", github: "activeagents/solid_agent", branch: "main"
 gem "bcrypt", "~> 3.1.7"
 
 # Payment processing with Pay gem [https://github.com/pay-rails/pay]
-gem "pay", "~> 7.3"
+gem "pay", "~> 11.4"
 # Stripe payment processor [https://stripe.com/docs/api]
 # Pay gem 7.3 requires stripe ~> 12
 gem "stripe", "~> 12.0"
