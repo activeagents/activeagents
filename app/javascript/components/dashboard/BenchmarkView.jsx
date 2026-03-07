@@ -7,6 +7,7 @@ import { useTheme } from '../../contexts/ThemeContext';
 const STRATEGY_COLORS = {
   Sequential:       { bar: '#6b7280', badge: '#f3f4f6', text: '#374151', span: 'bg-gray-400' },
   Threads:          { bar: '#3b82f6', badge: '#eff6ff', text: '#1d4ed8', span: 'bg-blue-400' },
+  'Thread Pool':    { bar: '#0891b2', badge: '#ecfeff', text: '#0e7490', span: 'bg-cyan-400' },
   Ractors:          { bar: '#ef4444', badge: '#fef2f2', text: '#dc2626', span: 'bg-red-500' },
   'Ractor Pool':    { bar: '#f97316', badge: '#fff7ed', text: '#c2410c', span: 'bg-orange-400' },
   'Async Fibers':   { bar: '#8b5cf6', badge: '#f5f3ff', text: '#6d28d9', span: 'bg-purple-400' },
@@ -431,6 +432,7 @@ export default function BenchmarkView() {
               <TabButton id="timeline"   label="⏱ Timeline" />
               <TabButton id="throughput" label="📈 Throughput" />
               <TabButton id="latency"    label="⚡ Latency" />
+              <TabButton id="memory"     label="🧠 Memory" />
               <TabButton id="tokens"     label="🔤 Tokens" />
             </div>
 
@@ -528,6 +530,150 @@ export default function BenchmarkView() {
                 </table>
               </div>
             )}
+
+            {/* ── Memory tab ─────────────────────────────── */}
+            {activeTab === 'memory' && (() => {
+              const hasMemoryData = strategies.some(s => s.memory_delta_mb !== undefined || s.gc_runs !== undefined);
+              const maxMemDelta = Math.max(...strategies.map(s => Math.abs(s.memory_delta_mb || 0)), 0.1);
+              const maxGcRuns = Math.max(...strategies.map(s => s.gc_runs || 0), 1);
+
+              return (
+                <div style={{ background: colors.cardBg, borderRadius: '12px', padding: '20px', border: `1px solid ${colors.border}`, marginBottom: '16px' }}>
+                  <h3 style={{ fontSize: '15px', fontWeight: '600', color: colors.textPrimary, marginBottom: '16px', marginTop: 0 }}>
+                    Memory Utilization & Garbage Collection
+                  </h3>
+
+                  {!hasMemoryData ? (
+                    <div style={{ textAlign: 'center', padding: '40px 0', color: colors.textSecondary }}>
+                      <div style={{ fontSize: '32px', marginBottom: '12px' }}>📊</div>
+                      <p style={{ marginBottom: '8px' }}>No memory data available for this run.</p>
+                      <p style={{ fontSize: '12px', color: colors.textMuted }}>
+                        Run <code style={{ fontFamily: 'monospace', background: colors.borderLight, padding: '2px 6px', borderRadius: '4px' }}>bin/bench --context-kb 512</code> to simulate LLM context memory and track GC behavior.
+                      </p>
+                    </div>
+                  ) : (
+                    <>
+                      {/* Context allocated badge */}
+                      {strategies.some(s => s.context_allocated_mb) && (
+                        <div style={{
+                          background: darkMode ? 'rgba(139, 92, 246, 0.15)' : '#f5f3ff',
+                          border: `1px solid ${darkMode ? 'rgba(139, 92, 246, 0.3)' : '#c4b5fd'}`,
+                          borderRadius: '8px',
+                          padding: '12px 16px',
+                          marginBottom: '20px',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '12px'
+                        }}>
+                          <span style={{ fontSize: '20px' }}>🧪</span>
+                          <div>
+                            <div style={{ fontSize: '13px', fontWeight: '600', color: darkMode ? '#c4b5fd' : '#6d28d9' }}>
+                              Simulated LLM Context: {strategies[0]?.context_allocated_mb?.toFixed(1) || 0} MB per request
+                            </div>
+                            <div style={{ fontSize: '12px', color: colors.textSecondary, marginTop: '2px' }}>
+                              Each request allocates context memory to simulate large LLM conversation windows
+                            </div>
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Memory delta bars */}
+                      <div style={{ marginBottom: '24px' }}>
+                        <div style={{ fontSize: '13px', fontWeight: '600', color: colors.textSecondary, marginBottom: '12px' }}>
+                          Memory Pressure (delta MB during benchmark)
+                        </div>
+                        <p style={{ fontSize: '12px', color: colors.textMuted, marginBottom: '12px' }}>
+                          Lower is better. Ractors have isolated GC per worker, reducing shared heap pressure.
+                        </p>
+                        {strategies.map((s, i) => (
+                          <StrategyBar
+                            key={i}
+                            strategy={s.name}
+                            value={Math.abs(s.memory_delta_mb || 0)}
+                            maxValue={maxMemDelta}
+                            unit=" MB"
+                            colors={colors}
+                          />
+                        ))}
+                      </div>
+
+                      {/* GC runs bars */}
+                      <div style={{ marginBottom: '24px' }}>
+                        <div style={{ fontSize: '13px', fontWeight: '600', color: colors.textSecondary, marginBottom: '12px' }}>
+                          GC Cycles During Benchmark
+                        </div>
+                        <p style={{ fontSize: '12px', color: colors.textMuted, marginBottom: '12px' }}>
+                          Fewer GC pauses = more consistent latency. Ractors GC independently without stop-the-world pauses.
+                        </p>
+                        {strategies.map((s, i) => (
+                          <StrategyBar
+                            key={i}
+                            strategy={s.name}
+                            value={s.gc_runs || 0}
+                            maxValue={maxGcRuns}
+                            unit=" cycles"
+                            colors={colors}
+                          />
+                        ))}
+                      </div>
+
+                      {/* Memory detail table */}
+                      <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px' }}>
+                        <thead>
+                          <tr style={{ borderBottom: `1px solid ${colors.border}`, color: colors.textSecondary }}>
+                            <th style={{ textAlign: 'left', padding: '8px 0', fontWeight: '500' }}>Strategy</th>
+                            <th style={{ textAlign: 'right', padding: '8px 0', fontWeight: '500' }}>Mem Start</th>
+                            <th style={{ textAlign: 'right', padding: '8px 0', fontWeight: '500' }}>Mem End</th>
+                            <th style={{ textAlign: 'right', padding: '8px 0', fontWeight: '500' }}>Delta</th>
+                            <th style={{ textAlign: 'right', padding: '8px 0', fontWeight: '500' }}>GC Runs</th>
+                            <th style={{ textAlign: 'right', padding: '8px 0', fontWeight: '500' }}>Heap Slots</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {strategies.map((s, i) => (
+                            <tr key={i} style={{ borderBottom: i < strategies.length - 1 ? `1px solid ${colors.borderLight}` : 'none' }}>
+                              <td style={{ padding: '10px 0', color: colors.textPrimary, fontWeight: '500' }}>{s.name}</td>
+                              <td style={{ padding: '10px 0', textAlign: 'right', fontFamily: 'monospace', color: colors.textSecondary }}>
+                                {s.memory_start_mb?.toFixed(1) || '—'} MB
+                              </td>
+                              <td style={{ padding: '10px 0', textAlign: 'right', fontFamily: 'monospace', color: colors.textSecondary }}>
+                                {s.memory_end_mb?.toFixed(1) || '—'} MB
+                              </td>
+                              <td style={{ padding: '10px 0', textAlign: 'right', fontFamily: 'monospace', color: (s.memory_delta_mb || 0) > 1 ? '#ef4444' : '#22c55e' }}>
+                                {s.memory_delta_mb !== undefined ? `${s.memory_delta_mb >= 0 ? '+' : ''}${s.memory_delta_mb.toFixed(2)} MB` : '—'}
+                              </td>
+                              <td style={{ padding: '10px 0', textAlign: 'right', fontFamily: 'monospace', color: colors.textPrimary }}>
+                                {s.gc_runs !== undefined ? s.gc_runs : '—'}
+                              </td>
+                              <td style={{ padding: '10px 0', textAlign: 'right', fontFamily: 'monospace', color: colors.textSecondary }}>
+                                {s.heap_slots_delta?.toLocaleString() || '—'}
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+
+                      <div style={{
+                        marginTop: '20px',
+                        padding: '16px',
+                        background: darkMode ? 'rgba(34, 197, 94, 0.1)' : '#f0fdf4',
+                        borderRadius: '8px',
+                        border: `1px solid ${darkMode ? 'rgba(34, 197, 94, 0.2)' : '#bbf7d0'}`
+                      }}>
+                        <div style={{ fontSize: '13px', fontWeight: '600', color: darkMode ? '#86efac' : '#166534', marginBottom: '8px' }}>
+                          💎 Ruby 4.x Ractor Advantage
+                        </div>
+                        <p style={{ fontSize: '12px', color: colors.textSecondary, margin: 0, lineHeight: 1.6 }}>
+                          Ractors provide true parallelism with <strong>isolated garbage collection</strong>. Each Ractor has its own heap,
+                          eliminating stop-the-world GC pauses that affect other workers. This is especially beneficial for
+                          LLM workloads with large context windows where memory churn is high.
+                        </p>
+                      </div>
+                    </>
+                  )}
+                </div>
+              );
+            })()}
 
             {/* ── Tokens tab ──────────────────────────────── */}
             {activeTab === 'tokens' && (
