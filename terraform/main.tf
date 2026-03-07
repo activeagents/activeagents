@@ -237,11 +237,12 @@ module "sandbox" {
   app_service_account = google_service_account.cloud_run.email
 
   # Sandbox resource configuration
-  default_sandbox_image    = var.sandbox_image
-  sandbox_cpu              = var.sandbox_cpu
-  sandbox_memory           = var.sandbox_memory
-  sandbox_timeout_seconds  = var.sandbox_timeout_seconds
-  max_concurrent_sandboxes = var.max_concurrent_sandboxes
+  default_sandbox_image     = var.sandbox_image
+  sandbox_cpu               = var.sandbox_cpu
+  sandbox_memory            = var.sandbox_memory
+  sandbox_timeout_seconds   = var.sandbox_timeout_seconds
+  max_concurrent_sandboxes  = var.max_concurrent_sandboxes
+  max_persistent_sandboxes  = var.max_persistent_sandboxes
 
   labels = local.common_labels
 
