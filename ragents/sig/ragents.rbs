@@ -1,0 +1,235 @@
+# RBS type signatures for Ragents
+# https://github.com/ruby/rbs
+
+module Ragents
+  VERSION: String
+
+  ROLES: Array[Symbol]
+
+  class Error < StandardError
+  end
+
+  class MaxIterationsError < Error
+  end
+
+  class UnknownToolError < Error
+  end
+
+  module MessageBase
+    def validate!: () -> void
+    def to_h: () -> Hash[Symbol, untyped]
+  end
+
+  class UserMessage
+    include MessageBase
+    attr_reader content: String
+    attr_reader name: String?
+    def self.new: (content: String, ?name: String?) -> UserMessage
+    def role: () -> :user
+  end
+
+  class AssistantMessage
+    include MessageBase
+    attr_reader content: String
+    attr_reader input_tokens: Integer?
+    attr_reader output_tokens: Integer?
+    attr_reader model: String?
+    def self.new: (content: String, ?input_tokens: Integer?, ?output_tokens: Integer?, ?model: String?) -> AssistantMessage
+    def role: () -> :assistant
+  end
+
+  class SystemMessage
+    include MessageBase
+    attr_reader content: String
+    def self.new: (content: String) -> SystemMessage
+    def role: () -> :system
+  end
+
+  class ToolCallMessage
+    include MessageBase
+    attr_reader tool_call_id: String
+    attr_reader name: String
+    attr_reader arguments: Hash[Symbol, untyped]
+    def self.new: (tool_call_id: String, name: String, ?arguments: Hash[untyped, untyped]) -> ToolCallMessage
+    def role: () -> :assistant
+  end
+
+  class ToolResultMessage
+    include MessageBase
+    attr_reader tool_call_id: String
+    attr_reader name: String
+    attr_reader content: String?
+    attr_reader error: String?
+    def self.new: (tool_call_id: String, name: String, ?content: String?, ?error: String?) -> ToolResultMessage
+    def role: () -> :tool
+    def success?: () -> bool
+  end
+
+  class AgentCallMessage
+    include MessageBase
+    attr_reader call_id: String
+    attr_reader agent_name: String
+    attr_reader input: String
+    attr_reader context_id: String?
+    def self.new: (call_id: String, agent_name: String, input: String, ?context_id: String?) -> AgentCallMessage
+  end
+
+  class AgentResultMessage
+    include MessageBase
+    attr_reader call_id: String
+    attr_reader agent_name: String
+    attr_reader output: String?
+    attr_reader error: String?
+    def self.new: (call_id: String, agent_name: String, ?output: String?, ?error: String?) -> AgentResultMessage
+    def success?: () -> bool
+  end
+
+  class ErrorMessage
+    include MessageBase
+    attr_reader source: String
+    attr_reader exception_class: String
+    attr_reader message: String
+    attr_reader backtrace: Array[String]
+    def self.from_exception: (source: String, exception: Exception) -> ErrorMessage
+    def to_exception: () -> RuntimeError
+  end
+
+  type message = UserMessage | AssistantMessage | SystemMessage | ToolCallMessage | ToolResultMessage | AgentCallMessage | AgentResultMessage | ErrorMessage
+
+  class Context
+    attr_reader agent_id: String
+    attr_reader id: String
+    attr_reader metadata: Hash[untyped, untyped]
+
+    def initialize: (agent_id: String, ?id: String?, ?metadata: Hash[untyped, untyped]) -> void
+    def add: (message) -> self
+    def <<: (message) -> self
+    def each: () { (message) -> void } -> void
+    def messages: () -> Array[message]
+    def tail: (?Integer) -> Array[message]
+    def to_api_messages: () -> Array[Hash[Symbol, untyped]]
+    def snapshot: () -> Array[message]
+    def self.import: (Array[message], agent_id: String, ?id: String?, ?metadata: Hash[untyped, untyped]) -> Context
+    def size: () -> Integer
+    def empty?: () -> bool
+    def system_messages: () -> Array[SystemMessage]
+    def user_messages: () -> Array[UserMessage]
+    def assistant_messages: () -> Array[AssistantMessage]
+    def reset_conversation!: () -> self
+    def inspect: () -> String
+  end
+
+  class Tool
+    attr_reader name: String
+    attr_reader description: String
+    attr_reader parameters: Hash[Symbol, untyped]
+
+    def initialize: (name: String, description: String, ?parameters: Hash[untyped, untyped]) { (**untyped) -> untyped } -> void
+    def execute: (**untyped) -> String
+    def to_schema: () -> Hash[Symbol, untyped]
+  end
+
+  class ToolRegistry
+    def initialize: (?Array[Tool]) -> void
+    def register: (Tool) -> self
+    def fetch: (String | Symbol) -> Tool
+    def include?: (String | Symbol) -> bool
+    def schemas: () -> Array[Hash[Symbol, untyped]]
+    def execute: (String | Symbol, **untyped) -> String
+    def names: () -> Array[String]
+    def size: () -> Integer
+    def empty?: () -> bool
+    def to_a: () -> Array[Tool]
+  end
+
+  module Providers
+    class GenerationResult
+      attr_reader content: String?
+      attr_reader tool_calls: Array[ToolCallSpec]
+      attr_reader input_tokens: Integer?
+      attr_reader output_tokens: Integer?
+      attr_reader model: String?
+      attr_reader stop_reason: String?
+
+      def self.new: (?content: String?, ?tool_calls: Array[untyped], ?input_tokens: Integer?, ?output_tokens: Integer?, ?model: String?, ?stop_reason: String?) -> GenerationResult
+      def tool_call?: () -> bool
+      def done?: () -> bool
+    end
+
+    class ToolCallSpec
+      attr_reader id: String
+      attr_reader name: String
+      attr_reader arguments: Hash[Symbol, untyped]
+
+      def self.new: (id: String, name: String, ?arguments: Hash[untyped, untyped]) -> ToolCallSpec
+      def self.from: (Hash[untyped, untyped] | ToolCallSpec) -> ToolCallSpec
+      def to_tool_call_message: () -> ToolCallMessage
+    end
+
+    class BaseProvider
+      def chat: (messages: Array[Hash[Symbol, untyped]], ?tools: Array[Hash[Symbol, untyped]], ?model: String?, **untyped) -> GenerationResult
+      def embed: (texts: String | Array[String], ?model: String?, **untyped) -> untyped
+    end
+
+    class OpenAIProvider < BaseProvider
+      def initialize: (?api_key: String?, ?base_url: String?, ?default_model: String?) -> void
+    end
+
+    class AnthropicProvider < BaseProvider
+      def initialize: (?api_key: String?, ?default_model: String?) -> void
+    end
+
+    class MockProvider < BaseProvider
+      attr_reader call_count: Integer
+      def initialize: (?responses: Array[Hash[Symbol, untyped]], ?default_model: String) -> void
+    end
+  end
+
+  module Ractor
+    class RunResult
+      attr_reader assistant_message: AssistantMessage
+      attr_reader context_snapshot: Array[message]
+
+      def content: () -> String
+      def messages: () -> Array[message]
+    end
+
+    class FailedResult
+      attr_reader error: Exception
+      def content: () -> String
+      def context_snapshot: () -> Array[message]
+      def success?: () -> bool
+    end
+
+    class AgentRactor
+      def initialize: (
+        provider_class: Class,
+        ?provider_opts: Hash[Symbol, untyped],
+        ?tools: Array[Tool],
+        ?system_prompt: String?,
+        ?model: String?,
+        ?max_iterations: Integer
+      ) -> void
+
+      def run: (String, ?context_snapshot: Array[message]?, ?tool_registry: ToolRegistry?) -> RunResult
+      def run_parallel: (Array[String], ?context_snapshot: Array[message]?) -> Array[RunResult]
+    end
+
+    class Supervisor
+      attr_reader agents: Hash[String, Hash[Symbol, untyped]]
+
+      def initialize: () -> void
+      def register: (String | Symbol, provider_class: Class, ?provider_opts: Hash[Symbol, untyped], ?tools: Array[Tool], ?system_prompt: String?, ?model: String?, ?max_iterations: Integer) -> self
+      def agent_tool: (String | Symbol, description: String, ?input_description: String) -> Tool
+      def run: (String | Symbol, String, ?context_snapshot: Array[message]?) -> RunResult
+      def run_parallel: (Hash[String, String], ?context_snapshot: Array[message]?) -> Hash[String, RunResult]
+    end
+
+    class AgentPool
+      def initialize: (?size: Integer, **untyped) -> void
+      def process: (Array[String], ?context_snapshot: Array[message]?) -> Array[RunResult | FailedResult]
+      def process_stream: (Array[String], ?context_snapshot: Array[message]?) { (Integer, RunResult | FailedResult) -> void } -> void
+      def shutdown: () -> void
+    end
+  end
+end

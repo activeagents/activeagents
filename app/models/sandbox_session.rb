@@ -51,7 +51,7 @@ class SandboxSession < ApplicationRecord
     active? && runs_count < max_runs
   end
 
-  # Record a new run
+  # Record a new run (thread-safe for parallel execution)
   def record_run!(task:, result:, duration_ms:, tokens:, screenshots: [], provider: nil)
     run = {
       id: SecureRandom.uuid,
@@ -65,13 +65,17 @@ class SandboxSession < ApplicationRecord
       created_at: Time.current.iso8601
     }
 
-    self.runs = runs + [ run ]
-    self.runs_count = runs.size
-    self.total_tokens += tokens
-    self.total_duration_ms += duration_ms
-    self.last_activity_at = Time.current
+    # Use pessimistic locking to prevent race conditions when multiple providers run in parallel
+    with_lock do
+      reload # Reload to get the latest state
+      self.runs = runs + [ run ]
+      self.runs_count = runs.size
+      self.total_tokens += tokens
+      self.total_duration_ms += duration_ms
+      self.last_activity_at = Time.current
+      save!
+    end
 
-    save!
     run
   end
 

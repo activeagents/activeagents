@@ -82,12 +82,20 @@ Rails.application.routes.draw do
 
     # Sandbox sessions (free tier demo runners)
     resources :sandboxes, param: :id, only: [ :index, :create, :show, :destroy ] do
+      collection do
+        post :compare
+      end
       member do
         post :run
       end
     end
 
     resource :analytics, only: [ :show ], controller: "analytics", action: :index
+
+    # Ragents benchmark results — accepts POSTed JSON from bin/bench
+    # GET  /api/benchmarks     — list recent runs
+    # POST /api/benchmarks     — ingest a new benchmark run from bin/bench
+    resources :benchmarks, only: [ :index, :create ]
 
     namespace :v1 do
       resources :plans, only: [ :index ]
