@@ -41,6 +41,7 @@ options = {
   requests:   10,
   io_ms:      100,
   cpu_iters:  50_000,
+  context_kb: 0,       # simulate large LLM context per request (KB)
   provider:   "mock",
   output:     nil,
   post_url:   nil,
@@ -71,6 +72,7 @@ OptionParser.new do |opts|
   opts.on("-n", "--requests N", Integer, "Number of concurrent requests (default: #{options[:requests]})") { |v| options[:requests] = v }
   opts.on("--io-ms MS", Integer, "Simulated LLM I/O latency in ms (default: #{options[:io_ms]})") { |v| options[:io_ms] = v }
   opts.on("--cpu-iters N", Integer, "CPU work iterations per response (default: #{options[:cpu_iters]})") { |v| options[:cpu_iters] = v }
+  opts.on("--context-kb KB", Integer, "Simulate LLM context memory per request in KB (default: 0)") { |v| options[:context_kb] = v }
   opts.on("--provider PROVIDER", "Provider: mock, realistic, openai, anthropic (default: mock)") { |v| options[:provider] = v }
   opts.on("--median-latency MS", Integer, "Realistic provider: median latency in ms (default: 3000)") { |v| options[:median_latency] = v }
   opts.on("--latency-sigma N", Float, "Realistic provider: log-normal sigma (default: 0.8)") { |v| options[:latency_sigma] = v }
@@ -88,10 +90,32 @@ end.parse!
 # ---------------------------------------------------------------------------
 # Setup
 # ---------------------------------------------------------------------------
-N         = options[:requests]
-IO_MS     = options[:io_ms]
-CPU_ITERS = options[:cpu_iters]
-POOL_SIZE = options[:pool_size] || [ (Etc.nprocessors rescue 4), N ].min
+N          = options[:requests]
+IO_MS      = options[:io_ms]
+CPU_ITERS  = options[:cpu_iters]
+CONTEXT_KB = options[:context_kb]
+POOL_SIZE  = options[:pool_size] || [ (Etc.nprocessors rescue 4), N ].min
+
+# Memory tracking helper
+def memory_stats
+  GC.start  # Force GC for accurate reading
+  {
+    heap_live_slots: GC.stat[:heap_live_slots],
+    total_allocated_objects: GC.stat[:total_allocated_objects],
+    malloc_increase_bytes: GC.stat[:malloc_increase_bytes],
+    gc_count: GC.count,
+    memory_mb: (`ps -o rss= -p #{Process.pid}`.to_i / 1024.0).round(1)
+  }
+rescue
+  {}
+end
+
+# Simulate large LLM context window (creates memory pressure)
+def allocate_context(size_kb)
+  return nil if size_kb <= 0
+  # Create a string buffer simulating token embeddings (~4 bytes per char)
+  "x" * (size_kb * 1024)
+end
 
 def log(msg, quiet: false)
   $stderr.puts msg unless quiet
@@ -125,10 +149,15 @@ log("╔════════════════════════
 log("║          Ragents Benchmark — Concurrency Strategy Comparison         ║", quiet: options[:quiet])
 log("╚══════════════════════════════════════════════════════════════════════╝", quiet: options[:quiet])
 log("  Provider : #{options[:provider]}  |  N=#{N}  |  IO=#{IO_MS}ms  |  CPU=#{CPU_ITERS} iters  |  Pool=#{POOL_SIZE}", quiet: options[:quiet])
+log("  Context  : #{CONTEXT_KB > 0 ? "#{CONTEXT_KB}KB per request (#{(CONTEXT_KB * N / 1024.0).round(1)}MB total)" : "none"}", quiet: options[:quiet]) if CONTEXT_KB > 0
 log("  Hardware : #{Etc.respond_to?(:nprocessors) ? "#{Etc.nprocessors} CPU cores" : "unknown cores"}  |  Ruby #{RUBY_VERSION}  |  #{RbConfig::CONFIG["host_cpu"]}", quiet: options[:quiet])
 log("", quiet: options[:quiet])
 
-def run_agent(provider_class, provider_opts, system, input)
+def run_agent(provider_class, provider_opts, system, input, context_kb: 0)
+  # Allocate context memory (simulates LLM token embeddings/context window)
+  # This stays in scope during the entire agent run, creating memory pressure
+  context = allocate_context(context_kb)
+
   agent = Ragents::Ractor::AgentRactor.new(
     provider_class: provider_class,
     provider_opts: provider_opts,
@@ -137,21 +166,34 @@ def run_agent(provider_class, provider_opts, system, input)
   start = Process.clock_gettime(Process::CLOCK_MONOTONIC, :millisecond)
   result = agent.run(input)
   elapsed = Process.clock_gettime(Process::CLOCK_MONOTONIC, :millisecond) - start
-  { result: result, duration_ms: elapsed }
+
+  # Keep context alive until result is captured (simulate context retention)
+  context_size = context&.bytesize || 0
+  { result: result, duration_ms: elapsed, context_bytes: context_size }
 rescue => e
-  { error: e.message, duration_ms: 0 }
+  { error: e.message, duration_ms: 0, context_bytes: 0 }
 end
 
 def bench_strategy(name, n, quiet:)
   log("  ▶ #{name} ...", quiet: quiet)
+
+  # Capture memory before benchmark
+  mem_before = memory_stats
+  gc_before = GC.count
+
   wall_start = Process.clock_gettime(Process::CLOCK_MONOTONIC)
   results    = yield
   wall_ms    = ((Process.clock_gettime(Process::CLOCK_MONOTONIC) - wall_start) * 1000).round(1)
+
+  # Capture memory after benchmark (before forced GC)
+  gc_after = GC.count
+  mem_after = memory_stats
 
   durations  = results.map { |r| r[:duration_ms] }
   errors     = results.count { |r| r[:error] }
   tokens_in  = results.sum { |r| r[:result]&.assistant_message&.input_tokens.to_i }
   tokens_out = results.sum { |r| r[:result]&.assistant_message&.output_tokens.to_i }
+  context_bytes = results.sum { |r| r[:context_bytes].to_i }
 
   stats = {
     name:          name,
@@ -165,10 +207,18 @@ def bench_strategy(name, n, quiet:)
     p95_latency_ms: percentile(durations, 95),
     errors:        errors,
     total_input_tokens: tokens_in,
-    total_output_tokens: tokens_out
+    total_output_tokens: tokens_out,
+    # Memory metrics (demonstrate Ractor local GC advantage)
+    memory_mb_before: mem_before[:memory_mb],
+    memory_mb_after: mem_after[:memory_mb],
+    memory_delta_mb: ((mem_after[:memory_mb] || 0) - (mem_before[:memory_mb] || 0)).round(1),
+    gc_runs: gc_after - gc_before,
+    context_allocated_mb: (context_bytes / 1024.0 / 1024.0).round(2)
   }
 
-  log("    ✓ #{wall_ms}ms  |  #{stats[:throughput]} req/s  |  p95=#{stats[:p95_latency_ms]}ms  |  errors=#{errors}", quiet: quiet)
+  mem_info = stats[:memory_delta_mb] != 0 ? "  |  Δmem=#{stats[:memory_delta_mb]}MB" : ""
+  gc_info = stats[:gc_runs] > 0 ? "  |  GC=#{stats[:gc_runs]}" : ""
+  log("    ✓ #{wall_ms}ms  |  #{stats[:throughput]} req/s  |  p95=#{stats[:p95_latency_ms]}ms  |  errors=#{errors}#{mem_info}#{gc_info}", quiet: quiet)
   stats
 end
 
@@ -181,23 +231,25 @@ end
 # ---------------------------------------------------------------------------
 # Main benchmark loop
 # ---------------------------------------------------------------------------
-def run_benchmarks(provider_class, provider_opts, n, pool_size, system, inputs, options)
+def run_benchmarks(provider_class, provider_opts, n, pool_size, context_kb, system, inputs, options)
   strategies = []
 
   # 1. Sequential
   strategies << bench_strategy("Sequential", n, quiet: options[:quiet]) do
-    inputs.map { |input| run_agent(provider_class, provider_opts, system, input) }
+    inputs.map { |input| run_agent(provider_class, provider_opts, system, input, context_kb: context_kb) }
   end
 
   sequential_ms = strategies.first[:wall_time_ms]
 
   # 2. Threads (unbounded - one thread per request)
+  # Note: All threads share the main Ruby GC - large context creates GC pressure for all
   strategies << bench_strategy("Threads (N=#{n})", n, quiet: options[:quiet]) do
-    threads = inputs.map { |input| Thread.new { run_agent(provider_class, provider_opts, system, input) } }
+    threads = inputs.map { |input| Thread.new { run_agent(provider_class, provider_opts, system, input, context_kb: context_kb) } }
     threads.map(&:value)
   end
 
   # 3. Thread Pool (bounded by CPU cores - production-style executor)
+  # Note: Bounded threads still share GC, but limit concurrent memory allocation
   strategies << bench_strategy("Thread Pool (size=#{pool_size})", n, quiet: options[:quiet]) do
     require "thread"
     results = Array.new(n)
@@ -209,7 +261,7 @@ def run_benchmarks(provider_class, provider_opts, n, pool_size, system, inputs, 
       Thread.new do
         while (item = queue.pop)
           input, idx = item
-          results[idx] = run_agent(provider_class, provider_opts, system, input)
+          results[idx] = run_agent(provider_class, provider_opts, system, input, context_kb: context_kb)
         end
       end
     end
@@ -218,6 +270,9 @@ def run_benchmarks(provider_class, provider_opts, n, pool_size, system, inputs, 
   end
 
   # 4. Ractors (pool = N, unbounded - one Ractor per request)
+  # ADVANTAGE: Each Ractor has LOCAL garbage collection!
+  # Memory allocated in a Ractor is collected by that Ractor's GC independently,
+  # not blocking other Ractors. Critical for large LLM context windows.
   strategies << bench_strategy("Ractors (N=#{n})", n, quiet: options[:quiet]) do
     pool = Ragents::Ractor::AgentPool.new(
       size: n,
@@ -227,11 +282,12 @@ def run_benchmarks(provider_class, provider_opts, n, pool_size, system, inputs, 
     )
     results = pool.process(inputs)
     results.map.with_index do |r, i|
-      r.is_a?(Ragents::Ractor::FailedResult) ? { error: r.content, duration_ms: 0 } : { result: r, duration_ms: 0 }
+      r.is_a?(Ragents::Ractor::FailedResult) ? { error: r.content, duration_ms: 0, context_bytes: 0 } : { result: r, duration_ms: 0, context_bytes: 0 }
     end
   end
 
   # 5. Ractor Pool (bounded by CPU cores)
+  # ADVANTAGE: Bounded Ractors with local GC = predictable memory + no stop-the-world GC pauses
   strategies << bench_strategy("Ractor Pool (size=#{pool_size})", n, quiet: options[:quiet]) do
     pool = Ragents::Ractor::AgentPool.new(
       size: pool_size,
@@ -241,7 +297,7 @@ def run_benchmarks(provider_class, provider_opts, n, pool_size, system, inputs, 
     )
     results = pool.process(inputs)
     results.map do |r|
-      r.is_a?(Ragents::Ractor::FailedResult) ? { error: r.content, duration_ms: 0 } : { result: r, duration_ms: 0 }
+      r.is_a?(Ragents::Ractor::FailedResult) ? { error: r.content, duration_ms: 0, context_bytes: 0 } : { result: r, duration_ms: 0, context_bytes: 0 }
     end
   end
 
@@ -390,7 +446,7 @@ loop do
   log("\n  Started: #{run_at}", quiet: options[:quiet])
 
   strategies = run_benchmarks(
-    provider_class, provider_opts, N, POOL_SIZE, SYSTEM, INPUTS, options
+    provider_class, provider_opts, N, POOL_SIZE, CONTEXT_KB, SYSTEM, INPUTS, options
   )
 
   # Pool scaling analysis (optional)
@@ -413,6 +469,7 @@ loop do
     n_requests:    N,
     io_latency_ms: IO_MS,
     cpu_iterations: CPU_ITERS,
+    context_kb:    CONTEXT_KB,
     pool_size:     POOL_SIZE,
     provider:      options[:provider]
   }
