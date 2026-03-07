@@ -30,8 +30,9 @@ module "activeagents" {
   memory        = var.memory   # 2Gi for Rails 8 + ActionCable
 
   # Sandbox configuration for agent execution (ephemeral containers)
-  sandbox_cpu    = var.sandbox_cpu     # 4 vCPUs for parallel Ractor/Thread execution
-  sandbox_memory = var.sandbox_memory  # 4Gi for LLM context and agent workloads
+  sandbox_cpu              = var.sandbox_cpu     # 4 vCPUs for parallel Ractor/Thread execution
+  sandbox_memory           = var.sandbox_memory  # 4Gi for LLM context and agent workloads
+  max_persistent_sandboxes = 3                   # Limited by quota (4 CPUs × 3 = 12 < 20 quota)
 
   # Database configuration (smaller for staging)
   database_tier = "db-f1-micro"

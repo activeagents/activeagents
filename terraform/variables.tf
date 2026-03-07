@@ -89,6 +89,12 @@ variable "max_concurrent_sandboxes" {
   default     = 20
 }
 
+variable "max_persistent_sandboxes" {
+  description = "Maximum number of persistent sandbox instances"
+  type        = number
+  default     = 10
+}
+
 # Access control
 variable "allow_public_access" {
   description = "Allow unauthenticated public access to Cloud Run. Set to false if GCP org policy restricts it."
