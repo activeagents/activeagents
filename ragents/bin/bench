@@ -202,7 +202,7 @@ def run_benchmarks(provider_class, provider_opts, n, pool_size, system, inputs, 
     require "thread"
     results = Array.new(n)
     queue = Queue.new
-    inputs.each_with_index { |input, idx| queue << [input, idx] }
+    inputs.each_with_index { |input, idx| queue << [ input, idx ] }
     pool_size.times { queue << nil }  # Poison pills
 
     workers = pool_size.times.map do
@@ -319,7 +319,7 @@ def run_pool_scaling(provider_class, provider_opts, n, cores, system, inputs, op
   log("  N=#{n} requests  |  Cores=#{cores}", quiet: options[:quiet])
   log("", quiet: options[:quiet])
 
-  pool_sizes = [1, 2, [cores / 2, 1].max, cores, cores * 2, n].uniq.sort
+  pool_sizes = [ 1, 2, [ cores / 2, 1 ].max, cores, cores * 2, n ].uniq.sort
   scaling_results = []
 
   pool_sizes.each do |pool_size|
@@ -330,7 +330,7 @@ def run_pool_scaling(provider_class, provider_opts, n, cores, system, inputs, op
     require "thread"
     results = Array.new(n)
     queue = Queue.new
-    inputs.each_with_index { |input, idx| queue << [input, idx] }
+    inputs.each_with_index { |input, idx| queue << [ input, idx ] }
     pool_size.times { queue << nil }
 
     # Direct provider calls (thread-safe, no Ractor overhead)
@@ -354,13 +354,13 @@ def run_pool_scaling(provider_class, provider_opts, n, cores, system, inputs, op
     throughput = (n / (wall_ms / 1000.0)).round(1)
 
     note = case pool_size
-           when 1 then "sequential"
-           when cores / 2 then "half cores"
-           when cores then "= cores"
-           when cores * 2 then "2x cores"
-           when n then "= requests"
-           else ""
-           end
+    when 1 then "sequential"
+    when cores / 2 then "half cores"
+    when cores then "= cores"
+    when cores * 2 then "2x cores"
+    when n then "= requests"
+    else ""
+    end
 
     scaling_results << {
       pool_size: pool_size,
@@ -369,7 +369,7 @@ def run_pool_scaling(provider_class, provider_opts, n, cores, system, inputs, op
       note: note
     }
 
-    log("  Pool=%2d → %7.1fms | %6.1f req/s | %s" % [pool_size, wall_ms, throughput, note], quiet: options[:quiet])
+    log("  Pool=%2d → %7.1fms | %6.1f req/s | %s" % [ pool_size, wall_ms, throughput, note ], quiet: options[:quiet])
   end
 
   # Find optimal (best throughput)
