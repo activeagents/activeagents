@@ -195,6 +195,20 @@ def bench_strategy(name, n, quiet:)
   tokens_out = results.sum { |r| r[:result]&.assistant_message&.output_tokens.to_i }
   context_bytes = results.sum { |r| r[:context_bytes].to_i }
 
+  # Build per-request details for drill-down view
+  request_details = results.each_with_index.map do |r, idx|
+    {
+      request_id: idx + 1,
+      duration_ms: r[:duration_ms],
+      input_tokens: r[:result]&.assistant_message&.input_tokens.to_i,
+      output_tokens: r[:result]&.assistant_message&.output_tokens.to_i,
+      total_tokens: r[:result]&.assistant_message&.input_tokens.to_i + r[:result]&.assistant_message&.output_tokens.to_i,
+      context_bytes: r[:context_bytes].to_i,
+      error: r[:error],
+      content_preview: r[:result]&.assistant_message&.content&.to_s&.slice(0, 100)
+    }
+  end
+
   stats = {
     name:          name,
     n_requests:    n,
@@ -213,7 +227,9 @@ def bench_strategy(name, n, quiet:)
     memory_mb_after: mem_after[:memory_mb],
     memory_delta_mb: ((mem_after[:memory_mb] || 0) - (mem_before[:memory_mb] || 0)).round(1),
     gc_runs: gc_after - gc_before,
-    context_allocated_mb: (context_bytes / 1024.0 / 1024.0).round(2)
+    context_allocated_mb: (context_bytes / 1024.0 / 1024.0).round(2),
+    # Per-request details for dashboard drill-down
+    requests: request_details
   }
 
   mem_info = stats[:memory_delta_mb] != 0 ? "  |  Δmem=#{stats[:memory_delta_mb]}MB" : ""

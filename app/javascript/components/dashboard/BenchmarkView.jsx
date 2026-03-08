@@ -340,6 +340,246 @@ function EmptyState({ colors }) {
 }
 
 // ---------------------------------------------------------------------------
+// RequestDetailModal — shows per-request breakdown for a strategy
+// ---------------------------------------------------------------------------
+function RequestDetailModal({ strategy, onClose, colors, darkMode }) {
+  if (!strategy) return null;
+
+  const requests = strategy.requests || [];
+  const hasRequests = requests.length > 0;
+
+  // Calculate stats from requests
+  const durations = requests.map(r => r.duration_ms).filter(d => d > 0);
+  const tokens = requests.map(r => r.total_tokens || 0);
+  const avgDuration = durations.length > 0 ? durations.reduce((a, b) => a + b, 0) / durations.length : 0;
+  const avgTokens = tokens.length > 0 ? tokens.reduce((a, b) => a + b, 0) / tokens.length : 0;
+
+  return (
+    <div
+      style={{
+        position: 'fixed',
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
+        background: 'rgba(0,0,0,0.6)',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        zIndex: 1000,
+        padding: '20px'
+      }}
+      onClick={onClose}
+    >
+      <div
+        style={{
+          background: darkMode ? '#1f2937' : '#ffffff',
+          borderRadius: '16px',
+          maxWidth: '900px',
+          width: '100%',
+          maxHeight: '80vh',
+          overflow: 'hidden',
+          display: 'flex',
+          flexDirection: 'column',
+          boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)'
+        }}
+        onClick={e => e.stopPropagation()}
+      >
+        {/* Header */}
+        <div style={{
+          padding: '20px 24px',
+          borderBottom: `1px solid ${colors.border}`,
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center'
+        }}>
+          <div>
+            <div style={{
+              display: 'inline-block',
+              fontSize: '12px',
+              fontWeight: '600',
+              padding: '3px 10px',
+              borderRadius: '4px',
+              background: strategyColor(strategy.name, 'badge'),
+              color: strategyColor(strategy.name, 'text'),
+              marginBottom: '8px'
+            }}>
+              {strategy.name}
+            </div>
+            <h2 style={{ margin: 0, fontSize: '18px', color: colors.textPrimary }}>
+              Request Details
+            </h2>
+            <p style={{ margin: '4px 0 0', fontSize: '13px', color: colors.textMuted }}>
+              {strategy.n_requests} requests · {strategy.wall_time_ms?.toFixed(0)}ms total · {strategy.throughput?.toFixed(1)} req/s
+            </p>
+          </div>
+          <button
+            onClick={onClose}
+            style={{
+              background: 'none',
+              border: 'none',
+              fontSize: '24px',
+              cursor: 'pointer',
+              color: colors.textMuted,
+              padding: '4px 8px',
+              borderRadius: '4px'
+            }}
+          >
+            x
+          </button>
+        </div>
+
+        {/* Summary Stats */}
+        <div style={{
+          padding: '16px 24px',
+          background: darkMode ? 'rgba(255,255,255,0.03)' : '#f9fafb',
+          borderBottom: `1px solid ${colors.border}`,
+          display: 'grid',
+          gridTemplateColumns: 'repeat(4, 1fr)',
+          gap: '16px'
+        }}>
+          <div>
+            <div style={{ fontSize: '10px', color: colors.textMuted, textTransform: 'uppercase' }}>Avg Latency</div>
+            <div style={{ fontSize: '20px', fontWeight: 'bold', color: colors.textPrimary, fontFamily: 'monospace' }}>
+              {avgDuration.toFixed(0)}ms
+            </div>
+          </div>
+          <div>
+            <div style={{ fontSize: '10px', color: colors.textMuted, textTransform: 'uppercase' }}>P95 Latency</div>
+            <div style={{ fontSize: '20px', fontWeight: 'bold', color: '#f59e0b', fontFamily: 'monospace' }}>
+              {strategy.p95_latency_ms?.toFixed(0) || 0}ms
+            </div>
+          </div>
+          <div>
+            <div style={{ fontSize: '10px', color: colors.textMuted, textTransform: 'uppercase' }}>Avg Tokens</div>
+            <div style={{ fontSize: '20px', fontWeight: 'bold', color: '#8b5cf6', fontFamily: 'monospace' }}>
+              {avgTokens.toFixed(0)}
+            </div>
+          </div>
+          <div>
+            <div style={{ fontSize: '10px', color: colors.textMuted, textTransform: 'uppercase' }}>Errors</div>
+            <div style={{ fontSize: '20px', fontWeight: 'bold', color: strategy.errors > 0 ? '#ef4444' : '#10b981', fontFamily: 'monospace' }}>
+              {strategy.errors || 0}
+            </div>
+          </div>
+        </div>
+
+        {/* Request Table */}
+        <div style={{ flex: 1, overflow: 'auto', padding: '0 24px 24px' }}>
+          {!hasRequests ? (
+            <div style={{ textAlign: 'center', padding: '40px 20px', color: colors.textMuted }}>
+              <div style={{ fontSize: '32px', marginBottom: '12px' }}>📋</div>
+              <div style={{ fontSize: '14px' }}>
+                Per-request details not available for this run.
+              </div>
+              <div style={{ fontSize: '12px', marginTop: '8px' }}>
+                Re-run <code style={{ background: colors.borderLight, padding: '2px 6px', borderRadius: '4px' }}>bin/bench</code> to capture request-level data.
+              </div>
+            </div>
+          ) : (
+            <table style={{ width: '100%', borderCollapse: 'collapse', marginTop: '16px' }}>
+              <thead>
+                <tr style={{ borderBottom: `1px solid ${colors.border}` }}>
+                  <th style={{ padding: '10px 8px', textAlign: 'left', fontSize: '11px', color: colors.textMuted, textTransform: 'uppercase' }}>#</th>
+                  <th style={{ padding: '10px 8px', textAlign: 'right', fontSize: '11px', color: colors.textMuted, textTransform: 'uppercase' }}>Duration</th>
+                  <th style={{ padding: '10px 8px', textAlign: 'right', fontSize: '11px', color: colors.textMuted, textTransform: 'uppercase' }}>Input Tokens</th>
+                  <th style={{ padding: '10px 8px', textAlign: 'right', fontSize: '11px', color: colors.textMuted, textTransform: 'uppercase' }}>Output Tokens</th>
+                  <th style={{ padding: '10px 8px', textAlign: 'right', fontSize: '11px', color: colors.textMuted, textTransform: 'uppercase' }}>Total</th>
+                  <th style={{ padding: '10px 8px', textAlign: 'right', fontSize: '11px', color: colors.textMuted, textTransform: 'uppercase' }}>Context</th>
+                  <th style={{ padding: '10px 8px', textAlign: 'center', fontSize: '11px', color: colors.textMuted, textTransform: 'uppercase' }}>Status</th>
+                </tr>
+              </thead>
+              <tbody>
+                {requests.map((req, idx) => {
+                  const isError = !!req.error;
+                  const isSlow = req.duration_ms > strategy.p95_latency_ms;
+                  return (
+                    <tr
+                      key={idx}
+                      style={{
+                        borderBottom: `1px solid ${colors.borderLight}`,
+                        background: isError ? (darkMode ? 'rgba(239,68,68,0.1)' : '#fef2f2') : 'transparent'
+                      }}
+                    >
+                      <td style={{ padding: '12px 8px', fontSize: '12px', color: colors.textMuted }}>
+                        {req.request_id || idx + 1}
+                      </td>
+                      <td style={{
+                        padding: '12px 8px',
+                        textAlign: 'right',
+                        fontFamily: 'monospace',
+                        fontSize: '13px',
+                        color: isSlow ? '#f59e0b' : colors.textPrimary
+                      }}>
+                        {req.duration_ms?.toFixed(0) || '-'}ms
+                        {isSlow && <span style={{ marginLeft: '4px', fontSize: '10px' }}>🐢</span>}
+                      </td>
+                      <td style={{ padding: '12px 8px', textAlign: 'right', fontFamily: 'monospace', fontSize: '13px', color: colors.textSecondary }}>
+                        {req.input_tokens?.toLocaleString() || '-'}
+                      </td>
+                      <td style={{ padding: '12px 8px', textAlign: 'right', fontFamily: 'monospace', fontSize: '13px', color: colors.textSecondary }}>
+                        {req.output_tokens?.toLocaleString() || '-'}
+                      </td>
+                      <td style={{ padding: '12px 8px', textAlign: 'right', fontFamily: 'monospace', fontSize: '13px', fontWeight: '600', color: '#8b5cf6' }}>
+                        {req.total_tokens?.toLocaleString() || '-'}
+                      </td>
+                      <td style={{ padding: '12px 8px', textAlign: 'right', fontFamily: 'monospace', fontSize: '13px', color: colors.textMuted }}>
+                        {req.context_bytes ? `${(req.context_bytes / 1024).toFixed(1)}KB` : '-'}
+                      </td>
+                      <td style={{ padding: '12px 8px', textAlign: 'center' }}>
+                        {isError ? (
+                          <span style={{ color: '#ef4444', fontSize: '12px' }} title={req.error}>Error</span>
+                        ) : (
+                          <span style={{ color: '#10b981', fontSize: '12px' }}>OK</span>
+                        )}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          )}
+
+          {/* Latency Distribution Mini-Chart */}
+          {hasRequests && durations.length > 0 && (
+            <div style={{ marginTop: '24px' }}>
+              <div style={{ fontSize: '13px', fontWeight: '600', color: colors.textSecondary, marginBottom: '12px' }}>
+                Latency Distribution
+              </div>
+              <div style={{ display: 'flex', alignItems: 'flex-end', gap: '2px', height: '60px' }}>
+                {durations.map((d, i) => {
+                  const maxD = Math.max(...durations);
+                  const heightPct = maxD > 0 ? (d / maxD) * 100 : 0;
+                  const isSlow = d > strategy.p95_latency_ms;
+                  return (
+                    <div
+                      key={i}
+                      style={{
+                        flex: 1,
+                        height: `${heightPct}%`,
+                        minHeight: '2px',
+                        background: isSlow ? '#f59e0b' : strategyColor(strategy.name, 'bar'),
+                        borderRadius: '2px 2px 0 0',
+                        transition: 'height 0.3s ease'
+                      }}
+                      title={`Request ${i + 1}: ${d.toFixed(0)}ms`}
+                    />
+                  );
+                })}
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '10px', color: colors.textMuted, marginTop: '4px' }}>
+                <span>Request 1</span>
+                <span>Request {durations.length}</span>
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
 // Main BenchmarkView component
 // ---------------------------------------------------------------------------
 export default function BenchmarkView() {
@@ -350,6 +590,7 @@ export default function BenchmarkView() {
   const [activeTab, setActiveTab] = useState('timeline'); // timeline | throughput | latency | tokens
   const [lastFetch, setLastFetch] = useState(null);
   const [autoRefresh, setAutoRefresh] = useState(true);
+  const [selectedStrategy, setSelectedStrategy] = useState(null);
 
   // Theme — exact same pattern as MetricsView / TracesView
   const colors = {
@@ -548,18 +789,44 @@ export default function BenchmarkView() {
                 const name = s.name;
                 const history = throughputHistory(name);
                 return (
-                  <div key={idx} style={{ background: colors.cardBg, borderRadius: '12px', padding: '16px', border: `1px solid ${colors.border}` }}>
+                  <div
+                    key={idx}
+                    onClick={() => setSelectedStrategy(s)}
+                    style={{
+                      background: colors.cardBg,
+                      borderRadius: '12px',
+                      padding: '16px',
+                      border: `1px solid ${colors.border}`,
+                      cursor: 'pointer',
+                      transition: 'transform 0.15s ease, box-shadow 0.15s ease'
+                    }}
+                    onMouseEnter={e => {
+                      e.currentTarget.style.transform = 'translateY(-2px)';
+                      e.currentTarget.style.boxShadow = '0 4px 12px rgba(0,0,0,0.1)';
+                    }}
+                    onMouseLeave={e => {
+                      e.currentTarget.style.transform = 'translateY(0)';
+                      e.currentTarget.style.boxShadow = 'none';
+                    }}
+                  >
                     <div style={{
-                      display: 'inline-block',
-                      fontSize: '11px',
-                      fontWeight: '600',
-                      padding: '2px 8px',
-                      borderRadius: '4px',
-                      background: strategyColor(name, 'badge'),
-                      color: strategyColor(name, 'text'),
+                      display: 'flex',
+                      justifyContent: 'space-between',
+                      alignItems: 'flex-start',
                       marginBottom: '8px'
                     }}>
-                      {name}
+                      <div style={{
+                        display: 'inline-block',
+                        fontSize: '11px',
+                        fontWeight: '600',
+                        padding: '2px 8px',
+                        borderRadius: '4px',
+                        background: strategyColor(name, 'badge'),
+                        color: strategyColor(name, 'text')
+                      }}>
+                        {name}
+                      </div>
+                      <span style={{ fontSize: '10px', color: colors.textMuted }}>Click for details</span>
                     </div>
                     <div style={{ fontSize: '26px', fontWeight: 'bold', color: colors.textPrimary, fontFamily: 'monospace' }}>
                       {(s.throughput || 0).toFixed(1)}
@@ -1663,6 +1930,16 @@ export default function BenchmarkView() {
           </>
         )}
       </div>
+
+      {/* Request Detail Modal */}
+      {selectedStrategy && (
+        <RequestDetailModal
+          strategy={selectedStrategy}
+          onClose={() => setSelectedStrategy(null)}
+          colors={colors}
+          darkMode={darkMode}
+        />
+      )}
     </div>
   );
 }
