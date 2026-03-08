@@ -1187,18 +1187,18 @@ export default function BenchmarkView() {
                         // Check if we have actual breakdown data from the API
                         const hasActualBreakdown = s.system_prompt_tokens || s.tool_schema_tokens;
 
-                        // Realistic baseline values for LLM requests with tools:
-                        // - System prompt: 500-1500 tokens (instructions, persona, examples)
-                        // - Tool schemas: 200-400 tokens PER TOOL (5 tools = 1000-2000)
-                        // - Structured output: 150-400 tokens (JSON schema for response)
-                        // - Conversation: 200-2000+ tokens (grows with history)
-                        // - User input: 50-300 tokens (current message)
+                        // Realistic baseline values for production LLM agents (e.g., Claude Code, Cursor):
+                        // - System prompt: 2000-5000 tokens (detailed instructions, examples, persona, rules)
+                        // - Tool schemas: 3000-8000 tokens (15-25 tools, each 150-400 tokens with JSON schema)
+                        // - Structured output: 500-1500 tokens (complex response format with nested schemas)
+                        // - Conversation: 5000-20000+ tokens (full session history, grows over time)
+                        // - User input: 200-2000 tokens (code context, file contents, questions)
                         const REALISTIC_BASELINE = {
-                          system_prompt: 850,      // Typical agent system prompt
-                          tool_schemas: 1200,      // ~4-5 tools with JSON schemas
-                          structured_output: 280,  // Response format schema
-                          conversation: 450,       // 2-3 turn history
-                          user_input: 120,         // Current user message
+                          system_prompt: 3200,     // Production agent instructions with examples
+                          tool_schemas: 4800,      // ~18-20 tools (file ops, search, terminal, etc.)
+                          structured_output: 850,  // Complex nested response schema
+                          conversation: 8500,      // 8-12 turn session history
+                          user_input: 650,         // User message with code context
                         };
 
                         let breakdown;
@@ -1348,8 +1348,8 @@ export default function BenchmarkView() {
                                 <BarChart
                                   data={Object.entries(TOKEN_TYPES).filter(([key]) => key !== 'available').map(([key, config]) => {
                                     const tokens = breakdown[key] || 0;
-                                    // Estimate ~4 bytes per token for memory calculation
-                                    const memoryKb = (tokens * 4) / 1024;
+                                    // Estimate ~24 bytes per token (includes string repr, metadata, Ruby objects)
+                                    const memoryKb = (tokens * 24) / 1024;
                                     return {
                                       name: config.label.split(' ')[0], // Shorter label
                                       tokens: tokens,
@@ -1413,7 +1413,7 @@ export default function BenchmarkView() {
                                 {overheadTokens.toLocaleString()}
                               </div>
                               <div style={{ fontSize: '10px', color: colors.textMuted }}>
-                                ~{((overheadTokens * 4) / 1024).toFixed(1)} KB/req
+                                ~{((overheadTokens * 24) / 1024).toFixed(1)} KB/req
                               </div>
                             </div>
                             <div style={{ background: darkMode ? 'rgba(16, 185, 129, 0.1)' : '#ecfdf5', borderRadius: '8px', padding: '12px', textAlign: 'center' }}>
@@ -1422,7 +1422,7 @@ export default function BenchmarkView() {
                                 {(breakdown.conversation + breakdown.user_input).toLocaleString()}
                               </div>
                               <div style={{ fontSize: '10px', color: colors.textMuted }}>
-                                ~{(((breakdown.conversation + breakdown.user_input) * 4) / 1024).toFixed(1)} KB/req
+                                ~{(((breakdown.conversation + breakdown.user_input) * 24) / 1024).toFixed(1)} KB/req
                               </div>
                             </div>
                             <div style={{ background: darkMode ? 'rgba(245, 158, 11, 0.1)' : '#fffbeb', borderRadius: '8px', padding: '12px', textAlign: 'center' }}>
@@ -1437,7 +1437,7 @@ export default function BenchmarkView() {
                             <div style={{ background: darkMode ? 'rgba(139, 92, 246, 0.1)' : '#f5f3ff', borderRadius: '8px', padding: '12px', textAlign: 'center' }}>
                               <div style={{ fontSize: '10px', color: '#8b5cf6', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Total Memory</div>
                               <div style={{ fontSize: '18px', fontWeight: 'bold', color: '#8b5cf6', fontFamily: 'monospace' }}>
-                                {((breakdown.total * 4 * (run?.config?.n_requests || 1)) / 1024 / 1024).toFixed(2)} MB
+                                {((breakdown.total * 24 * (run?.config?.n_requests || 1)) / 1024 / 1024).toFixed(2)} MB
                               </div>
                               <div style={{ fontSize: '10px', color: colors.textMuted }}>
                                 {run?.config?.n_requests || 1} requests total
