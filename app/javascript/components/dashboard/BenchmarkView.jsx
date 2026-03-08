@@ -1237,7 +1237,158 @@ export default function BenchmarkView() {
                             </div>
                           )}
 
-                          {/* Context utilization gauge */}
+                          {/* Token Distribution Charts - Side by Side */}
+                          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '24px', marginBottom: '24px' }}>
+                            {/* Pie Chart - Average Token Distribution */}
+                            <div style={{ background: colors.borderLight, borderRadius: '12px', padding: '16px' }}>
+                              <div style={{ fontSize: '13px', fontWeight: '600', color: colors.textSecondary, marginBottom: '12px', textAlign: 'center' }}>
+                                Average Token Distribution (per request)
+                              </div>
+                              <ResponsiveContainer width="100%" height={200}>
+                                <PieChart>
+                                  <Pie
+                                    data={Object.entries(TOKEN_TYPES).filter(([key]) => key !== 'available').map(([key, config]) => ({
+                                      name: config.label,
+                                      value: breakdown[key] || 0,
+                                      fill: config.color
+                                    }))}
+                                    cx="50%"
+                                    cy="50%"
+                                    innerRadius={45}
+                                    outerRadius={75}
+                                    paddingAngle={2}
+                                    dataKey="value"
+                                    label={({ name, percent }) => percent > 0.05 ? `${(percent * 100).toFixed(0)}%` : ''}
+                                    labelLine={false}
+                                  >
+                                    {Object.entries(TOKEN_TYPES).filter(([key]) => key !== 'available').map(([key, config], index) => (
+                                      <Cell key={`cell-${index}`} fill={config.color} />
+                                    ))}
+                                  </Pie>
+                                  <Tooltip
+                                    contentStyle={{
+                                      background: colors.cardBg,
+                                      border: `1px solid ${colors.border}`,
+                                      borderRadius: '8px',
+                                      fontSize: '12px'
+                                    }}
+                                    formatter={(value, name) => [`${value.toLocaleString()} tokens`, name]}
+                                  />
+                                </PieChart>
+                              </ResponsiveContainer>
+                              <div style={{ textAlign: 'center', marginTop: '8px' }}>
+                                <span style={{ fontSize: '20px', fontWeight: 'bold', color: colors.textPrimary }}>{breakdown.total.toLocaleString()}</span>
+                                <span style={{ fontSize: '12px', color: colors.textMuted, marginLeft: '4px' }}>tokens/req</span>
+                              </div>
+                            </div>
+
+                            {/* Bar Chart - Token Types with Memory Impact */}
+                            <div style={{ background: colors.borderLight, borderRadius: '12px', padding: '16px' }}>
+                              <div style={{ fontSize: '13px', fontWeight: '600', color: colors.textSecondary, marginBottom: '12px', textAlign: 'center' }}>
+                                Token Types & Memory Impact
+                              </div>
+                              <ResponsiveContainer width="100%" height={200}>
+                                <BarChart
+                                  data={Object.entries(TOKEN_TYPES).filter(([key]) => key !== 'available').map(([key, config]) => {
+                                    const tokens = breakdown[key] || 0;
+                                    // Estimate ~4 bytes per token for memory calculation
+                                    const memoryKb = (tokens * 4) / 1024;
+                                    return {
+                                      name: config.label.split(' ')[0], // Shorter label
+                                      tokens: tokens,
+                                      memoryKb: memoryKb,
+                                      fill: config.color,
+                                      isOverhead: ['system_prompt', 'tool_schemas', 'structured_output'].includes(key)
+                                    };
+                                  })}
+                                  margin={{ top: 10, right: 10, left: 10, bottom: 30 }}
+                                >
+                                  <CartesianGrid strokeDasharray="3 3" stroke={colors.borderLight} vertical={false} />
+                                  <XAxis
+                                    dataKey="name"
+                                    tick={{ fill: colors.textMuted, fontSize: 10 }}
+                                    tickLine={false}
+                                    axisLine={{ stroke: colors.borderLight }}
+                                    angle={-35}
+                                    textAnchor="end"
+                                    height={50}
+                                  />
+                                  <YAxis
+                                    tick={{ fill: colors.textMuted, fontSize: 10 }}
+                                    tickLine={false}
+                                    axisLine={false}
+                                    tickFormatter={(v) => v >= 1000 ? `${(v/1000).toFixed(0)}K` : v}
+                                  />
+                                  <Tooltip
+                                    contentStyle={{
+                                      background: colors.cardBg,
+                                      border: `1px solid ${colors.border}`,
+                                      borderRadius: '8px',
+                                      fontSize: '12px'
+                                    }}
+                                    formatter={(value, name, props) => {
+                                      if (name === 'tokens') {
+                                        return [`${value.toLocaleString()} tokens (~${props.payload.memoryKb.toFixed(1)} KB)`, 'Tokens'];
+                                      }
+                                      return [value, name];
+                                    }}
+                                  />
+                                  <Bar dataKey="tokens" radius={[4, 4, 0, 0]}>
+                                    {Object.entries(TOKEN_TYPES).filter(([key]) => key !== 'available').map(([key, config], index) => (
+                                      <Cell key={`cell-${index}`} fill={config.color} />
+                                    ))}
+                                  </Bar>
+                                </BarChart>
+                              </ResponsiveContainer>
+                            </div>
+                          </div>
+
+                          {/* Memory Correlation Summary */}
+                          <div style={{
+                            display: 'grid',
+                            gridTemplateColumns: 'repeat(4, 1fr)',
+                            gap: '12px',
+                            marginBottom: '24px'
+                          }}>
+                            <div style={{ background: darkMode ? 'rgba(99, 102, 241, 0.1)' : '#eef2ff', borderRadius: '8px', padding: '12px', textAlign: 'center' }}>
+                              <div style={{ fontSize: '10px', color: '#6366f1', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Overhead Tokens</div>
+                              <div style={{ fontSize: '18px', fontWeight: 'bold', color: '#6366f1', fontFamily: 'monospace' }}>
+                                {overheadTokens.toLocaleString()}
+                              </div>
+                              <div style={{ fontSize: '10px', color: colors.textMuted }}>
+                                ~{((overheadTokens * 4) / 1024).toFixed(1)} KB/req
+                              </div>
+                            </div>
+                            <div style={{ background: darkMode ? 'rgba(16, 185, 129, 0.1)' : '#ecfdf5', borderRadius: '8px', padding: '12px', textAlign: 'center' }}>
+                              <div style={{ fontSize: '10px', color: '#10b981', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Content Tokens</div>
+                              <div style={{ fontSize: '18px', fontWeight: 'bold', color: '#10b981', fontFamily: 'monospace' }}>
+                                {(breakdown.conversation + breakdown.user_input).toLocaleString()}
+                              </div>
+                              <div style={{ fontSize: '10px', color: colors.textMuted }}>
+                                ~{(((breakdown.conversation + breakdown.user_input) * 4) / 1024).toFixed(1)} KB/req
+                              </div>
+                            </div>
+                            <div style={{ background: darkMode ? 'rgba(245, 158, 11, 0.1)' : '#fffbeb', borderRadius: '8px', padding: '12px', textAlign: 'center' }}>
+                              <div style={{ fontSize: '10px', color: '#f59e0b', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Overhead Ratio</div>
+                              <div style={{ fontSize: '18px', fontWeight: 'bold', color: overheadPct > 30 ? '#ef4444' : '#f59e0b', fontFamily: 'monospace' }}>
+                                {overheadPct.toFixed(0)}%
+                              </div>
+                              <div style={{ fontSize: '10px', color: colors.textMuted }}>
+                                {overheadPct > 30 ? 'High' : overheadPct > 20 ? 'Moderate' : 'Good'}
+                              </div>
+                            </div>
+                            <div style={{ background: darkMode ? 'rgba(139, 92, 246, 0.1)' : '#f5f3ff', borderRadius: '8px', padding: '12px', textAlign: 'center' }}>
+                              <div style={{ fontSize: '10px', color: '#8b5cf6', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Total Memory</div>
+                              <div style={{ fontSize: '18px', fontWeight: 'bold', color: '#8b5cf6', fontFamily: 'monospace' }}>
+                                {((breakdown.total * 4 * (run?.config?.n_requests || 1)) / 1024 / 1024).toFixed(2)} MB
+                              </div>
+                              <div style={{ fontSize: '10px', color: colors.textMuted }}>
+                                {run?.config?.n_requests || 1} requests total
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* Context Window Usage Bar */}
                           <div style={{ marginBottom: '24px' }}>
                             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: '8px' }}>
                               <span style={{ fontSize: '13px', fontWeight: '600', color: colors.textSecondary }}>
