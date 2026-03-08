@@ -1417,22 +1417,26 @@ export default function BenchmarkView() {
                   {/* Context Window Utilization - Token Type Breakdown */}
                   <div style={{ marginTop: '32px', borderTop: `1px solid ${colors.border}`, paddingTop: '24px' }}>
                     <h4 style={{ fontSize: '15px', fontWeight: '600', color: colors.textPrimary, marginBottom: '8px', marginTop: 0 }}>
-                      Context Window Utilization
+                      Token Flow: Input → Context → Output
                     </h4>
                     <p style={{ fontSize: '12px', color: colors.textMuted, marginBottom: '20px' }}>
-                      Input tokens break down into overhead (system prompts, tool schemas, structured output schemas) and productive content (user messages, conversation history). Tool/schema overhead can consume 20-40% of context.
+                      Each LLM call sends the full context (system + tools + history + user message) and receives generated output. Output is often larger than user input. Context overhead compounds with each turn.
                     </p>
 
                     {/* Token type breakdown visualization */}
                     {(() => {
-                      // Token type colors
+                      // Token type colors - organized by flow
                       const TOKEN_TYPES = {
-                        system_prompt: { color: '#6366f1', label: 'System Prompt', description: 'Base instructions' },
-                        tool_schemas: { color: '#f59e0b', label: 'Tool Schemas', description: 'Function definitions (JSON)' },
-                        structured_output: { color: '#ec4899', label: 'Structured Output', description: 'Response format schema' },
-                        conversation: { color: '#10b981', label: 'Conversation', description: 'User + assistant history' },
-                        user_input: { color: '#3b82f6', label: 'User Input', description: 'Current request' },
-                        available: { color: darkMode ? 'rgba(255,255,255,0.1)' : '#e5e7eb', label: 'Available', description: 'Remaining context' }
+                        // Context (sent with every request)
+                        system_prompt: { color: '#6366f1', label: 'System Prompt', description: 'Base instructions', category: 'context' },
+                        tool_schemas: { color: '#f59e0b', label: 'Tool Schemas', description: 'Function definitions (JSON)', category: 'context' },
+                        structured_output: { color: '#ec4899', label: 'Response Schema', description: 'Output format definition', category: 'context' },
+                        conversation: { color: '#10b981', label: 'History', description: 'Prior messages (grows each turn)', category: 'context' },
+                        // User input (the new message)
+                        user_input: { color: '#3b82f6', label: 'User Input', description: 'Current user message', category: 'input' },
+                        // Generated output
+                        output: { color: '#ef4444', label: 'Generated Output', description: 'LLM response tokens', category: 'output' },
+                        available: { color: darkMode ? 'rgba(255,255,255,0.1)' : '#e5e7eb', label: 'Available', description: 'Remaining context', category: 'available' }
                       };
 
                       // Model context windows for reference
@@ -1441,6 +1445,7 @@ export default function BenchmarkView() {
                         'GPT-4-32K': 32768,
                         'GPT-4-Turbo': 128000,
                         'Claude-3': 200000,
+                        'Claude-3.5': 200000,
                         'Gemini-Pro': 32000
                       };
 
@@ -1448,24 +1453,31 @@ export default function BenchmarkView() {
                       // Use actual breakdown data if available, otherwise show realistic estimates
                       const getTokenBreakdown = (s) => {
                         const inputTokens = s.total_input_tokens || 0;
+                        const outputTokens = s.total_output_tokens || 0;
                         const nRequests = run?.config?.n_requests || 1;
                         const avgInputPerReq = inputTokens / nRequests;
+                        const avgOutputPerReq = outputTokens / nRequests;
 
                         // Check if we have actual breakdown data from the API
                         const hasActualBreakdown = s.system_prompt_tokens || s.tool_schema_tokens;
 
                         // Realistic baseline values for production LLM agents (e.g., Claude Code, Cursor):
+                        // Context overhead (resent every request):
                         // - System prompt: 2000-5000 tokens (detailed instructions, examples, persona, rules)
                         // - Tool schemas: 3000-8000 tokens (15-25 tools, each 150-400 tokens with JSON schema)
-                        // - Structured output: 500-1500 tokens (complex response format with nested schemas)
+                        // - Response schema: 500-1500 tokens (complex output format with nested schemas)
                         // - Conversation: 5000-20000+ tokens (full session history, grows over time)
-                        // - User input: 200-2000 tokens (code context, file contents, questions)
+                        // User input (per request):
+                        // - User message: 100-500 tokens (question, code snippet, file reference)
+                        // Generated output (typically larger than user input):
+                        // - LLM response: 200-2000 tokens (explanation, code, tool calls)
                         const REALISTIC_BASELINE = {
                           system_prompt: 3200,     // Production agent instructions with examples
                           tool_schemas: 4800,      // ~18-20 tools (file ops, search, terminal, etc.)
                           structured_output: 850,  // Complex nested response schema
                           conversation: 8500,      // 8-12 turn session history
-                          user_input: 650,         // User message with code context
+                          user_input: 350,         // User's message (usually small)
+                          output: 1200,            // LLM response (often 2-4x user input)
                         };
 
                         let breakdown;
@@ -1477,26 +1489,41 @@ export default function BenchmarkView() {
                             structured_output: s.structured_output_tokens || 0,
                             conversation: s.conversation_tokens || 0,
                             user_input: s.user_input_tokens || 0,
+                            output: avgOutputPerReq || 0,
                           };
                         } else if (avgInputPerReq > 500) {
                           // Real API data without breakdown - estimate from total
+                          // Context overhead is ~85% of input, user message is ~15%
+                          const contextTokens = avgInputPerReq * 0.85;
                           breakdown = {
-                            system_prompt: Math.round(avgInputPerReq * 0.25),
-                            tool_schemas: Math.round(avgInputPerReq * 0.35),
-                            structured_output: Math.round(avgInputPerReq * 0.10),
-                            conversation: Math.round(avgInputPerReq * 0.15),
+                            system_prompt: Math.round(contextTokens * 0.20),
+                            tool_schemas: Math.round(contextTokens * 0.35),
+                            structured_output: Math.round(contextTokens * 0.08),
+                            conversation: Math.round(contextTokens * 0.37),
                             user_input: Math.round(avgInputPerReq * 0.15),
+                            output: Math.round(avgOutputPerReq) || Math.round(avgInputPerReq * 0.25),
                           };
                         } else {
                           // Simulated/low data - show realistic example values
                           breakdown = { ...REALISTIC_BASELINE };
                         }
 
-                        const totalUsed = Object.values(breakdown).reduce((a, b) => a + b, 0);
+                        // Context = everything except user_input and output
+                        const contextTokens = breakdown.system_prompt + breakdown.tool_schemas + breakdown.structured_output + breakdown.conversation;
+                        const totalInput = contextTokens + breakdown.user_input;
+                        const totalUsed = totalInput + breakdown.output;
                         const contextWindow = 128000; // GPT-4-Turbo default
                         breakdown.available = Math.max(0, contextWindow - totalUsed);
 
-                        return { ...breakdown, total: totalUsed, contextWindow, isEstimate: !hasActualBreakdown && avgInputPerReq <= 500 };
+                        return {
+                          ...breakdown,
+                          contextTokens,
+                          totalInput,
+                          totalUsed,
+                          contextWindow,
+                          isEstimate: !hasActualBreakdown && avgInputPerReq <= 500,
+                          outputRatio: breakdown.user_input > 0 ? (breakdown.output / breakdown.user_input).toFixed(1) : 'N/A'
+                        };
                       };
 
                       // Get first strategy's breakdown for the main visualization
@@ -1505,10 +1532,10 @@ export default function BenchmarkView() {
 
                       if (!breakdown) return null;
 
-                      // Calculate percentages for stacked bar
-                      const usedPct = (breakdown.total / breakdown.contextWindow) * 100;
+                      // Calculate percentages
+                      const usedPct = (breakdown.totalUsed / breakdown.contextWindow) * 100;
                       const overheadTokens = breakdown.system_prompt + breakdown.tool_schemas + breakdown.structured_output;
-                      const overheadPct = (overheadTokens / breakdown.total) * 100;
+                      const overheadPct = breakdown.totalInput > 0 ? (overheadTokens / breakdown.totalInput) * 100 : 0;
 
                       return (
                         <>
@@ -1667,47 +1694,61 @@ export default function BenchmarkView() {
                             </div>
                           </div>
 
-                          {/* Memory Correlation Summary */}
+                          {/* Token Flow Summary: Context → Input → Output */}
                           <div style={{
                             display: 'grid',
-                            gridTemplateColumns: 'repeat(4, 1fr)',
+                            gridTemplateColumns: 'repeat(5, 1fr)',
                             gap: '12px',
                             marginBottom: '24px'
                           }}>
+                            {/* Context (resent every request) */}
                             <div style={{ background: darkMode ? 'rgba(99, 102, 241, 0.1)' : '#eef2ff', borderRadius: '8px', padding: '12px', textAlign: 'center' }}>
-                              <div style={{ fontSize: '10px', color: '#6366f1', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Overhead Tokens</div>
+                              <div style={{ fontSize: '10px', color: '#6366f1', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Context</div>
                               <div style={{ fontSize: '18px', fontWeight: 'bold', color: '#6366f1', fontFamily: 'monospace' }}>
-                                {overheadTokens.toLocaleString()}
+                                {breakdown.contextTokens.toLocaleString()}
                               </div>
-                              <div style={{ fontSize: '10px', color: colors.textMuted }}>
-                                ~{((overheadTokens * 24) / 1024).toFixed(1)} KB/req
+                              <div style={{ fontSize: '9px', color: colors.textMuted }}>
+                                system+tools+history
                               </div>
                             </div>
+                            {/* User Input (new message) */}
+                            <div style={{ background: darkMode ? 'rgba(59, 130, 246, 0.1)' : '#eff6ff', borderRadius: '8px', padding: '12px', textAlign: 'center' }}>
+                              <div style={{ fontSize: '10px', color: '#3b82f6', textTransform: 'uppercase', letterSpacing: '0.05em' }}>User Input</div>
+                              <div style={{ fontSize: '18px', fontWeight: 'bold', color: '#3b82f6', fontFamily: 'monospace' }}>
+                                {breakdown.user_input.toLocaleString()}
+                              </div>
+                              <div style={{ fontSize: '9px', color: colors.textMuted }}>
+                                new message
+                              </div>
+                            </div>
+                            {/* Generated Output */}
+                            <div style={{ background: darkMode ? 'rgba(239, 68, 68, 0.1)' : '#fef2f2', borderRadius: '8px', padding: '12px', textAlign: 'center' }}>
+                              <div style={{ fontSize: '10px', color: '#ef4444', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Output</div>
+                              <div style={{ fontSize: '18px', fontWeight: 'bold', color: '#ef4444', fontFamily: 'monospace' }}>
+                                {breakdown.output.toLocaleString()}
+                              </div>
+                              <div style={{ fontSize: '9px', color: colors.textMuted }}>
+                                LLM response
+                              </div>
+                            </div>
+                            {/* Output/Input Ratio */}
                             <div style={{ background: darkMode ? 'rgba(16, 185, 129, 0.1)' : '#ecfdf5', borderRadius: '8px', padding: '12px', textAlign: 'center' }}>
-                              <div style={{ fontSize: '10px', color: '#10b981', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Content Tokens</div>
+                              <div style={{ fontSize: '10px', color: '#10b981', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Output Ratio</div>
                               <div style={{ fontSize: '18px', fontWeight: 'bold', color: '#10b981', fontFamily: 'monospace' }}>
-                                {(breakdown.conversation + breakdown.user_input).toLocaleString()}
+                                {breakdown.outputRatio}x
                               </div>
-                              <div style={{ fontSize: '10px', color: colors.textMuted }}>
-                                ~{(((breakdown.conversation + breakdown.user_input) * 24) / 1024).toFixed(1)} KB/req
-                              </div>
-                            </div>
-                            <div style={{ background: darkMode ? 'rgba(245, 158, 11, 0.1)' : '#fffbeb', borderRadius: '8px', padding: '12px', textAlign: 'center' }}>
-                              <div style={{ fontSize: '10px', color: '#f59e0b', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Overhead Ratio</div>
-                              <div style={{ fontSize: '18px', fontWeight: 'bold', color: overheadPct > 30 ? '#ef4444' : '#f59e0b', fontFamily: 'monospace' }}>
-                                {overheadPct.toFixed(0)}%
-                              </div>
-                              <div style={{ fontSize: '10px', color: colors.textMuted }}>
-                                {overheadPct > 30 ? 'High' : overheadPct > 20 ? 'Moderate' : 'Good'}
+                              <div style={{ fontSize: '9px', color: colors.textMuted }}>
+                                output / user input
                               </div>
                             </div>
+                            {/* Total Memory */}
                             <div style={{ background: darkMode ? 'rgba(139, 92, 246, 0.1)' : '#f5f3ff', borderRadius: '8px', padding: '12px', textAlign: 'center' }}>
-                              <div style={{ fontSize: '10px', color: '#8b5cf6', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Total Memory</div>
+                              <div style={{ fontSize: '10px', color: '#8b5cf6', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Total/Req</div>
                               <div style={{ fontSize: '18px', fontWeight: 'bold', color: '#8b5cf6', fontFamily: 'monospace' }}>
-                                {((breakdown.total * 24 * (run?.config?.n_requests || 1)) / 1024 / 1024).toFixed(2)} MB
+                                {breakdown.totalUsed.toLocaleString()}
                               </div>
-                              <div style={{ fontSize: '10px', color: colors.textMuted }}>
-                                {run?.config?.n_requests || 1} requests total
+                              <div style={{ fontSize: '9px', color: colors.textMuted }}>
+                                ~{((breakdown.totalUsed * 24) / 1024).toFixed(0)} KB
                               </div>
                             </div>
                           </div>
@@ -1719,7 +1760,7 @@ export default function BenchmarkView() {
                                 Context Window Usage (per request)
                               </span>
                               <span style={{ fontSize: '12px', color: colors.textMuted }}>
-                                {breakdown.total.toLocaleString()} / {breakdown.contextWindow.toLocaleString()} tokens ({usedPct.toFixed(1)}%)
+                                {breakdown.totalUsed.toLocaleString()} / {breakdown.contextWindow.toLocaleString()} tokens ({usedPct.toFixed(1)}%)
                               </span>
                             </div>
 
