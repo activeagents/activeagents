@@ -57,7 +57,7 @@ class AsyncAgentApp
   private
 
   def health_response
-    Protocol::HTTP::Response[200, { "content-type" => "application/json" }, [JSON.generate({ status: "ok", server: "falcon" })]]
+    Protocol::HTTP::Response[200, { "content-type" => "application/json" }, [ JSON.generate({ status: "ok", server: "falcon" }) ]]
   end
 
   def handle_agent_request(request)
@@ -88,9 +88,9 @@ class AsyncAgentApp
       context_bytes: context&.bytesize || 0
     }
 
-    Protocol::HTTP::Response[200, { "content-type" => "application/json" }, [JSON.generate(response)]]
+    Protocol::HTTP::Response[200, { "content-type" => "application/json" }, [ JSON.generate(response) ]]
   rescue => e
-    Protocol::HTTP::Response[500, { "content-type" => "application/json" }, [JSON.generate({ error: e.message })]]
+    Protocol::HTTP::Response[500, { "content-type" => "application/json" }, [ JSON.generate({ error: e.message }) ]]
   end
 
   def handle_benchmark_request(request)
@@ -165,9 +165,9 @@ class AsyncAgentApp
       concurrency_model: "async_fibers"
     }
 
-    Protocol::HTTP::Response[200, { "content-type" => "application/json" }, [JSON.generate(response)]]
+    Protocol::HTTP::Response[200, { "content-type" => "application/json" }, [ JSON.generate(response) ]]
   rescue => e
-    Protocol::HTTP::Response[500, { "content-type" => "application/json" }, [JSON.generate({ error: e.message, backtrace: e.backtrace.first(5) })]]
+    Protocol::HTTP::Response[500, { "content-type" => "application/json" }, [ JSON.generate({ error: e.message, backtrace: e.backtrace.first(5) }) ]]
   end
 
   def percentile(arr, pct)
@@ -178,7 +178,7 @@ class AsyncAgentApp
   end
 
   def not_found_response
-    Protocol::HTTP::Response[404, { "content-type" => "application/json" }, [JSON.generate({ error: "Not found" })]]
+    Protocol::HTTP::Response[404, { "content-type" => "application/json" }, [ JSON.generate({ error: "Not found" }) ]]
   end
 end
 
@@ -193,5 +193,5 @@ run ->(env) {
     body: env["rack.input"]
   )
   response = app.call(request)
-  [response.status, response.headers.to_h, response.body]
+  [ response.status, response.headers.to_h, response.body ]
 }

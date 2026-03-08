@@ -32,12 +32,12 @@ class AsyncAgentSandbox
     path = env["PATH_INFO"]
     method = env["REQUEST_METHOD"]
 
-    case [method, path]
-    when ["GET", "/health"]
+    case [ method, path ]
+    when [ "GET", "/health" ]
       json_response(200, { status: "ok", server: "falcon-async" })
-    when ["POST", "/api/agent"]
+    when [ "POST", "/api/agent" ]
       handle_agent(env)
-    when ["POST", "/api/benchmark"]
+    when [ "POST", "/api/benchmark" ]
       handle_benchmark(env)
     else
       json_response(404, { error: "Not found" })
@@ -186,7 +186,7 @@ class AsyncAgentSandbox
   end
 
   def json_response(status, body)
-    [status, { "Content-Type" => "application/json" }, [JSON.generate(body)]]
+    [ status, { "Content-Type" => "application/json" }, [ JSON.generate(body) ] ]
   end
 end
 
