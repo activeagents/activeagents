@@ -1815,6 +1815,106 @@ export default function BenchmarkView() {
                             </div>
                           </div>
 
+                          {/* Session Growth Projection */}
+                          <div style={{
+                            background: darkMode ? 'rgba(239, 68, 68, 0.08)' : '#fef2f2',
+                            border: `1px solid ${darkMode ? 'rgba(239, 68, 68, 0.2)' : '#fecaca'}`,
+                            borderRadius: '12px',
+                            padding: '16px',
+                            marginBottom: '24px'
+                          }}>
+                            <div style={{ fontSize: '13px', fontWeight: '600', color: '#ef4444', marginBottom: '12px' }}>
+                              Context Growth Per Session Turn
+                            </div>
+                            <p style={{ fontSize: '12px', color: colors.textSecondary, margin: '0 0 16px 0' }}>
+                              Each turn adds user input + LLM output to conversation history. Context compounds until truncation is needed.
+                            </p>
+
+                            {/* Turn-by-turn growth visualization */}
+                            {(() => {
+                              const baseContext = breakdown.system_prompt + breakdown.tool_schemas + breakdown.structured_output;
+                              const perTurnGrowth = breakdown.user_input + breakdown.output;
+                              const contextWindow = breakdown.contextWindow;
+                              const turns = [1, 2, 4, 8, 12, 16];
+
+                              return (
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                                  {turns.map((turn, idx) => {
+                                    const historyTokens = (turn - 1) * perTurnGrowth;
+                                    const totalTokens = baseContext + historyTokens + breakdown.user_input;
+                                    const pct = Math.min((totalTokens / contextWindow) * 100, 100);
+                                    const isOverLimit = totalTokens > contextWindow;
+
+                                    return (
+                                      <div key={turn} style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                                        <div style={{ width: '60px', fontSize: '11px', color: colors.textMuted, flexShrink: 0 }}>
+                                          Turn {turn}
+                                        </div>
+                                        <div style={{ flex: 1, background: colors.borderLight, borderRadius: '4px', height: '20px', overflow: 'hidden', position: 'relative' }}>
+                                          {/* Base context (fixed) */}
+                                          <div style={{
+                                            position: 'absolute',
+                                            left: 0,
+                                            width: `${(baseContext / contextWindow) * 100}%`,
+                                            height: '100%',
+                                            background: '#6366f1'
+                                          }} />
+                                          {/* History (grows) */}
+                                          <div style={{
+                                            position: 'absolute',
+                                            left: `${(baseContext / contextWindow) * 100}%`,
+                                            width: `${Math.min((historyTokens / contextWindow) * 100, 100 - (baseContext / contextWindow) * 100)}%`,
+                                            height: '100%',
+                                            background: '#10b981'
+                                          }} />
+                                          {/* Current turn input */}
+                                          <div style={{
+                                            position: 'absolute',
+                                            left: `${((baseContext + historyTokens) / contextWindow) * 100}%`,
+                                            width: `${Math.min((breakdown.user_input / contextWindow) * 100, 100 - ((baseContext + historyTokens) / contextWindow) * 100)}%`,
+                                            height: '100%',
+                                            background: '#3b82f6'
+                                          }} />
+                                          {/* Overflow indicator */}
+                                          {isOverLimit && (
+                                            <div style={{
+                                              position: 'absolute',
+                                              right: 0,
+                                              width: '20px',
+                                              height: '100%',
+                                              background: 'repeating-linear-gradient(45deg, #ef4444, #ef4444 2px, transparent 2px, transparent 4px)',
+                                              opacity: 0.8
+                                            }} />
+                                          )}
+                                        </div>
+                                        <div style={{ width: '90px', fontSize: '11px', fontFamily: 'monospace', color: isOverLimit ? '#ef4444' : colors.textSecondary, textAlign: 'right', flexShrink: 0 }}>
+                                          {(totalTokens / 1000).toFixed(1)}K {isOverLimit ? '⚠️' : `(${pct.toFixed(0)}%)`}
+                                        </div>
+                                      </div>
+                                    );
+                                  })}
+                                  <div style={{ display: 'flex', gap: '16px', marginTop: '8px', fontSize: '10px' }}>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                      <span style={{ width: '8px', height: '8px', borderRadius: '2px', background: '#6366f1' }} />
+                                      <span style={{ color: colors.textMuted }}>Fixed Context</span>
+                                    </div>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                      <span style={{ width: '8px', height: '8px', borderRadius: '2px', background: '#10b981' }} />
+                                      <span style={{ color: colors.textMuted }}>History (grows)</span>
+                                    </div>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                      <span style={{ width: '8px', height: '8px', borderRadius: '2px', background: '#3b82f6' }} />
+                                      <span style={{ color: colors.textMuted }}>New Input</span>
+                                    </div>
+                                    <div style={{ marginLeft: 'auto', color: colors.textMuted }}>
+                                      +{perTurnGrowth.toLocaleString()} tokens/turn
+                                    </div>
+                                  </div>
+                                </div>
+                              );
+                            })()}
+                          </div>
+
                           {/* Token type breakdown table */}
                           <div style={{ marginBottom: '24px' }}>
                             <div style={{ fontSize: '13px', fontWeight: '600', color: colors.textSecondary, marginBottom: '12px' }}>
