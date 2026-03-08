@@ -536,6 +536,16 @@ export default function BenchmarkView() {
               const hasMemoryData = strategies.some(s => s.memory_delta_mb !== undefined || s.gc_runs !== undefined);
               const maxMemDelta = Math.max(...strategies.map(s => Math.abs(s.memory_delta_mb || 0)), 0.1);
               const maxGcRuns = Math.max(...strategies.map(s => s.gc_runs || 0), 1);
+              const maxMemEnd = Math.max(...strategies.map(s => s.memory_end_mb || s.memory_mb_after || 0), 1);
+              const totalContextMb = strategies.reduce((sum, s) => sum + (s.context_allocated_mb || 0), 0);
+
+              // Calculate memory efficiency (tokens processed per MB of memory used)
+              const memoryEfficiency = strategies.map(s => {
+                const tokens = (s.total_input_tokens || 0) + (s.total_output_tokens || 0);
+                const memDelta = Math.abs(s.memory_delta_mb || 0.01);
+                return { name: s.name, efficiency: tokens / memDelta };
+              });
+              const maxEfficiency = Math.max(...memoryEfficiency.map(m => m.efficiency), 1);
 
               return (
                 <div style={{ background: colors.cardBg, borderRadius: '12px', padding: '20px', border: `1px solid ${colors.border}`, marginBottom: '16px' }}>
@@ -553,6 +563,54 @@ export default function BenchmarkView() {
                     </div>
                   ) : (
                     <>
+                      {/* Memory summary cards */}
+                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '12px', marginBottom: '24px' }}>
+                        <div style={{ background: darkMode ? 'rgba(239, 68, 68, 0.1)' : '#fef2f2', borderRadius: '10px', padding: '16px', border: `1px solid ${darkMode ? 'rgba(239, 68, 68, 0.2)' : '#fecaca'}` }}>
+                          <div style={{ fontSize: '11px', color: '#ef4444', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '6px' }}>
+                            Peak Memory
+                          </div>
+                          <div style={{ fontSize: '24px', fontWeight: 'bold', color: '#ef4444', fontFamily: 'monospace' }}>
+                            {maxMemEnd.toFixed(1)} MB
+                          </div>
+                          <div style={{ fontSize: '12px', color: colors.textMuted, marginTop: '4px' }}>
+                            highest across strategies
+                          </div>
+                        </div>
+                        <div style={{ background: darkMode ? 'rgba(34, 197, 94, 0.1)' : '#f0fdf4', borderRadius: '10px', padding: '16px', border: `1px solid ${darkMode ? 'rgba(34, 197, 94, 0.2)' : '#bbf7d0'}` }}>
+                          <div style={{ fontSize: '11px', color: '#16a34a', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '6px' }}>
+                            Min Memory Delta
+                          </div>
+                          <div style={{ fontSize: '24px', fontWeight: 'bold', color: '#16a34a', fontFamily: 'monospace' }}>
+                            {Math.min(...strategies.map(s => Math.abs(s.memory_delta_mb || 0))).toFixed(2)} MB
+                          </div>
+                          <div style={{ fontSize: '12px', color: colors.textMuted, marginTop: '4px' }}>
+                            most memory efficient
+                          </div>
+                        </div>
+                        <div style={{ background: darkMode ? 'rgba(139, 92, 246, 0.1)' : '#f5f3ff', borderRadius: '10px', padding: '16px', border: `1px solid ${darkMode ? 'rgba(139, 92, 246, 0.2)' : '#c4b5fd'}` }}>
+                          <div style={{ fontSize: '11px', color: '#7c3aed', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '6px' }}>
+                            Context Allocated
+                          </div>
+                          <div style={{ fontSize: '24px', fontWeight: 'bold', color: '#7c3aed', fontFamily: 'monospace' }}>
+                            {totalContextMb.toFixed(1)} MB
+                          </div>
+                          <div style={{ fontSize: '12px', color: colors.textMuted, marginTop: '4px' }}>
+                            simulated LLM context
+                          </div>
+                        </div>
+                        <div style={{ background: darkMode ? 'rgba(245, 158, 11, 0.1)' : '#fffbeb', borderRadius: '10px', padding: '16px', border: `1px solid ${darkMode ? 'rgba(245, 158, 11, 0.2)' : '#fde68a'}` }}>
+                          <div style={{ fontSize: '11px', color: '#d97706', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '6px' }}>
+                            Total GC Cycles
+                          </div>
+                          <div style={{ fontSize: '24px', fontWeight: 'bold', color: '#d97706', fontFamily: 'monospace' }}>
+                            {strategies.reduce((sum, s) => sum + (s.gc_runs || 0), 0)}
+                          </div>
+                          <div style={{ fontSize: '12px', color: colors.textMuted, marginTop: '4px' }}>
+                            across all strategies
+                          </div>
+                        </div>
+                      </div>
+
                       {/* Context allocated badge */}
                       {strategies.some(s => s.context_allocated_mb) && (
                         <div style={{
@@ -576,6 +634,85 @@ export default function BenchmarkView() {
                           </div>
                         </div>
                       )}
+
+                      {/* Memory waterfall - before/after visualization */}
+                      <div style={{ marginBottom: '24px' }}>
+                        <div style={{ fontSize: '13px', fontWeight: '600', color: colors.textSecondary, marginBottom: '12px' }}>
+                          Memory Usage (Before → After)
+                        </div>
+                        {strategies.map((s, i) => {
+                          const memStart = s.memory_start_mb || s.memory_mb_before || 0;
+                          const memEnd = s.memory_end_mb || s.memory_mb_after || 0;
+                          const startPct = maxMemEnd > 0 ? (memStart / maxMemEnd) * 100 : 0;
+                          const endPct = maxMemEnd > 0 ? (memEnd / maxMemEnd) * 100 : 0;
+                          const delta = memEnd - memStart;
+
+                          return (
+                            <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '12px' }}>
+                              <div style={{ width: '160px', fontSize: '13px', color: colors.textPrimary, flexShrink: 0, fontWeight: '500' }}>
+                                {s.name}
+                              </div>
+                              <div style={{ flex: 1, background: colors.borderLight, borderRadius: '4px', height: '28px', position: 'relative', overflow: 'hidden' }}>
+                                {/* Before bar */}
+                                <div style={{
+                                  position: 'absolute',
+                                  left: 0,
+                                  top: '2px',
+                                  width: `${startPct}%`,
+                                  height: '10px',
+                                  background: '#94a3b8',
+                                  borderRadius: '3px',
+                                  transition: 'width 0.6s ease'
+                                }} />
+                                {/* After bar */}
+                                <div style={{
+                                  position: 'absolute',
+                                  left: 0,
+                                  bottom: '2px',
+                                  width: `${endPct}%`,
+                                  height: '10px',
+                                  background: delta > 1 ? '#ef4444' : delta > 0.1 ? '#f59e0b' : '#22c55e',
+                                  borderRadius: '3px',
+                                  transition: 'width 0.6s ease'
+                                }} />
+                              </div>
+                              <div style={{ width: '100px', textAlign: 'right', fontSize: '11px', fontFamily: 'monospace', color: delta > 1 ? '#ef4444' : delta > 0.1 ? '#f59e0b' : '#22c55e', flexShrink: 0 }}>
+                                {delta >= 0 ? '+' : ''}{delta.toFixed(2)} MB
+                              </div>
+                            </div>
+                          );
+                        })}
+                        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '16px', marginTop: '8px', fontSize: '11px' }}>
+                          <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                            <span style={{ width: '10px', height: '6px', background: '#94a3b8', borderRadius: '2px' }} />
+                            <span style={{ color: colors.textMuted }}>Before</span>
+                          </span>
+                          <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                            <span style={{ width: '10px', height: '6px', background: '#22c55e', borderRadius: '2px' }} />
+                            <span style={{ color: colors.textMuted }}>After</span>
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* Memory efficiency bars */}
+                      <div style={{ marginBottom: '24px' }}>
+                        <div style={{ fontSize: '13px', fontWeight: '600', color: colors.textSecondary, marginBottom: '12px' }}>
+                          Memory Efficiency (tokens processed per MB)
+                        </div>
+                        <p style={{ fontSize: '12px', color: colors.textMuted, marginBottom: '12px' }}>
+                          Higher is better. Shows how efficiently each strategy processes tokens relative to memory consumed.
+                        </p>
+                        {memoryEfficiency.map((m, i) => (
+                          <StrategyBar
+                            key={i}
+                            strategy={m.name}
+                            value={m.efficiency}
+                            maxValue={maxEfficiency}
+                            unit=" tok/MB"
+                            colors={colors}
+                          />
+                        ))}
+                      </div>
 
                       {/* Memory delta bars */}
                       <div style={{ marginBottom: '24px' }}>
@@ -626,30 +763,36 @@ export default function BenchmarkView() {
                             <th style={{ textAlign: 'right', padding: '8px 0', fontWeight: '500' }}>Mem End</th>
                             <th style={{ textAlign: 'right', padding: '8px 0', fontWeight: '500' }}>Delta</th>
                             <th style={{ textAlign: 'right', padding: '8px 0', fontWeight: '500' }}>GC Runs</th>
-                            <th style={{ textAlign: 'right', padding: '8px 0', fontWeight: '500' }}>Heap Slots</th>
+                            <th style={{ textAlign: 'right', padding: '8px 0', fontWeight: '500' }}>Tok/MB</th>
                           </tr>
                         </thead>
                         <tbody>
-                          {strategies.map((s, i) => (
-                            <tr key={i} style={{ borderBottom: i < strategies.length - 1 ? `1px solid ${colors.borderLight}` : 'none' }}>
-                              <td style={{ padding: '10px 0', color: colors.textPrimary, fontWeight: '500' }}>{s.name}</td>
-                              <td style={{ padding: '10px 0', textAlign: 'right', fontFamily: 'monospace', color: colors.textSecondary }}>
-                                {s.memory_start_mb?.toFixed(1) || '—'} MB
-                              </td>
-                              <td style={{ padding: '10px 0', textAlign: 'right', fontFamily: 'monospace', color: colors.textSecondary }}>
-                                {s.memory_end_mb?.toFixed(1) || '—'} MB
-                              </td>
-                              <td style={{ padding: '10px 0', textAlign: 'right', fontFamily: 'monospace', color: (s.memory_delta_mb || 0) > 1 ? '#ef4444' : '#22c55e' }}>
-                                {s.memory_delta_mb !== undefined ? `${s.memory_delta_mb >= 0 ? '+' : ''}${s.memory_delta_mb.toFixed(2)} MB` : '—'}
-                              </td>
-                              <td style={{ padding: '10px 0', textAlign: 'right', fontFamily: 'monospace', color: colors.textPrimary }}>
-                                {s.gc_runs !== undefined ? s.gc_runs : '—'}
-                              </td>
-                              <td style={{ padding: '10px 0', textAlign: 'right', fontFamily: 'monospace', color: colors.textSecondary }}>
-                                {s.heap_slots_delta?.toLocaleString() || '—'}
-                              </td>
-                            </tr>
-                          ))}
+                          {strategies.map((s, i) => {
+                            const tokens = (s.total_input_tokens || 0) + (s.total_output_tokens || 0);
+                            const memDelta = Math.abs(s.memory_delta_mb || 0.01);
+                            const efficiency = tokens / memDelta;
+
+                            return (
+                              <tr key={i} style={{ borderBottom: i < strategies.length - 1 ? `1px solid ${colors.borderLight}` : 'none' }}>
+                                <td style={{ padding: '10px 0', color: colors.textPrimary, fontWeight: '500' }}>{s.name}</td>
+                                <td style={{ padding: '10px 0', textAlign: 'right', fontFamily: 'monospace', color: colors.textSecondary }}>
+                                  {(s.memory_start_mb || s.memory_mb_before)?.toFixed(1) || '—'} MB
+                                </td>
+                                <td style={{ padding: '10px 0', textAlign: 'right', fontFamily: 'monospace', color: colors.textSecondary }}>
+                                  {(s.memory_end_mb || s.memory_mb_after)?.toFixed(1) || '—'} MB
+                                </td>
+                                <td style={{ padding: '10px 0', textAlign: 'right', fontFamily: 'monospace', color: (s.memory_delta_mb || 0) > 1 ? '#ef4444' : '#22c55e' }}>
+                                  {s.memory_delta_mb !== undefined ? `${s.memory_delta_mb >= 0 ? '+' : ''}${s.memory_delta_mb.toFixed(2)} MB` : '—'}
+                                </td>
+                                <td style={{ padding: '10px 0', textAlign: 'right', fontFamily: 'monospace', color: colors.textPrimary }}>
+                                  {s.gc_runs !== undefined ? s.gc_runs : '—'}
+                                </td>
+                                <td style={{ padding: '10px 0', textAlign: 'right', fontFamily: 'monospace', color: '#0891b2' }}>
+                                  {efficiency.toFixed(0)}
+                                </td>
+                              </tr>
+                            );
+                          })}
                         </tbody>
                       </table>
 
@@ -676,46 +819,445 @@ export default function BenchmarkView() {
             })()}
 
             {/* ── Tokens tab ──────────────────────────────── */}
-            {activeTab === 'tokens' && (
-              <div style={{ background: colors.cardBg, borderRadius: '12px', padding: '20px', border: `1px solid ${colors.border}`, marginBottom: '16px' }}>
-                <h3 style={{ fontSize: '15px', fontWeight: '600', color: colors.textPrimary, marginBottom: '16px', marginTop: 0 }}>
-                  Token usage across strategies
-                </h3>
-                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px' }}>
-                  <thead>
-                    <tr style={{ borderBottom: `1px solid ${colors.border}`, color: colors.textSecondary }}>
-                      <th style={{ textAlign: 'left', padding: '8px 0', fontWeight: '500' }}>Strategy</th>
-                      <th style={{ textAlign: 'right', padding: '8px 0', fontWeight: '500' }}>↓ Input</th>
-                      <th style={{ textAlign: 'right', padding: '8px 0', fontWeight: '500' }}>↑ Output</th>
-                      <th style={{ textAlign: 'right', padding: '8px 0', fontWeight: '500' }}>Total</th>
-                      <th style={{ textAlign: 'right', padding: '8px 0', fontWeight: '500' }}>Errors</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {strategies.map((s, i) => (
-                      <tr key={i} style={{ borderBottom: i < strategies.length - 1 ? `1px solid ${colors.borderLight}` : 'none' }}>
-                        <td style={{ padding: '10px 0', color: colors.textPrimary, fontWeight: '500' }}>{s.name}</td>
-                        <td style={{ padding: '10px 0', textAlign: 'right', fontFamily: 'monospace', color: '#2563eb' }}>
-                          {(s.total_input_tokens || 0).toLocaleString()}
-                        </td>
-                        <td style={{ padding: '10px 0', textAlign: 'right', fontFamily: 'monospace', color: '#7c3aed' }}>
-                          {(s.total_output_tokens || 0).toLocaleString()}
-                        </td>
-                        <td style={{ padding: '10px 0', textAlign: 'right', fontFamily: 'monospace', color: colors.textPrimary }}>
-                          {((s.total_input_tokens || 0) + (s.total_output_tokens || 0)).toLocaleString()}
-                        </td>
-                        <td style={{ padding: '10px 0', textAlign: 'right', color: s.errors > 0 ? '#ef4444' : colors.textMuted }}>
-                          {s.errors || 0}
-                        </td>
+            {activeTab === 'tokens' && (() => {
+              const maxTotalTokens = Math.max(...strategies.map(s => (s.total_input_tokens || 0) + (s.total_output_tokens || 0)), 1);
+              const maxInputTokens = Math.max(...strategies.map(s => s.total_input_tokens || 0), 1);
+              const maxOutputTokens = Math.max(...strategies.map(s => s.total_output_tokens || 0), 1);
+              const totalTokensAllStrategies = strategies.reduce((sum, s) => sum + (s.total_input_tokens || 0) + (s.total_output_tokens || 0), 0);
+              const totalInputAll = strategies.reduce((sum, s) => sum + (s.total_input_tokens || 0), 0);
+              const totalOutputAll = strategies.reduce((sum, s) => sum + (s.total_output_tokens || 0), 0);
+
+              // Estimated cost calculation (using OpenAI GPT-4 pricing as baseline)
+              const INPUT_COST_PER_1K = 0.01;   // $0.01 per 1K input tokens
+              const OUTPUT_COST_PER_1K = 0.03;  // $0.03 per 1K output tokens
+
+              return (
+                <div style={{ background: colors.cardBg, borderRadius: '12px', padding: '20px', border: `1px solid ${colors.border}`, marginBottom: '16px' }}>
+                  <h3 style={{ fontSize: '15px', fontWeight: '600', color: colors.textPrimary, marginBottom: '16px', marginTop: 0 }}>
+                    Token Utilization & Cost Analysis
+                  </h3>
+
+                  {/* Token summary cards */}
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '12px', marginBottom: '24px' }}>
+                    <div style={{ background: darkMode ? 'rgba(37, 99, 235, 0.1)' : '#eff6ff', borderRadius: '10px', padding: '16px', border: `1px solid ${darkMode ? 'rgba(37, 99, 235, 0.2)' : '#bfdbfe'}` }}>
+                      <div style={{ fontSize: '11px', color: '#2563eb', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '6px' }}>
+                        ↓ Total Input
+                      </div>
+                      <div style={{ fontSize: '24px', fontWeight: 'bold', color: '#2563eb', fontFamily: 'monospace' }}>
+                        {totalInputAll.toLocaleString()}
+                      </div>
+                      <div style={{ fontSize: '12px', color: colors.textMuted, marginTop: '4px' }}>
+                        ~${((totalInputAll / 1000) * INPUT_COST_PER_1K).toFixed(4)}
+                      </div>
+                    </div>
+                    <div style={{ background: darkMode ? 'rgba(124, 58, 237, 0.1)' : '#f5f3ff', borderRadius: '10px', padding: '16px', border: `1px solid ${darkMode ? 'rgba(124, 58, 237, 0.2)' : '#c4b5fd'}` }}>
+                      <div style={{ fontSize: '11px', color: '#7c3aed', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '6px' }}>
+                        ↑ Total Output
+                      </div>
+                      <div style={{ fontSize: '24px', fontWeight: 'bold', color: '#7c3aed', fontFamily: 'monospace' }}>
+                        {totalOutputAll.toLocaleString()}
+                      </div>
+                      <div style={{ fontSize: '12px', color: colors.textMuted, marginTop: '4px' }}>
+                        ~${((totalOutputAll / 1000) * OUTPUT_COST_PER_1K).toFixed(4)}
+                      </div>
+                    </div>
+                    <div style={{ background: darkMode ? 'rgba(255, 255, 255, 0.05)' : '#f9fafb', borderRadius: '10px', padding: '16px', border: `1px solid ${colors.border}` }}>
+                      <div style={{ fontSize: '11px', color: colors.textSecondary, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '6px' }}>
+                        Total Tokens
+                      </div>
+                      <div style={{ fontSize: '24px', fontWeight: 'bold', color: colors.textPrimary, fontFamily: 'monospace' }}>
+                        {totalTokensAllStrategies.toLocaleString()}
+                      </div>
+                      <div style={{ fontSize: '12px', color: colors.textMuted, marginTop: '4px' }}>
+                        across {strategies.length} strategies
+                      </div>
+                    </div>
+                    <div style={{ background: darkMode ? 'rgba(34, 197, 94, 0.1)' : '#f0fdf4', borderRadius: '10px', padding: '16px', border: `1px solid ${darkMode ? 'rgba(34, 197, 94, 0.2)' : '#bbf7d0'}` }}>
+                      <div style={{ fontSize: '11px', color: '#16a34a', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '6px' }}>
+                        Est. API Cost
+                      </div>
+                      <div style={{ fontSize: '24px', fontWeight: 'bold', color: '#16a34a', fontFamily: 'monospace' }}>
+                        ${(((totalInputAll / 1000) * INPUT_COST_PER_1K) + ((totalOutputAll / 1000) * OUTPUT_COST_PER_1K)).toFixed(4)}
+                      </div>
+                      <div style={{ fontSize: '12px', color: colors.textMuted, marginTop: '4px' }}>
+                        GPT-4 pricing estimate
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Token distribution bars */}
+                  <div style={{ marginBottom: '24px' }}>
+                    <div style={{ fontSize: '13px', fontWeight: '600', color: colors.textSecondary, marginBottom: '12px' }}>
+                      Token Distribution by Strategy
+                    </div>
+                    {strategies.map((s, i) => {
+                      const inputTokens = s.total_input_tokens || 0;
+                      const outputTokens = s.total_output_tokens || 0;
+                      const totalTokens = inputTokens + outputTokens;
+                      const inputPct = totalTokens > 0 ? (inputTokens / totalTokens) * 100 : 50;
+                      const barWidth = maxTotalTokens > 0 ? Math.max((totalTokens / maxTotalTokens) * 100, 2) : 2;
+
+                      return (
+                        <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '10px' }}>
+                          <div style={{ width: '160px', fontSize: '13px', color: colors.textPrimary, flexShrink: 0, fontWeight: '500' }}>
+                            {s.name}
+                          </div>
+                          <div style={{ flex: 1, background: colors.borderLight, borderRadius: '4px', height: '24px', overflow: 'hidden', position: 'relative' }}>
+                            <div style={{ width: `${barWidth}%`, height: '100%', display: 'flex', borderRadius: '4px', overflow: 'hidden' }}>
+                              <div style={{ width: `${inputPct}%`, height: '100%', background: '#2563eb', transition: 'width 0.6s ease' }} />
+                              <div style={{ width: `${100 - inputPct}%`, height: '100%', background: '#7c3aed', transition: 'width 0.6s ease' }} />
+                            </div>
+                          </div>
+                          <div style={{ width: '100px', textAlign: 'right', fontSize: '12px', fontFamily: 'monospace', color: colors.textSecondary, flexShrink: 0 }}>
+                            {totalTokens.toLocaleString()}
+                          </div>
+                        </div>
+                      );
+                    })}
+                    <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '16px', marginTop: '8px', fontSize: '11px' }}>
+                      <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                        <span style={{ width: '10px', height: '10px', background: '#2563eb', borderRadius: '2px' }} />
+                        <span style={{ color: colors.textMuted }}>Input</span>
+                      </span>
+                      <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                        <span style={{ width: '10px', height: '10px', background: '#7c3aed', borderRadius: '2px' }} />
+                        <span style={{ color: colors.textMuted }}>Output</span>
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Tokens per second / efficiency metrics */}
+                  <div style={{ marginBottom: '24px' }}>
+                    <div style={{ fontSize: '13px', fontWeight: '600', color: colors.textSecondary, marginBottom: '12px' }}>
+                      Token Throughput (tokens/second)
+                    </div>
+                    {(() => {
+                      const tokensPerSec = strategies.map(s => {
+                        const totalTokens = (s.total_input_tokens || 0) + (s.total_output_tokens || 0);
+                        const wallSec = (s.wall_time_ms || 1) / 1000;
+                        return { name: s.name, tps: totalTokens / wallSec };
+                      });
+                      const maxTps = Math.max(...tokensPerSec.map(t => t.tps), 1);
+
+                      return tokensPerSec.map((t, i) => (
+                        <StrategyBar
+                          key={i}
+                          strategy={t.name}
+                          value={t.tps}
+                          maxValue={maxTps}
+                          unit=" tok/s"
+                          colors={colors}
+                        />
+                      ));
+                    })()}
+                  </div>
+
+                  {/* Detailed token table */}
+                  <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px' }}>
+                    <thead>
+                      <tr style={{ borderBottom: `1px solid ${colors.border}`, color: colors.textSecondary }}>
+                        <th style={{ textAlign: 'left', padding: '8px 0', fontWeight: '500' }}>Strategy</th>
+                        <th style={{ textAlign: 'right', padding: '8px 0', fontWeight: '500' }}>↓ Input</th>
+                        <th style={{ textAlign: 'right', padding: '8px 0', fontWeight: '500' }}>↑ Output</th>
+                        <th style={{ textAlign: 'right', padding: '8px 0', fontWeight: '500' }}>Total</th>
+                        <th style={{ textAlign: 'right', padding: '8px 0', fontWeight: '500' }}>Tok/sec</th>
+                        <th style={{ textAlign: 'right', padding: '8px 0', fontWeight: '500' }}>Est. Cost</th>
+                        <th style={{ textAlign: 'right', padding: '8px 0', fontWeight: '500' }}>Errors</th>
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
-                <p style={{ fontSize: '12px', color: colors.textMuted, marginTop: '12px', marginBottom: 0 }}>
-                  Token counts reflect actual provider API responses. Simulated provider uses estimated counts.
-                </p>
-              </div>
-            )}
+                    </thead>
+                    <tbody>
+                      {strategies.map((s, i) => {
+                        const inputTokens = s.total_input_tokens || 0;
+                        const outputTokens = s.total_output_tokens || 0;
+                        const totalTokens = inputTokens + outputTokens;
+                        const wallSec = (s.wall_time_ms || 1) / 1000;
+                        const tps = totalTokens / wallSec;
+                        const cost = ((inputTokens / 1000) * INPUT_COST_PER_1K) + ((outputTokens / 1000) * OUTPUT_COST_PER_1K);
+
+                        return (
+                          <tr key={i} style={{ borderBottom: i < strategies.length - 1 ? `1px solid ${colors.borderLight}` : 'none' }}>
+                            <td style={{ padding: '10px 0', color: colors.textPrimary, fontWeight: '500' }}>{s.name}</td>
+                            <td style={{ padding: '10px 0', textAlign: 'right', fontFamily: 'monospace', color: '#2563eb' }}>
+                              {inputTokens.toLocaleString()}
+                            </td>
+                            <td style={{ padding: '10px 0', textAlign: 'right', fontFamily: 'monospace', color: '#7c3aed' }}>
+                              {outputTokens.toLocaleString()}
+                            </td>
+                            <td style={{ padding: '10px 0', textAlign: 'right', fontFamily: 'monospace', color: colors.textPrimary }}>
+                              {totalTokens.toLocaleString()}
+                            </td>
+                            <td style={{ padding: '10px 0', textAlign: 'right', fontFamily: 'monospace', color: '#0891b2' }}>
+                              {tps.toFixed(0)}
+                            </td>
+                            <td style={{ padding: '10px 0', textAlign: 'right', fontFamily: 'monospace', color: '#16a34a' }}>
+                              ${cost.toFixed(4)}
+                            </td>
+                            <td style={{ padding: '10px 0', textAlign: 'right', color: s.errors > 0 ? '#ef4444' : colors.textMuted }}>
+                              {s.errors || 0}
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+
+                  {/* Context Window Utilization - Token Type Breakdown */}
+                  <div style={{ marginTop: '32px', borderTop: `1px solid ${colors.border}`, paddingTop: '24px' }}>
+                    <h4 style={{ fontSize: '15px', fontWeight: '600', color: colors.textPrimary, marginBottom: '8px', marginTop: 0 }}>
+                      Context Window Utilization
+                    </h4>
+                    <p style={{ fontSize: '12px', color: colors.textMuted, marginBottom: '20px' }}>
+                      Input tokens break down into overhead (system prompts, tool schemas, structured output schemas) and productive content (user messages, conversation history). Tool/schema overhead can consume 20-40% of context.
+                    </p>
+
+                    {/* Token type breakdown visualization */}
+                    {(() => {
+                      // Token type colors
+                      const TOKEN_TYPES = {
+                        system_prompt: { color: '#6366f1', label: 'System Prompt', description: 'Base instructions' },
+                        tool_schemas: { color: '#f59e0b', label: 'Tool Schemas', description: 'Function definitions (JSON)' },
+                        structured_output: { color: '#ec4899', label: 'Structured Output', description: 'Response format schema' },
+                        conversation: { color: '#10b981', label: 'Conversation', description: 'User + assistant history' },
+                        user_input: { color: '#3b82f6', label: 'User Input', description: 'Current request' },
+                        available: { color: darkMode ? 'rgba(255,255,255,0.1)' : '#e5e7eb', label: 'Available', description: 'Remaining context' }
+                      };
+
+                      // Model context windows for reference
+                      const CONTEXT_WINDOWS = {
+                        'GPT-4': 8192,
+                        'GPT-4-32K': 32768,
+                        'GPT-4-Turbo': 128000,
+                        'Claude-3': 200000,
+                        'Gemini-Pro': 32000
+                      };
+
+                      // Calculate token breakdown per strategy (use actual data if available, otherwise estimate)
+                      const getTokenBreakdown = (s) => {
+                        const inputTokens = s.total_input_tokens || 0;
+                        const outputTokens = s.total_output_tokens || 0;
+                        const nRequests = run?.config?.n_requests || 1;
+                        const avgInputPerReq = inputTokens / nRequests;
+
+                        // Use actual breakdown if available, otherwise estimate typical distribution
+                        const breakdown = {
+                          system_prompt: s.system_prompt_tokens || Math.round(avgInputPerReq * 0.10),
+                          tool_schemas: s.tool_schema_tokens || Math.round(avgInputPerReq * 0.25),
+                          structured_output: s.structured_output_tokens || Math.round(avgInputPerReq * 0.08),
+                          conversation: s.conversation_tokens || Math.round(avgInputPerReq * 0.12),
+                          user_input: s.user_input_tokens || Math.round(avgInputPerReq * 0.45),
+                        };
+
+                        const totalUsed = Object.values(breakdown).reduce((a, b) => a + b, 0);
+                        const contextWindow = 128000; // GPT-4-Turbo default
+                        breakdown.available = Math.max(0, contextWindow - totalUsed);
+
+                        return { ...breakdown, total: totalUsed, contextWindow };
+                      };
+
+                      // Get first strategy's breakdown for the main visualization
+                      const firstStrategy = strategies[0];
+                      const breakdown = firstStrategy ? getTokenBreakdown(firstStrategy) : null;
+
+                      if (!breakdown) return null;
+
+                      // Calculate percentages for stacked bar
+                      const usedPct = (breakdown.total / breakdown.contextWindow) * 100;
+                      const overheadTokens = breakdown.system_prompt + breakdown.tool_schemas + breakdown.structured_output;
+                      const overheadPct = (overheadTokens / breakdown.total) * 100;
+
+                      return (
+                        <>
+                          {/* Overhead warning banner */}
+                          {overheadPct > 30 && (
+                            <div style={{
+                              background: darkMode ? 'rgba(245, 158, 11, 0.15)' : '#fffbeb',
+                              border: `1px solid ${darkMode ? 'rgba(245, 158, 11, 0.3)' : '#fde68a'}`,
+                              borderRadius: '8px',
+                              padding: '12px 16px',
+                              marginBottom: '20px',
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: '12px'
+                            }}>
+                              <span style={{ fontSize: '20px' }}>⚠️</span>
+                              <div>
+                                <div style={{ fontSize: '13px', fontWeight: '600', color: '#d97706' }}>
+                                  High Schema Overhead: {overheadPct.toFixed(0)}% of input tokens
+                                </div>
+                                <div style={{ fontSize: '12px', color: colors.textSecondary, marginTop: '2px' }}>
+                                  Tool and structured output schemas consume significant context. Consider schema optimization or splitting tools.
+                                </div>
+                              </div>
+                            </div>
+                          )}
+
+                          {/* Context utilization gauge */}
+                          <div style={{ marginBottom: '24px' }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: '8px' }}>
+                              <span style={{ fontSize: '13px', fontWeight: '600', color: colors.textSecondary }}>
+                                Context Window Usage (per request)
+                              </span>
+                              <span style={{ fontSize: '12px', color: colors.textMuted }}>
+                                {breakdown.total.toLocaleString()} / {breakdown.contextWindow.toLocaleString()} tokens ({usedPct.toFixed(1)}%)
+                              </span>
+                            </div>
+
+                            {/* Stacked bar showing token types */}
+                            <div style={{ background: TOKEN_TYPES.available.color, borderRadius: '6px', height: '32px', overflow: 'hidden', display: 'flex' }}>
+                              {Object.entries(TOKEN_TYPES).filter(([key]) => key !== 'available').map(([key, config]) => {
+                                const tokens = breakdown[key] || 0;
+                                const pct = (tokens / breakdown.contextWindow) * 100;
+                                if (pct < 0.5) return null;
+                                return (
+                                  <div
+                                    key={key}
+                                    style={{
+                                      width: `${pct}%`,
+                                      height: '100%',
+                                      background: config.color,
+                                      transition: 'width 0.6s ease',
+                                      display: 'flex',
+                                      alignItems: 'center',
+                                      justifyContent: 'center',
+                                      overflow: 'hidden'
+                                    }}
+                                    title={`${config.label}: ${tokens.toLocaleString()} tokens (${pct.toFixed(1)}%)`}
+                                  >
+                                    {pct > 8 && (
+                                      <span style={{ fontSize: '10px', color: 'white', fontWeight: '500', whiteSpace: 'nowrap' }}>
+                                        {pct.toFixed(0)}%
+                                      </span>
+                                    )}
+                                  </div>
+                                );
+                              })}
+                            </div>
+
+                            {/* Legend */}
+                            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '12px', marginTop: '12px' }}>
+                              {Object.entries(TOKEN_TYPES).map(([key, config]) => {
+                                const tokens = breakdown[key] || 0;
+                                if (key === 'available' && tokens === 0) return null;
+                                return (
+                                  <div key={key} style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                    <span style={{ width: '12px', height: '12px', borderRadius: '3px', background: config.color, flexShrink: 0 }} />
+                                    <span style={{ fontSize: '11px', color: colors.textSecondary }}>
+                                      {config.label}
+                                      <span style={{ color: colors.textMuted, marginLeft: '4px' }}>
+                                        ({tokens.toLocaleString()})
+                                      </span>
+                                    </span>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          </div>
+
+                          {/* Token type breakdown table */}
+                          <div style={{ marginBottom: '24px' }}>
+                            <div style={{ fontSize: '13px', fontWeight: '600', color: colors.textSecondary, marginBottom: '12px' }}>
+                              Token Type Breakdown (Average per Request)
+                            </div>
+                            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px' }}>
+                              <thead>
+                                <tr style={{ borderBottom: `1px solid ${colors.border}`, color: colors.textSecondary }}>
+                                  <th style={{ textAlign: 'left', padding: '8px 0', fontWeight: '500' }}>Token Type</th>
+                                  <th style={{ textAlign: 'left', padding: '8px 0', fontWeight: '500' }}>Description</th>
+                                  <th style={{ textAlign: 'right', padding: '8px 0', fontWeight: '500' }}>Tokens</th>
+                                  <th style={{ textAlign: 'right', padding: '8px 0', fontWeight: '500' }}>% of Input</th>
+                                  <th style={{ textAlign: 'right', padding: '8px 0', fontWeight: '500' }}>% of Context</th>
+                                </tr>
+                              </thead>
+                              <tbody>
+                                {Object.entries(TOKEN_TYPES).filter(([key]) => key !== 'available').map(([key, config], i, arr) => {
+                                  const tokens = breakdown[key] || 0;
+                                  const pctInput = breakdown.total > 0 ? (tokens / breakdown.total) * 100 : 0;
+                                  const pctContext = (tokens / breakdown.contextWindow) * 100;
+                                  const isOverhead = ['system_prompt', 'tool_schemas', 'structured_output'].includes(key);
+
+                                  return (
+                                    <tr key={key} style={{ borderBottom: i < arr.length - 1 ? `1px solid ${colors.borderLight}` : 'none' }}>
+                                      <td style={{ padding: '10px 0' }}>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                          <span style={{ width: '10px', height: '10px', borderRadius: '2px', background: config.color }} />
+                                          <span style={{ color: colors.textPrimary, fontWeight: '500' }}>{config.label}</span>
+                                          {isOverhead && (
+                                            <span style={{
+                                              fontSize: '9px',
+                                              padding: '1px 4px',
+                                              borderRadius: '3px',
+                                              background: darkMode ? 'rgba(245, 158, 11, 0.2)' : '#fef3c7',
+                                              color: '#d97706',
+                                              fontWeight: '600'
+                                            }}>
+                                              OVERHEAD
+                                            </span>
+                                          )}
+                                        </div>
+                                      </td>
+                                      <td style={{ padding: '10px 0', color: colors.textMuted, fontSize: '12px' }}>
+                                        {config.description}
+                                      </td>
+                                      <td style={{ padding: '10px 0', textAlign: 'right', fontFamily: 'monospace', color: colors.textPrimary }}>
+                                        {tokens.toLocaleString()}
+                                      </td>
+                                      <td style={{ padding: '10px 0', textAlign: 'right', fontFamily: 'monospace', color: isOverhead ? '#d97706' : '#10b981' }}>
+                                        {pctInput.toFixed(1)}%
+                                      </td>
+                                      <td style={{ padding: '10px 0', textAlign: 'right', fontFamily: 'monospace', color: colors.textSecondary }}>
+                                        {pctContext.toFixed(2)}%
+                                      </td>
+                                    </tr>
+                                  );
+                                })}
+                                {/* Totals row */}
+                                <tr style={{ borderTop: `2px solid ${colors.border}`, fontWeight: '600' }}>
+                                  <td style={{ padding: '10px 0', color: colors.textPrimary }} colSpan={2}>
+                                    Total Input
+                                  </td>
+                                  <td style={{ padding: '10px 0', textAlign: 'right', fontFamily: 'monospace', color: colors.textPrimary }}>
+                                    {breakdown.total.toLocaleString()}
+                                  </td>
+                                  <td style={{ padding: '10px 0', textAlign: 'right', fontFamily: 'monospace', color: colors.textPrimary }}>
+                                    100%
+                                  </td>
+                                  <td style={{ padding: '10px 0', textAlign: 'right', fontFamily: 'monospace', color: colors.textPrimary }}>
+                                    {usedPct.toFixed(2)}%
+                                  </td>
+                                </tr>
+                              </tbody>
+                            </table>
+                          </div>
+
+                          {/* Schema overhead insights */}
+                          <div style={{
+                            padding: '16px',
+                            background: darkMode ? 'rgba(99, 102, 241, 0.1)' : '#eef2ff',
+                            borderRadius: '8px',
+                            border: `1px solid ${darkMode ? 'rgba(99, 102, 241, 0.2)' : '#c7d2fe'}`
+                          }}>
+                            <div style={{ fontSize: '13px', fontWeight: '600', color: darkMode ? '#a5b4fc' : '#4338ca', marginBottom: '8px' }}>
+                              💡 Schema Optimization Tips
+                            </div>
+                            <ul style={{ fontSize: '12px', color: colors.textSecondary, margin: 0, paddingLeft: '20px', lineHeight: 1.8 }}>
+                              <li><strong>Tool Schemas:</strong> Each tool definition adds ~100-500 tokens. Group related tools or use tool routing.</li>
+                              <li><strong>Structured Output:</strong> JSON Schema definitions grow with complexity. Flatten nested structures.</li>
+                              <li><strong>System Prompts:</strong> Long instructions accumulate per request. Move static content to fine-tuning.</li>
+                              <li><strong>Multi-turn:</strong> Conversation history grows linearly. Implement summarization for long sessions.</li>
+                            </ul>
+                          </div>
+                        </>
+                      );
+                    })()}
+                  </div>
+
+                  <p style={{ fontSize: '12px', color: colors.textMuted, marginTop: '24px', marginBottom: 0 }}>
+                    Cost estimates based on GPT-4 pricing ($0.01/1K input, $0.03/1K output). Actual costs vary by provider.
+                    Token breakdown shows estimates when actual metrics are not available.
+                  </p>
+                </div>
+              );
+            })()}
 
             {/* ── Cross-run summary (all time) ────────────── */}
             {summary.length > 0 && (
