@@ -1177,27 +1177,59 @@ export default function BenchmarkView() {
                         'Gemini-Pro': 32000
                       };
 
-                      // Calculate token breakdown per strategy (use actual data if available, otherwise estimate)
+                      // Calculate token breakdown per strategy
+                      // Use actual breakdown data if available, otherwise show realistic estimates
                       const getTokenBreakdown = (s) => {
                         const inputTokens = s.total_input_tokens || 0;
-                        const outputTokens = s.total_output_tokens || 0;
                         const nRequests = run?.config?.n_requests || 1;
                         const avgInputPerReq = inputTokens / nRequests;
 
-                        // Use actual breakdown if available, otherwise estimate typical distribution
-                        const breakdown = {
-                          system_prompt: s.system_prompt_tokens || Math.round(avgInputPerReq * 0.10),
-                          tool_schemas: s.tool_schema_tokens || Math.round(avgInputPerReq * 0.25),
-                          structured_output: s.structured_output_tokens || Math.round(avgInputPerReq * 0.08),
-                          conversation: s.conversation_tokens || Math.round(avgInputPerReq * 0.12),
-                          user_input: s.user_input_tokens || Math.round(avgInputPerReq * 0.45),
+                        // Check if we have actual breakdown data from the API
+                        const hasActualBreakdown = s.system_prompt_tokens || s.tool_schema_tokens;
+
+                        // Realistic baseline values for LLM requests with tools:
+                        // - System prompt: 500-1500 tokens (instructions, persona, examples)
+                        // - Tool schemas: 200-400 tokens PER TOOL (5 tools = 1000-2000)
+                        // - Structured output: 150-400 tokens (JSON schema for response)
+                        // - Conversation: 200-2000+ tokens (grows with history)
+                        // - User input: 50-300 tokens (current message)
+                        const REALISTIC_BASELINE = {
+                          system_prompt: 850,      // Typical agent system prompt
+                          tool_schemas: 1200,      // ~4-5 tools with JSON schemas
+                          structured_output: 280,  // Response format schema
+                          conversation: 450,       // 2-3 turn history
+                          user_input: 120,         // Current user message
                         };
+
+                        let breakdown;
+                        if (hasActualBreakdown) {
+                          // Use actual API data
+                          breakdown = {
+                            system_prompt: s.system_prompt_tokens || 0,
+                            tool_schemas: s.tool_schema_tokens || 0,
+                            structured_output: s.structured_output_tokens || 0,
+                            conversation: s.conversation_tokens || 0,
+                            user_input: s.user_input_tokens || 0,
+                          };
+                        } else if (avgInputPerReq > 500) {
+                          // Real API data without breakdown - estimate from total
+                          breakdown = {
+                            system_prompt: Math.round(avgInputPerReq * 0.25),
+                            tool_schemas: Math.round(avgInputPerReq * 0.35),
+                            structured_output: Math.round(avgInputPerReq * 0.10),
+                            conversation: Math.round(avgInputPerReq * 0.15),
+                            user_input: Math.round(avgInputPerReq * 0.15),
+                          };
+                        } else {
+                          // Simulated/low data - show realistic example values
+                          breakdown = { ...REALISTIC_BASELINE };
+                        }
 
                         const totalUsed = Object.values(breakdown).reduce((a, b) => a + b, 0);
                         const contextWindow = 128000; // GPT-4-Turbo default
                         breakdown.available = Math.max(0, contextWindow - totalUsed);
 
-                        return { ...breakdown, total: totalUsed, contextWindow };
+                        return { ...breakdown, total: totalUsed, contextWindow, isEstimate: !hasActualBreakdown && avgInputPerReq <= 500 };
                       };
 
                       // Get first strategy's breakdown for the main visualization
@@ -1237,12 +1269,37 @@ export default function BenchmarkView() {
                             </div>
                           )}
 
+                          {/* Estimate indicator banner */}
+                          {breakdown.isEstimate && (
+                            <div style={{
+                              background: darkMode ? 'rgba(59, 130, 246, 0.15)' : '#eff6ff',
+                              border: `1px solid ${darkMode ? 'rgba(59, 130, 246, 0.3)' : '#bfdbfe'}`,
+                              borderRadius: '8px',
+                              padding: '12px 16px',
+                              marginBottom: '20px',
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: '12px'
+                            }}>
+                              <span style={{ fontSize: '20px' }}>📊</span>
+                              <div>
+                                <div style={{ fontSize: '13px', fontWeight: '600', color: '#2563eb' }}>
+                                  Showing Realistic Example Values
+                                </div>
+                                <div style={{ fontSize: '12px', color: colors.textSecondary, marginTop: '2px' }}>
+                                  Simulated benchmark data doesn't include token breakdown. These values represent typical LLM requests with 4-5 tools.
+                                  Use <code style={{ background: colors.borderLight, padding: '1px 4px', borderRadius: '3px', fontSize: '11px' }}>--provider openai</code> for actual token counts.
+                                </div>
+                              </div>
+                            </div>
+                          )}
+
                           {/* Token Distribution Charts - Side by Side */}
                           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '24px', marginBottom: '24px' }}>
                             {/* Pie Chart - Average Token Distribution */}
                             <div style={{ background: colors.borderLight, borderRadius: '12px', padding: '16px' }}>
                               <div style={{ fontSize: '13px', fontWeight: '600', color: colors.textSecondary, marginBottom: '12px', textAlign: 'center' }}>
-                                Average Token Distribution (per request)
+                                {breakdown.isEstimate ? 'Typical Token Distribution (example)' : 'Average Token Distribution (per request)'}
                               </div>
                               <ResponsiveContainer width="100%" height={200}>
                                 <PieChart>
