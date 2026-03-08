@@ -1,5 +1,10 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useTheme } from '../../contexts/ThemeContext';
+import {
+  LineChart, Line, AreaChart, Area, BarChart, Bar,
+  XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
+  PieChart, Pie, Cell
+} from 'recharts';
 
 // ---------------------------------------------------------------------------
 // Color palette for the three concurrency strategies
@@ -19,24 +24,170 @@ function strategyColor(name, field) {
 }
 
 // ---------------------------------------------------------------------------
-// Sparkline — tiny inline SVG trend line (matches MetricsView style)
+// MiniSparkline — compact inline chart for stat cards
 // ---------------------------------------------------------------------------
-function Sparkline({ values, color = '#ef4444', height = 30 }) {
+function MiniSparkline({ values, color = '#ef4444', height = 40 }) {
   if (!values || values.length < 2) return null;
-  const max = Math.max(...values);
-  const min = Math.min(...values);
-  const range = max - min || 1;
-  const w = 100;
-  const h = height;
-  const pts = values.map((v, i) => {
-    const x = (i / (values.length - 1)) * w;
-    const y = h - ((v - min) / range) * (h - 4) - 2;
-    return `${x.toFixed(1)},${y.toFixed(1)}`;
-  }).join(' ');
+  const data = values.map((v, i) => ({ run: i + 1, value: v }));
   return (
-    <svg viewBox={`0 0 ${w} ${h}`} style={{ width: '100%', height: `${h}px` }}>
-      <polyline points={pts} fill="none" stroke={color} strokeWidth="2" strokeLinejoin="round" />
-    </svg>
+    <ResponsiveContainer width="100%" height={height}>
+      <AreaChart data={data} margin={{ top: 2, right: 2, left: 2, bottom: 2 }}>
+        <defs>
+          <linearGradient id={`gradient-${color.replace('#', '')}`} x1="0" y1="0" x2="0" y2="1">
+            <stop offset="5%" stopColor={color} stopOpacity={0.3} />
+            <stop offset="95%" stopColor={color} stopOpacity={0} />
+          </linearGradient>
+        </defs>
+        <Area
+          type="monotone"
+          dataKey="value"
+          stroke={color}
+          strokeWidth={2}
+          fill={`url(#gradient-${color.replace('#', '')})`}
+        />
+        <Tooltip
+          contentStyle={{ background: '#1f2937', border: 'none', borderRadius: '6px', fontSize: '12px' }}
+          labelStyle={{ color: '#9ca3af' }}
+          itemStyle={{ color: color }}
+          formatter={(value) => [`${value.toFixed(1)} req/s`, 'Throughput']}
+          labelFormatter={(label) => `Run #${label}`}
+        />
+      </AreaChart>
+    </ResponsiveContainer>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// ThroughputHistoryChart — multi-line chart showing all strategies over time
+// ---------------------------------------------------------------------------
+function ThroughputHistoryChart({ runs, strategyNames, colors }) {
+  if (!runs || runs.length < 2) return null;
+
+  // Transform data: each run becomes a data point with all strategy values
+  const data = runs.slice().reverse().map((r, idx) => {
+    const point = { run: idx + 1, runId: r.id };
+    (r.strategies || []).forEach(s => {
+      // Normalize strategy name for data key
+      const key = s.name?.replace(/[^a-zA-Z]/g, '') || 'unknown';
+      point[key] = s.throughput || 0;
+      point[`${key}_name`] = s.name;
+    });
+    return point;
+  });
+
+  // Get unique strategy keys from the data
+  const strategyKeys = [...new Set(
+    data.flatMap(d => Object.keys(d).filter(k => !k.includes('_name') && k !== 'run' && k !== 'runId'))
+  )];
+
+  return (
+    <ResponsiveContainer width="100%" height={280}>
+      <LineChart data={data} margin={{ top: 10, right: 30, left: 0, bottom: 10 }}>
+        <CartesianGrid strokeDasharray="3 3" stroke={colors.borderLight} />
+        <XAxis
+          dataKey="run"
+          tick={{ fill: colors.textMuted, fontSize: 11 }}
+          tickLine={{ stroke: colors.borderLight }}
+          axisLine={{ stroke: colors.borderLight }}
+          label={{ value: 'Run #', position: 'bottom', fill: colors.textMuted, fontSize: 11 }}
+        />
+        <YAxis
+          tick={{ fill: colors.textMuted, fontSize: 11 }}
+          tickLine={{ stroke: colors.borderLight }}
+          axisLine={{ stroke: colors.borderLight }}
+          label={{ value: 'req/s', angle: -90, position: 'insideLeft', fill: colors.textMuted, fontSize: 11 }}
+        />
+        <Tooltip
+          contentStyle={{
+            background: colors.cardBg,
+            border: `1px solid ${colors.border}`,
+            borderRadius: '8px',
+            fontSize: '12px'
+          }}
+          labelStyle={{ color: colors.textPrimary, fontWeight: 'bold', marginBottom: '4px' }}
+          formatter={(value, name) => {
+            const displayName = strategyNames.find(n => n.replace(/[^a-zA-Z]/g, '') === name) || name;
+            return [`${value.toFixed(1)} req/s`, displayName];
+          }}
+          labelFormatter={(label) => `Run #${label}`}
+        />
+        <Legend
+          wrapperStyle={{ fontSize: '11px', paddingTop: '10px' }}
+          formatter={(value) => strategyNames.find(n => n.replace(/[^a-zA-Z]/g, '') === value) || value}
+        />
+        {strategyKeys.map((key, idx) => {
+          const originalName = strategyNames.find(n => n.replace(/[^a-zA-Z]/g, '') === key) || key;
+          return (
+            <Line
+              key={key}
+              type="monotone"
+              dataKey={key}
+              name={key}
+              stroke={strategyColor(originalName, 'bar')}
+              strokeWidth={2}
+              dot={{ r: 3, fill: strategyColor(originalName, 'bar') }}
+              activeDot={{ r: 5 }}
+            />
+          );
+        })}
+      </LineChart>
+    </ResponsiveContainer>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// StrategyBarChart — Recharts horizontal bar chart for comparing strategies
+// ---------------------------------------------------------------------------
+function StrategyComparisonChart({ strategies, metric, unit, colors, title }) {
+  if (!strategies || strategies.length === 0) return null;
+
+  const data = strategies.map(s => ({
+    name: s.name,
+    value: s[metric] || 0,
+    fill: strategyColor(s.name, 'bar')
+  }));
+
+  return (
+    <div style={{ marginBottom: '24px' }}>
+      {title && (
+        <div style={{ fontSize: '13px', fontWeight: '600', color: colors.textSecondary, marginBottom: '12px' }}>
+          {title}
+        </div>
+      )}
+      <ResponsiveContainer width="100%" height={strategies.length * 45 + 40}>
+        <BarChart data={data} layout="vertical" margin={{ top: 5, right: 60, left: 100, bottom: 5 }}>
+          <CartesianGrid strokeDasharray="3 3" stroke={colors.borderLight} horizontal={false} />
+          <XAxis
+            type="number"
+            tick={{ fill: colors.textMuted, fontSize: 11 }}
+            tickLine={{ stroke: colors.borderLight }}
+            axisLine={{ stroke: colors.borderLight }}
+          />
+          <YAxis
+            type="category"
+            dataKey="name"
+            tick={{ fill: colors.textPrimary, fontSize: 12 }}
+            tickLine={false}
+            axisLine={false}
+            width={95}
+          />
+          <Tooltip
+            contentStyle={{
+              background: colors.cardBg,
+              border: `1px solid ${colors.border}`,
+              borderRadius: '8px',
+              fontSize: '12px'
+            }}
+            formatter={(value) => [`${typeof value === 'number' ? value.toFixed(2) : value}${unit}`, metric]}
+          />
+          <Bar dataKey="value" radius={[0, 4, 4, 0]}>
+            {data.map((entry, index) => (
+              <Cell key={`cell-${index}`} fill={entry.fill} />
+            ))}
+          </Bar>
+        </BarChart>
+      </ResponsiveContainer>
+    </div>
   );
 }
 
@@ -144,7 +295,7 @@ function StatCard({ label, value, sub, sparkData, sparkColor, colors }) {
       )}
       {sparkData && (
         <div style={{ marginTop: '12px' }}>
-          <Sparkline values={sparkData} color={sparkColor || '#ef4444'} />
+          <MiniSparkline values={sparkData} color={sparkColor || '#ef4444'} />
         </div>
       )}
     </div>
@@ -419,7 +570,7 @@ export default function BenchmarkView() {
                     </div>
                     {history.length > 1 && (
                       <div style={{ marginTop: '10px' }}>
-                        <Sparkline values={history} color={strategyColor(name, 'bar')} height={28} />
+                        <MiniSparkline values={history} color={strategyColor(name, 'bar')} height={36} />
                       </div>
                     )}
                   </div>
@@ -469,21 +620,16 @@ export default function BenchmarkView() {
 
                 {/* Across-run history chart */}
                 {runs.length > 1 && (
-                  <>
-                    <div style={{ borderTop: `1px solid ${colors.border}`, paddingTop: '16px', marginTop: '20px' }}>
-                      <div style={{ fontSize: '13px', fontWeight: '600', color: colors.textSecondary, marginBottom: '12px' }}>
-                        Throughput history across {runs.length} runs
-                      </div>
-                      {strategyNames.map(name => (
-                        <div key={name} style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '8px' }}>
-                          <span style={{ width: '160px', fontSize: '12px', color: colors.textPrimary, flexShrink: 0 }}>{name}</span>
-                          <div style={{ flex: 1 }}>
-                            <Sparkline values={throughputHistory(name)} color={strategyColor(name, 'bar')} height={28} />
-                          </div>
-                        </div>
-                      ))}
+                  <div style={{ borderTop: `1px solid ${colors.border}`, paddingTop: '16px', marginTop: '20px' }}>
+                    <div style={{ fontSize: '13px', fontWeight: '600', color: colors.textSecondary, marginBottom: '16px' }}>
+                      Throughput history across {runs.length} runs
                     </div>
-                  </>
+                    <ThroughputHistoryChart
+                      runs={runs}
+                      strategyNames={strategyNames}
+                      colors={colors}
+                    />
+                  </div>
                 )}
               </div>
             )}
