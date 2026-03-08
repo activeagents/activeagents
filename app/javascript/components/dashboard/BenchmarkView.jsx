@@ -573,6 +573,134 @@ function RequestDetailModal({ strategy, onClose, colors, darkMode }) {
               </div>
             </div>
           )}
+
+          {/* Session Context Growth - shows how context accumulates per turn */}
+          {hasRequests && (
+            <div style={{ marginTop: '24px' }}>
+              <div style={{ fontSize: '13px', fontWeight: '600', color: colors.textSecondary, marginBottom: '4px' }}>
+                Session Context Growth
+              </div>
+              <p style={{ fontSize: '11px', color: colors.textMuted, margin: '0 0 12px 0' }}>
+                Each turn adds input + output to history. Context compounds until truncation needed.
+              </p>
+
+              {(() => {
+                // Estimate context breakdown based on request data
+                // Base context = system prompt + tools (fixed overhead)
+                const avgInput = requests.reduce((sum, r) => sum + (r.input_tokens || 100), 0) / requests.length;
+                const avgOutput = requests.reduce((sum, r) => sum + (r.output_tokens || 20), 0) / requests.length;
+
+                // Realistic base context estimate (system + tools + schema)
+                const baseContext = 8850; // system_prompt + tool_schemas + structured_output
+                const perTurnGrowth = Math.round(avgInput * 0.15) + avgOutput; // user portion + full output
+                const contextWindow = 128000;
+
+                return (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                    {requests.slice(0, 10).map((req, idx) => {
+                      const turn = idx + 1;
+                      // Cumulative history from previous turns
+                      const historyTokens = idx * perTurnGrowth;
+                      // This turn's input (just user portion, context is separate)
+                      const userInput = Math.round((req.input_tokens || avgInput) * 0.15);
+                      // Total context sent this turn
+                      const totalThisTurn = baseContext + historyTokens + userInput;
+                      const pct = Math.min((totalThisTurn / contextWindow) * 100, 100);
+                      const isNearLimit = pct > 70;
+                      const isOverLimit = totalThisTurn > contextWindow;
+
+                      return (
+                        <div key={idx} style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                          <div style={{ width: '50px', fontSize: '10px', color: colors.textMuted, flexShrink: 0 }}>
+                            Turn {turn}
+                          </div>
+                          <div style={{
+                            flex: 1,
+                            background: colors.borderLight,
+                            borderRadius: '4px',
+                            height: '18px',
+                            overflow: 'hidden',
+                            position: 'relative'
+                          }}>
+                            {/* Base context (fixed) */}
+                            <div style={{
+                              position: 'absolute',
+                              left: 0,
+                              width: `${Math.min((baseContext / contextWindow) * 100, 100)}%`,
+                              height: '100%',
+                              background: '#6366f1'
+                            }} />
+                            {/* History (grows each turn) */}
+                            <div style={{
+                              position: 'absolute',
+                              left: `${(baseContext / contextWindow) * 100}%`,
+                              width: `${Math.min((historyTokens / contextWindow) * 100, 100 - (baseContext / contextWindow) * 100)}%`,
+                              height: '100%',
+                              background: '#10b981'
+                            }} />
+                            {/* Current turn user input */}
+                            <div style={{
+                              position: 'absolute',
+                              left: `${((baseContext + historyTokens) / contextWindow) * 100}%`,
+                              width: `${Math.min((userInput / contextWindow) * 100, 5)}%`,
+                              height: '100%',
+                              background: '#3b82f6'
+                            }} />
+                            {/* Output indicator */}
+                            <div style={{
+                              position: 'absolute',
+                              right: 0,
+                              top: 0,
+                              bottom: 0,
+                              width: '3px',
+                              background: '#ef4444',
+                              opacity: 0.8
+                            }}
+                            title={`Output: ${req.output_tokens || avgOutput} tokens`}
+                            />
+                          </div>
+                          <div style={{
+                            width: '75px',
+                            fontSize: '10px',
+                            fontFamily: 'monospace',
+                            color: isOverLimit ? '#ef4444' : isNearLimit ? '#f59e0b' : colors.textSecondary,
+                            textAlign: 'right',
+                            flexShrink: 0
+                          }}>
+                            {(totalThisTurn / 1000).toFixed(1)}K
+                            {isOverLimit ? ' ⚠️' : isNearLimit ? ' ⏳' : ` (${pct.toFixed(0)}%)`}
+                          </div>
+                        </div>
+                      );
+                    })}
+
+                    {/* Legend */}
+                    <div style={{ display: 'flex', gap: '12px', marginTop: '8px', fontSize: '9px', flexWrap: 'wrap' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                        <span style={{ width: '8px', height: '8px', borderRadius: '2px', background: '#6366f1' }} />
+                        <span style={{ color: colors.textMuted }}>Base Context</span>
+                      </div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                        <span style={{ width: '8px', height: '8px', borderRadius: '2px', background: '#10b981' }} />
+                        <span style={{ color: colors.textMuted }}>History</span>
+                      </div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                        <span style={{ width: '8px', height: '8px', borderRadius: '2px', background: '#3b82f6' }} />
+                        <span style={{ color: colors.textMuted }}>User Input</span>
+                      </div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                        <span style={{ width: '8px', height: '3px', borderRadius: '1px', background: '#ef4444' }} />
+                        <span style={{ color: colors.textMuted }}>Output</span>
+                      </div>
+                      <div style={{ marginLeft: 'auto', color: colors.textMuted }}>
+                        +{Math.round(perTurnGrowth)} tokens/turn
+                      </div>
+                    </div>
+                  </div>
+                );
+              })()}
+            </div>
+          )}
         </div>
       </div>
     </div>
