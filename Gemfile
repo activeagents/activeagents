@@ -36,7 +36,7 @@ gem "bcrypt", "~> 3.1.7"
 gem "pay", "~> 7.3"
 # Stripe payment processor [https://stripe.com/docs/api]
 # Pay gem 7.3 requires stripe ~> 12
-gem "stripe", "~> 12.0"
+gem "stripe", "~> 18.4"
 
 # Windows does not include zoneinfo files, so bundle the tzinfo-data gem
 gem "tzinfo-data"
