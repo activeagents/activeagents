@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import AgentAvatar from '../AgentAvatar';
+import { TYPOGRAPHY } from '../../utils/designTokens';
 
 export default function AgentRunner({ agent, onBack }) {
   const [prompt, setPrompt] = useState('');
@@ -124,12 +125,12 @@ export default function AgentRunner({ agent, onBack }) {
                 >
                   {isRunning ? (
                     <>
-                      <span className="animate-spin">⏳</span>
+                      <span className="animate-spin" style={{ fontFamily: TYPOGRAPHY.mono }}>[~]</span>
                       <span>Running...</span>
                     </>
                   ) : (
                     <>
-                      <span>▶️</span>
+                      <span style={{ fontFamily: TYPOGRAPHY.mono }}>[>]</span>
                       <span>Run</span>
                     </>
                   )}

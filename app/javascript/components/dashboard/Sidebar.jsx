@@ -1,22 +1,23 @@
 import React from 'react';
 import AgentAvatar from '../AgentAvatar';
 import { useTheme } from '../../contexts/ThemeContext';
+import { ICONS, TYPOGRAPHY } from '../../utils/designTokens';
 
 export default function Sidebar({ currentView, onNavigate, agentCount }) {
   const { darkMode } = useTheme();
 
   const agentItems = [
-    { id: 'list', label: 'Agents', icon: '🤖', badge: agentCount },
-    { id: 'builder', label: 'New Agent', icon: '✨' },
-    { id: 'sandbox', label: 'Try Demo', icon: '🎭', highlight: true },
+    { id: 'list', label: 'Agents', icon: ICONS.nav.agents, badge: agentCount },
+    { id: 'builder', label: 'New Agent', icon: ICONS.nav.newAgent },
+    { id: 'sandbox', label: 'Try Demo', icon: ICONS.nav.demo, highlight: true },
   ];
 
   const observabilityItems = [
-    { id: 'traces', label: 'Traces', icon: '📍' },
-    { id: 'metrics', label: 'Metrics', icon: '📊' },
-    { id: 'evaluations', label: 'Evaluations', icon: '⚖️' },
-    { id: 'interactions', label: 'Interactions', icon: '💬' },
-    { id: 'benchmarks', label: 'Benchmarks', icon: '⚡' },
+    { id: 'traces', label: 'Traces', icon: ICONS.nav.traces },
+    { id: 'metrics', label: 'Metrics', icon: ICONS.nav.metrics },
+    { id: 'evaluations', label: 'Evaluations', icon: ICONS.nav.evaluations },
+    { id: 'interactions', label: 'Interactions', icon: ICONS.nav.interactions },
+    { id: 'benchmarks', label: 'Benchmarks', icon: ICONS.nav.benchmarks },
   ];
 
   const NavButton = ({ item }) => (
@@ -43,7 +44,16 @@ export default function Sidebar({ currentView, onNavigate, agentCount }) {
       }}
     >
       <div className="flex items-center space-x-3">
-        <span className="text-lg">{item.icon}</span>
+        <span
+          style={{
+            fontFamily: TYPOGRAPHY.mono,
+            fontSize: '12px',
+            width: '20px',
+            textAlign: 'center',
+          }}
+        >
+          {item.icon}
+        </span>
         <span className="font-medium">{item.label}</span>
       </div>
       {item.badge !== undefined && (
@@ -123,7 +133,7 @@ export default function Sidebar({ currentView, onNavigate, agentCount }) {
                 : 'text-gray-600 hover:text-red-600'
             }`}
           >
-            <span>📚</span>
+            <span style={{ fontFamily: TYPOGRAPHY.mono, fontSize: '12px', width: '20px', textAlign: 'center' }}>{ICONS.nav.docs}</span>
             <span>Documentation</span>
           </a>
           <a
@@ -136,7 +146,7 @@ export default function Sidebar({ currentView, onNavigate, agentCount }) {
                 : 'text-gray-600 hover:text-red-600'
             }`}
           >
-            <span>💻</span>
+            <span style={{ fontFamily: TYPOGRAPHY.mono, fontSize: '12px', width: '20px', textAlign: 'center' }}>{ICONS.nav.github}</span>
             <span>GitHub</span>
           </a>
         </div>

@@ -1,12 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import AgentAvatar, { AGENT_PRESETS } from '../AgentAvatar';
+import { TYPOGRAPHY } from '../../utils/designTokens';
 
 const TABS = [
-  { id: 'config', label: 'Configuration', icon: '⚙️' },
-  { id: 'instructions', label: 'Instructions', icon: '📝' },
-  { id: 'tools', label: 'Tools', icon: '🛠️' },
-  { id: 'versions', label: 'Versions', icon: '📚' },
-  { id: 'code', label: 'Code', icon: '💻' }
+  { id: 'config', label: 'Configuration', icon: '*' },
+  { id: 'instructions', label: 'Instructions', icon: '>' },
+  { id: 'tools', label: 'Tools', icon: '[]' },
+  { id: 'versions', label: 'Versions', icon: '#' },
+  { id: 'code', label: 'Code', icon: '<>' }
 ];
 
 const PROVIDER_MODELS = {
@@ -167,7 +168,7 @@ export default function AgentEditor({ agent, meta, onSave, onDelete, onRun, onAn
             onClick={onRun}
             className="w-full flex items-center justify-center space-x-2 px-4 py-2 bg-emerald-500 text-white rounded-lg hover:bg-emerald-600 transition-colors"
           >
-            <span>▶️</span>
+            <span style={{ fontFamily: TYPOGRAPHY.mono }}>[>]</span>
             <span>Run Agent</span>
           </button>
 
@@ -176,14 +177,14 @@ export default function AgentEditor({ agent, meta, onSave, onDelete, onRun, onAn
               onClick={onAnalytics}
               className="flex items-center justify-center space-x-2 px-3 py-2 bg-purple-500 text-white rounded-lg hover:bg-purple-600 transition-colors"
             >
-              <span>📊</span>
+              <span style={{ fontFamily: TYPOGRAPHY.mono }}>[#]</span>
               <span>Analytics</span>
             </button>
             <button
               onClick={onHistory}
               className="flex items-center justify-center space-x-2 px-3 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors"
             >
-              <span>💬</span>
+              <span style={{ fontFamily: TYPOGRAPHY.mono }}>[<>]</span>
               <span>History</span>
             </button>
           </div>
@@ -197,7 +198,7 @@ export default function AgentEditor({ agent, meta, onSave, onDelete, onRun, onAn
                 : 'bg-gray-100 text-gray-400 cursor-not-allowed'
             }`}
           >
-            <span>💾</span>
+            <span style={{ fontFamily: TYPOGRAPHY.mono }}>[*]</span>
             <span>{hasChanges ? 'Save Changes' : 'No Changes'}</span>
           </button>
 
@@ -374,11 +375,11 @@ function InstructionsTab({ formData, updateField, meta, toggleArrayItem }) {
 function ToolsTab({ formData, meta, toggleArrayItem }) {
   const getToolIcon = (tool) => {
     const icons = {
-      terminal: '💻', playwright: '🎭', filesystem: '📁', code: '📝',
-      database: '🗄️', slack: '💬', fetch: '🌐', search: '🔍',
-      edit: '✏️', translate: '🌍', memory: '🧠'
+      terminal: '$', playwright: '>', filesystem: '/', code: '<>',
+      database: '#', slack: '@', fetch: '~', search: '?',
+      edit: '*', translate: '[]', memory: 'M'
     };
-    return icons[tool] || '🔧';
+    return icons[tool] || '[]';
   };
 
   return (
@@ -494,7 +495,7 @@ function CodeTab({ code }) {
           onClick={copyToClipboard}
           className="flex items-center space-x-1 px-3 py-1 text-sm text-gray-600 hover:text-red-600 transition-colors"
         >
-          <span>📋</span>
+          <span style={{ fontFamily: TYPOGRAPHY.mono }}>[+]</span>
           <span>Copy</span>
         </button>
       </div>

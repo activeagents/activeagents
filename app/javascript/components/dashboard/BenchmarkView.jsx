@@ -5,6 +5,7 @@ import {
   XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
   PieChart, Pie, Cell
 } from 'recharts';
+import { TYPOGRAPHY } from '../../utils/designTokens';
 
 // ---------------------------------------------------------------------------
 // Color palette for the three concurrency strategies
@@ -308,7 +309,7 @@ function StatCard({ label, value, sub, sparkData, sparkColor, colors }) {
 function EmptyState({ colors }) {
   return (
     <div style={{ textAlign: 'center', padding: '64px 0' }}>
-      <div style={{ fontSize: '48px', marginBottom: '16px' }}>⚡</div>
+      <div style={{ fontSize: '24px', marginBottom: '16px', fontFamily: TYPOGRAPHY.mono, color: colors.textMuted }}>[%%]</div>
       <div style={{ fontSize: '20px', fontWeight: '600', color: colors.textPrimary, marginBottom: '8px' }}>
         No benchmark runs yet
       </div>
@@ -468,7 +469,7 @@ function RequestDetailModal({ strategy, onClose, colors, darkMode }) {
         <div style={{ flex: 1, overflow: 'auto', padding: '0 24px 24px' }}>
           {!hasRequests ? (
             <div style={{ textAlign: 'center', padding: '40px 20px', color: colors.textMuted }}>
-              <div style={{ fontSize: '32px', marginBottom: '12px' }}>📋</div>
+              <div style={{ fontSize: '18px', marginBottom: '12px', fontFamily: TYPOGRAPHY.mono, color: colors.textMuted }}>[+]</div>
               <div style={{ fontSize: '14px' }}>
                 Per-request details not available for this run.
               </div>
@@ -668,7 +669,7 @@ function RequestDetailModal({ strategy, onClose, colors, darkMode }) {
                             flexShrink: 0
                           }}>
                             {(totalThisTurn / 1000).toFixed(1)}K
-                            {isOverLimit ? ' ⚠️' : isNearLimit ? ' ⏳' : ` (${pct.toFixed(0)}%)`}
+                            {isOverLimit ? ' [!]' : isNearLimit ? ' [~]' : ` (${pct.toFixed(0)}%)`}
                           </div>
                         </div>
                       );
@@ -923,12 +924,12 @@ export default function BenchmarkView() {
                 fontSize: '12px',
                 color: colors.textSecondary
               }}>
-                <span>🖥 <strong style={{ color: colors.textPrimary }}>{run.hardware.cpu_model}</strong></span>
-                <span>⚙ <strong style={{ color: colors.textPrimary }}>{run.hardware.cpu_cores}</strong> cores</span>
-                <span>💎 Ruby <strong style={{ color: colors.textPrimary }}>{run.hardware.ruby_version}</strong></span>
+                <span style={{ fontFamily: TYPOGRAPHY.mono }}>cpu={run.hardware.cpu_model}</span>
+                <span style={{ fontFamily: TYPOGRAPHY.mono }}>cores={run.hardware.cpu_cores}</span>
+                <span style={{ fontFamily: TYPOGRAPHY.mono }}>ruby={run.hardware.ruby_version}</span>
                 <span>📦 N=<strong style={{ color: colors.textPrimary }}>{run.config?.n_requests}</strong></span>
-                <span>⏱ I/O=<strong style={{ color: colors.textPrimary }}>{run.config?.io_latency_ms}ms</strong></span>
-                <span>🔢 CPU=<strong style={{ color: colors.textPrimary }}>{(run.config?.cpu_iterations || 0).toLocaleString()}</strong> iters</span>
+                <span style={{ fontFamily: TYPOGRAPHY.mono }}>io={run.config?.io_latency_ms}ms</span>
+                <span style={{ fontFamily: TYPOGRAPHY.mono }}>cpu={(run.config?.cpu_iterations || 0).toLocaleString()}</span>
                 {run.winner && (
                   <span>🏆 Winner: <strong style={{ color: colors.accent }}>{run.winner.name}</strong> at {run.winner.throughput?.toFixed(1)} req/s</span>
                 )}
@@ -999,11 +1000,11 @@ export default function BenchmarkView() {
 
             {/* ── Tab bar ────────────────────────────────── */}
             <div style={{ display: 'flex', gap: '8px', marginBottom: '16px' }}>
-              <TabButton id="timeline"   label="⏱ Timeline" />
-              <TabButton id="throughput" label="📈 Throughput" />
-              <TabButton id="latency"    label="⚡ Latency" />
-              <TabButton id="memory"     label="🧠 Memory" />
-              <TabButton id="tokens"     label="🔤 Tokens" />
+              <TabButton id="timeline"   label="Timeline" />
+              <TabButton id="throughput" label="Throughput" />
+              <TabButton id="latency"    label="Latency" />
+              <TabButton id="memory"     label="Memory" />
+              <TabButton id="tokens"     label="Tokens" />
             </div>
 
             {/* ── Timeline tab (Gantt / waterfall, matches TracesView) ── */}
@@ -1120,7 +1121,7 @@ export default function BenchmarkView() {
 
                   {!hasMemoryData ? (
                     <div style={{ textAlign: 'center', padding: '40px 0', color: colors.textSecondary }}>
-                      <div style={{ fontSize: '32px', marginBottom: '12px' }}>📊</div>
+                      <div style={{ fontSize: '18px', marginBottom: '12px', fontFamily: TYPOGRAPHY.mono, color: colors.textMuted }}>[#]</div>
                       <p style={{ marginBottom: '8px' }}>No memory data available for this run.</p>
                       <p style={{ fontSize: '12px', color: colors.textMuted }}>
                         Run <code style={{ fontFamily: 'monospace', background: colors.borderLight, padding: '2px 6px', borderRadius: '4px' }}>bin/bench --context-kb 512</code> to simulate LLM context memory and track GC behavior.
@@ -1369,7 +1370,7 @@ export default function BenchmarkView() {
                         border: `1px solid ${darkMode ? 'rgba(34, 197, 94, 0.2)' : '#bbf7d0'}`
                       }}>
                         <div style={{ fontSize: '13px', fontWeight: '600', color: darkMode ? '#86efac' : '#166534', marginBottom: '8px' }}>
-                          💎 Ruby 4.x Ractor Advantage
+                          Ruby 4.x Ractor Advantage
                         </div>
                         <p style={{ fontSize: '12px', color: colors.textSecondary, margin: 0, lineHeight: 1.6 }}>
                           Ractors provide true parallelism with <strong>isolated garbage collection</strong>. Each Ractor has its own heap,
@@ -1406,7 +1407,7 @@ export default function BenchmarkView() {
                   <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '12px', marginBottom: '24px' }}>
                     <div style={{ background: darkMode ? 'rgba(37, 99, 235, 0.1)' : '#eff6ff', borderRadius: '10px', padding: '16px', border: `1px solid ${darkMode ? 'rgba(37, 99, 235, 0.2)' : '#bfdbfe'}` }}>
                       <div style={{ fontSize: '11px', color: '#2563eb', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '6px' }}>
-                        ↓ Total Input
+                        Total Input
                       </div>
                       <div style={{ fontSize: '24px', fontWeight: 'bold', color: '#2563eb', fontFamily: 'monospace' }}>
                         {totalInputAll.toLocaleString()}
@@ -1417,7 +1418,7 @@ export default function BenchmarkView() {
                     </div>
                     <div style={{ background: darkMode ? 'rgba(124, 58, 237, 0.1)' : '#f5f3ff', borderRadius: '10px', padding: '16px', border: `1px solid ${darkMode ? 'rgba(124, 58, 237, 0.2)' : '#c4b5fd'}` }}>
                       <div style={{ fontSize: '11px', color: '#7c3aed', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '6px' }}>
-                        ↑ Total Output
+                        Total Output
                       </div>
                       <div style={{ fontSize: '24px', fontWeight: 'bold', color: '#7c3aed', fontFamily: 'monospace' }}>
                         {totalOutputAll.toLocaleString()}
@@ -1522,8 +1523,8 @@ export default function BenchmarkView() {
                     <thead>
                       <tr style={{ borderBottom: `1px solid ${colors.border}`, color: colors.textSecondary }}>
                         <th style={{ textAlign: 'left', padding: '8px 0', fontWeight: '500' }}>Strategy</th>
-                        <th style={{ textAlign: 'right', padding: '8px 0', fontWeight: '500' }}>↓ Input</th>
-                        <th style={{ textAlign: 'right', padding: '8px 0', fontWeight: '500' }}>↑ Output</th>
+                        <th style={{ textAlign: 'right', padding: '8px 0', fontWeight: '500', fontFamily: TYPOGRAPHY.mono }}>Input</th>
+                        <th style={{ textAlign: 'right', padding: '8px 0', fontWeight: '500', fontFamily: TYPOGRAPHY.mono }}>Output</th>
                         <th style={{ textAlign: 'right', padding: '8px 0', fontWeight: '500' }}>Total</th>
                         <th style={{ textAlign: 'right', padding: '8px 0', fontWeight: '500' }}>Tok/sec</th>
                         <th style={{ textAlign: 'right', padding: '8px 0', fontWeight: '500' }}>Est. Cost</th>
@@ -1704,7 +1705,7 @@ export default function BenchmarkView() {
                               alignItems: 'center',
                               gap: '12px'
                             }}>
-                              <span style={{ fontSize: '20px' }}>⚠️</span>
+                              <span style={{ fontSize: '14px', fontFamily: TYPOGRAPHY.mono }}>[!]</span>
                               <div>
                                 <div style={{ fontSize: '13px', fontWeight: '600', color: '#d97706' }}>
                                   High Schema Overhead: {overheadPct.toFixed(0)}% of input tokens
@@ -1728,7 +1729,7 @@ export default function BenchmarkView() {
                               alignItems: 'center',
                               gap: '12px'
                             }}>
-                              <span style={{ fontSize: '20px' }}>📊</span>
+                              <span style={{ fontSize: '14px', fontFamily: TYPOGRAPHY.mono }}>[#]</span>
                               <div>
                                 <div style={{ fontSize: '13px', fontWeight: '600', color: '#2563eb' }}>
                                   Showing Realistic Example Values
@@ -2041,7 +2042,7 @@ export default function BenchmarkView() {
                                           )}
                                         </div>
                                         <div style={{ width: '90px', fontSize: '11px', fontFamily: 'monospace', color: isOverLimit ? '#ef4444' : colors.textSecondary, textAlign: 'right', flexShrink: 0 }}>
-                                          {(totalTokens / 1000).toFixed(1)}K {isOverLimit ? '⚠️' : `(${pct.toFixed(0)}%)`}
+                                          {(totalTokens / 1000).toFixed(1)}K {isOverLimit ? '[!]' : `(${pct.toFixed(0)}%)`}
                                         </div>
                                       </div>
                                     );
@@ -2152,7 +2153,7 @@ export default function BenchmarkView() {
                             border: `1px solid ${darkMode ? 'rgba(99, 102, 241, 0.2)' : '#c7d2fe'}`
                           }}>
                             <div style={{ fontSize: '13px', fontWeight: '600', color: darkMode ? '#a5b4fc' : '#4338ca', marginBottom: '8px' }}>
-                              💡 Schema Optimization Tips
+                              [i] Schema Optimization Tips
                             </div>
                             <ul style={{ fontSize: '12px', color: colors.textSecondary, margin: 0, paddingLeft: '20px', lineHeight: 1.8 }}>
                               <li><strong>Tool Schemas:</strong> Each tool definition adds ~100-500 tokens. Group related tools or use tool routing.</li>
