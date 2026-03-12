@@ -710,15 +710,39 @@ function RequestDetailModal({ strategy, onClose, colors, darkMode }) {
 // ---------------------------------------------------------------------------
 // Main BenchmarkView component
 // ---------------------------------------------------------------------------
+// Valid tab IDs for hash routing
+const VALID_TABS = ['timeline', 'throughput', 'latency', 'memory', 'tokens'];
+
+// Get initial tab from URL hash
+const getTabFromHash = () => {
+  const hash = window.location.hash.slice(1); // Remove '#'
+  return VALID_TABS.includes(hash) ? hash : 'timeline';
+};
+
 export default function BenchmarkView() {
   const { darkMode } = useTheme();
   const [data, setData]         = useState(null);
   const [isLoading, setLoading] = useState(true);
   const [selectedRun, setSelectedRun] = useState(0);
-  const [activeTab, setActiveTab] = useState('timeline'); // timeline | throughput | latency | tokens
+  const [activeTab, setActiveTab] = useState(getTabFromHash); // Initialize from URL hash
   const [lastFetch, setLastFetch] = useState(null);
   const [autoRefresh, setAutoRefresh] = useState(true);
   const [selectedStrategy, setSelectedStrategy] = useState(null);
+
+  // Sync URL hash with active tab
+  useEffect(() => {
+    window.location.hash = activeTab;
+  }, [activeTab]);
+
+  // Listen for browser back/forward navigation
+  useEffect(() => {
+    const handleHashChange = () => {
+      const newTab = getTabFromHash();
+      setActiveTab(newTab);
+    };
+    window.addEventListener('hashchange', handleHashChange);
+    return () => window.removeEventListener('hashchange', handleHashChange);
+  }, []);
 
   // Theme — exact same pattern as MetricsView / TracesView
   const colors = {
@@ -1647,6 +1671,7 @@ export default function BenchmarkView() {
                           ...breakdown,
                           contextTokens,
                           totalInput,
+                          total: totalInput, // Alias for totalInput (used in token breakdown table)
                           totalUsed,
                           contextWindow,
                           isEstimate: !hasActualBreakdown && avgInputPerReq <= 500,
