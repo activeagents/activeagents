@@ -12,57 +12,57 @@ const AGENT_INFO = {
   terminal: {
     name: 'Terminal Agent',
     description: 'Command-line operations and shell scripting',
-    icon: '💻',
+    icon: '$',
   },
   webDeveloper: {
     name: 'Web Developer Agent',
     description: 'Building and debugging web applications',
-    icon: '🌐',
+    icon: '~',
   },
   documentAnalysis: {
     name: 'Document Analysis Agent',
     description: 'Parsing and extracting insights from documents',
-    icon: '📄',
+    icon: '#',
   },
   writing: {
     name: 'Writing Agent',
     description: 'Creative and technical content creation',
-    icon: '✍️',
+    icon: '*',
   },
   translation: {
     name: 'Translation Agent',
     description: 'Multi-language translation and localization',
-    icon: '🌸',
+    icon: '[]',
   },
   playwright: {
     name: 'Playwright Agent',
     description: 'Browser automation and testing',
-    icon: '🎭',
+    icon: '>',
   },
   research: {
     name: 'Research Agent',
     description: 'Web search and information gathering',
-    icon: '🔍',
+    icon: '?',
   },
   imageAnalysis: {
     name: 'Image Analysis Agent',
     description: 'Visual content understanding and processing',
-    icon: '🖼️',
+    icon: '@',
   },
   computerUse: {
     name: 'Computer Use Agent',
     description: 'Desktop automation and GUI interaction',
-    icon: '🖥️',
+    icon: '[]',
   },
   productDesign: {
     name: 'Product Design Agent',
     description: 'UI/UX design and prototyping',
-    icon: '🎨',
+    icon: '+',
   },
 };
 
 function AgentCard({ preset, size = 180 }) {
-  const info = AGENT_INFO[preset] || { name: preset, description: '', icon: '🤖' };
+  const info = AGENT_INFO[preset] || { name: preset, description: '', icon: '@' };
 
   return (
     <div className="agent-card">

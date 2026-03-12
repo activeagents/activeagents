@@ -1,10 +1,11 @@
 import React, { useState } from 'react';
 import AgentAvatar, { AGENT_PRESETS, INSTRUCTIONS, TOOLS } from '../AgentAvatar';
+import { ICONS } from '../../utils/designTokens';
 
 const STEPS = [
-  { id: 'basics', label: 'Basics', icon: '📝' },
-  { id: 'configure', label: 'Configure', icon: '🛠️' },
-  { id: 'review', label: 'Review', icon: '✅' }
+  { id: 'basics', label: 'Basics', icon: '1' },
+  { id: 'configure', label: 'Configure', icon: '2' },
+  { id: 'review', label: 'Review', icon: '3' }
 ];
 
 const PROVIDER_MODELS = {

@@ -4,6 +4,7 @@ import {
   AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
   BarChart, Bar
 } from 'recharts';
+import { ICONS, TYPOGRAPHY, getThemeColors, cardStyle, buttonStyle } from '../../utils/designTokens';
 
 // Agent types and their actions
 const AGENT_ACTIONS = {
@@ -368,14 +369,14 @@ export default function TracesView() {
 
   const getSpanIcon = (type) => {
     switch (type) {
-      case 'root': return '→';
-      case 'prompt': return '◇';
-      case 'generate': return '▶';
-      case 'llm': return '◆';
-      case 'thinking': return '💭';
-      case 'tool': return '🔧';
-      case 'response': return '◇';
-      default: return '•';
+      case 'root': return ICONS.spans.root;
+      case 'prompt': return ICONS.spans.prompt;
+      case 'generate': return ICONS.spans.generate;
+      case 'llm': return ICONS.spans.llm;
+      case 'thinking': return ICONS.spans.thinking;
+      case 'tool': return ICONS.spans.tool;
+      case 'response': return ICONS.spans.response;
+      default: return '-';
     }
   };
 
@@ -875,18 +876,18 @@ export default function TracesView() {
                   {/* Token Breakdown Row */}
                   <div className="span-row nested-3">
                     <div className="span-label">
-                      <span className="span-icon">↳</span>
-                      <span className="span-name tokens">
+                      <span className="span-icon" style={{ fontFamily: TYPOGRAPHY.mono }}>+--</span>
+                      <span className="span-name tokens" style={{ fontFamily: TYPOGRAPHY.mono }}>
                         {(trace.tokens.thinking + trace.tokens.input + trace.tokens.output).toLocaleString()} tokens
                       </span>
                     </div>
                     <div className="span-bar-container">
-                      <div className="token-breakdown">
+                      <div className="token-breakdown" style={{ fontFamily: TYPOGRAPHY.mono }}>
                         {trace.tokens.thinking > 0 && (
-                          <span className="token-thinking">🧠 {trace.tokens.thinking.toLocaleString()}</span>
+                          <span className="token-thinking">T:{trace.tokens.thinking.toLocaleString()}</span>
                         )}
-                        <span className="token-in">↓ {trace.tokens.input.toLocaleString()}</span>
-                        <span className="token-out">↑ {trace.tokens.output.toLocaleString()}</span>
+                        <span className="token-in">in:{trace.tokens.input.toLocaleString()}</span>
+                        <span className="token-out">out:{trace.tokens.output.toLocaleString()}</span>
                       </div>
                     </div>
                   </div>
@@ -1318,10 +1319,10 @@ export default function TracesView() {
                 <div className="mt-4 pt-4 border-t border-gray-200 flex items-center space-x-6">
                   <span className="text-sm text-gray-500">Tokens:</span>
                   {trace.tokens.thinking > 0 && (
-                    <span className="text-sm text-amber-600">🧠 {trace.tokens.thinking.toLocaleString()}</span>
+                    <span className="text-sm text-amber-600" style={{ fontFamily: TYPOGRAPHY.mono }}>T:{trace.tokens.thinking.toLocaleString()}</span>
                   )}
-                  <span className="text-sm text-blue-600">↓ {trace.tokens.input.toLocaleString()}</span>
-                  <span className="text-sm text-green-600">↑ {trace.tokens.output.toLocaleString()}</span>
+                  <span className="text-sm text-blue-600" style={{ fontFamily: TYPOGRAPHY.mono }}>in:{trace.tokens.input.toLocaleString()}</span>
+                  <span className="text-sm text-green-600" style={{ fontFamily: TYPOGRAPHY.mono }}>out:{trace.tokens.output.toLocaleString()}</span>
                 </div>
 
                 {trace.error && (

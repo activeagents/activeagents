@@ -2,12 +2,12 @@ import React, { useState, useEffect } from 'react';
 import AgentAvatar from '../AgentAvatar';
 
 const CATEGORY_ICONS = {
-  productivity: '📋',
-  development: '💻',
-  research: '🔍',
-  creative: '✨',
-  data: '📊',
-  automation: '⚡'
+  productivity: '[+]',
+  development: '<>',
+  research: '[?]',
+  creative: '[*]',
+  data: '[#]',
+  automation: '[>]'
 };
 
 export default function TemplateLibrary({ onUseTemplate, onClose }) {

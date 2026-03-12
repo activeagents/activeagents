@@ -12,36 +12,36 @@ export default class extends Controller {
 
   // Instructions - system/developer message types (displayed as badge on hat)
   static instructions = {
-    github: { emoji: '🐙', label: 'GitHub' },
-    ruby: { emoji: '💎', label: 'Ruby' },
-    rails: { emoji: '🛤️', label: 'Rails' },
-    aws: { emoji: '☁️', label: 'AWS' },
-    gcp: { emoji: '🌐', label: 'GCP' },
-    python: { emoji: '🐍', label: 'Python' },
-    typescript: { emoji: '📘', label: 'TypeScript' },
-    docker: { emoji: '🐳', label: 'Docker' },
-    kubernetes: { emoji: '☸️', label: 'Kubernetes' },
+    github: { icon: '@', label: 'GitHub' },
+    ruby: { icon: '*', label: 'Ruby' },
+    rails: { icon: '#', label: 'Rails' },
+    aws: { icon: '~', label: 'AWS' },
+    gcp: { icon: '~', label: 'GCP' },
+    python: { icon: '>', label: 'Python' },
+    typescript: { icon: '<>', label: 'TypeScript' },
+    docker: { icon: '[]', label: 'Docker' },
+    kubernetes: { icon: '{}', label: 'Kubernetes' },
   }
 
   // CLI Tools (left hand) - command line and code tools
   static cliTools = {
-    bash: { logo: 'bash', label: 'Bash', emoji: '💻' },
-    git: { logo: 'git', label: 'Git', emoji: '📂' },
-    ruby: { logo: 'ruby', label: 'Ruby', emoji: '💎' },
-    gh: { logo: 'github', label: 'gh CLI', emoji: '🐙' },
+    bash: { logo: 'bash', label: 'Bash', icon: '$' },
+    git: { logo: 'git', label: 'Git', icon: '+' },
+    ruby: { logo: 'ruby', label: 'Ruby', icon: '*' },
+    gh: { logo: 'github', label: 'gh CLI', icon: '@' },
   }
 
   // MCP Services (right hand) - Model Context Protocol integrations
   static mcpServices = {
-    playwright: { logo: 'playwright', label: 'Playwright', emoji: '🎭' },
-    slack: { logo: 'slack', label: 'Slack', emoji: '💬' },
-    github: { logo: 'github', label: 'GitHub', emoji: '🐙' },
-    linear: { logo: 'linear', label: 'Linear', emoji: '📋' },
-    sentry: { logo: 'sentry', label: 'Sentry', emoji: '🐛' },
-    postgres: { logo: 'postgresql', label: 'Postgres', emoji: '🗄️' },
-    notion: { logo: 'notion', label: 'Notion', emoji: '📝' },
-    figma: { logo: 'figma', label: 'Figma', emoji: '🎨' },
-    huggingface: { logo: 'huggingface', label: 'HuggingFace', emoji: '🤗' },
+    playwright: { logo: 'playwright', label: 'Playwright', icon: '>' },
+    slack: { logo: 'slack', label: 'Slack', icon: '@' },
+    github: { logo: 'github', label: 'GitHub', icon: '@' },
+    linear: { logo: 'linear', label: 'Linear', icon: '+' },
+    sentry: { logo: 'sentry', label: 'Sentry', icon: '!' },
+    postgres: { logo: 'postgresql', label: 'Postgres', icon: '#' },
+    notion: { logo: 'notion', label: 'Notion', icon: '*' },
+    figma: { logo: 'figma', label: 'Figma', icon: '+' },
+    huggingface: { logo: 'huggingface', label: 'HuggingFace', icon: '~' },
   }
 
   // Presets - example agent configurations
@@ -210,10 +210,10 @@ export default class extends Controller {
     const html = instructionIds.map((id, i) => {
       const instruction = this.constructor.instructions[id]
       if (!instruction) return ''
-      return `<span class="instruction-badge-item" title="${instruction.label}">${instruction.emoji}</span>`
+      return `<span class="instruction-badge-item" title="${instruction.label}" style="font-family: monospace;">${instruction.icon}</span>`
     }).join('')
 
-    this.instructionsTarget.innerHTML = html || '<span class="instruction-badge-item empty">💬</span>'
+    this.instructionsTarget.innerHTML = html || '<span class="instruction-badge-item empty" style="font-family: monospace;">@</span>'
   }
 
   renderCliTools() {
@@ -228,7 +228,7 @@ export default class extends Controller {
       </span>`
     }).join('')
 
-    this.toolsLeftTarget.innerHTML = html || '<span class="tool-item empty">💻</span>'
+    this.toolsLeftTarget.innerHTML = html || '<span class="tool-item empty" style="font-family: monospace;">$</span>'
   }
 
   renderMcpServices() {
@@ -243,7 +243,7 @@ export default class extends Controller {
       </span>`
     }).join('')
 
-    this.toolsRightTarget.innerHTML = html || '<span class="tool-item empty mcp-empty">🔌</span>'
+    this.toolsRightTarget.innerHTML = html || '<span class="tool-item empty mcp-empty" style="font-family: monospace;">~</span>'
   }
 
   updateConfig() {
