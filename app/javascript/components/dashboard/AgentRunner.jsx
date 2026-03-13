@@ -125,12 +125,12 @@ export default function AgentRunner({ agent, onBack }) {
                 >
                   {isRunning ? (
                     <>
-                      <span className="animate-spin" style={{ fontFamily: TYPOGRAPHY.mono }}>[~]</span>
+                      <span className="animate-spin" style={{ fontFamily: TYPOGRAPHY.mono }}>{'[~]'}</span>
                       <span>Running...</span>
                     </>
                   ) : (
                     <>
-                      <span style={{ fontFamily: TYPOGRAPHY.mono }}>[>]</span>
+                      <span style={{ fontFamily: TYPOGRAPHY.mono }}>{'[>]'}</span>
                       <span>Run</span>
                     </>
                   )}
