@@ -168,7 +168,7 @@ export default function AgentEditor({ agent, meta, onSave, onDelete, onRun, onAn
             onClick={onRun}
             className="w-full flex items-center justify-center space-x-2 px-4 py-2 bg-emerald-500 text-white rounded-lg hover:bg-emerald-600 transition-colors"
           >
-            <span style={{ fontFamily: TYPOGRAPHY.mono }}>[>]</span>
+            <span style={{ fontFamily: TYPOGRAPHY.mono }}>{'[>]'}</span>
             <span>Run Agent</span>
           </button>
 
@@ -177,14 +177,14 @@ export default function AgentEditor({ agent, meta, onSave, onDelete, onRun, onAn
               onClick={onAnalytics}
               className="flex items-center justify-center space-x-2 px-3 py-2 bg-purple-500 text-white rounded-lg hover:bg-purple-600 transition-colors"
             >
-              <span style={{ fontFamily: TYPOGRAPHY.mono }}>[#]</span>
+              <span style={{ fontFamily: TYPOGRAPHY.mono }}>{'[#]'}</span>
               <span>Analytics</span>
             </button>
             <button
               onClick={onHistory}
               className="flex items-center justify-center space-x-2 px-3 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors"
             >
-              <span style={{ fontFamily: TYPOGRAPHY.mono }}>[<>]</span>
+              <span style={{ fontFamily: TYPOGRAPHY.mono }}>{'[<>]'}</span>
               <span>History</span>
             </button>
           </div>
