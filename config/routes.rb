@@ -90,6 +90,14 @@ Rails.application.routes.draw do
       end
     end
 
+    # Instance tiers (hardware selection like Colab/HuggingFace)
+    resources :instance_tiers, only: [ :index, :show ] do
+      collection do
+        get :recommend
+        get :pricing
+      end
+    end
+
     resource :analytics, only: [ :show ], controller: "analytics", action: :index
 
     # Ragents benchmark results — accepts POSTed JSON from bin/bench
