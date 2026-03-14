@@ -35,16 +35,21 @@ class IncusSandboxService
   # Create a new sandbox container for the given session
   #
   # @param sandbox_session [SandboxSession] The session to create a container for
+  # @param instance_tier [SandboxInstanceTier, String, nil] Optional instance tier for resource allocation
   # @return [Hash] Container details including name and IP
-  def create_sandbox(sandbox_session)
+  def create_sandbox(sandbox_session, instance_tier: nil)
     container_name = generate_container_name(sandbox_session.session_id)
+
+    # Resolve instance tier
+    tier = resolve_instance_tier(instance_tier, sandbox_session)
 
     config = build_container_config(
       name: container_name,
       session_id: sandbox_session.session_id,
       owner_id: sandbox_session.owner_id,
       sandbox_type: sandbox_session.sandbox_type,
-      timeout: sandbox_session.timeout_seconds || DEFAULT_TIMEOUT
+      timeout: sandbox_session.timeout_seconds || DEFAULT_TIMEOUT,
+      instance_tier: tier
     )
 
     begin
@@ -67,7 +72,14 @@ class IncusSandboxService
         container_ip: container_ip,
         url: "http://#{container_ip}:8080",
         project: @project,
-        created_at: Time.current
+        created_at: Time.current,
+        instance_tier: tier.id,
+        resources: {
+          cpu_cores: tier.cpu_cores,
+          memory_gb: tier.memory_gb,
+          gpu: tier.gpu
+        },
+        hourly_cost: tier.hourly_cost.to_f
       }
     rescue => e
       # Cleanup on failure
@@ -267,40 +279,42 @@ class IncusSandboxService
     "#{CONTAINER_PREFIX}-#{session_id[0..7]}-#{SecureRandom.hex(4)}"
   end
 
-  def build_container_config(name:, session_id:, owner_id:, sandbox_type:, timeout:)
+  def build_container_config(name:, session_id:, owner_id:, sandbox_type:, timeout:, instance_tier:)
     {
       name: name,
       architecture: "x86_64",
       profiles: ["default", "sandbox-restricted"],
       source: {
         type: "image",
-        alias: sandbox_image_for_type(sandbox_type)
+        alias: sandbox_image_for_type(sandbox_type, instance_tier)
       },
       config: {
         # Metadata
         "user.session_id" => session_id,
         "user.owner_id" => owner_id.to_s,
         "user.sandbox_type" => sandbox_type,
+        "user.instance_tier" => instance_tier.id,
         "user.created_at" => Time.current.iso8601,
 
         # Security
         "security.nesting" => "false",
         "security.privileged" => "false",
 
-        # Resource limits based on sandbox type
-        **resource_limits_for_type(sandbox_type),
+        # Resource limits from instance tier
+        **instance_tier.to_incus_limits,
 
         # Environment variables
         "environment.RAILS_ENV" => "sandbox",
         "environment.SANDBOX_MODE" => "true",
         "environment.SANDBOX_SESSION_ID" => session_id,
-        "environment.SANDBOX_TIMEOUT" => timeout.to_s
+        "environment.SANDBOX_TIMEOUT" => timeout.to_s,
+        "environment.INSTANCE_TIER" => instance_tier.id
       }
     }
   end
 
-  def sandbox_image_for_type(sandbox_type)
-    case sandbox_type
+  def sandbox_image_for_type(sandbox_type, instance_tier)
+    base_image = case sandbox_type
     when "playwright_mcp"
       "sandbox-playwright"
     when "terminal"
@@ -310,34 +324,42 @@ class IncusSandboxService
     else
       "sandbox-base"
     end
+
+    # Use GPU-enabled image if tier has GPU
+    if instance_tier.has_gpu?
+      "#{base_image}-gpu"
+    else
+      base_image
+    end
   end
 
-  def resource_limits_for_type(sandbox_type)
+  def resolve_instance_tier(tier_param, sandbox_session)
+    # If explicitly provided
+    if tier_param.is_a?(SandboxInstanceTier)
+      return tier_param
+    elsif tier_param.is_a?(String) || tier_param.is_a?(Symbol)
+      return SandboxInstanceTier.find(tier_param)
+    end
+
+    # Check if session has a tier preference
+    if sandbox_session.respond_to?(:instance_tier) && sandbox_session.instance_tier.present?
+      return SandboxInstanceTier.find(sandbox_session.instance_tier)
+    end
+
+    # Default based on sandbox type
+    default_tier_for_sandbox_type(sandbox_session.sandbox_type)
+  end
+
+  def default_tier_for_sandbox_type(sandbox_type)
     case sandbox_type
     when "playwright_mcp"
-      {
-        "limits.cpu" => "4",
-        "limits.memory" => "4GB",
-        "limits.processes" => "1000"
-      }
-    when "terminal"
-      {
-        "limits.cpu" => "1",
-        "limits.memory" => "1GB",
-        "limits.processes" => "200"
-      }
+      # Browser automation needs more resources
+      SandboxInstanceTier.find(:cpu_medium)
     when "research"
-      {
-        "limits.cpu" => "2",
-        "limits.memory" => "2GB",
-        "limits.processes" => "500"
-      }
+      # Research may need more memory
+      SandboxInstanceTier.find(:cpu_small)
     else
-      {
-        "limits.cpu" => "2",
-        "limits.memory" => "2GB",
-        "limits.processes" => "500"
-      }
+      SandboxInstanceTier.find(:free)
     end
   end
 

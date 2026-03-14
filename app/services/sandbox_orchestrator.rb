@@ -36,9 +36,22 @@ class SandboxOrchestrator
   # Create a new sandbox for the given session
   #
   # @param sandbox_session [SandboxSession] The session to create a sandbox for
+  # @param instance_tier [String, Symbol, SandboxInstanceTier] Optional instance tier
   # @return [Hash] Sandbox details including ID/name and URL
-  def create_sandbox(sandbox_session)
-    result = @backend.create_sandbox(sandbox_session)
+  def create_sandbox(sandbox_session, instance_tier: nil)
+    # Resolve tier
+    tier = resolve_tier(instance_tier)
+
+    result = case @backend_name
+    when "incus"
+      @backend.create_sandbox(sandbox_session, instance_tier: tier)
+    when "kubernetes"
+      @backend.create_sandbox_pod(sandbox_session) # TODO: add tier support
+    when "cloud_run"
+      @backend.create_sandbox_job(sandbox_session) # TODO: add tier support
+    when "mock"
+      @backend.create_sandbox(sandbox_session, instance_tier: tier)
+    end
 
     # Normalize response format across backends
     {
@@ -46,8 +59,29 @@ class SandboxOrchestrator
       url: result[:url],
       ip: result[:container_ip] || result[:pod_ip],
       backend: @backend_name,
+      instance_tier: result[:instance_tier] || tier&.id,
+      resources: result[:resources],
+      hourly_cost: result[:hourly_cost] || tier&.hourly_cost&.to_f,
       created_at: result[:created_at] || Time.current
     }
+  end
+
+  # List available instance tiers
+  #
+  # @param category [String, nil] Optional category filter (free, pro, enterprise)
+  # @return [Array<SandboxInstanceTier>] Available tiers
+  def available_tiers(category: nil)
+    tiers = SandboxInstanceTier.available
+    tiers = tiers.select { |t| t.category == category.to_s } if category
+    tiers
+  end
+
+  # Get a specific instance tier
+  #
+  # @param tier_id [String, Symbol] Tier ID
+  # @return [SandboxInstanceTier]
+  def get_tier(tier_id)
+    SandboxInstanceTier.find(tier_id)
   end
 
   # Get the status of a sandbox
@@ -164,6 +198,19 @@ class SandboxOrchestrator
     end
   end
 
+  def resolve_tier(tier_param)
+    return nil unless tier_param
+
+    if tier_param.is_a?(SandboxInstanceTier)
+      tier_param
+    else
+      SandboxInstanceTier.find(tier_param)
+    end
+  rescue ArgumentError
+    Rails.logger.warn("Unknown instance tier: #{tier_param}, using default")
+    SandboxInstanceTier.default_tier
+  end
+
   def backend_features
     case @backend_name
     when "incus"
@@ -211,14 +258,23 @@ class SandboxOrchestrator
       @sandboxes = {}
     end
 
-    def create_sandbox(session)
+    def create_sandbox(session, instance_tier: nil)
+      tier = instance_tier || SandboxInstanceTier.free_tier
       name = "mock-sandbox-#{SecureRandom.hex(4)}"
+
       @sandboxes[name] = {
         container_name: name,
         container_ip: "127.0.0.1",
         url: "http://127.0.0.1:8080",
         session_id: session.session_id,
         status: "running",
+        instance_tier: tier.id,
+        resources: {
+          cpu_cores: tier.cpu_cores,
+          memory_gb: tier.memory_gb,
+          gpu: tier.gpu
+        },
+        hourly_cost: tier.hourly_cost.to_f,
         created_at: Time.current
       }
       @sandboxes[name]
