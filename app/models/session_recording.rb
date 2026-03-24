@@ -143,7 +143,7 @@ class SessionRecording < ApplicationRecord
   end
 
   def generate_storage_key(snapshot_type, sequence = nil)
-    parts = ["recordings", id, snapshot_type.to_s]
+    parts = [ "recordings", id, snapshot_type.to_s ]
     parts << sequence.to_s if sequence
     parts << SecureRandom.hex(8)
     parts.join("/")

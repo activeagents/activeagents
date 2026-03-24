@@ -3,7 +3,7 @@
 module Api
   class InstanceTiersController < ApplicationController
     skip_before_action :verify_authenticity_token
-    before_action :set_tier, only: [:show]
+    before_action :set_tier, only: [ :show ]
 
     # GET /api/instance_tiers
     # List all available instance tiers

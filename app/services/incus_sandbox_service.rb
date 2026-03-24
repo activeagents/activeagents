@@ -182,7 +182,7 @@ class IncusSandboxService
   # @param log_file [String] Log file to read (default: /var/log/sandbox.log)
   # @return [String] Log contents
   def container_logs(container_name, log_file: "/var/log/sandbox.log")
-    result = exec_in_container(container_name, ["cat", log_file])
+    result = exec_in_container(container_name, [ "cat", log_file ])
     result.dig("metadata", "output", "1") || ""
   rescue => e
     Rails.logger.warn("Failed to get logs for #{container_name}: #{e.message}")
@@ -283,7 +283,7 @@ class IncusSandboxService
     {
       name: name,
       architecture: "x86_64",
-      profiles: ["default", "sandbox-restricted"],
+      profiles: [ "default", "sandbox-restricted" ],
       source: {
         type: "image",
         alias: sandbox_image_for_type(sandbox_type, instance_tier)

@@ -259,7 +259,7 @@ class SandboxInstanceTier
   end
 
   def display_specs
-    specs = ["#{cpu_cores} vCPU", "#{memory_gb}GB RAM", "#{disk_gb}GB disk"]
+    specs = [ "#{cpu_cores} vCPU", "#{memory_gb}GB RAM", "#{disk_gb}GB disk" ]
     specs << "#{gpu_memory_gb}GB #{gpu_display_name}" if has_gpu?
     specs.join(" | ")
   end
