@@ -52,6 +52,9 @@ module "activeagents" {
   enable_dns = var.enable_dns
   dns_domain = var.dns_domain
 
+  # Apex domain - point activeagents.ai to LB instead of Framer
+  enable_apex_domain = var.enable_apex_domain
+
   # Framer website (during migration)
   framer_ips       = var.framer_ips
   framer_www_cname = var.framer_www_cname
