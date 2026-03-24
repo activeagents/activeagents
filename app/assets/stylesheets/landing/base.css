@@ -2853,6 +2853,54 @@ section:first-of-type {
   margin-left: auto;
 }
 
+.replay-controls-hero .replay-btn.speed-btn {
+  width: auto;
+  padding: 0 10px;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.replay-controls-hero .replay-btn.restart-btn {
+  color: #888;
+}
+
+.replay-controls-hero .replay-btn.restart-btn:hover {
+  color: var(--color-accent);
+}
+
+/* Timeline clickability */
+.replay-controls-hero .replay-timeline {
+  cursor: pointer;
+}
+
+.replay-controls-hero .timeline-track {
+  position: relative;
+}
+
+/* Snapshot marker active state */
+.replay-controls-hero .snapshot-marker.active {
+  background-color: white;
+  border-color: white;
+  color: #1a1a1a;
+  transform: translateX(-50%) scale(1.2);
+}
+
+/* Action item hover in sidebar */
+.replay-sidebar-hero .action-item {
+  cursor: pointer;
+  transition: background-color 0.15s ease, transform 0.15s ease;
+}
+
+.replay-sidebar-hero .action-item:hover {
+  background-color: rgba(255, 255, 255, 0.05);
+  transform: translateX(2px);
+}
+
+.replay-sidebar-hero .action-item:active {
+  transform: translateX(4px);
+}
+
 /* Session Replay - VCR Cassette Style (Product Preview version) */
 .preview-replay {
   display: flex;

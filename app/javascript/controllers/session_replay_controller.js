@@ -2,12 +2,13 @@ import { Controller } from "@hotwired/stimulus"
 
 // Session Replay Controller
 // Handles agent typing animation for the checkout form preview
-// Now with handoff support - users can take over from the agent
+// With full interactive timeline: play/pause, seek, step, speed control
 export default class extends Controller {
   static targets = [
     "viewport", "cursor", "card", "expiry", "cvc", "pay",
     "actionList", "timeline", "timelineProgress", "playhead",
-    "traceLog", "handoffOverlay", "stepCounter", "cassetteBadge"
+    "traceLog", "handoffOverlay", "stepCounter", "cassetteBadge",
+    "playPauseBtn", "playPauseIcon", "speedBtn", "speedDisplay"
   ]
 
   static values = {
@@ -17,11 +18,16 @@ export default class extends Controller {
   }
 
   connect() {
-    this.isPaused = false
+    this.isPlaying = true
+    this.isPausedByUser = false
+    this.isPausedByHover = false
     this.userHasTakenOver = false
     this.animationTimer = null
     this.currentStep = 0
     this.traceEntries = []
+    this.playbackSpeed = 1
+    this.speeds = [0.5, 1, 1.5, 2]
+    this.speedIndex = 1
 
     this.fields = [
       { target: 'card', position: 'at-card', text: '4242 4242 4242 4242' },
@@ -32,41 +38,306 @@ export default class extends Controller {
     this.actions = [
       { type: 'navigate', text: 'navigate', status: 'completed' },
       { type: 'snapshot', text: 'snapshot', status: 'completed' },
-      { type: 'type', text: 'type card', status: 'pending' },
-      { type: 'type', text: 'type expiry', status: 'pending' },
-      { type: 'type', text: 'type cvc', status: 'pending' },
+      { type: 'type', text: 'type card', status: 'pending', fieldIndex: 0 },
+      { type: 'type', text: 'type expiry', status: 'pending', fieldIndex: 1 },
+      { type: 'type', text: 'type cvc', status: 'pending', fieldIndex: 2 },
       { type: 'click', text: 'click Pay', status: 'pending' },
       { type: 'snapshot', text: 'snapshot', status: 'pending' },
     ]
 
-    // Update action list UI
+    // Update action list UI with click handlers
     this.updateActionList()
+    this.updatePlayPauseIcon()
 
     // Start animation after a brief delay
     setTimeout(() => this.runAnimation(), 800)
   }
 
   disconnect() {
-    if (this.animationTimer) clearTimeout(this.animationTimer)
+    this.clearTimers()
   }
 
-  // Mouse events for pausing
+  clearTimers() {
+    if (this.animationTimer) {
+      clearTimeout(this.animationTimer)
+      this.animationTimer = null
+    }
+  }
+
+  get isPaused() {
+    return this.isPausedByUser || this.isPausedByHover || !this.isPlaying
+  }
+
+  // ==================== Playback Controls ====================
+
+  togglePlayPause(event) {
+    if (event) event.stopPropagation()
+
+    if (this.userHasTakenOver) return
+
+    this.isPlaying = !this.isPlaying
+    this.isPausedByUser = !this.isPlaying
+    this.updatePlayPauseIcon()
+
+    // If resuming and we were at handoff, dismiss it
+    if (this.isPlaying && this.hasHandoffOverlayTarget &&
+        this.handoffOverlayTarget.style.display !== 'none') {
+      // Don't auto-dismiss, let user decide
+    }
+  }
+
+  updatePlayPauseIcon() {
+    if (this.hasPlayPauseIconTarget) {
+      if (this.isPlaying && !this.isPausedByUser) {
+        this.playPauseIconTarget.className = 'fa-solid fa-pause'
+      } else {
+        this.playPauseIconTarget.className = 'fa-solid fa-play'
+      }
+    }
+  }
+
+  stepBackward(event) {
+    if (event) event.stopPropagation()
+    if (this.userHasTakenOver) return
+
+    // Pause playback
+    this.isPlaying = false
+    this.isPausedByUser = true
+    this.updatePlayPauseIcon()
+
+    // Go to previous step
+    const targetStep = Math.max(0, this.currentStep - 1)
+    this.jumpToStep(targetStep)
+  }
+
+  stepForward(event) {
+    if (event) event.stopPropagation()
+    if (this.userHasTakenOver) return
+
+    // Pause playback
+    this.isPlaying = false
+    this.isPausedByUser = true
+    this.updatePlayPauseIcon()
+
+    // Go to next step
+    const targetStep = Math.min(this.actions.length - 1, this.currentStep + 1)
+    this.jumpToStep(targetStep)
+  }
+
+  cycleSpeed(event) {
+    if (event) event.stopPropagation()
+
+    this.speedIndex = (this.speedIndex + 1) % this.speeds.length
+    this.playbackSpeed = this.speeds[this.speedIndex]
+
+    if (this.hasSpeedDisplayTarget) {
+      this.speedDisplayTarget.textContent = `${this.playbackSpeed}x`
+    }
+  }
+
+  restart(event) {
+    if (event) event.stopPropagation()
+
+    this.userHasTakenOver = false
+    this.isPlaying = true
+    this.isPausedByUser = false
+    this.clearTimers()
+
+    // Hide handoff overlay
+    if (this.hasHandoffOverlayTarget) {
+      this.handoffOverlayTarget.style.display = 'none'
+    }
+
+    // Hide trace log
+    if (this.hasTraceLogTarget) {
+      this.traceLogTarget.style.display = 'none'
+      const entries = this.traceLogTarget.querySelector('.trace-entries')
+      if (entries) entries.innerHTML = ''
+    }
+
+    this.traceEntries = []
+    this.updatePlayPauseIcon()
+    this.runAnimation()
+  }
+
+  // ==================== Timeline Seeking ====================
+
+  seekTimeline(event) {
+    if (this.userHasTakenOver) return
+
+    const timeline = this.timelineTarget
+    const rect = timeline.getBoundingClientRect()
+    const clickX = event.clientX - rect.left
+    const percent = (clickX / rect.width) * 100
+
+    // Map percentage to step (0-6 steps mapped to 0-100%)
+    const targetStep = Math.round((percent / 100) * (this.actions.length - 1))
+
+    // Pause and jump
+    this.isPlaying = false
+    this.isPausedByUser = true
+    this.updatePlayPauseIcon()
+
+    this.jumpToStep(Math.max(0, Math.min(this.actions.length - 1, targetStep)))
+  }
+
+  jumpToSnapshot(event) {
+    event.stopPropagation()
+    if (this.userHasTakenOver) return
+
+    const step = parseInt(event.currentTarget.dataset.step, 10)
+
+    // Pause and jump
+    this.isPlaying = false
+    this.isPausedByUser = true
+    this.updatePlayPauseIcon()
+
+    this.jumpToStep(step)
+  }
+
+  jumpToAction(event) {
+    event.stopPropagation()
+    if (this.userHasTakenOver) return
+
+    const step = parseInt(event.currentTarget.dataset.step, 10)
+
+    // Pause and jump
+    this.isPlaying = false
+    this.isPausedByUser = true
+    this.updatePlayPauseIcon()
+
+    this.jumpToStep(step)
+  }
+
+  jumpToStep(targetStep) {
+    this.clearTimers()
+
+    // Hide handoff overlay when jumping
+    if (this.hasHandoffOverlayTarget) {
+      this.handoffOverlayTarget.style.display = 'none'
+    }
+
+    // Reset all field values based on target step
+    this.fields.forEach((field, idx) => {
+      const input = this[`${field.target}Target`]
+      if (input) {
+        // Steps 2, 3, 4 correspond to typing card, expiry, cvc
+        const fieldStep = idx + 2
+        if (targetStep > fieldStep) {
+          // Field is complete
+          input.value = field.text
+        } else if (targetStep === fieldStep) {
+          // Field is in progress - show partial or empty
+          input.value = ''
+        } else {
+          // Field not yet reached
+          input.value = ''
+        }
+        input.closest('.form-input')?.classList.remove('typing')
+        input.disabled = true
+        input.classList.remove('user-editable')
+      }
+    })
+
+    // Update pay button state
+    if (this.hasPayTarget) {
+      if (targetStep >= 6) {
+        this.payTarget.textContent = 'Payment Successful!'
+        this.payTarget.style.background = 'linear-gradient(135deg, #10b981, #059669)'
+        this.payTarget.style.opacity = '1'
+      } else if (targetStep === 5) {
+        this.payTarget.textContent = 'Processing...'
+        this.payTarget.style.background = ''
+        this.payTarget.style.opacity = '0.7'
+      } else {
+        this.payTarget.textContent = 'Pay $99.00'
+        this.payTarget.style.background = ''
+        this.payTarget.style.opacity = ''
+      }
+      this.payTarget.disabled = true
+      this.payTarget.classList.remove('user-clickable')
+    }
+
+    // Update action statuses
+    this.actions.forEach((action, idx) => {
+      if (idx < targetStep) {
+        action.status = 'completed'
+      } else if (idx === targetStep) {
+        action.status = 'active'
+      } else {
+        action.status = 'pending'
+      }
+    })
+
+    // Update cursor position
+    if (this.hasCursorTarget) {
+      this.cursorTarget.classList.remove('hidden')
+      if (targetStep >= 2 && targetStep <= 4) {
+        const fieldIndex = targetStep - 2
+        this.cursorTarget.className = 'agent-cursor ' + this.fields[fieldIndex].position
+      } else if (targetStep === 5) {
+        this.cursorTarget.className = 'agent-cursor at-pay'
+      } else if (targetStep >= 6) {
+        this.cursorTarget.classList.add('hidden')
+      } else {
+        this.cursorTarget.className = 'agent-cursor at-card'
+      }
+    }
+
+    // Reset cassette badge
+    if (this.hasCassetteBadgeTarget) {
+      this.cassetteBadgeTarget.innerHTML = '<i class="fa-solid fa-circle recording"></i> <span>REC</span>'
+      this.cassetteBadgeTarget.classList.remove('live')
+    }
+
+    this.currentStep = targetStep
+    this.updateActionList()
+    this.updateTimeline(this.stepToPercent(targetStep))
+    this.updateStepCounter()
+    this.updateSnapshotMarkers()
+  }
+
+  stepToPercent(step) {
+    // Map steps 0-6 to timeline percent
+    const percents = [5, 15, 30, 45, 60, 75, 95]
+    return percents[Math.min(step, percents.length - 1)]
+  }
+
+  updateSnapshotMarkers() {
+    const markers = this.element.querySelectorAll('.snapshot-marker')
+    markers.forEach(marker => {
+      const markerStep = parseInt(marker.dataset.step, 10)
+      marker.classList.remove('completed', 'active', 'pending')
+      if (markerStep < this.currentStep) {
+        marker.classList.add('completed')
+      } else if (markerStep === this.currentStep) {
+        marker.classList.add('active')
+      } else {
+        marker.classList.add('pending')
+      }
+    })
+  }
+
+  // ==================== Mouse Events ====================
+
   pauseOnHover() {
-    if (!this.userHasTakenOver) {
-      this.isPaused = true
+    if (!this.userHasTakenOver && !this.isPausedByUser) {
+      this.isPausedByHover = true
     }
   }
 
   resumeOnLeave() {
     if (!this.userHasTakenOver) {
-      this.isPaused = false
+      this.isPausedByHover = false
     }
   }
 
-  // User takes over from the agent
+  // ==================== Handoff ====================
+
   takeOver() {
     this.userHasTakenOver = true
-    this.isPaused = true
+    this.isPlaying = false
+    this.clearTimers()
 
     // Hide handoff overlay
     if (this.hasHandoffOverlayTarget) {
@@ -94,9 +365,10 @@ export default class extends Controller {
     if (this.hasTraceLogTarget) {
       this.traceLogTarget.style.display = 'block'
     }
+
+    this.updatePlayPauseIcon()
   }
 
-  // Enable inputs for user interaction
   enableInputs() {
     const inputs = [this.cardTarget, this.expiryTarget, this.cvcTarget]
     inputs.forEach(input => {
@@ -112,7 +384,6 @@ export default class extends Controller {
     }
   }
 
-  // Track user input after handoff
   trackUserInput(event) {
     if (!this.userHasTakenOver) return
 
@@ -123,13 +394,11 @@ export default class extends Controller {
     this.addTraceEntry('user_input', `${fieldName}: ${maskedValue}`)
   }
 
-  // Handle user payment
   userPay(event) {
     event.preventDefault()
 
     if (!this.hasPayTarget) return
 
-    // If not taken over, just show the animation
     if (!this.userHasTakenOver) {
       return
     }
@@ -148,15 +417,15 @@ export default class extends Controller {
 
       this.addTraceEntry('completion', 'Payment successful')
 
-      // Update final action
       this.actions[5].status = 'completed'
       this.actions[6].status = 'completed'
+      this.currentStep = 7
       this.updateActionList()
       this.updateTimeline(100)
+      this.updateSnapshotMarkers()
     }, 1500)
   }
 
-  // Add entry to trace log
   addTraceEntry(type, message) {
     const entry = { type, message, timestamp: new Date().toISOString() }
     this.traceEntries.push(entry)
@@ -170,7 +439,6 @@ export default class extends Controller {
       `
       this.traceLogTarget.querySelector('.trace-entries')?.appendChild(entryEl)
 
-      // Scroll to bottom
       const container = this.traceLogTarget.querySelector('.trace-entries')
       if (container) {
         container.scrollTop = container.scrollHeight
@@ -178,11 +446,14 @@ export default class extends Controller {
     }
   }
 
-  // Type text into a field with animation
+  // ==================== Animation ====================
+
   typeText(input, text, callback) {
     let i = input.value.length
     const parent = input.closest('.form-input')
     if (parent) parent.classList.add('typing')
+
+    const baseDelay = 60
 
     const typeChar = () => {
       if (this.isPaused || this.userHasTakenOver) {
@@ -192,21 +463,25 @@ export default class extends Controller {
       if (i < text.length) {
         input.value = text.substring(0, i + 1)
         i++
-        this.animationTimer = setTimeout(typeChar, 60 + Math.random() * 40)
+        const delay = (baseDelay + Math.random() * 40) / this.playbackSpeed
+        this.animationTimer = setTimeout(typeChar, delay)
       } else {
         if (parent) parent.classList.remove('typing')
-        this.animationTimer = setTimeout(callback, 300)
+        const delay = 300 / this.playbackSpeed
+        this.animationTimer = setTimeout(callback, delay)
       }
     }
     typeChar()
   }
 
-  // Update action list UI
   updateActionList() {
     if (!this.hasActionListTarget) return
 
     this.actionListTarget.innerHTML = this.actions.map((action, idx) => `
-      <div class="action-item ${action.status}">
+      <div class="action-item ${action.status}"
+           data-action="click->session-replay#jumpToAction"
+           data-step="${idx}"
+           style="cursor: pointer;">
         <span class="action-icon">
           <i class="fa-solid ${this.getActionIcon(action.type)}"></i>
         </span>
@@ -229,7 +504,6 @@ export default class extends Controller {
     return icons[type] || 'fa-circle'
   }
 
-  // Update timeline progress
   updateTimeline(percent) {
     if (this.hasTimelineProgressTarget) {
       this.timelineProgressTarget.style.width = `${percent}%`
@@ -239,7 +513,6 @@ export default class extends Controller {
     }
   }
 
-  // Update step counter
   updateStepCounter() {
     if (this.hasStepCounterTarget) {
       if (this.userHasTakenOver) {
@@ -250,9 +523,12 @@ export default class extends Controller {
     }
   }
 
-  // Show handoff prompt
   showHandoffPrompt() {
     if (!this.handoffEnabledValue) return
+
+    // Pause playback
+    this.isPlaying = false
+    this.updatePlayPauseIcon()
 
     if (this.hasHandoffOverlayTarget) {
       this.handoffOverlayTarget.style.display = 'flex'
@@ -268,6 +544,7 @@ export default class extends Controller {
         input.value = ''
         input.closest('.form-input')?.classList.remove('typing')
         input.disabled = true
+        input.classList.remove('user-editable')
       }
     })
 
@@ -280,12 +557,14 @@ export default class extends Controller {
     this.updateActionList()
     this.updateTimeline(20)
     this.updateStepCounter()
+    this.updateSnapshotMarkers()
 
     if (this.hasPayTarget) {
       this.payTarget.textContent = 'Pay $99.00'
       this.payTarget.style.background = ''
       this.payTarget.style.opacity = ''
       this.payTarget.disabled = true
+      this.payTarget.classList.remove('user-clickable')
     }
 
     // Reset cassette badge
@@ -320,9 +599,10 @@ export default class extends Controller {
         // Update action status
         this.actions[this.currentStep].status = 'active'
         this.updateActionList()
-        this.updateTimeline(20 + (fieldIndex / this.fields.length) * 50)
+        this.updateTimeline(this.stepToPercent(this.currentStep))
         this.updateStepCounter()
 
+        const delay = 400 / this.playbackSpeed
         this.animationTimer = setTimeout(() => {
           if (input) {
             this.typeText(input, field.text, () => {
@@ -330,10 +610,11 @@ export default class extends Controller {
               this.currentStep++
               fieldIndex++
               this.updateActionList()
+              this.updateSnapshotMarkers()
               nextField()
             })
           }
-        }, 400)
+        }, delay)
       } else {
         // Move to pay button
         if (this.hasCursorTarget) {
@@ -345,11 +626,13 @@ export default class extends Controller {
         this.updateTimeline(75)
         this.updateStepCounter()
 
+        const delay1 = 500 / this.playbackSpeed
         this.animationTimer = setTimeout(() => {
           if (this.hasPayTarget) {
             this.payTarget.textContent = 'Processing...'
             this.payTarget.style.opacity = '0.7'
 
+            const delay2 = 1000 / this.playbackSpeed
             this.animationTimer = setTimeout(() => {
               this.payTarget.textContent = 'Payment Successful!'
               this.payTarget.style.background = 'linear-gradient(135deg, #10b981, #059669)'
@@ -361,23 +644,25 @@ export default class extends Controller {
               this.updateActionList()
               this.updateTimeline(100)
               this.updateStepCounter()
+              this.updateSnapshotMarkers()
 
               if (this.hasCursorTarget) {
                 this.cursorTarget.classList.add('hidden')
               }
 
               // Wait then restart
+              const delay3 = 2500 / this.playbackSpeed
               this.animationTimer = setTimeout(() => {
                 if (this.hasCursorTarget) {
                   this.cursorTarget.classList.remove('hidden')
                 }
-                if (!this.userHasTakenOver) {
+                if (!this.userHasTakenOver && this.isPlaying) {
                   this.runAnimation()
                 }
-              }, 2500)
-            }, 1000)
+              }, delay3)
+            }, delay2)
           }
-        }, 500)
+        }, delay1)
       }
     }
 
@@ -386,6 +671,7 @@ export default class extends Controller {
       this.cursorTarget.className = 'agent-cursor at-card'
       this.cursorTarget.classList.remove('hidden')
     }
-    this.animationTimer = setTimeout(nextField, 600)
+    const startDelay = 600 / this.playbackSpeed
+    this.animationTimer = setTimeout(nextField, startDelay)
   }
 }
