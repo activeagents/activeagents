@@ -2569,7 +2569,246 @@ section:first-of-type {
   box-shadow: 0 0 0 2px rgba(84, 105, 212, 0.2);
 }
 
-/* Hero cursor positions */
+/* ========================================
+   Mini Lander Demo Styles
+   ======================================== */
+.browser-viewport-hero .demo-page-content {
+  width: 100%;
+  height: 280px;
+  overflow: hidden;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+}
+
+.browser-viewport-hero .demo-section {
+  padding: 16px 20px;
+  flex-shrink: 0;
+  transition: transform 0.6s ease;
+}
+
+/* Mini Hero Section */
+.browser-viewport-hero .demo-hero {
+  text-align: center;
+  padding: 24px 20px 20px;
+  min-height: 140px;
+}
+
+.browser-viewport-hero .demo-logo {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.browser-viewport-hero .demo-logo i {
+  color: var(--color-accent);
+  font-size: 18px;
+}
+
+.browser-viewport-hero .demo-logo span {
+  color: #e5e7eb;
+  font-weight: 600;
+  font-size: 14px;
+}
+
+.browser-viewport-hero .demo-headline {
+  color: #ffffff;
+  font-size: 20px;
+  font-weight: 700;
+  margin-bottom: 6px;
+  letter-spacing: -0.5px;
+}
+
+.browser-viewport-hero .demo-subheadline {
+  color: #9ca3af;
+  font-size: 12px;
+  margin-bottom: 14px;
+}
+
+.browser-viewport-hero .demo-buttons {
+  display: flex;
+  justify-content: center;
+  gap: 8px;
+}
+
+.browser-viewport-hero .demo-btn {
+  padding: 6px 12px;
+  border-radius: 5px;
+  font-size: 11px;
+  font-weight: 500;
+}
+
+.browser-viewport-hero .demo-btn.primary {
+  background: var(--color-accent);
+  color: white;
+}
+
+.browser-viewport-hero .demo-btn.secondary {
+  background: #2a2a3a;
+  color: #9ca3af;
+  border: 1px solid #3a3a4a;
+}
+
+/* Mini Features Section */
+.browser-viewport-hero .demo-features {
+  background: #12121f;
+  padding: 16px 20px;
+}
+
+.browser-viewport-hero .demo-section-title {
+  color: #e5e7eb;
+  font-size: 13px;
+  font-weight: 600;
+  margin-bottom: 10px;
+  text-align: center;
+}
+
+.browser-viewport-hero .demo-feature-grid {
+  display: flex;
+  gap: 8px;
+  justify-content: center;
+}
+
+.browser-viewport-hero .demo-feature-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 10px 12px;
+  background: #1a1a2e;
+  border-radius: 6px;
+  border: 1px solid #252540;
+  flex: 1;
+  max-width: 90px;
+}
+
+.browser-viewport-hero .demo-feature-card i {
+  color: var(--color-accent);
+  font-size: 14px;
+}
+
+.browser-viewport-hero .demo-feature-card span {
+  color: #9ca3af;
+  font-size: 9px;
+  text-align: center;
+  line-height: 1.2;
+}
+
+/* Mini Pricing Section */
+.browser-viewport-hero .demo-pricing {
+  padding: 16px 20px;
+}
+
+.browser-viewport-hero .demo-pricing-cards {
+  display: flex;
+  gap: 10px;
+  justify-content: center;
+}
+
+.browser-viewport-hero .demo-price-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 10px 20px;
+  background: #1a1a2e;
+  border-radius: 6px;
+  border: 1px solid #252540;
+}
+
+.browser-viewport-hero .demo-price-card.highlight {
+  border-color: var(--color-accent);
+  background: linear-gradient(135deg, rgba(250, 52, 59, 0.1), rgba(250, 52, 59, 0.05));
+}
+
+.browser-viewport-hero .demo-price-tier {
+  color: #9ca3af;
+  font-size: 10px;
+  font-weight: 500;
+  text-transform: uppercase;
+}
+
+.browser-viewport-hero .demo-price {
+  color: #e5e7eb;
+  font-size: 14px;
+  font-weight: 700;
+}
+
+/* Mini Newsletter Section */
+.browser-viewport-hero .demo-newsletter {
+  background: #12121f;
+  padding: 20px;
+  text-align: center;
+}
+
+.browser-viewport-hero .demo-newsletter-form {
+  display: flex;
+  gap: 8px;
+  max-width: 280px;
+  margin: 0 auto 8px;
+}
+
+.browser-viewport-hero .demo-email-input {
+  flex: 1;
+  padding: 10px 12px;
+  background: #1a1a2e;
+  border: 1px solid #333345;
+  border-radius: 5px;
+  color: #e5e7eb;
+  font-size: 12px;
+  outline: none;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.browser-viewport-hero .demo-email-input:focus,
+.browser-viewport-hero .demo-email-input.typing {
+  border-color: var(--color-accent);
+  box-shadow: 0 0 0 2px rgba(250, 52, 59, 0.2);
+}
+
+.browser-viewport-hero .demo-email-input::placeholder {
+  color: #6b7280;
+}
+
+.browser-viewport-hero .demo-subscribe-btn {
+  padding: 10px 16px;
+  background: var(--color-accent);
+  border: none;
+  border-radius: 5px;
+  color: white;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s ease;
+  white-space: nowrap;
+}
+
+.browser-viewport-hero .demo-subscribe-btn:hover {
+  background: var(--color-accent-hover);
+}
+
+.browser-viewport-hero .demo-newsletter-hint {
+  color: #6b7280;
+  font-size: 10px;
+}
+
+/* Demo scroll animation */
+.browser-viewport-hero .demo-page-content.scrolled-to-features .demo-hero {
+  transform: translateY(-100%);
+}
+
+.browser-viewport-hero .demo-page-content.scrolled-to-newsletter {
+  animation: scrollToNewsletter 0.6s ease forwards;
+}
+
+@keyframes scrollToNewsletter {
+  to {
+    transform: translateY(-260px);
+  }
+}
+
+/* Hero cursor positions - updated for newsletter demo */
 .browser-viewport-hero .agent-cursor {
   position: absolute;
   display: flex;
@@ -2577,8 +2816,31 @@ section:first-of-type {
   gap: 6px;
   transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
   z-index: 50;
+  top: 60px;
+  right: 60px;
 }
 
+.browser-viewport-hero .agent-cursor.at-hero {
+  top: 60px;
+  right: 40%;
+}
+
+.browser-viewport-hero .agent-cursor.at-features {
+  top: 120px;
+  right: 30%;
+}
+
+.browser-viewport-hero .agent-cursor.at-email {
+  top: 145px;
+  right: 200px;
+}
+
+.browser-viewport-hero .agent-cursor.at-subscribe {
+  top: 145px;
+  right: 60px;
+}
+
+/* Legacy checkout cursor positions (keep for backwards compat) */
 .browser-viewport-hero .agent-cursor.at-card {
   top: 85px;
   right: 60px;
