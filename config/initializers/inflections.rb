@@ -14,3 +14,13 @@
 # ActiveSupport::Inflector.inflections(:en) do |inflect|
 #   inflect.acronym "RESTful"
 # end
+
+# Acronyms for Zeitwerk autoloading
+# This ensures class names like MCPRecordingMiddleware and UIGeneratorAgent
+# are correctly matched to their file names (mcp_recording_middleware.rb, ui_generator_agent.rb)
+Rails.autoloaders.each do |autoloader|
+  autoloader.inflector.inflect(
+    "mcp_recording_middleware" => "MCPRecordingMiddleware",
+    "ui_generator_agent" => "UIGeneratorAgent"
+  )
+end
