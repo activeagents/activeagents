@@ -1,7 +1,11 @@
 # DNS records migrated from GoDaddy
 # These records will be created in Cloud DNS
 
-# Framer website A records (apex domain)
+# LIVE MIGRATION: Point apex domain to Cloud Run load balancer
+# Set to true to switch activeagents.ai from Framer to Cloud Run
+enable_apex_domain = true
+
+# Framer website A records (apex domain) - IGNORED when enable_apex_domain = true
 # Updated 2026-02-24 - IPs from Framer custom domain settings
 framer_ips = [
   "31.43.160.6",

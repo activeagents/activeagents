@@ -149,6 +149,12 @@ variable "dns_domain" {
   default     = "activeagents.ai"
 }
 
+variable "enable_apex_domain" {
+  description = "Point apex domain (activeagents.ai) to the load balancer instead of Framer"
+  type        = bool
+  default     = false
+}
+
 variable "framer_ips" {
   description = "Framer A record IPs for apex domain during migration"
   type        = list(string)

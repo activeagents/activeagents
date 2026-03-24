@@ -37,15 +37,15 @@ resource "google_dns_record_set" "production" {
   rrdatas      = [var.production_ip]
 }
 
-# WWW CNAME - points to Framer during migration, or apex domain in production
+# WWW CNAME - points to Framer during migration, or apex domain when live
 resource "google_dns_record_set" "www" {
   project      = var.project_id
   managed_zone = google_dns_managed_zone.main.name
   name         = "www.${var.domain}."
   type         = "CNAME"
   ttl          = 300
-  # Use Framer CNAME during migration, otherwise point to apex
-  rrdatas      = var.framer_www_cname != null ? ["${var.framer_www_cname}."] : ["${var.domain}."]
+  # When production_ip is set, point www to apex; otherwise use Framer
+  rrdatas      = var.production_ip != null ? ["${var.domain}."] : (var.framer_www_cname != null ? ["${var.framer_www_cname}."] : ["${var.domain}."])
 }
 
 # CAA record - allow SSL certificate issuers

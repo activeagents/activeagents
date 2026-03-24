@@ -263,8 +263,8 @@ module "dns" {
   # Point staging subdomain to the load balancer IP
   staging_ip = var.enable_load_balancer && var.environment == "staging" ? module.load_balancer[0].ip_address : null
 
-  # Production IP (for future use)
-  production_ip = var.enable_load_balancer && var.environment == "production" ? module.load_balancer[0].ip_address : null
+  # Production IP - set when apex domain is enabled or in production environment
+  production_ip = var.enable_load_balancer && (var.environment == "production" || var.enable_apex_domain) ? module.load_balancer[0].ip_address : null
 
   # Keep main site on Framer during migration
   framer_ips       = var.framer_ips
