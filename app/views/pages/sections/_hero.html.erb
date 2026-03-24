@@ -14,11 +14,12 @@
     </div>
   </div>
 
-  <!-- Session Replay Hero - Interactive Demo -->
+  <!-- Session Replay Hero - Interactive Newsletter Demo -->
   <div class="session-replay-hero"
        data-controller="session-replay"
        data-session-replay-handoff-enabled-value="true"
-       data-session-replay-handoff-step-value="4">
+       data-session-replay-handoff-step-value="4"
+       data-session-replay-demo-mode-value="newsletter">
 
     <!-- Browser + Sidebar Row -->
     <div class="session-replay-hero-main">
@@ -29,7 +30,7 @@
         </div>
         <div class="browser-address">
           <i class="fa-solid fa-lock"></i>
-          <span class="address-text">checkout.stripe.com/pay/cs_test_...</span>
+          <span class="address-text" data-session-replay-target="addressBar">activeagents.ai</span>
         </div>
         <div class="cassette-badge" data-session-replay-target="cassetteBadge">
           <i class="fa-solid fa-circle recording"></i>
@@ -40,50 +41,20 @@
       <div class="browser-viewport-hero"
            data-session-replay-target="viewport"
            data-action="mouseenter->session-replay#pauseOnHover mouseleave->session-replay#resumeOnLeave">
-        <div class="page-content checkout-page">
-          <div class="checkout-form">
-            <div class="form-section">
-              <div class="form-label">Card number</div>
-              <div class="form-input card-field">
-                <span class="card-icon"><i class="fa-brands fa-cc-visa"></i></span>
-                <input type="text" class="checkout-input"
-                       data-session-replay-target="card"
-                       data-action="input->session-replay#trackUserInput"
-                       placeholder="4242 4242 4242 4242"
-                       disabled>
-              </div>
-            </div>
-            <div class="form-row">
-              <div class="form-section half">
-                <div class="form-label">Expiry</div>
-                <div class="form-input expiry-field">
-                  <input type="text" class="checkout-input"
-                         data-session-replay-target="expiry"
-                         data-action="input->session-replay#trackUserInput"
-                         placeholder="MM/YY"
-                         disabled>
-                </div>
-              </div>
-              <div class="form-section half">
-                <div class="form-label">CVC</div>
-                <div class="form-input cvc-field">
-                  <input type="text" class="checkout-input"
-                         data-session-replay-target="cvc"
-                         data-action="input->session-replay#trackUserInput"
-                         placeholder="123"
-                         disabled>
-                </div>
-              </div>
-            </div>
-            <button class="checkout-btn"
-                    data-session-replay-target="pay"
-                    data-action="click->session-replay#userPay"
-                    disabled>Pay $99.00</button>
-          </div>
+
+        <%# Scaled iframe showing actual site - FullStory style %>
+        <div class="iframe-container" data-session-replay-target="iframeContainer">
+          <iframe
+            src="/?demo=true"
+            data-session-replay-target="demoIframe"
+            class="demo-iframe"
+            scrolling="no"
+            loading="lazy">
+          </iframe>
         </div>
 
         <%# Agent Cursor %>
-        <div class="agent-cursor at-card" data-session-replay-target="cursor">
+        <div class="agent-cursor" data-session-replay-target="cursor">
           <svg class="cursor-icon" viewBox="0 0 24 24" fill="currentColor">
             <path d="M4 4l16 8-7 2-2 7z"/>
           </svg>
@@ -94,14 +65,14 @@
         <div class="handoff-overlay" data-session-replay-target="handoffOverlay" style="display: none;">
           <div class="handoff-prompt">
             <div class="handoff-icon">
-              <i class="fa-solid fa-hand"></i>
+              <i class="fa-solid fa-envelope"></i>
             </div>
-            <h3>Agent paused</h3>
-            <p>Take over and complete the checkout yourself!</p>
-            <button class="handoff-btn" data-action="click->session-replay#takeOver">
-              <i class="fa-solid fa-play"></i> Take Over Session
+            <h3>Your turn!</h3>
+            <p>Enter your email and join the newsletter</p>
+            <button class="handoff-btn" data-action="click->session-replay#takeOverNewsletter">
+              <i class="fa-solid fa-arrow-down"></i> Go to Newsletter
             </button>
-            <p class="handoff-hint">Your actions will be tracked in the trace log</p>
+            <p class="handoff-hint">We'll scroll you right to it</p>
           </div>
         </div>
       </div>
@@ -110,7 +81,7 @@
     <div class="replay-sidebar-hero">
       <div class="sidebar-header">
         <span class="cassette-icon"><i class="fa-solid fa-tape"></i></span>
-        <span class="cassette-name">checkout_flow.vcr</span>
+        <span class="cassette-name">signup_demo.vcr</span>
       </div>
       <div class="action-list" data-session-replay-target="actionList">
         <%# Actions populated by Stimulus controller %>
@@ -131,16 +102,16 @@
            data-session-replay-target="timeline"
            data-action="click->session-replay#seekTimeline">
         <div class="timeline-track">
-          <div class="timeline-progress" data-session-replay-target="timelineProgress" style="width: 20%;"></div>
+          <div class="timeline-progress" data-session-replay-target="timelineProgress" style="width: 0%;"></div>
           <div class="timeline-snapshots">
-            <span class="snapshot-marker completed" style="left: 5%;" title="Initial load"
+            <span class="snapshot-marker" style="left: 5%;" title="Page load"
                   data-action="click->session-replay#jumpToSnapshot" data-step="0"><i class="fa-solid fa-camera"></i></span>
-            <span class="snapshot-marker" style="left: 50%;" title="Form filled"
-                  data-action="click->session-replay#jumpToSnapshot" data-step="4"><i class="fa-solid fa-camera"></i></span>
-            <span class="snapshot-marker pending" style="left: 95%;" title="Payment complete"
-                  data-action="click->session-replay#jumpToSnapshot" data-step="6"><i class="fa-solid fa-camera"></i></span>
+            <span class="snapshot-marker" style="left: 50%;" title="Newsletter section"
+                  data-action="click->session-replay#jumpToSnapshot" data-step="3"><i class="fa-solid fa-camera"></i></span>
+            <span class="snapshot-marker pending" style="left: 95%;" title="Subscribed"
+                  data-action="click->session-replay#jumpToSnapshot" data-step="5"><i class="fa-solid fa-camera"></i></span>
           </div>
-          <div class="timeline-playhead" data-session-replay-target="playhead" style="left: 20%;"></div>
+          <div class="timeline-playhead" data-session-replay-target="playhead" style="left: 0%;"></div>
         </div>
       </div>
       <div class="replay-buttons">
@@ -159,7 +130,7 @@
         <button class="replay-btn restart-btn" data-action="click->session-replay#restart" title="Restart">
           <i class="fa-solid fa-rotate-left"></i>
         </button>
-        <span class="replay-time" data-session-replay-target="stepCounter">Step 1/7</span>
+        <span class="replay-time" data-session-replay-target="stepCounter">Step 1/6</span>
       </div>
     </div>
   </div>
