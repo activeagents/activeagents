@@ -5,7 +5,7 @@
       Build AI in Rails
     </h1>
     <p class="paragraph l secondary balanced">
-      Watch AI agents work. Take over anytime. Ship the Rails way.
+      Active Agents assist you, so you can focus on your product, and your customers don't even have to.
     </p>
     <div class="button-group margin-paragraph centered">
       <%= link_to "Getting Started", "https://docs.activeagents.ai/getting-started", class: "button primary" %>
@@ -14,11 +14,12 @@
     </div>
   </div>
 
-  <!-- Session Replay Hero - Interactive Demo -->
+  <!-- Session Replay Hero - Interactive Newsletter Demo -->
   <div class="session-replay-hero"
        data-controller="session-replay"
        data-session-replay-handoff-enabled-value="true"
-       data-session-replay-handoff-step-value="4">
+       data-session-replay-handoff-step-value="4"
+       data-session-replay-demo-mode-value="newsletter">
 
     <!-- Browser + Sidebar Row -->
     <div class="session-replay-hero-main">
@@ -29,7 +30,7 @@
         </div>
         <div class="browser-address">
           <i class="fa-solid fa-lock"></i>
-          <span class="address-text">checkout.stripe.com/pay/cs_test_...</span>
+          <span class="address-text" data-session-replay-target="addressBar">activeagents.ai</span>
         </div>
         <div class="cassette-badge" data-session-replay-target="cassetteBadge">
           <i class="fa-solid fa-circle recording"></i>
@@ -40,50 +41,88 @@
       <div class="browser-viewport-hero"
            data-session-replay-target="viewport"
            data-action="mouseenter->session-replay#pauseOnHover mouseleave->session-replay#resumeOnLeave">
-        <div class="page-content checkout-page">
-          <div class="checkout-form">
-            <div class="form-section">
-              <div class="form-label">Card number</div>
-              <div class="form-input card-field">
-                <span class="card-icon"><i class="fa-brands fa-cc-visa"></i></span>
-                <input type="text" class="checkout-input"
-                       data-session-replay-target="card"
-                       data-action="input->session-replay#trackUserInput"
-                       placeholder="4242 4242 4242 4242"
-                       disabled>
+
+        <%# Mini Active Agent Lander - Scrollable Content %>
+        <div class="demo-page-content" data-session-replay-target="demoPage">
+          <%# Mini Hero Section %>
+          <div class="demo-section demo-hero" data-section="hero">
+            <div class="demo-logo">
+              <i class="fa-solid fa-robot"></i>
+              <span>Active Agent</span>
+            </div>
+            <div class="demo-headline">Build AI in Rails</div>
+            <div class="demo-subheadline">Focus on your product.</div>
+            <div class="demo-buttons">
+              <span class="demo-btn primary">Get Started</span>
+              <span class="demo-btn secondary">Docs</span>
+            </div>
+          </div>
+
+          <%# Mini Features Section %>
+          <div class="demo-section demo-features" data-section="features">
+            <div class="demo-section-title">What's in the Box</div>
+            <div class="demo-feature-grid">
+              <div class="demo-feature-card">
+                <i class="fa-solid fa-code"></i>
+                <span>Agents are Controllers</span>
+              </div>
+              <div class="demo-feature-card">
+                <i class="fa-solid fa-bolt"></i>
+                <span>Streaming</span>
+              </div>
+              <div class="demo-feature-card">
+                <i class="fa-solid fa-plug"></i>
+                <span>MCP Support</span>
               </div>
             </div>
-            <div class="form-row">
-              <div class="form-section half">
-                <div class="form-label">Expiry</div>
-                <div class="form-input expiry-field">
-                  <input type="text" class="checkout-input"
-                         data-session-replay-target="expiry"
-                         data-action="input->session-replay#trackUserInput"
-                         placeholder="MM/YY"
-                         disabled>
-                </div>
+          </div>
+
+          <%# Mini Pricing Section %>
+          <div class="demo-section demo-pricing" data-section="pricing">
+            <div class="demo-section-title">The Gems</div>
+            <div class="demo-pricing-cards">
+              <div class="demo-price-card">
+                <span class="demo-price-tier">Free</span>
+                <span class="demo-price">$0</span>
               </div>
-              <div class="form-section half">
-                <div class="form-label">CVC</div>
-                <div class="form-input cvc-field">
-                  <input type="text" class="checkout-input"
-                         data-session-replay-target="cvc"
-                         data-action="input->session-replay#trackUserInput"
-                         placeholder="123"
-                         disabled>
-                </div>
+              <div class="demo-price-card highlight">
+                <span class="demo-price-tier">Pro</span>
+                <span class="demo-price">$99/mo</span>
               </div>
             </div>
-            <button class="checkout-btn"
-                    data-session-replay-target="pay"
-                    data-action="click->session-replay#userPay"
-                    disabled>Pay $99.00</button>
+          </div>
+
+          <%# Mini Newsletter Section - Interactive form for user signup %>
+          <div class="demo-section demo-newsletter" data-section="newsletter">
+            <div class="demo-section-title">Stay up to date</div>
+            <form class="demo-newsletter-form"
+                  id="demo-newsletter-form"
+                  data-session-replay-target="demoForm"
+                  data-action="submit->session-replay#submitDemoNewsletter">
+              <input type="email"
+                     name="EMAIL"
+                     class="demo-email-input"
+                     data-session-replay-target="demoEmail"
+                     placeholder="Enter your email"
+                     readonly
+                     required>
+              <button type="submit"
+                      class="demo-subscribe-btn"
+                      data-session-replay-target="demoSubscribe"
+                      disabled>
+                <span class="btn-text">Subscribe</span>
+                <span class="btn-loading" style="display: none;">
+                  <i class="fa-solid fa-spinner fa-spin"></i>
+                </span>
+              </button>
+            </form>
+            <div class="demo-newsletter-response" data-session-replay-target="demoResponse"></div>
+            <div class="demo-newsletter-hint">No spam. Unsubscribe anytime.</div>
           </div>
         </div>
 
         <%# Agent Cursor %>
-        <div class="agent-cursor at-card" data-session-replay-target="cursor">
+        <div class="agent-cursor" data-session-replay-target="cursor">
           <svg class="cursor-icon" viewBox="0 0 24 24" fill="currentColor">
             <path d="M4 4l16 8-7 2-2 7z"/>
           </svg>
@@ -94,14 +133,14 @@
         <div class="handoff-overlay" data-session-replay-target="handoffOverlay" style="display: none;">
           <div class="handoff-prompt">
             <div class="handoff-icon">
-              <i class="fa-solid fa-hand"></i>
+              <i class="fa-solid fa-envelope"></i>
             </div>
-            <h3>Agent paused</h3>
-            <p>Take over and complete the checkout yourself!</p>
-            <button class="handoff-btn" data-action="click->session-replay#takeOver">
-              <i class="fa-solid fa-play"></i> Take Over Session
+            <h3>Your turn!</h3>
+            <p>Enter your email below to subscribe</p>
+            <button class="handoff-btn" data-action="click->session-replay#enableDemoForm">
+              <i class="fa-solid fa-keyboard"></i> Enter Email
             </button>
-            <p class="handoff-hint">Your actions will be tracked in the trace log</p>
+            <p class="handoff-hint">The form is right there!</p>
           </div>
         </div>
       </div>
@@ -110,7 +149,7 @@
     <div class="replay-sidebar-hero">
       <div class="sidebar-header">
         <span class="cassette-icon"><i class="fa-solid fa-tape"></i></span>
-        <span class="cassette-name">checkout_flow.vcr</span>
+        <span class="cassette-name">signup_demo.vcr</span>
       </div>
       <div class="action-list" data-session-replay-target="actionList">
         <%# Actions populated by Stimulus controller %>
@@ -127,23 +166,39 @@
     </div><!-- /.session-replay-hero-main -->
 
     <div class="replay-controls-hero">
-      <div class="replay-timeline" data-session-replay-target="timeline">
+      <div class="replay-timeline"
+           data-session-replay-target="timeline"
+           data-action="click->session-replay#seekTimeline">
         <div class="timeline-track">
-          <div class="timeline-progress" data-session-replay-target="timelineProgress" style="width: 20%;"></div>
+          <div class="timeline-progress" data-session-replay-target="timelineProgress" style="width: 0%;"></div>
           <div class="timeline-snapshots">
-            <span class="snapshot-marker completed" style="left: 5%;" title="Initial load"><i class="fa-solid fa-camera"></i></span>
-            <span class="snapshot-marker" style="left: 50%;" title="Form filled"><i class="fa-solid fa-camera"></i></span>
-            <span class="snapshot-marker pending" style="left: 95%;" title="Payment complete"><i class="fa-solid fa-camera"></i></span>
+            <span class="snapshot-marker" style="left: 5%;" title="Page load"
+                  data-action="click->session-replay#jumpToSnapshot" data-step="0"><i class="fa-solid fa-camera"></i></span>
+            <span class="snapshot-marker" style="left: 50%;" title="Newsletter section"
+                  data-action="click->session-replay#jumpToSnapshot" data-step="3"><i class="fa-solid fa-camera"></i></span>
+            <span class="snapshot-marker pending" style="left: 95%;" title="Subscribed"
+                  data-action="click->session-replay#jumpToSnapshot" data-step="5"><i class="fa-solid fa-camera"></i></span>
           </div>
-          <div class="timeline-playhead" data-session-replay-target="playhead" style="left: 20%;"></div>
+          <div class="timeline-playhead" data-session-replay-target="playhead" style="left: 0%;"></div>
         </div>
       </div>
       <div class="replay-buttons">
-        <button class="replay-btn"><i class="fa-solid fa-backward-step"></i></button>
-        <button class="replay-btn play-btn"><i class="fa-solid fa-pause"></i></button>
-        <button class="replay-btn"><i class="fa-solid fa-forward-step"></i></button>
-        <span class="replay-speed">1x</span>
-        <span class="replay-time" data-session-replay-target="stepCounter">Step 1/7</span>
+        <button class="replay-btn" data-action="click->session-replay#stepBackward" title="Previous step">
+          <i class="fa-solid fa-backward-step"></i>
+        </button>
+        <button class="replay-btn play-btn" data-session-replay-target="playPauseBtn" data-action="click->session-replay#togglePlayPause" title="Play/Pause">
+          <i class="fa-solid fa-pause" data-session-replay-target="playPauseIcon"></i>
+        </button>
+        <button class="replay-btn" data-action="click->session-replay#stepForward" title="Next step">
+          <i class="fa-solid fa-forward-step"></i>
+        </button>
+        <button class="replay-btn speed-btn" data-session-replay-target="speedBtn" data-action="click->session-replay#cycleSpeed" title="Playback speed">
+          <span data-session-replay-target="speedDisplay">1x</span>
+        </button>
+        <button class="replay-btn restart-btn" data-action="click->session-replay#restart" title="Restart">
+          <i class="fa-solid fa-rotate-left"></i>
+        </button>
+        <span class="replay-time" data-session-replay-target="stepCounter">Step 1/6</span>
       </div>
     </div>
   </div>
