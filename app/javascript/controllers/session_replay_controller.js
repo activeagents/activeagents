@@ -9,7 +9,8 @@ export default class extends Controller {
     "actionList", "timeline", "timelineProgress", "playhead",
     "traceLog", "handoffOverlay", "stepCounter", "cassetteBadge",
     "playPauseBtn", "playPauseIcon", "speedBtn", "speedDisplay",
-    "demoPage", "demoEmail", "demoSubscribe", "addressBar"
+    "demoPage", "demoEmail", "demoSubscribe", "addressBar",
+    "demoForm", "demoResponse"
   ]
 
   static values = {
@@ -362,6 +363,180 @@ export default class extends Controller {
     }
 
     this.updatePlayPauseIcon()
+  }
+
+  // Enable the demo form for user input (within the demo viewport)
+  enableDemoForm() {
+    this.userHasTakenOver = true
+    this.isPlaying = false
+    this.clearTimers()
+
+    if (this.hasHandoffOverlayTarget) {
+      this.handoffOverlayTarget.style.display = 'none'
+    }
+
+    // Hide the agent cursor
+    if (this.hasCursorTarget) {
+      this.cursorTarget.classList.add('hidden')
+    }
+
+    // Enable the email input and subscribe button within the demo
+    if (this.hasDemoEmailTarget) {
+      this.demoEmailTarget.removeAttribute('readonly')
+      this.demoEmailTarget.value = ''
+      this.demoEmailTarget.classList.add('user-editable')
+      this.demoEmailTarget.focus()
+    }
+
+    if (this.hasDemoSubscribeTarget) {
+      this.demoSubscribeTarget.disabled = false
+      this.demoSubscribeTarget.classList.add('user-clickable')
+    }
+
+    // Update cassette badge to show LIVE
+    if (this.hasCassetteBadgeTarget) {
+      this.cassetteBadgeTarget.innerHTML = '<i class="fa-solid fa-circle"></i> <span>LIVE</span>'
+      this.cassetteBadgeTarget.classList.add('live')
+    }
+
+    // Show trace log
+    this.addTraceEntry('handoff', 'User took over session')
+    if (this.hasTraceLogTarget) {
+      this.traceLogTarget.style.display = 'block'
+    }
+
+    this.updatePlayPauseIcon()
+    this.updateStepCounter()
+  }
+
+  // Handle demo newsletter form submission
+  submitDemoNewsletter(event) {
+    event.preventDefault()
+    if (!this.hasDemoEmailTarget) return
+
+    const email = this.demoEmailTarget.value.trim()
+    if (!email || !this.isValidEmail(email)) {
+      this.showDemoResponse('Please enter a valid email address.', 'error')
+      return
+    }
+
+    // Show loading state
+    const btnText = this.demoSubscribeTarget?.querySelector('.btn-text')
+    const btnLoading = this.demoSubscribeTarget?.querySelector('.btn-loading')
+    if (btnText) btnText.style.display = 'none'
+    if (btnLoading) btnLoading.style.display = 'inline'
+    if (this.hasDemoSubscribeTarget) this.demoSubscribeTarget.disabled = true
+
+    this.addTraceEntry('user_action', `Subscribing: ${email}`)
+
+    // Submit to Mailchimp via JSONP
+    // Using the real newsletter section's Mailchimp configuration
+    const mailchimpUrl = this.getMailchimpUrl(email)
+
+    // Create JSONP request
+    const callbackName = 'mailchimpCallback_' + Date.now()
+    window[callbackName] = (response) => {
+      delete window[callbackName]
+      this.handleMailchimpResponse(response, email)
+    }
+
+    const script = document.createElement('script')
+    script.src = mailchimpUrl + '&c=' + callbackName
+    script.onerror = () => {
+      delete window[callbackName]
+      this.handleMailchimpError()
+    }
+    document.body.appendChild(script)
+
+    // Timeout fallback
+    setTimeout(() => {
+      if (window[callbackName]) {
+        delete window[callbackName]
+        this.handleMailchimpError()
+      }
+    }, 10000)
+  }
+
+  getMailchimpUrl(email) {
+    // Uses the same Mailchimp config as the main newsletter form
+    // TODO: Update to correct Active Agent Mailchimp list
+    // Currently using: remoteworkera.us7.list-manage.com (WRONG - needs to be updated)
+    const baseUrl = 'https://remoteworkera.us7.list-manage.com/subscribe/post-json'
+    const params = new URLSearchParams({
+      u: 'a5e2d973d5bb834e4c2693a3f',
+      id: 'a1c5e41527',
+      f_id: '001d43e4f0',
+      EMAIL: email
+    })
+    return `${baseUrl}?${params.toString()}`
+  }
+
+  handleMailchimpResponse(response, email) {
+    // Reset button state
+    const btnText = this.demoSubscribeTarget?.querySelector('.btn-text')
+    const btnLoading = this.demoSubscribeTarget?.querySelector('.btn-loading')
+    if (btnText) btnText.style.display = 'inline'
+    if (btnLoading) btnLoading.style.display = 'none'
+
+    if (response.result === 'success') {
+      this.showDemoResponse('Thanks for subscribing!', 'success')
+      this.addTraceEntry('completion', 'Newsletter subscription successful')
+
+      // Complete the remaining steps
+      this.actions[4].status = 'completed'
+      this.actions[5].status = 'completed'
+      this.currentStep = 6
+      this.updateActionList()
+      this.updateTimeline(100)
+      this.updateSnapshotMarkers()
+
+      // Disable the form
+      if (this.hasDemoEmailTarget) {
+        this.demoEmailTarget.setAttribute('readonly', true)
+        this.demoEmailTarget.classList.remove('user-editable')
+      }
+      if (this.hasDemoSubscribeTarget) {
+        this.demoSubscribeTarget.disabled = true
+        this.demoSubscribeTarget.classList.remove('user-clickable')
+      }
+    } else {
+      // Handle Mailchimp error messages
+      let errorMsg = response.msg || 'Subscription failed. Please try again.'
+      // Clean up Mailchimp's error messages
+      if (errorMsg.includes('already subscribed')) {
+        errorMsg = 'You\'re already subscribed!'
+        this.showDemoResponse(errorMsg, 'success')
+        this.addTraceEntry('info', 'Already subscribed')
+      } else {
+        this.showDemoResponse(errorMsg, 'error')
+        this.addTraceEntry('error', errorMsg)
+        if (this.hasDemoSubscribeTarget) this.demoSubscribeTarget.disabled = false
+      }
+    }
+  }
+
+  handleMailchimpError() {
+    // Reset button state
+    const btnText = this.demoSubscribeTarget?.querySelector('.btn-text')
+    const btnLoading = this.demoSubscribeTarget?.querySelector('.btn-loading')
+    if (btnText) btnText.style.display = 'inline'
+    if (btnLoading) btnLoading.style.display = 'none'
+    if (this.hasDemoSubscribeTarget) this.demoSubscribeTarget.disabled = false
+
+    this.showDemoResponse('Network error. Please try again.', 'error')
+    this.addTraceEntry('error', 'Network error during subscription')
+  }
+
+  showDemoResponse(message, type) {
+    if (this.hasDemoResponseTarget) {
+      this.demoResponseTarget.textContent = message
+      this.demoResponseTarget.className = `demo-newsletter-response ${type}`
+      this.demoResponseTarget.style.display = 'block'
+    }
+  }
+
+  isValidEmail(email) {
+    return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)
   }
 
   takeOver() {

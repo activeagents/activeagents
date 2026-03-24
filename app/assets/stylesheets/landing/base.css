@@ -2793,6 +2793,54 @@ section:first-of-type {
   font-size: 10px;
 }
 
+/* Demo form response messages */
+.browser-viewport-hero .demo-newsletter-response {
+  display: none;
+  margin-top: 8px;
+  padding: 8px 12px;
+  border-radius: 4px;
+  font-size: 11px;
+  text-align: center;
+}
+
+.browser-viewport-hero .demo-newsletter-response.success {
+  display: block;
+  background: rgba(16, 185, 129, 0.2);
+  color: #10b981;
+  border: 1px solid rgba(16, 185, 129, 0.3);
+}
+
+.browser-viewport-hero .demo-newsletter-response.error {
+  display: block;
+  background: rgba(239, 68, 68, 0.2);
+  color: #ef4444;
+  border: 1px solid rgba(239, 68, 68, 0.3);
+}
+
+/* Interactive form states */
+.browser-viewport-hero .demo-email-input.user-editable {
+  background: #1f1f35;
+  border-color: var(--color-accent);
+  box-shadow: 0 0 0 2px rgba(250, 52, 59, 0.3);
+  cursor: text;
+}
+
+.browser-viewport-hero .demo-subscribe-btn.user-clickable {
+  background: var(--color-accent);
+  cursor: pointer;
+  animation: pulseButton 2s ease-in-out infinite;
+}
+
+.browser-viewport-hero .demo-subscribe-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+@keyframes pulseButton {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(250, 52, 59, 0.4); }
+  50% { box-shadow: 0 0 0 8px rgba(250, 52, 59, 0); }
+}
+
 /* Demo scroll animation */
 .browser-viewport-hero .demo-page-content.scrolled-to-features .demo-hero {
   transform: translateY(-100%);

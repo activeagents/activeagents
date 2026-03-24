@@ -5,7 +5,7 @@
       Build AI in Rails
     </h1>
     <p class="paragraph l secondary balanced">
-      Watch AI agents work. Take over anytime. Ship the Rails way.
+      Active Agents assist you, so you can focus on your product, and your customers don't even have to.
     </p>
     <div class="button-group margin-paragraph centered">
       <%= link_to "Getting Started", "https://docs.activeagents.ai/getting-started", class: "button primary" %>
@@ -42,15 +42,83 @@
            data-session-replay-target="viewport"
            data-action="mouseenter->session-replay#pauseOnHover mouseleave->session-replay#resumeOnLeave">
 
-        <%# Scaled iframe showing actual site - FullStory style %>
-        <div class="iframe-container" data-session-replay-target="iframeContainer">
-          <iframe
-            src="/?demo=true"
-            data-session-replay-target="demoIframe"
-            class="demo-iframe"
-            scrolling="no"
-            loading="lazy">
-          </iframe>
+        <%# Mini Active Agent Lander - Scrollable Content %>
+        <div class="demo-page-content" data-session-replay-target="demoPage">
+          <%# Mini Hero Section %>
+          <div class="demo-section demo-hero" data-section="hero">
+            <div class="demo-logo">
+              <i class="fa-solid fa-robot"></i>
+              <span>Active Agent</span>
+            </div>
+            <div class="demo-headline">Build AI in Rails</div>
+            <div class="demo-subheadline">Focus on your product.</div>
+            <div class="demo-buttons">
+              <span class="demo-btn primary">Get Started</span>
+              <span class="demo-btn secondary">Docs</span>
+            </div>
+          </div>
+
+          <%# Mini Features Section %>
+          <div class="demo-section demo-features" data-section="features">
+            <div class="demo-section-title">What's in the Box</div>
+            <div class="demo-feature-grid">
+              <div class="demo-feature-card">
+                <i class="fa-solid fa-code"></i>
+                <span>Agents are Controllers</span>
+              </div>
+              <div class="demo-feature-card">
+                <i class="fa-solid fa-bolt"></i>
+                <span>Streaming</span>
+              </div>
+              <div class="demo-feature-card">
+                <i class="fa-solid fa-plug"></i>
+                <span>MCP Support</span>
+              </div>
+            </div>
+          </div>
+
+          <%# Mini Pricing Section %>
+          <div class="demo-section demo-pricing" data-section="pricing">
+            <div class="demo-section-title">The Gems</div>
+            <div class="demo-pricing-cards">
+              <div class="demo-price-card">
+                <span class="demo-price-tier">Free</span>
+                <span class="demo-price">$0</span>
+              </div>
+              <div class="demo-price-card highlight">
+                <span class="demo-price-tier">Pro</span>
+                <span class="demo-price">$99/mo</span>
+              </div>
+            </div>
+          </div>
+
+          <%# Mini Newsletter Section - Interactive form for user signup %>
+          <div class="demo-section demo-newsletter" data-section="newsletter">
+            <div class="demo-section-title">Stay up to date</div>
+            <form class="demo-newsletter-form"
+                  id="demo-newsletter-form"
+                  data-session-replay-target="demoForm"
+                  data-action="submit->session-replay#submitDemoNewsletter">
+              <input type="email"
+                     name="EMAIL"
+                     class="demo-email-input"
+                     data-session-replay-target="demoEmail"
+                     placeholder="Enter your email"
+                     readonly
+                     required>
+              <button type="submit"
+                      class="demo-subscribe-btn"
+                      data-session-replay-target="demoSubscribe"
+                      disabled>
+                <span class="btn-text">Subscribe</span>
+                <span class="btn-loading" style="display: none;">
+                  <i class="fa-solid fa-spinner fa-spin"></i>
+                </span>
+              </button>
+            </form>
+            <div class="demo-newsletter-response" data-session-replay-target="demoResponse"></div>
+            <div class="demo-newsletter-hint">No spam. Unsubscribe anytime.</div>
+          </div>
         </div>
 
         <%# Agent Cursor %>
@@ -68,11 +136,11 @@
               <i class="fa-solid fa-envelope"></i>
             </div>
             <h3>Your turn!</h3>
-            <p>Enter your email and join the newsletter</p>
-            <button class="handoff-btn" data-action="click->session-replay#takeOverNewsletter">
-              <i class="fa-solid fa-arrow-down"></i> Go to Newsletter
+            <p>Enter your email below to subscribe</p>
+            <button class="handoff-btn" data-action="click->session-replay#enableDemoForm">
+              <i class="fa-solid fa-keyboard"></i> Enter Email
             </button>
-            <p class="handoff-hint">We'll scroll you right to it</p>
+            <p class="handoff-hint">The form is right there!</p>
           </div>
         </div>
       </div>
