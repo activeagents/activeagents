@@ -2,7 +2,7 @@
 
 module Api
   class SessionRecordingsController < BaseController
-    before_action :set_recording, only: [:show, :actions, :snapshot, :export, :handoff]
+    before_action :set_recording, only: [ :show, :actions, :snapshot, :export, :handoff ]
 
     # GET /api/session_recordings
     # List recordings with optional filters
@@ -25,7 +25,7 @@ module Api
 
       # Pagination
       page = (params[:page] || 1).to_i
-      per_page = [(params[:per_page] || 20).to_i, 100].min
+      per_page = [ (params[:per_page] || 20).to_i, 100 ].min
       offset = (page - 1) * per_page
 
       total = recordings.count
@@ -96,7 +96,7 @@ module Api
         actions = actions.where("sequence > ?", params[:after_sequence].to_i)
       end
 
-      limit = [params[:limit]&.to_i || 100, 500].min
+      limit = [ params[:limit]&.to_i || 100, 500 ].min
       actions = actions.limit(limit)
 
       render json: {

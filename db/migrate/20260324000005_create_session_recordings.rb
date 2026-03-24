@@ -26,7 +26,7 @@ class CreateSessionRecordings < ActiveRecord::Migration[8.0]
       t.timestamps
     end
 
-    add_index :recording_actions, [:session_recording_id, :sequence], unique: true
+    add_index :recording_actions, [ :session_recording_id, :sequence ], unique: true
 
     create_table :recording_snapshots do |t|
       t.references :session_recording, null: false, foreign_key: true

@@ -264,7 +264,7 @@ class KubernetesSandboxService
             securityContext: {
               allowPrivilegeEscalation: false,
               readOnlyRootFilesystem: false,
-              capabilities: { drop: ["ALL"] }
+              capabilities: { drop: [ "ALL" ] }
             },
 
             readinessProbe: {
