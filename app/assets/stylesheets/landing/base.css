@@ -2348,7 +2348,512 @@ section:first-of-type {
 
 /* === SESSION REPLAY === */
 
-/* Session Replay - VCR Cassette Style */
+/* Session Replay Hero - Large version for landing page hero */
+.session-replay-hero {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  max-width: 900px;
+  margin: 40px auto 0;
+  padding: 0 20px;
+}
+
+/* Browser + Sidebar side by side */
+.session-replay-hero-main {
+  display: flex;
+  gap: 16px;
+}
+
+.replay-browser-hero {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  background-color: #1a1a1a;
+  border-radius: 12px;
+  overflow: hidden;
+  border: 1px solid #252525;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+}
+
+.replay-browser-hero .browser-chrome {
+  display: flex;
+  align-items: center;
+  padding: 12px 16px;
+  background-color: #252525;
+  border-bottom: 1px solid #333;
+  gap: 12px;
+  flex-shrink: 0;
+}
+
+.replay-browser-hero .browser-dots {
+  display: flex;
+  gap: 6px;
+}
+
+.replay-browser-hero .browser-dots .dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background-color: #444;
+}
+
+.replay-browser-hero .browser-dots .dot:first-child {
+  background-color: #ff5f57;
+}
+
+.replay-browser-hero .browser-dots .dot:nth-child(2) {
+  background-color: #febc2e;
+}
+
+.replay-browser-hero .browser-dots .dot:nth-child(3) {
+  background-color: #28ca42;
+}
+
+.replay-browser-hero .browser-address {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 14px;
+  background-color: #1a1a1a;
+  border-radius: 6px;
+  font-size: 13px;
+  color: #888;
+}
+
+.replay-browser-hero .browser-address i {
+  color: #28ca42;
+}
+
+.replay-browser-hero .cassette-badge {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  background: linear-gradient(135deg, var(--color-accent), rgba(250, 52, 59, 0.7));
+  border-radius: 6px;
+  font-size: 11px;
+  font-weight: 700;
+  color: white;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
+.replay-browser-hero .cassette-badge i.recording {
+  animation: pulse 1s infinite;
+}
+
+.browser-viewport-hero {
+  position: relative;
+  padding: 40px 32px;
+  min-height: 320px;
+  background: linear-gradient(180deg, #0f0f23 0%, #1a1a2e 100%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.browser-viewport-hero .checkout-form {
+  width: 100%;
+  max-width: 320px;
+}
+
+.browser-viewport-hero .form-section {
+  margin-bottom: 14px;
+}
+
+.browser-viewport-hero .form-label {
+  display: block;
+  font-size: 11px;
+  font-weight: 500;
+  color: #6b7280;
+  margin-bottom: 6px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.browser-viewport-hero .form-input {
+  position: relative;
+  background-color: #1e1e2e;
+  border: 1px solid #333345;
+  border-radius: 6px;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.browser-viewport-hero .form-input.typing {
+  border-color: var(--color-accent);
+  box-shadow: 0 0 0 2px rgba(250, 52, 59, 0.2);
+}
+
+.browser-viewport-hero .card-field {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding-left: 12px;
+}
+
+.browser-viewport-hero .card-icon {
+  color: #5469d4;
+  font-size: 18px;
+  flex-shrink: 0;
+}
+
+.browser-viewport-hero .checkout-input {
+  flex: 1;
+  width: 100%;
+  padding: 12px;
+  background: transparent;
+  border: none;
+  color: #e5e7eb;
+  font-size: 14px;
+  font-family: var(--font-mono);
+  outline: none;
+  box-sizing: border-box;
+}
+
+.browser-viewport-hero .checkout-input:focus {
+  outline: none;
+}
+
+.browser-viewport-hero .checkout-input::placeholder {
+  color: #4b5563;
+}
+
+.browser-viewport-hero .checkout-input:disabled {
+  color: #e5e7eb;
+  -webkit-text-fill-color: #e5e7eb;
+  opacity: 1;
+}
+
+.browser-viewport-hero .form-row {
+  display: flex;
+  gap: 10px;
+}
+
+.browser-viewport-hero .form-section.half {
+  flex: 1;
+  min-width: 0;
+}
+
+.browser-viewport-hero .checkout-btn {
+  width: 100%;
+  padding: 14px 20px;
+  margin-top: 12px;
+  background: linear-gradient(135deg, #5469d4, #4358c9);
+  border: none;
+  border-radius: 6px;
+  color: white;
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.browser-viewport-hero .checkout-btn:disabled {
+  cursor: default;
+}
+
+.browser-viewport-hero .checkout-btn:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(84, 105, 212, 0.4);
+}
+
+/* User-editable state after handoff */
+.browser-viewport-hero .checkout-input.user-editable {
+  border: none;
+  background: transparent;
+}
+
+.browser-viewport-hero .form-input:has(.user-editable) {
+  border-color: #5469d4;
+  box-shadow: 0 0 0 2px rgba(84, 105, 212, 0.2);
+}
+
+/* Hero cursor positions */
+.browser-viewport-hero .agent-cursor {
+  position: absolute;
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+  z-index: 50;
+}
+
+.browser-viewport-hero .agent-cursor.at-card {
+  top: 85px;
+  right: 60px;
+}
+
+.browser-viewport-hero .agent-cursor.at-expiry {
+  top: 165px;
+  right: 220px;
+}
+
+.browser-viewport-hero .agent-cursor.at-cvc {
+  top: 165px;
+  right: 60px;
+}
+
+.browser-viewport-hero .agent-cursor.at-pay {
+  top: 235px;
+  right: 150px;
+}
+
+.browser-viewport-hero .agent-cursor .cursor-icon {
+  width: 20px;
+  height: 20px;
+  color: var(--color-accent);
+  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.5));
+}
+
+.browser-viewport-hero .agent-cursor .cursor-label {
+  padding: 4px 8px;
+  background: var(--color-accent);
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 600;
+  color: white;
+  white-space: nowrap;
+}
+
+.browser-viewport-hero .agent-cursor.hidden {
+  opacity: 0;
+}
+
+/* Hero sidebar */
+.replay-sidebar-hero {
+  width: 180px;
+  flex-shrink: 0;
+  background-color: #1a1a1a;
+  border-radius: 12px;
+  padding: 16px;
+  border: 1px solid #252525;
+  display: flex;
+  flex-direction: column;
+}
+
+.replay-sidebar-hero .sidebar-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid #252525;
+  margin-bottom: 12px;
+}
+
+.replay-sidebar-hero .cassette-icon {
+  color: var(--color-accent);
+}
+
+.replay-sidebar-hero .cassette-name {
+  font-size: 12px;
+  font-family: var(--font-mono);
+  color: #888;
+}
+
+.replay-sidebar-hero .action-list {
+  flex: 1;
+  overflow-y: auto;
+}
+
+.replay-sidebar-hero .action-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  font-size: 12px;
+  color: #666;
+  border-radius: 6px;
+  margin-bottom: 4px;
+  transition: all 0.15s ease;
+}
+
+.replay-sidebar-hero .action-item.completed {
+  color: #888;
+}
+
+.replay-sidebar-hero .action-item.active {
+  background-color: rgba(250, 52, 59, 0.15);
+  color: white;
+}
+
+.replay-sidebar-hero .action-item.pending {
+  color: #444;
+}
+
+.replay-sidebar-hero .action-icon {
+  width: 16px;
+  text-align: center;
+  font-size: 10px;
+}
+
+.replay-sidebar-hero .action-item.completed .action-icon {
+  color: #28ca42;
+}
+
+.replay-sidebar-hero .action-item.active .action-icon {
+  color: var(--color-accent);
+}
+
+.replay-sidebar-hero .action-text {
+  flex: 1;
+}
+
+.replay-sidebar-hero .action-status {
+  font-size: 10px;
+}
+
+.replay-sidebar-hero .action-item.completed .action-status {
+  color: #28ca42;
+}
+
+.replay-sidebar-hero .action-item.active .action-status {
+  color: var(--color-accent);
+  animation: pulse 1s infinite;
+}
+
+/* Hero controls */
+.replay-controls-hero {
+  grid-column: 1 / -1;
+  grid-row: 2;
+  background-color: #1a1a1a;
+  border-radius: 12px;
+  padding: 16px 20px;
+  border: 1px solid #252525;
+}
+
+.replay-controls-hero .replay-timeline {
+  margin-bottom: 12px;
+}
+
+.replay-controls-hero .timeline-track {
+  position: relative;
+  height: 8px;
+  background-color: #252525;
+  border-radius: 4px;
+  overflow: visible;
+}
+
+.replay-controls-hero .timeline-progress {
+  position: absolute;
+  top: 0;
+  left: 0;
+  height: 100%;
+  background: linear-gradient(90deg, var(--color-accent), rgba(250, 52, 59, 0.6));
+  border-radius: 4px;
+  transition: width 0.3s ease;
+}
+
+.replay-controls-hero .timeline-snapshots {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+}
+
+.replay-controls-hero .snapshot-marker {
+  position: absolute;
+  top: -6px;
+  transform: translateX(-50%);
+  width: 20px;
+  height: 20px;
+  background-color: #252525;
+  border: 2px solid var(--color-accent);
+  border-radius: 5px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 9px;
+  color: var(--color-accent);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.replay-controls-hero .snapshot-marker:hover {
+  background-color: var(--color-accent);
+  color: white;
+  transform: translateX(-50%) scale(1.1);
+}
+
+.replay-controls-hero .snapshot-marker.pending {
+  border-color: #444;
+  color: #444;
+}
+
+.replay-controls-hero .snapshot-marker.completed {
+  background-color: var(--color-accent);
+  color: white;
+}
+
+.replay-controls-hero .timeline-playhead {
+  position: absolute;
+  top: -4px;
+  width: 4px;
+  height: 16px;
+  background-color: white;
+  border-radius: 2px;
+  transform: translateX(-50%);
+  box-shadow: 0 0 8px rgba(255, 255, 255, 0.5);
+  transition: left 0.3s ease;
+}
+
+.replay-controls-hero .replay-buttons {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.replay-controls-hero .replay-btn {
+  width: 36px;
+  height: 36px;
+  border: none;
+  background-color: #252525;
+  color: #888;
+  border-radius: 6px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  transition: all 0.15s ease;
+}
+
+.replay-controls-hero .replay-btn:hover {
+  background-color: #333;
+  color: #ccc;
+}
+
+.replay-controls-hero .replay-btn.play-btn {
+  width: 44px;
+  height: 44px;
+  background-color: var(--color-accent);
+  color: white;
+  font-size: 16px;
+}
+
+.replay-controls-hero .replay-btn.play-btn:hover {
+  background-color: var(--color-accent-hover);
+}
+
+.replay-controls-hero .replay-speed {
+  font-size: 12px;
+  font-weight: 600;
+  color: #666;
+  padding: 6px 10px;
+  background-color: #252525;
+  border-radius: 4px;
+  margin-left: 10px;
+}
+
+.replay-controls-hero .replay-time {
+  font-size: 12px;
+  color: #666;
+  font-family: var(--font-mono);
+  margin-left: auto;
+}
+
+/* Session Replay - VCR Cassette Style (Product Preview version) */
 .preview-replay {
   display: flex;
   flex-direction: column;
@@ -2863,6 +3368,188 @@ section:first-of-type {
   color: #666;
   font-family: var(--font-mono);
   margin-left: auto;
+}
+
+/* Handoff Overlay - shown when agent pauses for user takeover */
+.handoff-overlay {
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.85);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
+  border-radius: inherit;
+  backdrop-filter: blur(4px);
+}
+
+.handoff-prompt {
+  background: linear-gradient(135deg, #1a1a2e, #16213e);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 12px;
+  padding: 24px 28px;
+  text-align: center;
+  max-width: 260px;
+  animation: handoffSlideIn 0.3s ease-out;
+}
+
+@keyframes handoffSlideIn {
+  from {
+    opacity: 0;
+    transform: scale(0.9) translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+.handoff-icon {
+  width: 48px;
+  height: 48px;
+  margin: 0 auto 12px;
+  background: linear-gradient(135deg, var(--color-accent), rgba(250, 52, 59, 0.7));
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 20px;
+  color: white;
+}
+
+.handoff-prompt h3 {
+  color: white;
+  font-size: 16px;
+  font-weight: 600;
+  margin-bottom: 8px;
+}
+
+.handoff-prompt p {
+  color: rgba(255, 255, 255, 0.7);
+  font-size: 12px;
+  margin-bottom: 16px;
+  line-height: 1.4;
+}
+
+.handoff-btn {
+  background: linear-gradient(135deg, var(--color-accent), #dc2626);
+  color: white;
+  border: none;
+  padding: 10px 20px;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.handoff-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(250, 52, 59, 0.4);
+}
+
+.handoff-hint {
+  font-size: 10px !important;
+  color: rgba(255, 255, 255, 0.4) !important;
+  margin-top: 12px !important;
+  margin-bottom: 0 !important;
+}
+
+/* Trace Log - shows user interactions after handoff */
+.trace-log {
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+  padding-top: 10px;
+  margin-top: 10px;
+}
+
+.trace-log-header {
+  font-size: 9px;
+  color: rgba(255, 255, 255, 0.5);
+  margin-bottom: 8px;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.trace-entries {
+  max-height: 100px;
+  overflow-y: auto;
+}
+
+.trace-entry {
+  font-size: 9px;
+  padding: 5px 7px;
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 4px;
+  margin-bottom: 4px;
+  display: flex;
+  gap: 6px;
+  align-items: flex-start;
+  animation: traceSlideIn 0.2s ease-out;
+}
+
+@keyframes traceSlideIn {
+  from {
+    opacity: 0;
+    transform: translateX(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+.trace-entry.handoff {
+  background: rgba(250, 52, 59, 0.15);
+  border-left: 2px solid var(--color-accent);
+}
+
+.trace-entry.user_input,
+.trace-entry.user_action {
+  background: rgba(59, 130, 246, 0.15);
+  border-left: 2px solid #3b82f6;
+}
+
+.trace-entry.completion {
+  background: rgba(40, 202, 66, 0.15);
+  border-left: 2px solid #28ca42;
+}
+
+.trace-type {
+  color: rgba(255, 255, 255, 0.4);
+  font-family: var(--font-mono);
+  flex-shrink: 0;
+}
+
+.trace-message {
+  color: rgba(255, 255, 255, 0.8);
+  word-break: break-word;
+}
+
+/* Cassette badge states */
+.cassette-badge.live {
+  background: linear-gradient(135deg, #3b82f6, #2563eb) !important;
+}
+
+.cassette-badge.live i {
+  animation: none;
+  color: white;
+}
+
+/* User-editable inputs after handoff */
+.checkout-input.user-editable {
+  border-color: #3b82f6 !important;
+  background: rgba(59, 130, 246, 0.1) !important;
+}
+
+.checkout-btn.user-clickable {
+  cursor: pointer !important;
+  opacity: 1 !important;
 }
 
 /* Animations */

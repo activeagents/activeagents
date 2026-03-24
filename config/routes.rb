@@ -98,6 +98,20 @@ Rails.application.routes.draw do
       end
     end
 
+    # Session recordings (playback and handoff)
+    resources :session_recordings, only: [ :index, :show, :destroy ] do
+      member do
+        get :actions
+        get "snapshot/:action_id", action: :snapshot, as: :snapshot
+        post :export
+        post :handoff
+      end
+      collection do
+        get :recent
+        get :demo
+      end
+    end
+
     resource :analytics, only: [ :show ], controller: "analytics", action: :index
 
     # Ragents benchmark results — accepts POSTed JSON from bin/bench

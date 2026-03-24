@@ -63,6 +63,7 @@ export const ICONS = {
     evaluations: '=',
     interactions: '<>',
     benchmarks: '%%',
+    replay: '[>]',
     docs: '?',
     github: '*',
   },

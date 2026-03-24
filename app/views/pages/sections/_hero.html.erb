@@ -5,7 +5,7 @@
       Build AI in Rails
     </h1>
     <p class="paragraph l secondary balanced">
-      Agents are Controllers. Ship AI the Rails way.
+      Watch AI agents work. Take over anytime. Ship the Rails way.
     </p>
     <div class="button-group margin-paragraph centered">
       <%= link_to "Getting Started", "https://docs.activeagents.ai/getting-started", class: "button primary" %>
@@ -14,165 +14,137 @@
     </div>
   </div>
 
-  <!-- Agent Builder Preview -->
-  <div class="agent-builder-hero" data-controller="agent-builder">
-    <div class="agent-preview-container">
-      <!-- Instructions pinned to hat like a brooch -->
-      <div class="agent-instructions-badge" data-agent-builder-target="instructions"></div>
+  <!-- Session Replay Hero - Interactive Demo -->
+  <div class="session-replay-hero"
+       data-controller="session-replay"
+       data-session-replay-handoff-enabled-value="true"
+       data-session-replay-handoff-step-value="4">
 
-      <!-- Base Logo -->
-      <div class="logo-container hero-logo">
-        <%= inline_svg("activeagent-hero.svg") %>
-      </div>
-
-      <!-- CLI Tools (left hand) -->
-      <div class="agent-tools-left" data-agent-builder-target="toolsLeft"></div>
-
-      <!-- MCP Services (right hand) -->
-      <div class="agent-tools-right" data-agent-builder-target="toolsRight"></div>
-
-      <!-- Speech bubbles for translation -->
-      <div class="agent-speech-left" data-agent-builder-target="speechLeft" style="display: none;">Hello</div>
-      <div class="agent-speech-right" data-agent-builder-target="speechRight" style="display: none;">Hola</div>
-    </div>
-
-    <!-- Quick Presets -->
-    <div class="agent-presets">
-      <button class="preset-btn active" data-action="click->agent-builder#selectPreset" data-preset="claude-code">
-        <span class="preset-icon">💻</span>
-        <span class="preset-label">Claude Code</span>
-      </button>
-      <button class="preset-btn" data-action="click->agent-builder#selectPreset" data-preset="web-scraper">
-        <span class="preset-icon">🎭</span>
-        <span class="preset-label">Web Scraper</span>
-      </button>
-      <button class="preset-btn" data-action="click->agent-builder#selectPreset" data-preset="research">
-        <span class="preset-icon">🔍</span>
-        <span class="preset-label">Research</span>
-      </button>
-      <button class="preset-btn" data-action="click->agent-builder#selectPreset" data-preset="polyglot">
-        <span class="preset-icon">🌍</span>
-        <span class="preset-label">Polyglot</span>
-      </button>
-      <button class="preset-btn" data-action="click->agent-builder#selectPreset" data-preset="data-analyst">
-        <span class="preset-icon">🗄️</span>
-        <span class="preset-label">Data Analyst</span>
-      </button>
-      <button class="preset-btn" data-action="click->agent-builder#selectPreset" data-preset="devops">
-        <span class="preset-icon">🐙</span>
-        <span class="preset-label">DevOps Bot</span>
-      </button>
-    </div>
-
-    <!-- Multi-Select Pickers -->
-    <div class="agent-selectors">
-      <!-- Instructions Selector (system/developer messages) -->
-      <div class="selector-group">
-        <span class="selector-label"><strong>Instructions:</strong></span>
-        <div class="selector-chips" data-agent-builder-target="instructionChips">
-          <button class="chip-btn selected" data-action="click->agent-builder#toggleInstruction" data-instruction="github">
-            <span class="chip-icon">🐙</span>
-            <span class="chip-label">GitHub</span>
-          </button>
-          <button class="chip-btn" data-action="click->agent-builder#toggleInstruction" data-instruction="ruby">
-            <span class="chip-icon">💎</span>
-            <span class="chip-label">Ruby</span>
-          </button>
-          <button class="chip-btn" data-action="click->agent-builder#toggleInstruction" data-instruction="rails">
-            <span class="chip-icon">🛤️</span>
-            <span class="chip-label">Rails</span>
-          </button>
-          <button class="chip-btn" data-action="click->agent-builder#toggleInstruction" data-instruction="aws">
-            <span class="chip-icon">☁️</span>
-            <span class="chip-label">AWS</span>
-          </button>
-          <button class="chip-btn" data-action="click->agent-builder#toggleInstruction" data-instruction="gcp">
-            <span class="chip-icon">🌐</span>
-            <span class="chip-label">GCP</span>
-          </button>
-          <button class="chip-btn" data-action="click->agent-builder#toggleInstruction" data-instruction="python">
-            <span class="chip-icon">🐍</span>
-            <span class="chip-label">Python</span>
-          </button>
-          <button class="chip-btn" data-action="click->agent-builder#toggleInstruction" data-instruction="typescript">
-            <span class="chip-icon">📘</span>
-            <span class="chip-label">TypeScript</span>
-          </button>
+    <!-- Browser + Sidebar Row -->
+    <div class="session-replay-hero-main">
+      <div class="replay-browser-hero">
+      <div class="browser-chrome">
+        <div class="browser-dots">
+          <span class="dot"></span><span class="dot"></span><span class="dot"></span>
+        </div>
+        <div class="browser-address">
+          <i class="fa-solid fa-lock"></i>
+          <span class="address-text">checkout.stripe.com/pay/cs_test_...</span>
+        </div>
+        <div class="cassette-badge" data-session-replay-target="cassetteBadge">
+          <i class="fa-solid fa-circle recording"></i>
+          <span>REC</span>
         </div>
       </div>
 
-      <!-- CLI Tools Selector (left hand) -->
-      <div class="selector-group">
-        <span class="selector-label"><strong>CLI Tools:</strong></span>
-        <div class="selector-chips" data-agent-builder-target="cliChips">
-          <button class="chip-btn selected" data-action="click->agent-builder#toggleCli" data-cli="bash">
-            <img src="images/mcp-logos/bash.svg" alt="Bash" class="chip-logo">
-            <span class="chip-label">Bash</span>
-          </button>
-          <button class="chip-btn selected" data-action="click->agent-builder#toggleCli" data-cli="git">
-            <img src="images/mcp-logos/git.svg" alt="Git" class="chip-logo">
-            <span class="chip-label">Git</span>
-          </button>
-          <button class="chip-btn" data-action="click->agent-builder#toggleCli" data-cli="ruby">
-            <img src="images/mcp-logos/ruby.svg" alt="Ruby" class="chip-logo">
-            <span class="chip-label">Ruby</span>
-          </button>
-          <button class="chip-btn" data-action="click->agent-builder#toggleCli" data-cli="gh">
-            <img src="images/mcp-logos/github.svg" alt="GitHub CLI" class="chip-logo">
-            <span class="chip-label">gh CLI</span>
-          </button>
+      <div class="browser-viewport-hero"
+           data-session-replay-target="viewport"
+           data-action="mouseenter->session-replay#pauseOnHover mouseleave->session-replay#resumeOnLeave">
+        <div class="page-content checkout-page">
+          <div class="checkout-form">
+            <div class="form-section">
+              <div class="form-label">Card number</div>
+              <div class="form-input card-field">
+                <span class="card-icon"><i class="fa-brands fa-cc-visa"></i></span>
+                <input type="text" class="checkout-input"
+                       data-session-replay-target="card"
+                       data-action="input->session-replay#trackUserInput"
+                       placeholder="4242 4242 4242 4242"
+                       disabled>
+              </div>
+            </div>
+            <div class="form-row">
+              <div class="form-section half">
+                <div class="form-label">Expiry</div>
+                <div class="form-input expiry-field">
+                  <input type="text" class="checkout-input"
+                         data-session-replay-target="expiry"
+                         data-action="input->session-replay#trackUserInput"
+                         placeholder="MM/YY"
+                         disabled>
+                </div>
+              </div>
+              <div class="form-section half">
+                <div class="form-label">CVC</div>
+                <div class="form-input cvc-field">
+                  <input type="text" class="checkout-input"
+                         data-session-replay-target="cvc"
+                         data-action="input->session-replay#trackUserInput"
+                         placeholder="123"
+                         disabled>
+                </div>
+              </div>
+            </div>
+            <button class="checkout-btn"
+                    data-session-replay-target="pay"
+                    data-action="click->session-replay#userPay"
+                    disabled>Pay $99.00</button>
+          </div>
         </div>
-      </div>
 
-      <!-- MCP Services Selector (right hand) -->
-      <div class="selector-group">
-        <span class="selector-label"><strong>MCP Services:</strong></span>
-        <div class="selector-chips" data-agent-builder-target="mcpChips">
-          <button class="chip-btn" data-action="click->agent-builder#toggleMcp" data-mcp="playwright">
-            <img src="images/mcp-logos/playwright.svg" alt="Playwright" class="chip-logo">
-            <span class="chip-label">Playwright</span>
-          </button>
-          <button class="chip-btn" data-action="click->agent-builder#toggleMcp" data-mcp="slack">
-            <img src="images/mcp-logos/slack.svg" alt="Slack" class="chip-logo">
-            <span class="chip-label">Slack</span>
-          </button>
-          <button class="chip-btn" data-action="click->agent-builder#toggleMcp" data-mcp="github">
-            <img src="images/mcp-logos/github.svg" alt="GitHub" class="chip-logo">
-            <span class="chip-label">GitHub</span>
-          </button>
-          <button class="chip-btn" data-action="click->agent-builder#toggleMcp" data-mcp="linear">
-            <img src="images/mcp-logos/linear.svg" alt="Linear" class="chip-logo">
-            <span class="chip-label">Linear</span>
-          </button>
-          <button class="chip-btn" data-action="click->agent-builder#toggleMcp" data-mcp="sentry">
-            <img src="images/mcp-logos/sentry.svg" alt="Sentry" class="chip-logo">
-            <span class="chip-label">Sentry</span>
-          </button>
-          <button class="chip-btn" data-action="click->agent-builder#toggleMcp" data-mcp="postgres">
-            <img src="images/mcp-logos/postgresql.svg" alt="PostgreSQL" class="chip-logo">
-            <span class="chip-label">Postgres</span>
-          </button>
-          <button class="chip-btn" data-action="click->agent-builder#toggleMcp" data-mcp="notion">
-            <img src="images/mcp-logos/notion.svg" alt="Notion" class="chip-logo">
-            <span class="chip-label">Notion</span>
-          </button>
-          <button class="chip-btn" data-action="click->agent-builder#toggleMcp" data-mcp="figma">
-            <img src="images/mcp-logos/figma.svg" alt="Figma" class="chip-logo">
-            <span class="chip-label">Figma</span>
-          </button>
-          <button class="chip-btn" data-action="click->agent-builder#toggleMcp" data-mcp="huggingface">
-            <img src="images/mcp-logos/huggingface.svg" alt="HuggingFace" class="chip-logo">
-            <span class="chip-label">HuggingFace</span>
-          </button>
+        <%# Agent Cursor %>
+        <div class="agent-cursor at-card" data-session-replay-target="cursor">
+          <svg class="cursor-icon" viewBox="0 0 24 24" fill="currentColor">
+            <path d="M4 4l16 8-7 2-2 7z"/>
+          </svg>
+          <span class="cursor-label">Agent</span>
+        </div>
+
+        <%# Handoff Overlay %>
+        <div class="handoff-overlay" data-session-replay-target="handoffOverlay" style="display: none;">
+          <div class="handoff-prompt">
+            <div class="handoff-icon">
+              <i class="fa-solid fa-hand"></i>
+            </div>
+            <h3>Agent paused</h3>
+            <p>Take over and complete the checkout yourself!</p>
+            <button class="handoff-btn" data-action="click->session-replay#takeOver">
+              <i class="fa-solid fa-play"></i> Take Over Session
+            </button>
+            <p class="handoff-hint">Your actions will be tracked in the trace log</p>
+          </div>
         </div>
       </div>
     </div>
 
-    <!-- Config Display -->
-    <div class="agent-config" data-agent-builder-target="config">
-      <span class="config-instructions"><strong>Instructions:</strong> <span data-agent-builder-target="configInstructions">🐙 GitHub</span></span>
-      <span class="config-tools"><strong>CLI:</strong> <span data-agent-builder-target="configCli">bash, git</span></span>
-      <span class="config-mcp"><strong>MCP:</strong> <span data-agent-builder-target="configMcp">None</span></span>
+    <div class="replay-sidebar-hero">
+      <div class="sidebar-header">
+        <span class="cassette-icon"><i class="fa-solid fa-tape"></i></span>
+        <span class="cassette-name">checkout_flow.vcr</span>
+      </div>
+      <div class="action-list" data-session-replay-target="actionList">
+        <%# Actions populated by Stimulus controller %>
+      </div>
+
+      <%# Trace Log %>
+      <div class="trace-log" data-session-replay-target="traceLog" style="display: none;">
+        <div class="trace-log-header">
+          <i class="fa-solid fa-wave-square"></i> Trace Log
+        </div>
+        <div class="trace-entries"></div>
+      </div>
+    </div>
+    </div><!-- /.session-replay-hero-main -->
+
+    <div class="replay-controls-hero">
+      <div class="replay-timeline" data-session-replay-target="timeline">
+        <div class="timeline-track">
+          <div class="timeline-progress" data-session-replay-target="timelineProgress" style="width: 20%;"></div>
+          <div class="timeline-snapshots">
+            <span class="snapshot-marker completed" style="left: 5%;" title="Initial load"><i class="fa-solid fa-camera"></i></span>
+            <span class="snapshot-marker" style="left: 50%;" title="Form filled"><i class="fa-solid fa-camera"></i></span>
+            <span class="snapshot-marker pending" style="left: 95%;" title="Payment complete"><i class="fa-solid fa-camera"></i></span>
+          </div>
+          <div class="timeline-playhead" data-session-replay-target="playhead" style="left: 20%;"></div>
+        </div>
+      </div>
+      <div class="replay-buttons">
+        <button class="replay-btn"><i class="fa-solid fa-backward-step"></i></button>
+        <button class="replay-btn play-btn"><i class="fa-solid fa-pause"></i></button>
+        <button class="replay-btn"><i class="fa-solid fa-forward-step"></i></button>
+        <span class="replay-speed">1x</span>
+        <span class="replay-time" data-session-replay-target="stepCounter">Step 1/7</span>
+      </div>
     </div>
   </div>
 

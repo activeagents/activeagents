@@ -15,6 +15,7 @@ export default function Sidebar({ currentView, onNavigate, agentCount }) {
   const observabilityItems = [
     { id: 'traces', label: 'Traces', icon: ICONS.nav.traces },
     { id: 'metrics', label: 'Metrics', icon: ICONS.nav.metrics },
+    { id: 'replay', label: 'Session Replay', icon: ICONS.nav.replay },
     { id: 'evaluations', label: 'Evaluations', icon: ICONS.nav.evaluations },
     { id: 'interactions', label: 'Interactions', icon: ICONS.nav.interactions },
     { id: 'benchmarks', label: 'Benchmarks', icon: ICONS.nav.benchmarks },

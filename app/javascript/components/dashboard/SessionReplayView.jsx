@@ -1,0 +1,657 @@
+import React, { useState, useEffect, useCallback, useRef } from 'react';
+import { useTheme } from '../../contexts/ThemeContext';
+import { TYPOGRAPHY } from '../../utils/designTokens';
+
+const ACTION_ICONS = {
+  navigate: '[->]',
+  click: '[*]',
+  type: '[T]',
+  form_fill: '[F]',
+  key_press: '[K]',
+  snapshot: '[S]',
+  hover: '[~]',
+  select: '[v]',
+  file_upload: '[^]',
+  dialog: '[!]',
+  evaluate: '[js]',
+  wait: '[..]',
+  scroll: '[|]',
+  drag: '[<>]',
+};
+
+const ACTION_COLORS = {
+  navigate: '#3b82f6',
+  click: '#ef4444',
+  type: '#10b981',
+  form_fill: '#8b5cf6',
+  key_press: '#f59e0b',
+  snapshot: '#06b6d4',
+  hover: '#ec4899',
+  select: '#6366f1',
+  file_upload: '#14b8a6',
+  dialog: '#f97316',
+  evaluate: '#a855f7',
+  wait: '#94a3b8',
+  scroll: '#64748b',
+  drag: '#ea580c',
+};
+
+export default function SessionReplayView({ recordingId, onHandoff, onClose }) {
+  const { darkMode } = useTheme();
+  const [recording, setRecording] = useState(null);
+  const [actions, setActions] = useState([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState(null);
+
+  // Playback state
+  const [isPlaying, setIsPlaying] = useState(false);
+  const [currentActionIndex, setCurrentActionIndex] = useState(0);
+  const [playbackSpeed, setPlaybackSpeed] = useState(1);
+  const [currentScreenshot, setCurrentScreenshot] = useState(null);
+
+  // Timeline ref for scrubbing
+  const timelineRef = useRef(null);
+  const playbackTimer = useRef(null);
+
+  // Load recording data
+  useEffect(() => {
+    loadRecording();
+  }, [recordingId]);
+
+  // Handle playback
+  useEffect(() => {
+    if (!isPlaying || actions.length === 0) {
+      if (playbackTimer.current) {
+        clearTimeout(playbackTimer.current);
+      }
+      return;
+    }
+
+    const currentAction = actions[currentActionIndex];
+    const nextAction = actions[currentActionIndex + 1];
+
+    if (!nextAction) {
+      // End of recording
+      setIsPlaying(false);
+      return;
+    }
+
+    const delay = (nextAction.timestamp_ms - currentAction.timestamp_ms) / playbackSpeed;
+
+    playbackTimer.current = setTimeout(() => {
+      setCurrentActionIndex(prev => prev + 1);
+    }, Math.max(delay, 50)); // Minimum 50ms between actions
+
+    return () => {
+      if (playbackTimer.current) {
+        clearTimeout(playbackTimer.current);
+      }
+    };
+  }, [isPlaying, currentActionIndex, actions, playbackSpeed]);
+
+  // Update screenshot when action changes
+  useEffect(() => {
+    const action = actions[currentActionIndex];
+    if (action?.screenshot_url) {
+      setCurrentScreenshot(action.screenshot_url);
+    }
+  }, [currentActionIndex, actions]);
+
+  const loadRecording = async () => {
+    setIsLoading(true);
+    setError(null);
+
+    try {
+      // If no recordingId, try to load demo recording
+      const url = recordingId
+        ? `/api/session_recordings/${recordingId}`
+        : '/api/session_recordings/demo';
+
+      const response = await fetch(url);
+      if (!response.ok) throw new Error('Failed to load recording');
+
+      const data = await response.json();
+      setRecording(data.recording);
+
+      // Load actions separately if we have a recording
+      if (data.recording?.id) {
+        const actionsResponse = await fetch(`/api/session_recordings/${data.recording.id}/actions`);
+        if (actionsResponse.ok) {
+          const actionsData = await actionsResponse.json();
+          setActions(actionsData.actions || data.recording.timeline || []);
+        } else {
+          setActions(data.recording.timeline || []);
+        }
+      }
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handlePlayPause = () => {
+    if (currentActionIndex >= actions.length - 1) {
+      // Reset to beginning if at end
+      setCurrentActionIndex(0);
+    }
+    setIsPlaying(!isPlaying);
+  };
+
+  const handleStepForward = () => {
+    setIsPlaying(false);
+    setCurrentActionIndex(prev => Math.min(prev + 1, actions.length - 1));
+  };
+
+  const handleStepBackward = () => {
+    setIsPlaying(false);
+    setCurrentActionIndex(prev => Math.max(prev - 1, 0));
+  };
+
+  const handleTimelineClick = (e) => {
+    if (!timelineRef.current || actions.length === 0) return;
+
+    const rect = timelineRef.current.getBoundingClientRect();
+    const clickX = e.clientX - rect.left;
+    const percentage = clickX / rect.width;
+    const targetTime = percentage * (recording?.duration_ms || actions[actions.length - 1]?.timestamp_ms || 0);
+
+    // Find closest action to clicked time
+    const closestIndex = actions.findIndex((action, idx) => {
+      const nextAction = actions[idx + 1];
+      return !nextAction || targetTime < nextAction.timestamp_ms;
+    });
+
+    setCurrentActionIndex(Math.max(0, closestIndex));
+    setIsPlaying(false);
+  };
+
+  const handleHandoff = async () => {
+    if (!recording?.id) return;
+
+    try {
+      const response = await fetch(`/api/session_recordings/${recording.id}/handoff`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' }
+      });
+
+      if (!response.ok) throw new Error('Handoff not available');
+
+      const data = await response.json();
+      if (onHandoff) {
+        onHandoff(data);
+      }
+    } catch (err) {
+      setError(err.message);
+    }
+  };
+
+  const formatTime = (ms) => {
+    if (!ms) return '0:00';
+    const seconds = Math.floor(ms / 1000);
+    const minutes = Math.floor(seconds / 60);
+    const remainingSeconds = seconds % 60;
+    return `${minutes}:${remainingSeconds.toString().padStart(2, '0')}`;
+  };
+
+  const currentAction = actions[currentActionIndex];
+  const progress = recording?.duration_ms
+    ? (currentAction?.timestamp_ms || 0) / recording.duration_ms * 100
+    : 0;
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-red-500"></div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="text-red-500">{error}</div>
+      </div>
+    );
+  }
+
+  if (!recording) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="text-gray-500">No recording available</div>
+      </div>
+    );
+  }
+
+  // Shared styles for dark mode
+  const containerStyle = darkMode ? {
+    background: 'linear-gradient(180deg, #1a1a2e 0%, #16213e 100%)',
+    borderRadius: '12px',
+    overflow: 'hidden',
+    minHeight: 'calc(100vh - 200px)',
+  } : {};
+
+  return (
+    <div
+      className={darkMode ? '' : 'bg-white rounded-xl border border-gray-200'}
+      style={containerStyle}
+    >
+      {/* Header */}
+      <div
+        className={darkMode ? '' : 'border-b border-gray-200 p-4'}
+        style={darkMode ? {
+          padding: '16px 24px',
+          borderBottom: '1px solid rgba(255,255,255,0.1)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+        } : { display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}
+      >
+        <div>
+          <h2
+            className={darkMode ? '' : 'text-xl font-semibold text-gray-900'}
+            style={darkMode ? { fontSize: '20px', fontWeight: '600', color: 'white', margin: 0 } : {}}
+          >
+            {recording.name || 'Session Replay'}
+          </h2>
+          <p
+            className={darkMode ? '' : 'text-sm text-gray-500 mt-1'}
+            style={darkMode ? { fontSize: '14px', color: 'rgba(255,255,255,0.6)', marginTop: '4px' } : {}}
+          >
+            {recording.action_count} actions | {formatTime(recording.duration_ms)} duration
+          </p>
+        </div>
+
+        <div className="flex items-center gap-3">
+          {recording.handoff_state && (
+            <button
+              onClick={handleHandoff}
+              className={darkMode
+                ? ''
+                : 'px-4 py-2 bg-gradient-to-r from-red-500 to-rose-500 text-white rounded-lg hover:from-red-600 hover:to-rose-600 font-medium'
+              }
+              style={darkMode ? {
+                padding: '10px 20px',
+                background: 'linear-gradient(90deg, #ef4444 0%, #f43f5e 100%)',
+                color: 'white',
+                borderRadius: '8px',
+                border: 'none',
+                fontWeight: '500',
+                cursor: 'pointer',
+                fontSize: '14px',
+              } : {}}
+            >
+              Take Over Session
+            </button>
+          )}
+          {onClose && (
+            <button
+              onClick={onClose}
+              className={darkMode ? '' : 'text-gray-400 hover:text-gray-600'}
+              style={darkMode ? { color: 'rgba(255,255,255,0.6)', background: 'none', border: 'none', cursor: 'pointer' } : {}}
+            >
+              <span style={{ fontSize: '20px' }}>x</span>
+            </button>
+          )}
+        </div>
+      </div>
+
+      {/* Main Content */}
+      <div
+        className={darkMode ? '' : 'flex h-[500px]'}
+        style={darkMode ? { display: 'flex', height: '500px' } : {}}
+      >
+        {/* Screenshot Viewport */}
+        <div
+          className={darkMode ? '' : 'flex-1 bg-gray-100 flex items-center justify-center relative'}
+          style={darkMode ? {
+            flex: 1,
+            background: 'rgba(0,0,0,0.3)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            position: 'relative',
+          } : {}}
+        >
+          {currentScreenshot ? (
+            <img
+              src={currentScreenshot}
+              alt="Session screenshot"
+              className="max-w-full max-h-full object-contain"
+            />
+          ) : (
+            <div
+              className={darkMode ? '' : 'text-gray-400'}
+              style={darkMode ? { color: 'rgba(255,255,255,0.4)' } : {}}
+            >
+              No screenshot at this action
+            </div>
+          )}
+
+          {/* Recording indicator */}
+          <div
+            className={darkMode ? '' : 'absolute top-4 left-4 flex items-center gap-2 bg-red-500 text-white px-3 py-1 rounded-full text-sm'}
+            style={darkMode ? {
+              position: 'absolute',
+              top: '16px',
+              left: '16px',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px',
+              background: '#ef4444',
+              color: 'white',
+              padding: '6px 12px',
+              borderRadius: '999px',
+              fontSize: '13px',
+            } : {}}
+          >
+            <span
+              className={isPlaying ? 'animate-pulse' : ''}
+              style={{ width: '8px', height: '8px', borderRadius: '50%', background: 'white' }}
+            />
+            {isPlaying ? 'Playing' : 'Paused'}
+          </div>
+
+          {/* Cursor indicator */}
+          {currentAction?.selector && (
+            <div
+              className={darkMode ? '' : 'absolute bottom-4 left-4 bg-black/75 text-white px-3 py-1 rounded text-sm font-mono'}
+              style={darkMode ? {
+                position: 'absolute',
+                bottom: '16px',
+                left: '16px',
+                background: 'rgba(0,0,0,0.75)',
+                color: 'white',
+                padding: '6px 12px',
+                borderRadius: '6px',
+                fontSize: '13px',
+                fontFamily: TYPOGRAPHY.mono,
+              } : {}}
+            >
+              {currentAction.selector}
+            </div>
+          )}
+        </div>
+
+        {/* Action Sidebar */}
+        <div
+          className={darkMode ? '' : 'w-80 border-l border-gray-200 flex flex-col'}
+          style={darkMode ? {
+            width: '320px',
+            borderLeft: '1px solid rgba(255,255,255,0.1)',
+            display: 'flex',
+            flexDirection: 'column',
+          } : {}}
+        >
+          {/* Actions List */}
+          <div
+            className={darkMode ? '' : 'flex-1 overflow-auto'}
+            style={darkMode ? { flex: 1, overflowY: 'auto' } : {}}
+          >
+            <div
+              className={darkMode ? '' : 'p-3 border-b border-gray-100 font-medium text-sm text-gray-700'}
+              style={darkMode ? {
+                padding: '12px 16px',
+                borderBottom: '1px solid rgba(255,255,255,0.1)',
+                fontWeight: '500',
+                fontSize: '14px',
+                color: 'rgba(255,255,255,0.8)',
+              } : {}}
+            >
+              Actions ({actions.length})
+            </div>
+
+            {actions.map((action, idx) => {
+              const isActive = idx === currentActionIndex;
+              const isPast = idx < currentActionIndex;
+              const color = ACTION_COLORS[action.action_type] || '#94a3b8';
+
+              return (
+                <div
+                  key={action.id || idx}
+                  onClick={() => {
+                    setCurrentActionIndex(idx);
+                    setIsPlaying(false);
+                  }}
+                  className={darkMode ? '' : `px-4 py-3 cursor-pointer border-b border-gray-50 hover:bg-gray-50 ${isActive ? 'bg-red-50 border-l-2 border-l-red-500' : ''}`}
+                  style={darkMode ? {
+                    padding: '12px 16px',
+                    cursor: 'pointer',
+                    borderBottom: '1px solid rgba(255,255,255,0.05)',
+                    background: isActive ? 'rgba(239, 68, 68, 0.15)' : 'transparent',
+                    borderLeft: isActive ? '3px solid #ef4444' : '3px solid transparent',
+                    opacity: isPast ? 0.6 : 1,
+                  } : { opacity: isPast ? 0.6 : 1 }}
+                >
+                  <div className="flex items-center gap-2">
+                    <span
+                      style={{
+                        color: color,
+                        fontFamily: TYPOGRAPHY.mono,
+                        fontSize: '12px',
+                        fontWeight: '600',
+                      }}
+                    >
+                      {ACTION_ICONS[action.action_type] || '[?]'}
+                    </span>
+                    <span
+                      className={darkMode ? '' : 'text-sm font-medium text-gray-900'}
+                      style={darkMode ? { fontSize: '14px', fontWeight: '500', color: 'white' } : {}}
+                    >
+                      {action.action_type}
+                    </span>
+                    <span
+                      className={darkMode ? '' : 'text-xs text-gray-400 ml-auto'}
+                      style={darkMode ? { fontSize: '12px', color: 'rgba(255,255,255,0.4)', marginLeft: 'auto' } : {}}
+                    >
+                      {formatTime(action.timestamp_ms)}
+                    </span>
+                  </div>
+                  {action.value && (
+                    <div
+                      className={darkMode ? '' : 'text-xs text-gray-500 mt-1 truncate'}
+                      style={darkMode ? {
+                        fontSize: '12px',
+                        color: 'rgba(255,255,255,0.5)',
+                        marginTop: '4px',
+                        overflow: 'hidden',
+                        textOverflow: 'ellipsis',
+                        whiteSpace: 'nowrap',
+                      } : {}}
+                    >
+                      {action.value.length > 50 ? action.value.substring(0, 50) + '...' : action.value}
+                    </div>
+                  )}
+                  {action.selector && (
+                    <div
+                      className={darkMode ? '' : 'text-xs text-blue-500 mt-1 font-mono truncate'}
+                      style={darkMode ? {
+                        fontSize: '11px',
+                        color: '#60a5fa',
+                        marginTop: '4px',
+                        fontFamily: TYPOGRAPHY.mono,
+                        overflow: 'hidden',
+                        textOverflow: 'ellipsis',
+                        whiteSpace: 'nowrap',
+                      } : {}}
+                    >
+                      {action.selector}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      </div>
+
+      {/* Playback Controls */}
+      <div
+        className={darkMode ? '' : 'border-t border-gray-200 p-4'}
+        style={darkMode ? {
+          borderTop: '1px solid rgba(255,255,255,0.1)',
+          padding: '16px 24px',
+        } : {}}
+      >
+        {/* Timeline */}
+        <div
+          ref={timelineRef}
+          onClick={handleTimelineClick}
+          className={darkMode ? '' : 'h-2 bg-gray-200 rounded-full mb-4 cursor-pointer relative'}
+          style={darkMode ? {
+            height: '8px',
+            background: 'rgba(255,255,255,0.1)',
+            borderRadius: '4px',
+            marginBottom: '16px',
+            cursor: 'pointer',
+            position: 'relative',
+          } : {}}
+        >
+          {/* Progress */}
+          <div
+            className={darkMode ? '' : 'absolute h-full bg-red-500 rounded-full'}
+            style={{
+              width: `${progress}%`,
+              height: '100%',
+              background: '#ef4444',
+              borderRadius: '4px',
+              position: 'absolute',
+            }}
+          />
+
+          {/* Action markers */}
+          {actions.map((action, idx) => {
+            const markerPosition = recording?.duration_ms
+              ? (action.timestamp_ms / recording.duration_ms) * 100
+              : 0;
+            const color = ACTION_COLORS[action.action_type] || '#94a3b8';
+
+            return (
+              <div
+                key={idx}
+                className={darkMode ? '' : 'absolute w-1 h-3 -top-0.5 transform -translate-x-1/2'}
+                style={{
+                  left: `${markerPosition}%`,
+                  width: '3px',
+                  height: '12px',
+                  top: '-2px',
+                  transform: 'translateX(-50%)',
+                  background: idx === currentActionIndex ? color : 'rgba(255,255,255,0.3)',
+                  borderRadius: '2px',
+                  position: 'absolute',
+                }}
+              />
+            );
+          })}
+        </div>
+
+        {/* Controls */}
+        <div
+          className={darkMode ? '' : 'flex items-center justify-between'}
+          style={darkMode ? { display: 'flex', alignItems: 'center', justifyContent: 'space-between' } : {}}
+        >
+          <div className="flex items-center gap-4">
+            {/* Playback buttons */}
+            <div className="flex items-center gap-2">
+              <button
+                onClick={handleStepBackward}
+                disabled={currentActionIndex === 0}
+                className={darkMode ? '' : 'p-2 rounded-lg bg-gray-100 hover:bg-gray-200 disabled:opacity-50'}
+                style={darkMode ? {
+                  padding: '8px 12px',
+                  background: 'rgba(255,255,255,0.1)',
+                  border: 'none',
+                  borderRadius: '8px',
+                  color: 'white',
+                  cursor: currentActionIndex === 0 ? 'not-allowed' : 'pointer',
+                  opacity: currentActionIndex === 0 ? 0.5 : 1,
+                } : {}}
+              >
+                {'<<'}
+              </button>
+
+              <button
+                onClick={handlePlayPause}
+                className={darkMode
+                  ? ''
+                  : 'p-3 rounded-full bg-red-500 text-white hover:bg-red-600'
+                }
+                style={darkMode ? {
+                  padding: '12px 24px',
+                  background: '#ef4444',
+                  border: 'none',
+                  borderRadius: '999px',
+                  color: 'white',
+                  cursor: 'pointer',
+                  fontWeight: '500',
+                } : {}}
+              >
+                {isPlaying ? 'Pause' : 'Play'}
+              </button>
+
+              <button
+                onClick={handleStepForward}
+                disabled={currentActionIndex >= actions.length - 1}
+                className={darkMode ? '' : 'p-2 rounded-lg bg-gray-100 hover:bg-gray-200 disabled:opacity-50'}
+                style={darkMode ? {
+                  padding: '8px 12px',
+                  background: 'rgba(255,255,255,0.1)',
+                  border: 'none',
+                  borderRadius: '8px',
+                  color: 'white',
+                  cursor: currentActionIndex >= actions.length - 1 ? 'not-allowed' : 'pointer',
+                  opacity: currentActionIndex >= actions.length - 1 ? 0.5 : 1,
+                } : {}}
+              >
+                {'>>'}
+              </button>
+            </div>
+
+            {/* Time display */}
+            <span
+              className={darkMode ? '' : 'text-sm text-gray-600 font-mono'}
+              style={darkMode ? {
+                fontSize: '14px',
+                color: 'rgba(255,255,255,0.7)',
+                fontFamily: TYPOGRAPHY.mono,
+              } : {}}
+            >
+              {formatTime(currentAction?.timestamp_ms || 0)} / {formatTime(recording?.duration_ms || 0)}
+            </span>
+          </div>
+
+          {/* Speed control */}
+          <div className="flex items-center gap-2">
+            <span
+              className={darkMode ? '' : 'text-sm text-gray-500'}
+              style={darkMode ? { fontSize: '14px', color: 'rgba(255,255,255,0.5)' } : {}}
+            >
+              Speed:
+            </span>
+            {[0.5, 1, 2, 4].map(speed => (
+              <button
+                key={speed}
+                onClick={() => setPlaybackSpeed(speed)}
+                className={darkMode
+                  ? ''
+                  : `px-2 py-1 rounded text-sm ${playbackSpeed === speed ? 'bg-red-500 text-white' : 'bg-gray-100 text-gray-600'}`
+                }
+                style={darkMode ? {
+                  padding: '4px 10px',
+                  background: playbackSpeed === speed ? '#ef4444' : 'rgba(255,255,255,0.1)',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '6px',
+                  cursor: 'pointer',
+                  fontSize: '13px',
+                } : {}}
+              >
+                {speed}x
+              </button>
+            ))}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
