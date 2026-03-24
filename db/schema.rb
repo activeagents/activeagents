@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.2].define(version: 2026_03_01_000004) do
+ActiveRecord::Schema[8.2].define(version: 2026_03_24_133121) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
 
@@ -31,6 +31,34 @@ ActiveRecord::Schema[8.2].define(version: 2026_03_01_000004) do
     t.bigint "owner_id", null: false
     t.datetime "updated_at", null: false
     t.index ["owner_id"], name: "index_accounts_on_owner_id"
+  end
+
+  create_table "active_storage_attachments", force: :cascade do |t|
+    t.bigint "blob_id", null: false
+    t.datetime "created_at", null: false
+    t.string "name", null: false
+    t.bigint "record_id", null: false
+    t.string "record_type", null: false
+    t.index ["blob_id"], name: "index_active_storage_attachments_on_blob_id"
+    t.index ["record_type", "record_id", "name", "blob_id"], name: "index_active_storage_attachments_uniqueness", unique: true
+  end
+
+  create_table "active_storage_blobs", force: :cascade do |t|
+    t.bigint "byte_size", null: false
+    t.string "checksum"
+    t.string "content_type"
+    t.datetime "created_at", null: false
+    t.string "filename", null: false
+    t.string "key", null: false
+    t.text "metadata"
+    t.string "service_name", null: false
+    t.index ["key"], name: "index_active_storage_blobs_on_key", unique: true
+  end
+
+  create_table "active_storage_variant_records", force: :cascade do |t|
+    t.bigint "blob_id", null: false
+    t.string "variation_digest", null: false
+    t.index ["blob_id", "variation_digest"], name: "index_active_storage_variant_records_uniqueness", unique: true
   end
 
   create_table "agent_runs", force: :cascade do |t|
@@ -333,6 +361,37 @@ ActiveRecord::Schema[8.2].define(version: 2026_03_01_000004) do
     t.index ["slug"], name: "index_plans_on_slug", unique: true
   end
 
+  create_table "recording_actions", force: :cascade do |t|
+    t.string "action_type", null: false
+    t.datetime "created_at", null: false
+    t.string "dom_snapshot_key"
+    t.json "metadata", default: {}
+    t.string "screenshot_key"
+    t.string "selector"
+    t.integer "sequence", null: false
+    t.bigint "session_recording_id", null: false
+    t.integer "timestamp_ms", null: false
+    t.datetime "updated_at", null: false
+    t.text "value"
+    t.index ["session_recording_id", "sequence"], name: "index_recording_actions_on_session_recording_id_and_sequence", unique: true
+    t.index ["session_recording_id"], name: "index_recording_actions_on_session_recording_id"
+  end
+
+  create_table "recording_snapshots", force: :cascade do |t|
+    t.datetime "created_at", null: false
+    t.integer "file_size_bytes"
+    t.integer "height"
+    t.bigint "recording_action_id"
+    t.bigint "session_recording_id", null: false
+    t.string "snapshot_type", null: false
+    t.string "storage_key", null: false
+    t.datetime "updated_at", null: false
+    t.integer "width"
+    t.index ["recording_action_id"], name: "index_recording_snapshots_on_recording_action_id"
+    t.index ["session_recording_id"], name: "index_recording_snapshots_on_session_recording_id"
+    t.index ["storage_key"], name: "index_recording_snapshots_on_storage_key", unique: true
+  end
+
   create_table "safe_agreements", force: :cascade do |t|
     t.bigint "account_id", null: false
     t.string "atlas_safe_id"
@@ -405,6 +464,20 @@ ActiveRecord::Schema[8.2].define(version: 2026_03_01_000004) do
     t.index ["user_id"], name: "index_sandbox_sessions_on_user_id"
   end
 
+  create_table "session_recordings", force: :cascade do |t|
+    t.integer "action_count", default: 0
+    t.bigint "agent_run_id"
+    t.datetime "created_at", null: false
+    t.integer "duration_ms"
+    t.json "metadata", default: {}
+    t.string "name"
+    t.bigint "sandbox_session_id"
+    t.integer "status", default: 0, null: false
+    t.datetime "updated_at", null: false
+    t.index ["agent_run_id"], name: "index_session_recordings_on_agent_run_id"
+    t.index ["sandbox_session_id"], name: "index_session_recordings_on_sandbox_session_id"
+  end
+
   create_table "sessions", force: :cascade do |t|
     t.datetime "created_at", null: false
     t.string "ip_address"
@@ -412,6 +485,18 @@ ActiveRecord::Schema[8.2].define(version: 2026_03_01_000004) do
     t.string "user_agent"
     t.bigint "user_id", null: false
     t.index ["user_id"], name: "index_sessions_on_user_id"
+  end
+
+  create_table "timeline_videos", force: :cascade do |t|
+    t.datetime "created_at", null: false
+    t.float "end_offset"
+    t.integer "position"
+    t.float "start_offset"
+    t.datetime "updated_at", null: false
+    t.bigint "video_id", null: false
+    t.bigint "video_timeline_id", null: false
+    t.index ["video_id"], name: "index_timeline_videos_on_video_id"
+    t.index ["video_timeline_id"], name: "index_timeline_videos_on_video_timeline_id"
   end
 
   create_table "users", force: :cascade do |t|
@@ -424,9 +509,51 @@ ActiveRecord::Schema[8.2].define(version: 2026_03_01_000004) do
     t.index ["email_address"], name: "index_users_on_email_address", unique: true
   end
 
+  create_table "video_events", force: :cascade do |t|
+    t.float "confidence"
+    t.datetime "created_at", null: false
+    t.text "description"
+    t.float "duration"
+    t.string "event_type"
+    t.string "keyframe_path"
+    t.jsonb "metadata"
+    t.float "timestamp"
+    t.string "title"
+    t.datetime "updated_at", null: false
+    t.bigint "video_id", null: false
+    t.index ["video_id"], name: "index_video_events_on_video_id"
+  end
+
+  create_table "video_timelines", force: :cascade do |t|
+    t.datetime "created_at", null: false
+    t.text "description"
+    t.string "title"
+    t.datetime "updated_at", null: false
+    t.bigint "user_id", null: false
+    t.index ["user_id"], name: "index_video_timelines_on_user_id"
+  end
+
+  create_table "videos", force: :cascade do |t|
+    t.datetime "analyzed_at"
+    t.datetime "created_at", null: false
+    t.text "description"
+    t.float "duration"
+    t.float "fps"
+    t.integer "height"
+    t.string "source_path"
+    t.string "status"
+    t.string "title"
+    t.datetime "updated_at", null: false
+    t.bigint "user_id", null: false
+    t.integer "width"
+    t.index ["user_id"], name: "index_videos_on_user_id"
+  end
+
   add_foreign_key "account_memberships", "accounts"
   add_foreign_key "account_memberships", "users"
   add_foreign_key "accounts", "users", column: "owner_id"
+  add_foreign_key "active_storage_attachments", "active_storage_blobs", column: "blob_id"
+  add_foreign_key "active_storage_variant_records", "active_storage_blobs", column: "blob_id"
   add_foreign_key "agent_runs", "agents"
   add_foreign_key "agent_versions", "agents"
   add_foreign_key "agents", "users"
@@ -445,9 +572,19 @@ ActiveRecord::Schema[8.2].define(version: 2026_03_01_000004) do
   add_foreign_key "pay_charges", "pay_subscriptions", column: "subscription_id"
   add_foreign_key "pay_payment_methods", "pay_customers", column: "customer_id"
   add_foreign_key "pay_subscriptions", "pay_customers", column: "customer_id"
+  add_foreign_key "recording_actions", "session_recordings"
+  add_foreign_key "recording_snapshots", "recording_actions"
+  add_foreign_key "recording_snapshots", "session_recordings"
   add_foreign_key "safe_agreements", "accounts"
   add_foreign_key "safe_agreements", "investors"
   add_foreign_key "sandbox_sessions", "agent_templates"
   add_foreign_key "sandbox_sessions", "users"
+  add_foreign_key "session_recordings", "agent_runs"
+  add_foreign_key "session_recordings", "sandbox_sessions"
   add_foreign_key "sessions", "users"
+  add_foreign_key "timeline_videos", "video_timelines"
+  add_foreign_key "timeline_videos", "videos"
+  add_foreign_key "video_events", "videos"
+  add_foreign_key "video_timelines", "users"
+  add_foreign_key "videos", "users"
 end

@@ -15,6 +15,7 @@ import EvaluationsView from '../components/dashboard/EvaluationsView';
 import InteractionsView from '../components/dashboard/InteractionsView';
 import SandboxRunner from '../components/dashboard/SandboxRunner';
 import BenchmarkView from '../components/dashboard/BenchmarkView';
+import SessionReplayView from '../components/dashboard/SessionReplayView';
 import { ThemeProvider, useTheme } from '../contexts/ThemeContext';
 
 /**
@@ -61,6 +62,8 @@ function DashboardContent({ user, initialAgents = [], meta = {} }) {
       if (id) loadAgent(id, 'runner');
     } else if (path.includes('/benchmarks')) {
       setCurrentView('benchmarks');
+    } else if (path.includes('/replay')) {
+      setCurrentView('replay');
     } else if (path.includes('/sandbox') || path.includes('/demo')) {
       setCurrentView('sandbox');
     }
@@ -214,6 +217,7 @@ function DashboardContent({ user, initialAgents = [], meta = {} }) {
     else if (view === 'evaluations') path = '/dashboard/evaluations';
     else if (view === 'interactions') path = '/dashboard/interactions';
     else if (view === 'benchmarks') path = '/dashboard/benchmarks';
+    else if (view === 'replay') path = '/dashboard/replay';
     else if (view === 'sandbox') path = '/dashboard/sandbox';
 
     window.history.pushState({}, '', path);
@@ -283,6 +287,17 @@ function DashboardContent({ user, initialAgents = [], meta = {} }) {
         return <InteractionsView />;
       case 'benchmarks':
         return <BenchmarkView />;
+      case 'replay':
+        return (
+          <SessionReplayView
+            onHandoff={(handoffData) => {
+              // When user takes over, navigate to sandbox with handoff state
+              showNotification('Taking over session...', 'info');
+              navigateTo('sandbox');
+            }}
+            onClose={() => navigateTo('list')}
+          />
+        );
       case 'sandbox':
         return (
           <SandboxRunner

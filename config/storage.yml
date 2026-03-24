@@ -32,3 +32,10 @@ local:
 #   service: Mirror
 #   primary: local
 #   mirrors: [ amazon, google, microsoft ]
+
+# Session recordings storage (uses GCS in production)
+# google_recordings:
+#   service: GCS
+#   project: <%= ENV['GCP_PROJECT_ID'] || 'active-agents-platform' %>
+#   credentials: <%= Rails.root.join("config/gcs_credentials.json") %>
+#   bucket: activeagents-recordings-<%= Rails.env %>
