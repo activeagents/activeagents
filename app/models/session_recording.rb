@@ -10,15 +10,21 @@ class SessionRecording < ApplicationRecord
   enum :status, { recording: 0, completed: 1, failed: 2 }
 
   validates :status, presence: true
-  validate :must_have_parent, unless: :demo_recording?
+  validate :must_have_parent, unless: -> { demo_recording? || user_session? }
 
   scope :recent, -> { order(created_at: :desc) }
   scope :for_agent, ->(agent_id) { joins(:agent_run).where(agent_runs: { agent_id: agent_id }) }
   scope :demo, -> { where(name: "lander_demo") }
+  scope :user_sessions, -> { where("name LIKE ?", "user_takeover_%") }
 
   # Check if this is a demo recording (doesn't require parent)
   def demo_recording?
     name&.start_with?("lander_") || name == "demo"
+  end
+
+  # Check if this is a user takeover session (doesn't require parent)
+  def user_session?
+    name&.start_with?("user_takeover_")
   end
 
   # Start a new recording session
@@ -29,6 +35,22 @@ class SessionRecording < ApplicationRecord
       name: name || generate_name(agent_run, sandbox_session),
       status: :recording,
       metadata: { started_at: Time.current.iso8601 }
+    )
+  end
+
+  # Start a user takeover session (for lander demo analytics)
+  def self.start_user_session!(visitor_id: nil, parent_demo_id: nil, page_url: nil)
+    create!(
+      name: "user_takeover_#{Time.current.strftime('%Y%m%d_%H%M%S')}_#{SecureRandom.hex(4)}",
+      status: :recording,
+      metadata: {
+        started_at: Time.current.iso8601,
+        session_type: "user_takeover",
+        visitor_id: visitor_id,
+        parent_demo_id: parent_demo_id,
+        page_url: page_url,
+        user_agent: nil # Will be set from request
+      }
     )
   end
 

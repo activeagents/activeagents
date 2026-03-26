@@ -2,6 +2,9 @@
 
 module Api
   class SessionRecordingsController < BaseController
+    # Allow unauthenticated access for user session tracking (lander analytics)
+    allow_unauthenticated_access only: [ :start_user_session, :record_action, :complete_session, :demo ]
+
     before_action :set_recording, only: [ :show, :actions, :snapshot, :export, :handoff ]
 
     # GET /api/session_recordings
@@ -140,6 +143,94 @@ module Api
       }
     end
 
+    # POST /api/session_recordings/start_user_session
+    # Start a new user takeover session for analytics
+    def start_user_session
+      recording = SessionRecording.start_user_session!(
+        visitor_id: params[:visitor_id] || generate_visitor_id,
+        parent_demo_id: params[:parent_demo_id],
+        page_url: params[:page_url]
+      )
+
+      # Set user agent from request
+      recording.update!(
+        metadata: recording.metadata.merge(
+          user_agent: request.user_agent,
+          ip_hash: Digest::SHA256.hexdigest(request.remote_ip.to_s)[0..16]
+        )
+      )
+
+      # Record the handoff action
+      recording.record_action!(
+        action_type: "handoff",
+        value: "User took over from agent demo",
+        metadata: {
+          source: "lander_demo",
+          step: params[:step] || 4
+        }
+      )
+
+      render json: {
+        recording_id: recording.id,
+        visitor_id: recording.metadata["visitor_id"],
+        message: "User session started"
+      }, status: :created
+    end
+
+    # POST /api/session_recordings/:id/record_action
+    # Record a user action in an active session
+    def record_action
+      recording = SessionRecording.find(params[:id])
+
+      unless recording.recording?
+        render json: { error: "Recording already completed" }, status: :unprocessable_entity
+        return
+      end
+
+      action = recording.record_action!(
+        action_type: params[:action_type],
+        selector: params[:selector],
+        value: params[:value],
+        metadata: params[:metadata]&.to_unsafe_h || {}
+      )
+
+      render json: {
+        action_id: action.id,
+        sequence: action.sequence,
+        timestamp_ms: action.timestamp_ms
+      }
+    end
+
+    # POST /api/session_recordings/:id/complete
+    # Complete a user session recording
+    def complete_session
+      recording = SessionRecording.find(params[:id])
+
+      unless recording.recording?
+        render json: { error: "Recording already completed" }, status: :unprocessable_entity
+        return
+      end
+
+      # Record the completion action
+      recording.record_action!(
+        action_type: "completion",
+        value: params[:completion_type] || "session_end",
+        metadata: {
+          email_submitted: params[:email_submitted],
+          success: params[:success]
+        }
+      )
+
+      recording.complete!
+
+      render json: {
+        recording_id: recording.id,
+        status: recording.status,
+        action_count: recording.action_count,
+        duration_ms: recording.duration_ms
+      }
+    end
+
     # POST /api/session_recordings/:id/handoff
     # Get handoff state to continue where agent left off
     def handoff
@@ -243,6 +334,12 @@ module Api
     def safe_metadata(metadata)
       # Remove sensitive data from metadata
       metadata.except("cookies", "session_storage", "local_storage")
+    end
+
+    def generate_visitor_id
+      # Generate a stable visitor ID based on IP and user agent
+      fingerprint = "#{request.remote_ip}:#{request.user_agent}"
+      "v_#{Digest::SHA256.hexdigest(fingerprint)[0..16]}"
     end
 
     def build_cassette(recording, format)

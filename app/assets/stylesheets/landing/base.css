@@ -2353,7 +2353,7 @@ section:first-of-type {
   display: flex;
   flex-direction: column;
   gap: 16px;
-  max-width: 900px;
+  max-width: 1200px;
   margin: 40px auto 0;
   padding: 0 20px;
 }
@@ -2445,12 +2445,126 @@ section:first-of-type {
 
 .browser-viewport-hero {
   position: relative;
-  padding: 40px 32px;
-  min-height: 320px;
+  padding: 0;
+  min-height: 400px;
+  height: 45vh;
+  max-height: 500px;
   background: linear-gradient(180deg, #0f0f23 0%, #1a1a2e 100%);
   display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+/* Fixed Mini Nav Bar inside mock browser */
+.browser-viewport-hero .demo-nav-bar {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 40;
+  display: flex;
   align-items: center;
-  justify-content: center;
+  justify-content: space-between;
+  padding: 10px 16px;
+  background: rgba(15, 15, 35, 0.95);
+  backdrop-filter: blur(8px);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.browser-viewport-hero .demo-nav-logo {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.browser-viewport-hero .demo-nav-logo i {
+  color: var(--color-accent);
+  font-size: 14px;
+}
+
+.browser-viewport-hero .demo-nav-logo span {
+  color: #e5e7eb;
+  font-weight: 600;
+  font-size: 12px;
+}
+
+.browser-viewport-hero .demo-nav-links {
+  display: flex;
+  gap: 12px;
+}
+
+.browser-viewport-hero .demo-nav-links span {
+  color: #6b7280;
+  font-size: 10px;
+  cursor: default;
+}
+
+.browser-viewport-hero .demo-hero-spacer {
+  height: 8px;
+}
+
+/* Iframe mode - shows the real lander */
+.browser-viewport-hero .lander-iframe-container {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  background: linear-gradient(180deg, #0f0f23 0%, #1a1a2e 100%);
+}
+
+.browser-viewport-hero .lander-iframe {
+  /* Scale factor: 0.35 = shows page at 35% size to fit newsletter form nicely
+     The iframe is 10000px tall to render full page content including newsletter (~7500px down)
+     Position is animated via JS using top property to simulate scrolling */
+  --scale: 0.35;
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: calc(100% / var(--scale));
+  height: 10000px; /* Tall enough to render newsletter section at y=7500+ */
+  border: none;
+  transform: scale(var(--scale));
+  transform-origin: top left;
+  pointer-events: none;
+  background: var(--color-background, white);
+  transition: top 0.8s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Allow interaction when user takes over */
+.browser-viewport-hero.user-controlled .lander-iframe {
+  pointer-events: auto;
+}
+
+/* Cursor overlay for iframe mode - positions relative to scaled content */
+.browser-viewport-hero .agent-cursor {
+  z-index: 50;
+  /* Scale cursor positions to match iframe scale */
+  transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Iframe cursor positions (scaled coordinates for 0.35 scale) */
+.browser-viewport-hero .agent-cursor.iframe-hero {
+  top: 15%;
+  left: 40%;
+}
+
+.browser-viewport-hero .agent-cursor.iframe-scrolling {
+  top: 30%;
+  left: 45%;
+}
+
+.browser-viewport-hero .agent-cursor.iframe-newsletter {
+  top: 20%;
+  left: 45%;
+}
+
+.browser-viewport-hero .agent-cursor.iframe-email {
+  top: 32%;
+  left: 30%;
+}
+
+.browser-viewport-hero .agent-cursor.iframe-subscribe {
+  top: 38%;
+  left: 55%;
 }
 
 .browser-viewport-hero .checkout-form {
@@ -2579,19 +2693,20 @@ section:first-of-type {
   position: relative;
   display: flex;
   flex-direction: column;
+  padding-top: 40px; /* Space for fixed nav bar */
+  transition: transform 0.6s ease;
 }
 
 .browser-viewport-hero .demo-section {
   padding: 16px 20px;
   flex-shrink: 0;
-  transition: transform 0.6s ease;
 }
 
 /* Mini Hero Section */
 .browser-viewport-hero .demo-hero {
   text-align: center;
-  padding: 24px 20px 20px;
-  min-height: 140px;
+  padding: 16px 20px 20px;
+  min-height: 120px;
 }
 
 .browser-viewport-hero .demo-logo {
@@ -2932,7 +3047,7 @@ section:first-of-type {
 
 /* Hero sidebar */
 .replay-sidebar-hero {
-  width: 180px;
+  width: 240px;
   flex-shrink: 0;
   background-color: #1a1a1a;
   border-radius: 12px;

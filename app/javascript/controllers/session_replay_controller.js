@@ -10,14 +10,16 @@ export default class extends Controller {
     "traceLog", "handoffOverlay", "stepCounter", "cassetteBadge",
     "playPauseBtn", "playPauseIcon", "speedBtn", "speedDisplay",
     "demoPage", "demoEmail", "demoSubscribe", "addressBar",
-    "demoForm", "demoResponse"
+    "demoForm", "demoResponse",
+    "landerIframe", "iframeContainer"
   ]
 
   static values = {
     recordingId: Number,
     handoffEnabled: { type: Boolean, default: true },
     handoffStep: { type: Number, default: 4 },
-    demoMode: { type: String, default: "newsletter" }
+    demoMode: { type: String, default: "newsletter" },
+    landerUrl: { type: String, default: "" }
   }
 
   connect() {
@@ -31,9 +33,12 @@ export default class extends Controller {
     this.playbackSpeed = 1
     this.speeds = [0.5, 1, 1.5, 2]
     this.speedIndex = 1
+    this.userSessionId = null // Track the user's session recording ID
 
     // Setup based on demo mode
-    if (this.demoModeValue === "newsletter") {
+    if (this.demoModeValue === "iframe") {
+      this.setupIframeDemo()
+    } else if (this.demoModeValue === "newsletter") {
       this.setupNewsletterDemo()
     } else {
       this.setupCheckoutDemo()
@@ -43,6 +48,41 @@ export default class extends Controller {
     this.updatePlayPauseIcon()
 
     setTimeout(() => this.runAnimation(), 800)
+  }
+
+  setupIframeDemo() {
+    // Iframe mode - shows real lander with agent cursor overlay
+    // Scroll positions are in original page pixels, converted to scaled offset via scrollIframeTo()
+    // Scale factor is 0.35, viewport ~500px, so visible area is ~1428px of original page
+    // Newsletter section is around y=3500+ on the page
+    this.iframeScale = 0.35
+    this.iframeScrollPositions = [
+      { y: 0 },      // Step 0-1: Hero
+      { y: 0 },      // Step 1: Still at hero (snapshot)
+      { y: 1200 },   // Step 2: Scroll to features
+      { y: 7200 },   // Step 3: Scroll to newsletter ("Stay up to date" is at y=7460)
+      { y: 7200 },   // Step 4: Click email (still at newsletter)
+      { y: 7200 },   // Step 5: Type email (still at newsletter)
+    ]
+
+    // Cursor CSS classes for each step
+    this.iframeCursorClasses = [
+      'iframe-hero',       // Step 0: Navigate
+      'iframe-hero',       // Step 1: Snapshot
+      'iframe-scrolling',  // Step 2: Scrolling
+      'iframe-newsletter', // Step 3: At newsletter
+      'iframe-email',      // Step 4: Click email
+      'iframe-subscribe',  // Step 5: Type & subscribe
+    ]
+
+    this.actions = [
+      { type: 'navigate', text: 'navigate', status: 'completed' },
+      { type: 'snapshot', text: 'snapshot', status: 'completed' },
+      { type: 'scroll', text: 'scroll down', status: 'pending' },
+      { type: 'scroll', text: 'scroll to newsletter', status: 'pending' },
+      { type: 'click', text: 'click email', status: 'pending' },
+      { type: 'type', text: 'type email', status: 'pending' },
+    ]
   }
 
   setupNewsletterDemo() {
@@ -206,7 +246,9 @@ export default class extends Controller {
       this.handoffOverlayTarget.style.display = 'none'
     }
 
-    if (this.demoModeValue === "newsletter") {
+    if (this.demoModeValue === "iframe") {
+      this.jumpToIframeStep(targetStep)
+    } else if (this.demoModeValue === "newsletter") {
       this.jumpToNewsletterStep(targetStep)
     } else {
       this.jumpToCheckoutStep(targetStep)
@@ -217,6 +259,34 @@ export default class extends Controller {
     this.updateTimeline(this.stepToPercent(targetStep))
     this.updateStepCounter()
     this.updateSnapshotMarkers()
+  }
+
+  jumpToIframeStep(targetStep) {
+    // Scroll the iframe content to simulate agent scrolling by moving iframe position
+    if (this.hasLanderIframeTarget && this.iframeScrollPositions) {
+      const scrollPos = this.iframeScrollPositions[Math.min(targetStep, this.iframeScrollPositions.length - 1)]
+      this.scrollIframeTo(scrollPos.y)
+    }
+
+    // Position the cursor using CSS classes
+    if (this.hasCursorTarget && this.iframeCursorClasses) {
+      // Remove all iframe cursor classes
+      this.cursorTarget.className = 'agent-cursor'
+      // Add the class for current step
+      const cursorClass = this.iframeCursorClasses[Math.min(targetStep, this.iframeCursorClasses.length - 1)]
+      this.cursorTarget.classList.add(cursorClass)
+      this.cursorTarget.classList.remove('hidden')
+    }
+
+    // Update action statuses
+    this.actions.forEach((action, idx) => {
+      action.status = idx < targetStep ? 'completed' : idx === targetStep ? 'active' : 'pending'
+    })
+
+    if (this.hasCassetteBadgeTarget) {
+      this.cassetteBadgeTarget.innerHTML = '<i class="fa-solid fa-circle recording"></i> <span>REC</span>'
+      this.cassetteBadgeTarget.classList.remove('live')
+    }
   }
 
   jumpToNewsletterStep(targetStep) {
@@ -338,6 +408,9 @@ export default class extends Controller {
 
   // ==================== Handoff ====================
 
+  // Take over the session - enable user interaction within the demo viewport
+  // For iframe mode: enable pointer-events on iframe so user can interact
+  // For other modes: scroll to real newsletter section
   takeOverNewsletter() {
     this.userHasTakenOver = true
     this.isPlaying = false
@@ -347,22 +420,241 @@ export default class extends Controller {
       this.handoffOverlayTarget.style.display = 'none'
     }
 
-    // Scroll to real newsletter section
-    const newsletterSection = document.querySelector('#newsletter')
-    if (newsletterSection) {
-      newsletterSection.scrollIntoView({ behavior: 'smooth' })
-      setTimeout(() => {
-        const emailInput = document.querySelector('#newsletter-email')
-        if (emailInput) emailInput.focus()
-      }, 800)
+    // Hide the agent cursor
+    if (this.hasCursorTarget) {
+      this.cursorTarget.classList.add('hidden')
     }
 
+    // Update cassette badge to show LIVE (recording user interactions)
     if (this.hasCassetteBadgeTarget) {
-      this.cassetteBadgeTarget.innerHTML = '<i class="fa-solid fa-circle"></i> <span>DONE</span>'
+      this.cassetteBadgeTarget.innerHTML = '<i class="fa-solid fa-circle"></i> <span>LIVE</span>'
       this.cassetteBadgeTarget.classList.add('live')
     }
 
-    this.updatePlayPauseIcon()
+    // Start user session recording in database
+    this.startUserSessionRecording()
+
+    // Add trace entry
+    this.addTraceEntry('handoff', 'User took over session')
+
+    // Handle iframe mode - enable interaction within the iframe
+    if (this.demoModeValue === "iframe" && this.hasLanderIframeTarget) {
+      // Add class to viewport to enable pointer-events on iframe
+      if (this.hasViewportTarget) {
+        this.viewportTarget.classList.add('user-controlled')
+      }
+
+      // Setup iframe interaction tracking
+      this.setupIframeInteractionTracking()
+
+      // Focus the email input inside the iframe after a short delay
+      setTimeout(() => {
+        try {
+          const iframeDoc = this.landerIframeTarget.contentDocument || this.landerIframeTarget.contentWindow.document
+          const emailInput = iframeDoc.querySelector('#newsletter input[type="email"], input[type="email"]')
+          if (emailInput) {
+            emailInput.focus()
+            this.recordUserAction('focus', '#newsletter input[type="email"]', 'Focused email input')
+          }
+        } catch (e) {
+          // Cross-origin access might fail, that's ok
+          console.log('Could not focus iframe input:', e)
+        }
+      }, 100)
+
+      // Show trace log
+      if (this.hasTraceLogTarget) {
+        this.traceLogTarget.style.display = 'block'
+      }
+
+      this.updatePlayPauseIcon()
+      this.updateStepCounter()
+      return
+    }
+
+    // For non-iframe modes: scroll to the real newsletter section on the main page
+    this.startUserInteractionRecording()
+
+    const newsletterSection = document.querySelector('#newsletter')
+    if (newsletterSection) {
+      newsletterSection.scrollIntoView({ behavior: 'smooth', block: 'center' })
+      // Focus the email input after scrolling
+      setTimeout(() => {
+        const emailInput = newsletterSection.querySelector('input[type="email"]')
+        if (emailInput) {
+          emailInput.focus()
+          this.recordUserAction('focus', '#newsletter input[type="email"]', 'Focused email input')
+        }
+      }, 800)
+    } else {
+      // If no newsletter section, scroll to footer or signup
+      window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' })
+    }
+  }
+
+  // Start a new user session recording in the database
+  async startUserSessionRecording() {
+    try {
+      const response = await fetch('/api/session_recordings/start_user_session', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-CSRF-Token': this.getCSRFToken()
+        },
+        body: JSON.stringify({
+          page_url: window.location.href,
+          step: this.currentStep,
+          parent_demo_id: this.recordingIdValue || null
+        })
+      })
+
+      if (response.ok) {
+        const data = await response.json()
+        this.userSessionId = data.recording_id
+        console.log('User session started:', this.userSessionId)
+      } else {
+        console.error('Failed to start user session:', response.status)
+      }
+    } catch (error) {
+      console.error('Error starting user session:', error)
+    }
+  }
+
+  // Record a user action to the database
+  async recordUserAction(actionType, selector = null, value = null, metadata = {}) {
+    // Always add to trace log
+    this.addTraceEntry(actionType, value || selector || actionType)
+
+    // If we have a session, record to database
+    if (!this.userSessionId) return
+
+    try {
+      await fetch(`/api/session_recordings/${this.userSessionId}/record_action`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-CSRF-Token': this.getCSRFToken()
+        },
+        body: JSON.stringify({
+          action_type: actionType,
+          selector: selector,
+          value: value,
+          metadata: metadata
+        })
+      })
+    } catch (error) {
+      console.error('Error recording action:', error)
+    }
+  }
+
+  // Complete the user session recording
+  async completeUserSession(completionType = 'session_end', emailSubmitted = false, success = false) {
+    if (!this.userSessionId) return
+
+    try {
+      const response = await fetch(`/api/session_recordings/${this.userSessionId}/complete`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-CSRF-Token': this.getCSRFToken()
+        },
+        body: JSON.stringify({
+          completion_type: completionType,
+          email_submitted: emailSubmitted,
+          success: success
+        })
+      })
+
+      if (response.ok) {
+        const data = await response.json()
+        console.log('User session completed:', data)
+      }
+    } catch (error) {
+      console.error('Error completing session:', error)
+    }
+  }
+
+  // Setup tracking for interactions within the iframe
+  setupIframeInteractionTracking() {
+    if (!this.hasLanderIframeTarget) return
+
+    try {
+      const iframeDoc = this.landerIframeTarget.contentDocument || this.landerIframeTarget.contentWindow.document
+
+      // Track email input
+      const emailInput = iframeDoc.querySelector('#newsletter input[type="email"], input[type="email"]')
+      if (emailInput) {
+        emailInput.addEventListener('input', this.throttle(() => {
+          this.recordUserAction('type', '#newsletter input[type="email"]', 'Typing email')
+        }, 2000))
+      }
+
+      // Track form submission
+      const form = iframeDoc.querySelector('#newsletter-form, form')
+      if (form) {
+        form.addEventListener('submit', (e) => {
+          const email = emailInput?.value || ''
+          const maskedEmail = email ? email.substring(0, 3) + '***' : 'empty'
+          this.recordUserAction('submit', '#newsletter-form', `Submitted: ${maskedEmail}`, { email_provided: !!email })
+          this.completeUserSession('newsletter_signup', true, true)
+        })
+      }
+    } catch (e) {
+      console.log('Could not setup iframe tracking:', e)
+    }
+  }
+
+  // Get CSRF token for API calls
+  getCSRFToken() {
+    const meta = document.querySelector('meta[name="csrf-token"]')
+    return meta ? meta.content : ''
+  }
+
+  // Record user interactions during handoff for agent handback
+  startUserInteractionRecording() {
+    // Track scroll events
+    this.userScrollHandler = () => {
+      this.recordUserAction('scroll', null, `${window.scrollY}px`)
+    }
+    window.addEventListener('scroll', this.throttle(this.userScrollHandler, 2000), { passive: true })
+
+    // Track newsletter form interactions
+    const newsletterForm = document.querySelector('#newsletter-form')
+    if (newsletterForm) {
+      const emailInput = newsletterForm.querySelector('input[type="email"]')
+      if (emailInput) {
+        emailInput.addEventListener('input', this.throttle(() => {
+          this.recordUserAction('type', '#newsletter input[type="email"]', 'Typing email')
+        }, 2000))
+        emailInput.addEventListener('focus', () => {
+          this.recordUserAction('focus', '#newsletter input[type="email"]', 'Focused email')
+        })
+      }
+
+      newsletterForm.addEventListener('submit', (e) => {
+        const email = emailInput?.value || ''
+        const maskedEmail = email ? email.substring(0, 3) + '***' : 'empty'
+        this.recordUserAction('submit', '#newsletter-form', `Submitted: ${maskedEmail}`, { email_provided: !!email })
+        this.completeUserSession('newsletter_signup', true, true)
+      })
+    }
+
+    // Show trace log to display user actions
+    if (this.hasTraceLogTarget) {
+      this.traceLogTarget.style.display = 'block'
+    }
+  }
+
+  // Throttle helper for scroll events
+  throttle(func, limit) {
+    let inThrottle
+    return function(...args) {
+      if (!inThrottle) {
+        func.apply(this, args)
+        inThrottle = true
+        setTimeout(() => inThrottle = false, limit)
+      }
+    }
   }
 
   // Enable the demo form for user input (within the demo viewport)
@@ -682,10 +974,154 @@ export default class extends Controller {
   }
 
   runAnimation() {
-    if (this.demoModeValue === "newsletter") {
+    if (this.demoModeValue === "iframe") {
+      this.runIframeAnimation()
+    } else if (this.demoModeValue === "newsletter") {
       this.runNewsletterAnimation()
     } else {
       this.runCheckoutAnimation()
+    }
+  }
+
+  runIframeAnimation() {
+    // Reset to initial state
+    this.actions.forEach((action, idx) => action.status = 'pending')
+    this.currentStep = 0
+    this.updateActionList()
+    this.updateTimeline(5)
+    this.updateStepCounter()
+    this.updateSnapshotMarkers()
+
+    if (this.hasCassetteBadgeTarget) {
+      this.cassetteBadgeTarget.innerHTML = '<i class="fa-solid fa-circle recording"></i> <span>REC</span>'
+      this.cassetteBadgeTarget.classList.remove('live')
+    }
+
+    // Position cursor at hero
+    if (this.hasCursorTarget) {
+      this.cursorTarget.className = 'agent-cursor iframe-hero'
+      this.cursorTarget.classList.remove('hidden')
+    }
+
+    // Scroll iframe to top
+    this.scrollIframeTo(0)
+
+    const d = () => 1500 / this.playbackSpeed
+    const shortD = () => 1000 / this.playbackSpeed
+
+    // Step 0: navigate - mark as active then completed
+    this.actions[0].status = 'active'
+    this.updateActionList()
+
+    this.animationTimer = setTimeout(() => {
+      if (this.isPaused || this.userHasTakenOver) { this.animationTimer = setTimeout(() => this.runIframeAnimation(), 100); return }
+
+      this.actions[0].status = 'completed'
+      this.currentStep = 1
+      this.actions[1].status = 'active'
+      this.updateActionList()
+      this.updateTimeline(15)
+      this.updateStepCounter()
+
+      // Step 1: snapshot
+      this.animationTimer = setTimeout(() => {
+        if (this.isPaused || this.userHasTakenOver) return
+
+        this.actions[1].status = 'completed'
+        this.currentStep = 2
+        this.actions[2].status = 'active'
+        this.updateActionList()
+        this.updateTimeline(35)
+        this.updateStepCounter()
+        this.updateSnapshotMarkers()
+
+        // Step 2: scroll down - move cursor and scroll iframe
+        this.animationTimer = setTimeout(() => {
+          if (this.isPaused || this.userHasTakenOver) return
+
+          if (this.hasCursorTarget) this.cursorTarget.className = 'agent-cursor iframe-scrolling'
+          this.scrollIframeTo(1200)
+
+          this.animationTimer = setTimeout(() => {
+            this.actions[2].status = 'completed'
+            this.currentStep = 3
+            this.actions[3].status = 'active'
+            this.updateActionList()
+            this.updateTimeline(55)
+            this.updateStepCounter()
+            this.updateSnapshotMarkers()
+
+            // Step 3: scroll to newsletter
+            this.animationTimer = setTimeout(() => {
+              if (this.isPaused || this.userHasTakenOver) return
+
+              if (this.hasCursorTarget) this.cursorTarget.className = 'agent-cursor iframe-newsletter'
+              this.scrollIframeTo(7200)
+
+              this.animationTimer = setTimeout(() => {
+                this.actions[3].status = 'completed'
+                this.currentStep = 4
+                this.updateActionList()
+                this.updateTimeline(75)
+                this.updateStepCounter()
+                this.updateSnapshotMarkers()
+
+                // Handoff check at step 4
+                if (this.handoffEnabledValue && this.currentStep === this.handoffStepValue) {
+                  this.actions[4].status = 'active'
+                  this.updateActionList()
+                  this.animationTimer = setTimeout(() => this.showHandoffPrompt(), shortD())
+                  return
+                }
+                this.continueIframeAnimation()
+              }, d())
+            }, shortD())
+          }, d())
+        }, shortD())
+      }, d())
+    }, d())
+  }
+
+  continueIframeAnimation() {
+    // Step 4: click email
+    this.actions[4].status = 'active'
+    this.updateActionList()
+    if (this.hasCursorTarget) this.cursorTarget.className = 'agent-cursor iframe-email'
+
+    this.animationTimer = setTimeout(() => {
+      this.actions[4].status = 'completed'
+      this.currentStep = 5
+      this.actions[5].status = 'active'
+      this.updateActionList()
+      this.updateTimeline(95)
+      this.updateStepCounter()
+
+      // Step 5: type email
+      if (this.hasCursorTarget) this.cursorTarget.className = 'agent-cursor iframe-subscribe'
+
+      this.animationTimer = setTimeout(() => {
+        this.actions[5].status = 'completed'
+        this.updateActionList()
+        this.updateSnapshotMarkers()
+        if (this.hasCursorTarget) this.cursorTarget.classList.add('hidden')
+
+        // Loop the animation
+        this.animationTimer = setTimeout(() => {
+          if (this.hasCursorTarget) this.cursorTarget.classList.remove('hidden')
+          if (!this.userHasTakenOver && this.isPlaying) this.runAnimation()
+        }, 3000 / this.playbackSpeed)
+      }, 1500 / this.playbackSpeed)
+    }, 800 / this.playbackSpeed)
+  }
+
+  scrollIframeTo(y) {
+    if (this.hasLanderIframeTarget) {
+      // Convert original page coordinates to scaled offset
+      // The iframe is scaled to this.iframeScale, so moving it by y * scale
+      // shows content from y onwards in the original page
+      const scale = this.iframeScale || 0.35
+      const offset = -(y * scale)
+      this.landerIframeTarget.style.top = `${offset}px`
     }
   }
 

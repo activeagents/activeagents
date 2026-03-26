@@ -1,3 +1,6 @@
+<%# demo_mode is set when loaded in an iframe to prevent infinite recursion %>
+<% demo_mode ||= false %>
+
 <section>
   <div class="heading hero centered">
     <h1 class="balanced">
@@ -8,18 +11,20 @@
       Active Agents assist you, so you can focus on your product, and your customers don't even have to.
     </p>
     <div class="button-group margin-paragraph centered">
-      <%= link_to "Getting Started", "https://docs.activeagents.ai/getting-started", class: "button primary" %>
+      <%= link_to "Getting Started", "https://docs.activeagents.ai/getting_started", class: "button primary" %>
       <%= link_to "Docs", "https://docs.activeagents.ai", class: "button tertiary" %>
       <%= link_to "GitHub", "https://github.com/activeagents/activeagent", class: "button tertiary" %>
     </div>
   </div>
 
-  <!-- Session Replay Hero - Interactive Newsletter Demo -->
+  <% unless demo_mode %>
+  <!-- Session Replay Hero - Real Lander Demo -->
   <div class="session-replay-hero"
        data-controller="session-replay"
        data-session-replay-handoff-enabled-value="true"
        data-session-replay-handoff-step-value="4"
-       data-session-replay-demo-mode-value="newsletter">
+       data-session-replay-demo-mode-value="iframe"
+       data-session-replay-lander-url-value="<%= request.base_url %>">
 
     <!-- Browser + Sidebar Row -->
     <div class="session-replay-hero-main">
@@ -42,86 +47,18 @@
            data-session-replay-target="viewport"
            data-action="mouseenter->session-replay#pauseOnHover mouseleave->session-replay#resumeOnLeave">
 
-        <%# Mini Active Agent Lander - Scrollable Content %>
-        <div class="demo-page-content" data-session-replay-target="demoPage">
-          <%# Mini Hero Section %>
-          <div class="demo-section demo-hero" data-section="hero">
-            <div class="demo-logo">
-              <i class="fa-solid fa-robot"></i>
-              <span>Active Agent</span>
-            </div>
-            <div class="demo-headline">Build AI in Rails</div>
-            <div class="demo-subheadline">Focus on your product.</div>
-            <div class="demo-buttons">
-              <span class="demo-btn primary">Get Started</span>
-              <span class="demo-btn secondary">Docs</span>
-            </div>
-          </div>
-
-          <%# Mini Features Section %>
-          <div class="demo-section demo-features" data-section="features">
-            <div class="demo-section-title">What's in the Box</div>
-            <div class="demo-feature-grid">
-              <div class="demo-feature-card">
-                <i class="fa-solid fa-code"></i>
-                <span>Agents are Controllers</span>
-              </div>
-              <div class="demo-feature-card">
-                <i class="fa-solid fa-bolt"></i>
-                <span>Streaming</span>
-              </div>
-              <div class="demo-feature-card">
-                <i class="fa-solid fa-plug"></i>
-                <span>MCP Support</span>
-              </div>
-            </div>
-          </div>
-
-          <%# Mini Pricing Section %>
-          <div class="demo-section demo-pricing" data-section="pricing">
-            <div class="demo-section-title">The Gems</div>
-            <div class="demo-pricing-cards">
-              <div class="demo-price-card">
-                <span class="demo-price-tier">Free</span>
-                <span class="demo-price">$0</span>
-              </div>
-              <div class="demo-price-card highlight">
-                <span class="demo-price-tier">Pro</span>
-                <span class="demo-price">$99/mo</span>
-              </div>
-            </div>
-          </div>
-
-          <%# Mini Newsletter Section - Interactive form for user signup %>
-          <div class="demo-section demo-newsletter" data-section="newsletter">
-            <div class="demo-section-title">Stay up to date</div>
-            <form class="demo-newsletter-form"
-                  id="demo-newsletter-form"
-                  data-session-replay-target="demoForm"
-                  data-action="submit->session-replay#submitDemoNewsletter">
-              <input type="email"
-                     name="EMAIL"
-                     class="demo-email-input"
-                     data-session-replay-target="demoEmail"
-                     placeholder="Enter your email"
-                     readonly
-                     required>
-              <button type="submit"
-                      class="demo-subscribe-btn"
-                      data-session-replay-target="demoSubscribe"
-                      disabled>
-                <span class="btn-text">Subscribe</span>
-                <span class="btn-loading" style="display: none;">
-                  <i class="fa-solid fa-spinner fa-spin"></i>
-                </span>
-              </button>
-            </form>
-            <div class="demo-newsletter-response" data-session-replay-target="demoResponse"></div>
-            <div class="demo-newsletter-hint">No spam. Unsubscribe anytime.</div>
-          </div>
+        <%# Iframe showing the real lander (scaled down) %>
+        <div class="lander-iframe-container" data-session-replay-target="iframeContainer">
+          <iframe
+            src="<%= request.base_url %>/?demo_mode=true"
+            data-session-replay-target="landerIframe"
+            class="lander-iframe"
+            sandbox="allow-same-origin allow-scripts allow-forms"
+            loading="lazy"
+            title="Active Agent Lander Preview"></iframe>
         </div>
 
-        <%# Agent Cursor %>
+        <%# Agent Cursor (overlaid on iframe) %>
         <div class="agent-cursor" data-session-replay-target="cursor">
           <svg class="cursor-icon" viewBox="0 0 24 24" fill="currentColor">
             <path d="M4 4l16 8-7 2-2 7z"/>
@@ -133,14 +70,14 @@
         <div class="handoff-overlay" data-session-replay-target="handoffOverlay" style="display: none;">
           <div class="handoff-prompt">
             <div class="handoff-icon">
-              <i class="fa-solid fa-envelope"></i>
+              <i class="fa-solid fa-hand"></i>
             </div>
             <h3>Your turn!</h3>
-            <p>Enter your email below to subscribe</p>
-            <button class="handoff-btn" data-action="click->session-replay#enableDemoForm">
-              <i class="fa-solid fa-keyboard"></i> Enter Email
+            <p>Take over and sign up for the newsletter</p>
+            <button class="handoff-btn" data-action="click->session-replay#takeOverNewsletter">
+              <i class="fa-solid fa-hand-pointer"></i> Take Over
             </button>
-            <p class="handoff-hint">The form is right there!</p>
+            <p class="handoff-hint">You'll control the demo above</p>
           </div>
         </div>
       </div>
@@ -202,6 +139,7 @@
       </div>
     </div>
   </div>
+  <% end %><%# unless demo_mode %>
 
   <a href="#features" class="scroll-indicator">
     <span>See what's included</span>

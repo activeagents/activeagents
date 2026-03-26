@@ -105,10 +105,13 @@ Rails.application.routes.draw do
         get "snapshot/:action_id", action: :snapshot, as: :snapshot
         post :export
         post :handoff
+        post :record_action
+        post :complete, action: :complete_session
       end
       collection do
         get :recent
         get :demo
+        post :start_user_session
       end
     end
 
