@@ -24,10 +24,23 @@ jobs:
   # Require staging deployment success before production
   verify-staging:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
     steps:
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v3
+        with:
+          workload_identity_provider: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ secrets.GCP_SERVICE_ACCOUNT }}
+
+      - name: Set up Cloud SDK
+        uses: google-github-actions/setup-gcloud@v3
+
       - name: Verify staging is healthy
         run: |
-          STAGING_URL="https://activeagents-staging-${{ secrets.GCP_PROJECT_ID }}.run.app"
+          STAGING_URL=$(gcloud run services describe activeagents-staging --region=${{ env.REGION }} --format="value(status.url)")
+          echo "Checking staging at: $STAGING_URL"
           STATUS=$(curl -s -o /dev/null -w "%{http_code}" "$STAGING_URL/up" || echo "000")
           if [ "$STATUS" != "200" ]; then
             echo "❌ Staging environment is not healthy (status: $STATUS)"
