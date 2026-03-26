@@ -6,6 +6,7 @@ class PagesController < ApplicationController
 
   def home
     @sections = load_sections
+    @demo_mode = params[:demo_mode].present?
   end
 
   def pricing

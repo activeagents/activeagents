@@ -19,6 +19,11 @@ class RecordingAction < ApplicationRecord
     wait
     form_fill
     key_press
+    focus
+    submit
+    handoff
+    user_action
+    completion
   ].freeze
 
   validates :action_type, presence: true, inclusion: { in: ACTION_TYPES }
