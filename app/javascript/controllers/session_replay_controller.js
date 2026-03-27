@@ -411,6 +411,85 @@ export default class extends Controller {
 
   // ==================== Handoff ====================
 
+  // Take over the session - redirect to signup section
+  takeOverSignup() {
+    this.userHasTakenOver = true
+    this.isPlaying = false
+    this.clearTimers()
+
+    if (this.hasHandoffOverlayTarget) {
+      this.handoffOverlayTarget.style.display = 'none'
+    }
+
+    // Hide the agent cursor
+    if (this.hasCursorTarget) {
+      this.cursorTarget.classList.add('hidden')
+    }
+
+    // Update cassette badge to show LIVE (recording user interactions)
+    if (this.hasCassetteBadgeTarget) {
+      this.cassetteBadgeTarget.innerHTML = '<i class="fa-solid fa-circle"></i> <span>LIVE</span>'
+      this.cassetteBadgeTarget.classList.add('live')
+    }
+
+    // Start user session recording in database
+    this.startUserSessionRecording()
+
+    // Add trace entry
+    this.addTraceEntry('handoff', 'User took over session')
+
+    // Scroll to signup section on the main page
+    const signupSection = document.querySelector('#signup')
+    if (signupSection) {
+      signupSection.scrollIntoView({ behavior: 'smooth', block: 'center' })
+      // Focus the email input after scrolling
+      setTimeout(() => {
+        const emailInput = signupSection.querySelector('input[type="email"]')
+        if (emailInput) {
+          emailInput.focus()
+          this.recordUserAction('focus', '#signup input[type="email"]', 'Focused signup email input')
+        }
+      }, 800)
+
+      // Track signup form interactions
+      this.startSignupInteractionRecording(signupSection)
+    } else {
+      // Fallback to registration page if no signup section
+      window.location.href = '/registration/new'
+    }
+
+    // Show trace log
+    if (this.hasTraceLogTarget) {
+      this.traceLogTarget.style.display = 'block'
+    }
+
+    this.updatePlayPauseIcon()
+    this.updateStepCounter()
+  }
+
+  // Record user interactions with the signup form
+  startSignupInteractionRecording(signupSection) {
+    const signupForm = signupSection.querySelector('#signup-form, form')
+    if (!signupForm) return
+
+    const emailInput = signupForm.querySelector('input[type="email"]')
+    if (emailInput) {
+      emailInput.addEventListener('input', this.throttle(() => {
+        this.recordUserAction('type', '#signup input[type="email"]', 'Typing signup email')
+      }, 2000))
+      emailInput.addEventListener('focus', () => {
+        this.recordUserAction('focus', '#signup input[type="email"]', 'Focused signup email')
+      })
+    }
+
+    signupForm.addEventListener('submit', (e) => {
+      const email = emailInput?.value || ''
+      const maskedEmail = email ? email.substring(0, 3) + '***' : 'empty'
+      this.recordUserAction('submit', '#signup-form', `Signup submitted: ${maskedEmail}`, { email_provided: !!email })
+      this.completeUserSession('signup', true, true)
+    })
+  }
+
   // Take over the session - enable user interaction within the demo viewport
   // For iframe mode: enable pointer-events on iframe so user can interact
   // For other modes: scroll to real newsletter section
