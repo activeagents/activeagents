@@ -36,6 +36,9 @@ class OnboardingController < ApplicationController
       # Handle plan selection if upgrading
       handle_plan_selection if params[:plan_slug].present? && params[:plan_slug] != "free"
 
+      # Claim any anonymous session recordings from the user's signup journey
+      claim_user_sessions
+
       UserMailer.welcome(@user).deliver_later
       redirect_to dashboard_path, notice: "Welcome to Active Agent! Let's build your first agent."
     else
@@ -62,5 +65,14 @@ class OnboardingController < ApplicationController
     if Current.user.email_verified? && Current.user.profile_completed?
       redirect_to dashboard_path
     end
+  end
+
+  def claim_user_sessions
+    # Pass the session recording ID if it was stored during signup
+    UserSessionClaimer.new(@user, session_id: session[:signup_recording_id]).claim!
+    session.delete(:signup_recording_id)
+  rescue => e
+    # Don't fail onboarding if session claiming fails
+    Rails.logger.error("Failed to claim sessions for user #{@user.id}: #{e.message}")
   end
 end

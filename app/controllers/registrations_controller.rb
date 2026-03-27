@@ -9,12 +9,21 @@ class RegistrationsController < ApplicationController
   end
 
   def create
-    # Handle both JSON (landing page signup) and HTML (full form) requests
-    if request.format.json? || request.content_type&.include?("application/json")
+    # Handle landing page signup (email at root level, JSON, or no nested user params)
+    # vs full registration form (nested user params with password)
+    if landing_page_signup?
       create_from_landing_page
     else
       create_from_form
     end
+  end
+
+  def landing_page_signup?
+    # JSON requests are always from landing page
+    return true if request.format.json? || request.content_type&.include?("application/json")
+    # Root-level email_address (not nested under :user) indicates landing page form
+    return true if params[:email_address].present? && !params[:user].present?
+    false
   end
 
   private
@@ -28,11 +37,18 @@ class RegistrationsController < ApplicationController
     existing_user = User.find_by(email_address: email)
     if existing_user
       if existing_user.email_verified?
-        render json: { error: "This email is already registered. Please sign in." }, status: :unprocessable_entity
+        respond_to do |format|
+          format.html { redirect_to new_session_path, alert: "This email is already registered. Please sign in." }
+          format.json { render json: { error: "This email is already registered. Please sign in." }, status: :unprocessable_entity }
+        end
       else
         # Resend verification email
         existing_user.send_verification_email!
-        render json: { success: true, redirect_url: pending_verification_path, message: "Verification email resent." }
+        start_new_session_for(existing_user)
+        respond_to do |format|
+          format.html { redirect_to pending_verification_path, notice: "Verification email resent." }
+          format.json { render json: { success: true, redirect_url: pending_verification_path, message: "Verification email resent." } }
+        end
       end
       return
     end
@@ -55,9 +71,18 @@ class RegistrationsController < ApplicationController
       # Start session so user can access pending verification page
       start_new_session_for(@user)
 
-      render json: { success: true, redirect_url: pending_verification_path }
+      # Store recording ID if user signed up from an active session recording
+      store_signup_recording_id
+
+      respond_to do |format|
+        format.html { redirect_to pending_verification_path, notice: "Check your email to verify your account!" }
+        format.json { render json: { success: true, redirect_url: pending_verification_path } }
+      end
     else
-      render json: { error: @user.errors.full_messages.first || "Registration failed" }, status: :unprocessable_entity
+      respond_to do |format|
+        format.html { redirect_to root_path(anchor: "signup"), alert: @user.errors.full_messages.first || "Registration failed" }
+        format.json { render json: { error: @user.errors.full_messages.first || "Registration failed" }, status: :unprocessable_entity }
+      end
     end
   end
 
@@ -84,5 +109,11 @@ class RegistrationsController < ApplicationController
 
   def user_params
     params.require(:user).permit(:email_address, :password, :password_confirmation)
+  end
+
+  # Store the session recording ID so we can claim it after profile completion
+  def store_signup_recording_id
+    recording_id = params[:recording_id] || params[:session_recording_id]
+    session[:signup_recording_id] = recording_id if recording_id.present?
   end
 end

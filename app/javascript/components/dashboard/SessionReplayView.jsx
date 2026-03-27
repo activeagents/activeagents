@@ -2,6 +2,12 @@ import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useTheme } from '../../contexts/ThemeContext';
 import { TYPOGRAPHY } from '../../utils/designTokens';
 
+// Playwright-style action replay mode
+const REPLAY_MODE = {
+  SCREENSHOT: 'screenshot',  // Show stored screenshots (if available)
+  IFRAME: 'iframe',          // Live iframe replay with action visualization
+};
+
 const ACTION_ICONS = {
   navigate: '[->]',
   click: '[*]',
@@ -36,8 +42,26 @@ const ACTION_COLORS = {
   drag: '#ea580c',
 };
 
-export default function SessionReplayView({ recordingId, onHandoff, onClose }) {
+// CSS keyframes for animations
+const rippleKeyframes = `
+  @keyframes ripple {
+    0% { transform: translate(-50%, -50%) scale(0.5); opacity: 1; }
+    100% { transform: translate(-50%, -50%) scale(2); opacity: 0; }
+  }
+  @keyframes typing-cursor {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0; }
+  }
+  @keyframes pulse {
+    0%, 100% { opacity: 1; transform: scale(1); }
+    50% { opacity: 0.5; transform: scale(1.2); }
+  }
+`;
+
+export default function SessionReplayView({ recordingId: initialRecordingId, onHandoff, onClose }) {
   const { darkMode } = useTheme();
+  const [recordings, setRecordings] = useState([]);
+  const [selectedRecordingId, setSelectedRecordingId] = useState(initialRecordingId);
   const [recording, setRecording] = useState(null);
   const [actions, setActions] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -52,11 +76,40 @@ export default function SessionReplayView({ recordingId, onHandoff, onClose }) {
   // Timeline ref for scrubbing
   const timelineRef = useRef(null);
   const playbackTimer = useRef(null);
+  const iframeRef = useRef(null);
 
-  // Load recording data
+  // Replay mode - use iframe for sessions without screenshots
+  const [replayMode, setReplayMode] = useState(REPLAY_MODE.IFRAME);
+  const [cursorPosition, setCursorPosition] = useState({ x: 0, y: 0, visible: false });
+  const [highlightedElement, setHighlightedElement] = useState(null);
+
+  // Load list of recordings on mount
   useEffect(() => {
-    loadRecording();
-  }, [recordingId]);
+    loadRecordingsList();
+  }, []);
+
+  // Load specific recording when selected
+  useEffect(() => {
+    if (selectedRecordingId) {
+      loadRecording(selectedRecordingId);
+    }
+  }, [selectedRecordingId]);
+
+  const loadRecordingsList = async () => {
+    try {
+      const response = await fetch('/api/session_recordings');
+      if (response.ok) {
+        const data = await response.json();
+        setRecordings(data.recordings || []);
+        // Auto-select the first recording if none selected
+        if (!selectedRecordingId && data.recordings?.length > 0) {
+          setSelectedRecordingId(data.recordings[0].id);
+        }
+      }
+    } catch (err) {
+      console.error('Failed to load recordings list:', err);
+    }
+  };
 
   // Handle playback
   useEffect(() => {
@@ -89,15 +142,136 @@ export default function SessionReplayView({ recordingId, onHandoff, onClose }) {
     };
   }, [isPlaying, currentActionIndex, actions, playbackSpeed]);
 
-  // Update screenshot when action changes
+  // Update screenshot when action changes, or simulate action in iframe mode
   useEffect(() => {
     const action = actions[currentActionIndex];
     if (action?.screenshot_url) {
       setCurrentScreenshot(action.screenshot_url);
+      setReplayMode(REPLAY_MODE.SCREENSHOT);
+    } else if (replayMode === REPLAY_MODE.IFRAME) {
+      // Simulate the action visually in the iframe
+      simulateActionInIframe(action);
     }
-  }, [currentActionIndex, actions]);
+  }, [currentActionIndex, actions, replayMode]);
 
-  const loadRecording = async () => {
+  // Simulate Playwright-style action visualization in the iframe
+  const simulateActionInIframe = useCallback((action) => {
+    if (!action || !iframeRef.current) return;
+
+    const iframe = iframeRef.current;
+
+    try {
+      // Get the page URL from recording metadata or use the landing page
+      const pageUrl = recording?.metadata?.page_url || '/';
+
+      // Ensure iframe is loaded with the right page
+      if (iframe.src !== pageUrl && !iframe.src.includes(pageUrl)) {
+        // Will be set on first load
+      }
+
+      // Simulate cursor movement and element highlighting based on action type
+      switch (action.action_type) {
+        case 'navigate':
+          setCursorPosition({ x: 50, y: 50, visible: true });
+          setHighlightedElement(null);
+          break;
+
+        case 'click':
+        case 'focus':
+          // Position cursor near the selector location
+          setCursorPosition({ x: 200, y: 300, visible: true });
+          setHighlightedElement(action.selector);
+          // Try to highlight element in iframe
+          highlightElementInIframe(action.selector);
+          break;
+
+        case 'type':
+          setCursorPosition({ x: 200, y: 300, visible: true });
+          setHighlightedElement(action.selector);
+          // Simulate typing animation
+          simulateTypingInIframe(action.selector, action.value);
+          break;
+
+        case 'submit':
+          setCursorPosition({ x: 250, y: 400, visible: true });
+          setHighlightedElement(action.selector);
+          break;
+
+        case 'scroll':
+          setCursorPosition({ x: 300, y: 200, visible: true });
+          setHighlightedElement(null);
+          break;
+
+        case 'handoff':
+          setCursorPosition({ x: 0, y: 0, visible: false });
+          setHighlightedElement(null);
+          break;
+
+        default:
+          setCursorPosition({ x: 150, y: 250, visible: true });
+          setHighlightedElement(action.selector);
+      }
+    } catch (err) {
+      console.log('Could not simulate action in iframe:', err);
+    }
+  }, [recording]);
+
+  // Try to highlight an element in the iframe
+  const highlightElementInIframe = (selector) => {
+    if (!selector || !iframeRef.current) return;
+
+    try {
+      const iframeDoc = iframeRef.current.contentDocument || iframeRef.current.contentWindow?.document;
+      if (!iframeDoc) return;
+
+      // Remove previous highlights
+      iframeDoc.querySelectorAll('.session-replay-highlight').forEach(el => {
+        el.classList.remove('session-replay-highlight');
+        el.style.outline = '';
+      });
+
+      // Add highlight to target element
+      const targetEl = iframeDoc.querySelector(selector);
+      if (targetEl) {
+        targetEl.classList.add('session-replay-highlight');
+        targetEl.style.outline = '3px solid #ef4444';
+        targetEl.style.outlineOffset = '2px';
+
+        // Scroll element into view
+        targetEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }
+    } catch (err) {
+      // Cross-origin access may fail - that's ok
+    }
+  };
+
+  // Simulate typing in the iframe
+  const simulateTypingInIframe = (selector, value) => {
+    if (!selector || !value || !iframeRef.current) return;
+
+    try {
+      const iframeDoc = iframeRef.current.contentDocument || iframeRef.current.contentWindow?.document;
+      if (!iframeDoc) return;
+
+      const input = iframeDoc.querySelector(selector);
+      if (input && (input.tagName === 'INPUT' || input.tagName === 'TEXTAREA')) {
+        // Animate typing effect
+        let charIndex = 0;
+        const typeInterval = setInterval(() => {
+          if (charIndex < value.length) {
+            input.value = value.substring(0, charIndex + 1);
+            charIndex++;
+          } else {
+            clearInterval(typeInterval);
+          }
+        }, 50);
+      }
+    } catch (err) {
+      // Cross-origin access may fail
+    }
+  };
+
+  const loadRecording = async (recordingId) => {
     setIsLoading(true);
     setError(null);
 
@@ -112,6 +286,8 @@ export default function SessionReplayView({ recordingId, onHandoff, onClose }) {
 
       const data = await response.json();
       setRecording(data.recording);
+      setCurrentActionIndex(0);
+      setIsPlaying(false);
 
       // Load actions separately if we have a recording
       if (data.recording?.id) {
@@ -236,6 +412,8 @@ export default function SessionReplayView({ recordingId, onHandoff, onClose }) {
       className={darkMode ? '' : 'bg-white rounded-xl border border-gray-200'}
       style={containerStyle}
     >
+      {/* Inject keyframe animations */}
+      <style dangerouslySetInnerHTML={{ __html: rippleKeyframes }} />
       {/* Header */}
       <div
         className={darkMode ? '' : 'border-b border-gray-200 p-4'}
@@ -248,12 +426,35 @@ export default function SessionReplayView({ recordingId, onHandoff, onClose }) {
         } : { display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}
       >
         <div>
-          <h2
-            className={darkMode ? '' : 'text-xl font-semibold text-gray-900'}
-            style={darkMode ? { fontSize: '20px', fontWeight: '600', color: 'white', margin: 0 } : {}}
-          >
-            {recording.name || 'Session Replay'}
-          </h2>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+            <h2
+              className={darkMode ? '' : 'text-xl font-semibold text-gray-900'}
+              style={darkMode ? { fontSize: '20px', fontWeight: '600', color: 'white', margin: 0 } : {}}
+            >
+              {recording.name || 'Session Replay'}
+            </h2>
+            {recordings.length > 1 && (
+              <select
+                value={selectedRecordingId || ''}
+                onChange={(e) => setSelectedRecordingId(Number(e.target.value))}
+                style={{
+                  padding: '6px 12px',
+                  borderRadius: '6px',
+                  border: darkMode ? '1px solid rgba(255,255,255,0.2)' : '1px solid #d1d5db',
+                  background: darkMode ? 'rgba(255,255,255,0.1)' : 'white',
+                  color: darkMode ? 'white' : '#374151',
+                  fontSize: '14px',
+                  cursor: 'pointer',
+                }}
+              >
+                {recordings.map(r => (
+                  <option key={r.id} value={r.id}>
+                    {r.name} ({new Date(r.created_at).toLocaleDateString()})
+                  </option>
+                ))}
+              </select>
+            )}
+          </div>
           <p
             className={darkMode ? '' : 'text-sm text-gray-500 mt-1'}
             style={darkMode ? { fontSize: '14px', color: 'rgba(255,255,255,0.6)', marginTop: '4px' } : {}}
@@ -301,7 +502,7 @@ export default function SessionReplayView({ recordingId, onHandoff, onClose }) {
         className={darkMode ? '' : 'flex h-[500px]'}
         style={darkMode ? { display: 'flex', height: '500px' } : {}}
       >
-        {/* Screenshot Viewport */}
+        {/* Screenshot/Iframe Viewport */}
         <div
           className={darkMode ? '' : 'flex-1 bg-gray-100 flex items-center justify-center relative'}
           style={darkMode ? {
@@ -311,45 +512,181 @@ export default function SessionReplayView({ recordingId, onHandoff, onClose }) {
             alignItems: 'center',
             justifyContent: 'center',
             position: 'relative',
-          } : {}}
+            overflow: 'hidden',
+          } : { overflow: 'hidden' }}
         >
-          {currentScreenshot ? (
+          {replayMode === REPLAY_MODE.SCREENSHOT && currentScreenshot ? (
             <img
               src={currentScreenshot}
               alt="Session screenshot"
               className="max-w-full max-h-full object-contain"
             />
           ) : (
-            <div
-              className={darkMode ? '' : 'text-gray-400'}
-              style={darkMode ? { color: 'rgba(255,255,255,0.4)' } : {}}
-            >
-              No screenshot at this action
+            /* Iframe Replay Mode - shows actual page with Playwright-style cursor */
+            <div style={{
+              width: '100%',
+              height: '100%',
+              position: 'relative',
+              overflow: 'hidden',
+            }}>
+              {/* The iframe showing the page being replayed */}
+              <iframe
+                ref={iframeRef}
+                src={recording?.metadata?.page_url || '/'}
+                style={{
+                  border: 'none',
+                  transform: 'scale(0.75)',
+                  transformOrigin: 'top left',
+                  width: '133.33%',
+                  height: '133.33%',
+                  pointerEvents: 'none', // Prevent user interaction during replay
+                }}
+                sandbox="allow-same-origin allow-scripts"
+              />
+
+              {/* Playwright-style cursor overlay */}
+              {cursorPosition.visible && (
+                <div
+                  style={{
+                    position: 'absolute',
+                    left: `${cursorPosition.x}px`,
+                    top: `${cursorPosition.y}px`,
+                    width: '24px',
+                    height: '24px',
+                    pointerEvents: 'none',
+                    zIndex: 100,
+                    transition: 'all 0.3s ease-out',
+                  }}
+                >
+                  {/* Cursor icon */}
+                  <svg
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    style={{ width: '100%', height: '100%' }}
+                  >
+                    <path
+                      d="M4 4L12 20L14 14L20 12L4 4Z"
+                      fill="#ef4444"
+                      stroke="white"
+                      strokeWidth="2"
+                    />
+                  </svg>
+                  {/* Click ripple effect */}
+                  {currentAction?.action_type === 'click' && (
+                    <div
+                      style={{
+                        position: 'absolute',
+                        top: '50%',
+                        left: '50%',
+                        transform: 'translate(-50%, -50%)',
+                        width: '40px',
+                        height: '40px',
+                        borderRadius: '50%',
+                        border: '3px solid #ef4444',
+                        animation: 'ripple 0.6s ease-out',
+                        opacity: 0,
+                      }}
+                    />
+                  )}
+                </div>
+              )}
+
+              {/* Highlighted element indicator */}
+              {highlightedElement && (
+                <div
+                  style={{
+                    position: 'absolute',
+                    bottom: '16px',
+                    left: '16px',
+                    background: 'rgba(0,0,0,0.8)',
+                    color: '#60a5fa',
+                    padding: '8px 12px',
+                    borderRadius: '6px',
+                    fontSize: '12px',
+                    fontFamily: TYPOGRAPHY.mono,
+                    zIndex: 100,
+                  }}
+                >
+                  {highlightedElement}
+                </div>
+              )}
+
+              {/* Action being performed indicator */}
+              {currentAction && (
+                <div
+                  style={{
+                    position: 'absolute',
+                    top: '60px',
+                    left: '16px',
+                    background: 'rgba(0,0,0,0.8)',
+                    color: 'white',
+                    padding: '8px 16px',
+                    borderRadius: '6px',
+                    fontSize: '13px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '8px',
+                    zIndex: 100,
+                  }}
+                >
+                  <span style={{ color: ACTION_COLORS[currentAction.action_type] || '#94a3b8', fontWeight: '600' }}>
+                    {ACTION_ICONS[currentAction.action_type] || '[?]'}
+                  </span>
+                  <span>{currentAction.action_type}</span>
+                  {currentAction.value && (
+                    <span style={{ color: 'rgba(255,255,255,0.6)', maxWidth: '200px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      : {currentAction.value}
+                    </span>
+                  )}
+                </div>
+              )}
             </div>
           )}
 
-          {/* Recording indicator */}
+          {/* Recording/Playback state indicator */}
           <div
-            className={darkMode ? '' : 'absolute top-4 left-4 flex items-center gap-2 bg-red-500 text-white px-3 py-1 rounded-full text-sm'}
-            style={darkMode ? {
+            className={darkMode ? '' : 'absolute top-4 left-4 flex items-center gap-2 text-white px-3 py-1 rounded-full text-sm'}
+            style={{
               position: 'absolute',
               top: '16px',
               left: '16px',
               display: 'flex',
               alignItems: 'center',
               gap: '8px',
-              background: '#ef4444',
+              background: recording?.status === 'recording' ? '#ef4444' : isPlaying ? '#10b981' : '#6b7280',
               color: 'white',
               padding: '6px 12px',
               borderRadius: '999px',
               fontSize: '13px',
-            } : {}}
+              fontWeight: '500',
+            }}
           >
-            <span
-              className={isPlaying ? 'animate-pulse' : ''}
-              style={{ width: '8px', height: '8px', borderRadius: '50%', background: 'white' }}
-            />
-            {isPlaying ? 'Playing' : 'Paused'}
+            {/* State-specific icon */}
+            {recording?.status === 'recording' ? (
+              // Recording state: pulsing red dot
+              <span
+                style={{
+                  width: '8px',
+                  height: '8px',
+                  borderRadius: '50%',
+                  background: 'white',
+                  animation: 'pulse 1.5s ease-in-out infinite',
+                }}
+              />
+            ) : isPlaying ? (
+              // Playing state: play icon (triangle)
+              <svg width="10" height="12" viewBox="0 0 10 12" fill="white">
+                <path d="M0 0L10 6L0 12V0Z" />
+              </svg>
+            ) : (
+              // Paused state: pause icon (two bars)
+              <svg width="10" height="12" viewBox="0 0 10 12" fill="white">
+                <rect x="0" y="0" width="3" height="12" />
+                <rect x="7" y="0" width="3" height="12" />
+              </svg>
+            )}
+            {/* State text */}
+            {recording?.status === 'recording' ? 'REC' : isPlaying ? 'Playing' : 'Paused'}
           </div>
 
           {/* Cursor indicator */}

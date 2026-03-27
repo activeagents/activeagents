@@ -12,6 +12,16 @@ module Api
     def index
       recordings = SessionRecording.recent
 
+      # Filter by current user's account for multi-tenant isolation
+      if current_user&.primary_account
+        account_id = current_user.primary_account.id.to_s
+        # Include: user sessions claimed by user's account, or the lander_demo
+        recordings = recordings.where(
+          "metadata->>'account_id' = ? OR name = 'lander_demo'",
+          account_id
+        )
+      end
+
       # Filter by status
       recordings = recordings.where(status: params[:status]) if params[:status].present?
 
@@ -50,10 +60,13 @@ module Api
     def recent
       recordings = SessionRecording.recent.limit(10)
 
-      # If user is logged in, filter to their recordings
-      if current_user
-        recordings = recordings.joins(:agent_run)
-                               .where(agent_runs: { user_id: current_user.id })
+      # If user is logged in, filter to their recordings (including user sessions)
+      if current_user&.primary_account
+        account_id = current_user.primary_account.id.to_s
+        recordings = recordings.where(
+          "metadata->>'account_id' = ?",
+          account_id
+        )
       end
 
       render json: {
@@ -286,13 +299,18 @@ module Api
     def can_manage_recording?(recording)
       return true if current_user&.admin?
 
-      if recording.agent_run
-        recording.agent_run.user_id == current_user&.id
-      elsif recording.sandbox_session
-        recording.sandbox_session.user_id == current_user&.id
-      else
-        false
+      # Check if recording belongs to user's account via metadata
+      if current_user&.primary_account
+        account_id = current_user.primary_account.id.to_s
+        return true if recording.metadata["account_id"].to_s == account_id
       end
+
+      # Check sandbox session ownership
+      if recording.sandbox_session&.respond_to?(:user_id)
+        return true if recording.sandbox_session.user_id == current_user&.id
+      end
+
+      false
     end
 
     def recording_summary(recording)
