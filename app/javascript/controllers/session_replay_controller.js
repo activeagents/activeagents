@@ -803,56 +803,32 @@ export default class extends Controller {
 
     this.addTraceEntry('user_action', `Subscribing: ${email}`)
 
-    // Submit to Mailchimp via JSONP
-    // Using the real newsletter section's Mailchimp configuration
-    const mailchimpUrl = this.getMailchimpUrl(email)
-
-    // Create JSONP request
-    const callbackName = 'mailchimpCallback_' + Date.now()
-    window[callbackName] = (response) => {
-      delete window[callbackName]
-      this.handleMailchimpResponse(response, email)
-    }
-
-    const script = document.createElement('script')
-    script.src = mailchimpUrl + '&c=' + callbackName
-    script.onerror = () => {
-      delete window[callbackName]
-      this.handleMailchimpError()
-    }
-    document.body.appendChild(script)
-
-    // Timeout fallback
-    setTimeout(() => {
-      if (window[callbackName]) {
-        delete window[callbackName]
-        this.handleMailchimpError()
-      }
-    }, 10000)
-  }
-
-  getMailchimpUrl(email) {
-    // Uses the same Mailchimp config as the main newsletter form
-    // TODO: Update to correct Active Agent Mailchimp list
-    // Currently using: remoteworkera.us7.list-manage.com (WRONG - needs to be updated)
-    const baseUrl = 'https://remoteworkera.us7.list-manage.com/subscribe/post-json'
-    const params = new URLSearchParams({
-      u: 'a5e2d973d5bb834e4c2693a3f',
-      id: 'a1c5e41527',
-      f_id: '001d43e4f0',
-      EMAIL: email
+    // Register user (syncs to Loops via background job)
+    fetch('/registration', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json'
+      },
+      body: JSON.stringify({ email_address: email, source: 'demo' })
     })
-    return `${baseUrl}?${params.toString()}`
+    .then(response => response.json().then(data => ({ ok: response.ok, data })))
+    .then(result => {
+      this.handleSubscribeResponse(result, email)
+    })
+    .catch(() => {
+      this.handleSubscribeError()
+    })
   }
 
-  handleMailchimpResponse(response, email) {
+  handleSubscribeResponse(result, email) {
     // Reset button state
     const btnText = this.demoSubscribeTarget?.querySelector('.btn-text')
     const btnLoading = this.demoSubscribeTarget?.querySelector('.btn-loading')
     if (btnText) btnText.style.display = 'inline'
     if (btnLoading) btnLoading.style.display = 'none'
 
-    if (response.result === 'success') {
+    if (result.ok || result.data.success) {
       this.showDemoResponse('Thanks for subscribing!', 'success')
       this.addTraceEntry('completion', 'Newsletter subscription successful')
 
@@ -874,22 +850,14 @@ export default class extends Controller {
         this.demoSubscribeTarget.classList.remove('user-clickable')
       }
     } else {
-      // Handle Mailchimp error messages
-      let errorMsg = response.msg || 'Subscription failed. Please try again.'
-      // Clean up Mailchimp's error messages
-      if (errorMsg.includes('already subscribed')) {
-        errorMsg = 'You\'re already subscribed!'
-        this.showDemoResponse(errorMsg, 'success')
-        this.addTraceEntry('info', 'Already subscribed')
-      } else {
-        this.showDemoResponse(errorMsg, 'error')
-        this.addTraceEntry('error', errorMsg)
-        if (this.hasDemoSubscribeTarget) this.demoSubscribeTarget.disabled = false
-      }
+      const errorMsg = (result.data.errors && result.data.errors[0]) || 'Subscription failed. Please try again.'
+      this.showDemoResponse(errorMsg, 'error')
+      this.addTraceEntry('error', errorMsg)
+      if (this.hasDemoSubscribeTarget) this.demoSubscribeTarget.disabled = false
     }
   }
 
-  handleMailchimpError() {
+  handleSubscribeError() {
     // Reset button state
     const btnText = this.demoSubscribeTarget?.querySelector('.btn-text')
     const btnLoading = this.demoSubscribeTarget?.querySelector('.btn-loading')
