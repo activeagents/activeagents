@@ -1,0 +1,34 @@
+<section class="signup-section" id="signup">
+  <div class="heading centered">
+    <h2>Start building agents today</h2>
+    <p class="paragraph l secondary balanced">
+      Create your free account and deploy your first AI agent in minutes.
+    </p>
+  </div>
+
+  <div class="signup-form-container">
+    <%= form_with url: registration_path, method: :post, id: "signup-form", class: "signup-form", data: { turbo: false, controller: "signup" } do |f| %>
+      <div class="signup-input-group">
+        <%= f.email_field :email_address,
+            placeholder: "Enter your email",
+            required: true,
+            class: "signup-input",
+            id: "signup-email",
+            autocomplete: "email",
+            data: { signup_target: "email" } %>
+        <button type="submit" class="button primary signup-submit" data-signup-target="submit">
+          <span class="submit-text" data-signup-target="submitText">Sign Up Free</span>
+          <span class="submit-loading" style="display: none;" data-signup-target="submitLoading">
+            <i class="fa-solid fa-spinner fa-spin"></i>
+          </span>
+        </button>
+      </div>
+    <% end %>
+
+    <div id="signup-response" class="signup-response" data-signup-target="response"></div>
+
+    <p class="paragraph s tertiary margin-top-m">
+      <i class="fa-solid fa-check-circle"></i> Free forever &bull; No credit card required
+    </p>
+  </div>
+</section>

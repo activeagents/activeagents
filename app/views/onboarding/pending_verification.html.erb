@@ -1,0 +1,50 @@
+<div class="min-h-screen bg-gray-50 flex flex-col justify-center py-12 sm:px-6 lg:px-8">
+  <div class="sm:mx-auto sm:w-full sm:max-w-md">
+    <div class="flex justify-center">
+      <div class="w-16 h-16 bg-rose-100 rounded-full flex items-center justify-center">
+        <i class="fa-solid fa-envelope text-rose-600 text-2xl"></i>
+      </div>
+    </div>
+    <h2 class="mt-6 text-center text-3xl font-extrabold text-gray-900">
+      Check your email
+    </h2>
+    <p class="mt-2 text-center text-sm text-gray-600 max-w-sm mx-auto">
+      We sent a verification link to <strong><%= Current.user.email_address %></strong>
+    </p>
+  </div>
+
+  <div class="mt-8 sm:mx-auto sm:w-full sm:max-w-md">
+    <div class="bg-white py-8 px-4 shadow sm:rounded-lg sm:px-10 text-center">
+      <div class="space-y-4">
+        <p class="text-gray-600">
+          Click the link in your email to verify your account and continue setting up.
+        </p>
+
+        <div class="border-t border-gray-200 pt-4">
+          <p class="text-sm text-gray-500 mb-3">
+            Didn't receive the email?
+          </p>
+
+          <%= form_with url: resend_verification_path, method: :post, class: "inline" do %>
+            <%= submit_tag "Resend verification email",
+                class: "text-rose-600 hover:text-rose-500 font-medium cursor-pointer bg-transparent border-none" %>
+          <% end %>
+        </div>
+
+        <div class="border-t border-gray-200 pt-4 mt-4">
+          <p class="text-xs text-gray-400">
+            The verification link will expire in 24 hours.
+          </p>
+        </div>
+      </div>
+    </div>
+
+    <div class="mt-4 text-center">
+      <p class="text-sm text-gray-500">
+        Wrong email?
+        <%= link_to "Sign out", session_path, data: { turbo_method: :delete }, class: "text-rose-600 hover:text-rose-500 font-medium" %>
+        and try again.
+      </p>
+    </div>
+  </div>
+</div>

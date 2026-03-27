@@ -21,6 +21,12 @@ export default function Sidebar({ currentView, onNavigate, agentCount }) {
     { id: 'benchmarks', label: 'Benchmarks', icon: ICONS.nav.benchmarks },
   ];
 
+  const workspaceItems = [
+    { id: 'organization', label: 'Organization', icon: '🏢' },
+    { id: 'prompts', label: 'Prompts', icon: '💬' },
+    { id: 'settings', label: 'Settings', icon: '⚙️' },
+  ];
+
   const NavButton = ({ item }) => (
     <button
       onClick={() => onNavigate(item.id)}
@@ -112,6 +118,20 @@ export default function Sidebar({ currentView, onNavigate, agentCount }) {
           </div>
           <div className="space-y-1">
             {observabilityItems.map((item) => (
+              <NavButton key={item.id} item={item} />
+            ))}
+          </div>
+        </div>
+
+        {/* Workspace Section */}
+        <div className="pt-4">
+          <div className="px-4 pb-2">
+            <span className={`text-xs font-semibold uppercase tracking-wide ${
+              darkMode ? 'text-gray-500' : 'text-gray-400'
+            }`}>Workspace</span>
+          </div>
+          <div className="space-y-1">
+            {workspaceItems.map((item) => (
               <NavButton key={item.id} item={item} />
             ))}
           </div>

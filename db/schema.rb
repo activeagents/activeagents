@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.2].define(version: 2026_03_24_133121) do
+ActiveRecord::Schema[8.2].define(version: 2026_03_27_205458) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
 
@@ -501,12 +501,22 @@ ActiveRecord::Schema[8.2].define(version: 2026_03_24_133121) do
 
   create_table "users", force: :cascade do |t|
     t.boolean "admin", default: false, null: false
+    t.string "company_name"
     t.datetime "created_at", null: false
     t.string "email_address", null: false
+    t.datetime "email_verification_sent_at"
+    t.string "email_verification_token"
+    t.boolean "email_verified", default: false, null: false
+    t.string "first_name"
+    t.string "job_title"
+    t.string "last_name"
     t.string "password_digest", null: false
+    t.boolean "profile_completed", default: false, null: false
+    t.string "signup_source"
     t.datetime "updated_at", null: false
     t.index ["admin"], name: "index_users_on_admin"
     t.index ["email_address"], name: "index_users_on_email_address", unique: true
+    t.index ["email_verification_token"], name: "index_users_on_email_verification_token", unique: true
   end
 
   create_table "video_events", force: :cascade do |t|

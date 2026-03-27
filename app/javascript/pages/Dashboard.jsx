@@ -16,6 +16,9 @@ import InteractionsView from '../components/dashboard/InteractionsView';
 import SandboxRunner from '../components/dashboard/SandboxRunner';
 import BenchmarkView from '../components/dashboard/BenchmarkView';
 import SessionReplayView from '../components/dashboard/SessionReplayView';
+import OrganizationView from '../components/dashboard/OrganizationView';
+import PromptsView from '../components/dashboard/PromptsView';
+import SettingsView from '../components/dashboard/SettingsView';
 import { ThemeProvider, useTheme } from '../contexts/ThemeContext';
 
 /**
@@ -66,6 +69,12 @@ function DashboardContent({ user, initialAgents = [], meta = {} }) {
       setCurrentView('replay');
     } else if (path.includes('/sandbox') || path.includes('/demo')) {
       setCurrentView('sandbox');
+    } else if (path.includes('/organization')) {
+      setCurrentView('organization');
+    } else if (path.includes('/prompts')) {
+      setCurrentView('prompts');
+    } else if (path.includes('/settings')) {
+      setCurrentView('settings');
     }
   }, []);
 
@@ -219,6 +228,9 @@ function DashboardContent({ user, initialAgents = [], meta = {} }) {
     else if (view === 'benchmarks') path = '/dashboard/benchmarks';
     else if (view === 'replay') path = '/dashboard/replay';
     else if (view === 'sandbox') path = '/dashboard/sandbox';
+    else if (view === 'organization') path = '/dashboard/organization';
+    else if (view === 'prompts') path = '/dashboard/prompts';
+    else if (view === 'settings') path = '/dashboard/settings';
 
     window.history.pushState({}, '', path);
   };
@@ -305,6 +317,12 @@ function DashboardContent({ user, initialAgents = [], meta = {} }) {
             onClose={() => navigateTo('list')}
           />
         );
+      case 'organization':
+        return <OrganizationView user={user} />;
+      case 'prompts':
+        return <PromptsView />;
+      case 'settings':
+        return <SettingsView user={user} />;
       default:
         return (
           <AgentList

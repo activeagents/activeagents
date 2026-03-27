@@ -82,6 +82,19 @@
   .newsletter-form-container {
     padding: 0 16px;
   }
+
+  /* Signup responsive */
+  .signup-input-group {
+    flex-direction: column;
+  }
+
+  .signup-submit {
+    width: 100%;
+  }
+
+  .signup-form-container {
+    padding: 0 16px;
+  }
 }
 
 @media screen and (max-width: 767px) {

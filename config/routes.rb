@@ -2,6 +2,16 @@ Rails.application.routes.draw do
   resource :session, only: [ :new, :create, :destroy ]
   resource :registration, only: [ :new, :create ]
   resources :passwords, param: :token, only: [ :new, :create, :edit, :update ]
+
+  # Email verification
+  get "verify_email", to: "email_verifications#show", as: :verify_email
+  post "resend_verification", to: "email_verifications#create", as: :resend_verification
+
+  # Onboarding flow
+  get "pending_verification", to: "onboarding#pending_verification", as: :pending_verification
+  get "complete_profile", to: "onboarding#complete_profile", as: :complete_profile
+  patch "complete_profile", to: "onboarding#update_profile"
+
   # Define your application routes per the DSL in https://guides.rubyonrails.org/routing.html
 
   # Reveal health status on /up that returns 200 if the app boots with no exceptions, otherwise 500.
