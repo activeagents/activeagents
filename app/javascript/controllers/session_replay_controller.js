@@ -54,15 +54,18 @@ export default class extends Controller {
     // Iframe mode - shows real lander with agent cursor overlay
     // Scroll positions are in original page pixels, converted to scaled offset via scrollIframeTo()
     // Scale factor is 0.35, viewport ~500px, so visible area is ~1428px of original page
-    // Newsletter section is around y=3500+ on the page
+    // Newsletter section "Stay up to date" needs to show the form input centered
+    // Newsletter header is at ~6645px, email input at ~6841px in iframe content
+    // With scale 0.35 and ~500px viewport, visible area is ~1428px of original
+    // y=6500 shows header at ~145px from top, email input at ~341px - well centered
     this.iframeScale = 0.35
     this.iframeScrollPositions = [
       { y: 0 },      // Step 0-1: Hero
       { y: 0 },      // Step 1: Still at hero (snapshot)
       { y: 1200 },   // Step 2: Scroll to features
-      { y: 7200 },   // Step 3: Scroll to newsletter ("Stay up to date" is at y=7460)
-      { y: 7200 },   // Step 4: Click email (still at newsletter)
-      { y: 7200 },   // Step 5: Type email (still at newsletter)
+      { y: 6500 },   // Step 3: Scroll to newsletter - shows header + email input centered
+      { y: 6500 },   // Step 4: Click email (still at newsletter, form visible)
+      { y: 6500 },   // Step 5: Type email (still at newsletter)
     ]
 
     // Cursor CSS classes for each step
@@ -1056,7 +1059,7 @@ export default class extends Controller {
               if (this.isPaused || this.userHasTakenOver) return
 
               if (this.hasCursorTarget) this.cursorTarget.className = 'agent-cursor iframe-newsletter'
-              this.scrollIframeTo(7200)
+              this.scrollIframeTo(6500)
 
               this.animationTimer = setTimeout(() => {
                 this.actions[3].status = 'completed'
