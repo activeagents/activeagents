@@ -35,9 +35,10 @@ class Agent < ApplicationRecord
     github ruby rails aws gcp python typescript docker kubernetes
   ].freeze
 
-  # Available tools/MCPs
+  # Available tools/MCPs - core tools backed by ToolRegistry + UI-only tool names
   AVAILABLE_TOOLS = %w[
-    terminal playwright filesystem code database slack fetch search edit translate memory
+    fetch filesystem bash agents views prompts
+    terminal playwright code database slack search edit translate memory
   ].freeze
 
   # Available providers
@@ -207,11 +208,50 @@ class Agent < ApplicationRecord
   end
 
   def build_and_execute_agent(input_prompt, **params)
-    # This will be implemented to actually execute via ActiveAgent
-    # For now, return a mock response
+    if defined?(ActiveAgent::Base)
+      execute_via_active_agent(input_prompt, **params)
+    else
+      execute_mock(input_prompt, **params)
+    end
+  end
+
+  def execute_via_active_agent(input_prompt, **params)
+    agent_record = self
+    tool_definitions = ToolRegistry.definitions_for(tools)
+
+    agent_class = Class.new(ActiveAgent::Base) do
+      generate_with agent_record.provider.to_sym, model: agent_record.model
+
+      define_method :perform do
+        prompt instructions: agent_record.instructions if agent_record.instructions.present?
+        prompt message: input_prompt, tools: tool_definitions if tool_definitions.any?
+        prompt message: input_prompt unless tool_definitions.any?
+      end
+    end
+
+    response = agent_class.perform.generate_now
+
+    {
+      output: response.message&.content,
+      metadata: { provider: provider, model: model, tools_available: tools },
+      usage: {
+        input_tokens: response.usage&.[](:input_tokens) || response.usage&.[](:prompt_tokens),
+        output_tokens: response.usage&.[](:output_tokens) || response.usage&.[](:completion_tokens),
+        total_tokens: response.usage&.[](:total_tokens)
+      }
+    }
+  end
+
+  def execute_mock(input_prompt, **params)
+    tool_definitions = ToolRegistry.definitions_for(tools)
     {
       output: "Mock response for: #{input_prompt}",
-      metadata: { provider: provider, model: model },
+      metadata: {
+        provider: provider,
+        model: model,
+        tools_available: tools,
+        tool_definitions: tool_definitions.map { |t| t[:name] }
+      },
       usage: { input_tokens: 10, output_tokens: 20, total_tokens: 30 }
     }
   end

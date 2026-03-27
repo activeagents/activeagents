@@ -62,6 +62,13 @@ Rails.application.routes.draw do
       get :status, to: "runs#status"
       resources :runs, only: [ :index, :show, :create ]
     end
+    # Tool registry (for agent builder UI)
+    resources :tools, only: [ :index, :show ], param: :id do
+      member do
+        post :test
+      end
+    end
+
     resources :agents do
       member do
         get :versions
