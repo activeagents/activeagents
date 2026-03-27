@@ -8,15 +8,16 @@
 
   <div class="newsletter-form-container">
     <form
-      action="https://remoteworkera.us7.list-manage.com/subscribe/post-json?u=a5e2d973d5bb834e4c2693a3f&amp;id=a1c5e41527&amp;f_id=001d43e4f0&amp;c=?"
-      method="GET"
+      action="/registration"
+      method="POST"
       id="newsletter-form"
       class="newsletter-form"
     >
+      <input type="hidden" name="source" value="newsletter">
       <div class="newsletter-input-group">
         <input
           type="email"
-          name="EMAIL"
+          name="email_address"
           placeholder="Enter your email"
           required
           class="newsletter-input"
@@ -28,10 +29,6 @@
             <i class="fa-solid fa-spinner fa-spin"></i>
           </span>
         </button>
-      </div>
-      <!-- Honeypot field for spam protection -->
-      <div style="position: absolute; left: -5000px;" aria-hidden="true">
-        <input type="text" name="b_a5e2d973d5bb834e4c2693a3f_a1c5e41527" tabindex="-1" value="">
       </div>
     </form>
 
@@ -64,52 +61,41 @@ document.addEventListener('DOMContentLoaded', function() {
     responseDiv.innerHTML = '';
     responseDiv.className = 'newsletter-response';
 
-    // Create JSONP request
-    const script = document.createElement('script');
-    const callbackName = 'mc_callback_' + Date.now();
-
-    window[callbackName] = function(response) {
-      // Reset button state
+    fetch('/registration', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json'
+      },
+      body: JSON.stringify({ email_address: email, source: 'newsletter' })
+    })
+    .then(function(response) {
+      return response.json().then(function(data) {
+        return { ok: response.ok, data: data };
+      });
+    })
+    .then(function(result) {
       submitText.style.display = 'inline';
       submitLoading.style.display = 'none';
       submitBtn.disabled = false;
 
-      if (response.result === 'success') {
-        responseDiv.innerHTML = '<i class="fa-solid fa-check"></i> ' + response.msg;
+      if (result.ok || result.data.success) {
+        responseDiv.innerHTML = '<i class="fa-solid fa-check"></i> You\'re in! Check your email to verify your account.';
         responseDiv.className = 'newsletter-response success';
         form.reset();
       } else {
-        let msg = response.msg || 'An error occurred. Please try again.';
-        // Clean up Mailchimp error messages
-        if (msg.includes('already subscribed')) {
-          msg = 'You\'re already subscribed! Check your inbox for updates.';
-        } else if (msg.includes('0 -')) {
-          msg = msg.substring(msg.indexOf('0 -') + 4);
-        }
+        var msg = result.data.error || 'An error occurred. Please try again.';
         responseDiv.innerHTML = '<i class="fa-solid fa-exclamation-circle"></i> ' + msg;
         responseDiv.className = 'newsletter-response error';
       }
-
-      // Cleanup
-      delete window[callbackName];
-      script.remove();
-    };
-
-    // Build URL with email parameter
-    const url = form.action.replace('c=?', 'c=' + callbackName) + '&EMAIL=' + encodeURIComponent(email);
-    script.src = url;
-
-    script.onerror = function() {
+    })
+    .catch(function() {
       submitText.style.display = 'inline';
       submitLoading.style.display = 'none';
       submitBtn.disabled = false;
       responseDiv.innerHTML = '<i class="fa-solid fa-exclamation-circle"></i> Connection error. Please try again.';
       responseDiv.className = 'newsletter-response error';
-      delete window[callbackName];
-      script.remove();
-    };
-
-    document.body.appendChild(script);
+    });
   });
 });
 </script>

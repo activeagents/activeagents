@@ -1,9 +1,7 @@
 import { Controller } from "@hotwired/stimulus"
 
 // Signup Controller
-// Handles user registration with:
-// 1. Database registration + email verification
-// 2. Mailchimp subscription for newsletter updates
+// Handles user registration with database registration + email verification
 export default class extends Controller {
   static targets = ["email", "submit", "submitText", "submitLoading", "response"]
 
@@ -25,13 +23,9 @@ export default class extends Controller {
     this.clearResponse()
 
     try {
-      // Step 1: Register in database with email verification
       const registrationResult = await this.registerUser(email)
 
       if (registrationResult.success) {
-        // Step 2: Subscribe to Mailchimp in parallel (fire and forget)
-        this.subscribeToMailchimp(email)
-
         // Show success and redirect to verification pending page
         this.showResponse("Check your email to verify your account!", "success")
 
@@ -72,45 +66,6 @@ export default class extends Controller {
     } else {
       return { success: false, error: data.error || data.errors?.join(", ") }
     }
-  }
-
-  subscribeToMailchimp(email) {
-    // Fire-and-forget Mailchimp subscription
-    // Uses JSONP to avoid CORS issues
-    const callbackName = "mc_signup_" + Date.now()
-    const baseUrl = "https://remoteworkera.us7.list-manage.com/subscribe/post-json"
-    const params = new URLSearchParams({
-      u: "a5e2d973d5bb834e4c2693a3f",
-      id: "a1c5e41527",
-      f_id: "001d43e4f0",
-      EMAIL: email,
-      c: callbackName
-    })
-
-    window[callbackName] = (response) => {
-      delete window[callbackName]
-      if (response.result === "success") {
-        console.log("Mailchimp subscription successful")
-      } else {
-        console.log("Mailchimp subscription note:", response.msg)
-      }
-    }
-
-    const script = document.createElement("script")
-    script.src = `${baseUrl}?${params.toString()}`
-    script.onerror = () => {
-      delete window[callbackName]
-      console.log("Mailchimp subscription request failed")
-    }
-    document.body.appendChild(script)
-
-    // Cleanup after timeout
-    setTimeout(() => {
-      if (window[callbackName]) {
-        delete window[callbackName]
-      }
-      script.remove()
-    }, 5000)
   }
 
   setLoading(isLoading) {
