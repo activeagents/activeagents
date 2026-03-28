@@ -30,6 +30,8 @@ gem "activeagent", github: "activeagents/activeagent", branch: "main"
 gem "solid_agent", github: "activeagents/solid_agent", branch: "main"
 # Anthropic Claude API client for Active Agent providers
 gem "anthropic"
+# Resend email delivery service [https://resend.com/docs/send-with-ruby]
+gem "resend"
 
 # Use Active Model has_secure_password [https://guides.rubyonrails.org/active_model_basics.html#securepassword]
 gem "bcrypt", "~> 3.1.7"

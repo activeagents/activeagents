@@ -199,3 +199,22 @@ variable "docs_cname" {
   type        = string
   default     = null
 }
+
+# Subdomain email configuration (e.g., for Loops sending domains)
+variable "subdomain_mx_records" {
+  description = "MX records for subdomains (e.g., envelope.dev for Loops)"
+  type = list(object({
+    name   = string
+    values = list(string)
+  }))
+  default = []
+}
+
+variable "additional_cname_records" {
+  description = "Additional CNAME records (e.g., DKIM for email)"
+  type = list(object({
+    name  = string
+    value = string
+  }))
+  default = []
+}
