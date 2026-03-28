@@ -68,6 +68,9 @@ class RegistrationsController < ApplicationController
       # Send verification email
       @user.send_verification_email!
 
+      # Sync contact to Resend Audiences for marketing email
+      SyncUserToResendJob.perform_later(@user.id)
+
       # Start session so user can access pending verification page
       start_new_session_for(@user)
 
@@ -97,6 +100,9 @@ class RegistrationsController < ApplicationController
 
       # Send verification email
       @user.send_verification_email!
+
+      # Sync contact to Resend Audiences for marketing email
+      SyncUserToResendJob.perform_later(@user.id)
 
       # Start session so user can access pending verification page
       start_new_session_for(@user)
