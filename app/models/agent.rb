@@ -1,9 +1,16 @@
 # frozen_string_literal: true
 
 class Agent < ApplicationRecord
+  include Deterministic
+  include GenerativeRouting
+
   belongs_to :user, optional: true
   has_many :agent_versions, dependent: :destroy
   has_many :agent_runs, dependent: :destroy
+  has_many :agent_prompts, dependent: :destroy
+  has_many :agent_instructions, dependent: :destroy
+  has_many :agent_toolsets, dependent: :destroy
+  has_many :agent_contexts, dependent: :destroy
 
   # Validations
   validates :name, presence: true, length: { minimum: 2, maximum: 100 }
