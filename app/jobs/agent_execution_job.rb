@@ -45,7 +45,22 @@ class AgentExecutionJob < ApplicationJob
   private
 
   def execute_agent(agent_record, run)
-    # Check if we have ActiveAgent available
+    action_name = run.input_params&.dig("action") || "default"
+    session_id = run.input_params&.dig("session_id") || run.trace_id
+
+    # Try deterministic cache first
+    if agent_record.deterministic_action?(action_name)
+      run.add_log("Checking deterministic cache for action: #{action_name}", level: :info)
+      result = agent_record.generate_with_caching(action_name, run.input_prompt, session_id: session_id)
+      if result.dig(:metadata, :cached)
+        run.add_log("Cache hit - returning deterministic response", level: :info)
+        return result
+      end
+      run.add_log("Cache miss - generating new response", level: :info)
+      return result
+    end
+
+    # Standard execution path
     if defined?(ActiveAgent::Base)
       execute_with_active_agent(agent_record, run)
     else

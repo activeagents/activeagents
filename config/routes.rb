@@ -83,6 +83,14 @@ Rails.application.routes.draw do
       collection do
         get :presets
       end
+
+      # Agent contexts with fragments (Phase 2: Core Skills)
+      resources :contexts, controller: "agent_contexts", only: [ :index, :show, :create, :destroy ] do
+        member do
+          get :fragments
+          post :add_fragment
+        end
+      end
     end
 
     resources :templates, only: [ :index, :show ] do
