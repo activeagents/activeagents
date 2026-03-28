@@ -143,6 +143,9 @@ module "secrets" {
     stripe-webhook-secret = {
       description = "Stripe webhook signing secret"
     }
+    resend-audience-id = {
+      description = "Resend Audiences ID for user contact sync"
+    }
   }
 
   labels = local.common_labels
@@ -183,6 +186,7 @@ module "cloud_run" {
     DB_PASSWORD            = module.cloud_sql.password_secret_id
     STRIPE_API_KEY         = module.secrets.secret_ids["stripe-api-key"]
     STRIPE_WEBHOOK_SECRET  = module.secrets.secret_ids["stripe-webhook-secret"]
+    RESEND_AUDIENCE_ID     = module.secrets.secret_ids["resend-audience-id"]
   }
 
   labels = local.common_labels
