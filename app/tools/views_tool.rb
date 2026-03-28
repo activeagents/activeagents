@@ -74,7 +74,7 @@ class ViewsTool < BaseTool
       template: template,
       locals: symbolized_locals,
       layout: layout,
-      formats: [format.to_sym]
+      formats: [ format.to_sym ]
     )
 
     {

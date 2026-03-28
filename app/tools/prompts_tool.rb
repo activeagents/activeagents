@@ -96,7 +96,7 @@ class PromptsTool < BaseTool
     prompts = []
 
     # List prompts from database agents
-    Agent.active_agents.where.not(instructions: [nil, ""]).limit(50).each do |agent|
+    Agent.active_agents.where.not(instructions: [ nil, "" ]).limit(50).each do |agent|
       prompts << {
         source: "agent",
         name: agent.name,

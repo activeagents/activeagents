@@ -109,7 +109,7 @@ class FilesystemTool < BaseTool
         size: child.file? ? child.size : nil,
         modified_at: child.mtime.iso8601
       }
-    end.sort_by { |e| [e[:type] == "directory" ? 0 : 1, e[:name]] }
+    end.sort_by { |e| [ e[:type] == "directory" ? 0 : 1, e[:name] ] }
 
     {
       path: relative_path(dir_path),

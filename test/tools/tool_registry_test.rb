@@ -20,7 +20,7 @@ class ToolRegistryTest < ActiveSupport::TestCase
   test "resolve_all returns classes for known tools and skips unknown" do
     result = ToolRegistry.resolve_all(%w[fetch bash nonexistent])
 
-    assert_equal [FetchTool, BashTool], result
+    assert_equal [ FetchTool, BashTool ], result
   end
 
   test "resolve_all handles empty array" do
