@@ -146,6 +146,9 @@ module "secrets" {
     resend-audience-id = {
       description = "Resend Audiences ID for user contact sync"
     }
+    resend-api-key = {
+      description = "Resend API key for email delivery"
+    }
   }
 
   labels = local.common_labels
@@ -187,6 +190,7 @@ module "cloud_run" {
     STRIPE_API_KEY         = module.secrets.secret_ids["stripe-api-key"]
     STRIPE_WEBHOOK_SECRET  = module.secrets.secret_ids["stripe-webhook-secret"]
     RESEND_AUDIENCE_ID     = module.secrets.secret_ids["resend-audience-id"]
+    RESEND_API_KEY         = module.secrets.secret_ids["resend-api-key"]
   }
 
   labels = local.common_labels
