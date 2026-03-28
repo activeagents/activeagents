@@ -17,7 +17,7 @@ class McpBuilderServiceTest < ActiveSupport::TestCase
         parameters: {
           type: "object",
           properties: { name: { type: "string" } },
-          required: ["name"]
+          required: [ "name" ]
         }
       }
     ]
@@ -62,7 +62,7 @@ class McpBuilderServiceTest < ActiveSupport::TestCase
   end
 
   test "build stores server in correct directory structure" do
-    tools = [{ name: "test_tool", description: "Test" }]
+    tools = [ { name: "test_tool", description: "Test" } ]
 
     config = @builder.build(name: "my_server", tools: tools)
 
@@ -84,7 +84,7 @@ class McpBuilderServiceTest < ActiveSupport::TestCase
   end
 
   test "validate returns errors for missing names" do
-    tools = [{ description: "No name" }]
+    tools = [ { description: "No name" } ]
 
     result = @builder.validate(tools: tools)
     assert_not result[:valid]
@@ -92,7 +92,7 @@ class McpBuilderServiceTest < ActiveSupport::TestCase
   end
 
   test "validate returns errors for missing descriptions" do
-    tools = [{ name: "test" }]
+    tools = [ { name: "test" } ]
 
     result = @builder.validate(tools: tools)
     assert_not result[:valid]
@@ -100,7 +100,7 @@ class McpBuilderServiceTest < ActiveSupport::TestCase
   end
 
   test "validate returns errors for invalid tool names" do
-    tools = [{ name: "InvalidName", description: "test" }]
+    tools = [ { name: "InvalidName", description: "test" } ]
 
     result = @builder.validate(tools: tools)
     assert_not result[:valid]
@@ -119,7 +119,7 @@ class McpBuilderServiceTest < ActiveSupport::TestCase
   end
 
   test "build raises on invalid tools" do
-    tools = [{ description: "missing name" }]
+    tools = [ { description: "missing name" } ]
 
     assert_raises(McpBuilderService::BuildError) do
       @builder.build(name: "bad", tools: tools)
@@ -127,7 +127,7 @@ class McpBuilderServiceTest < ActiveSupport::TestCase
   end
 
   test "preview returns code without storing" do
-    tools = [{ name: "test_tool", description: "Test" }]
+    tools = [ { name: "test_tool", description: "Test" } ]
 
     code = @builder.preview(name: "preview_server", tools: tools)
 

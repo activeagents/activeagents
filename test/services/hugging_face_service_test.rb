@@ -33,24 +33,24 @@ class HuggingFaceServiceTest < ActiveSupport::TestCase
     service = HuggingFaceService.new(api_key: nil)
 
     assert_raises(HuggingFaceService::HuggingFaceError) do
-      service.classify(text: "test", labels: ["a", "b"])
+      service.classify(text: "test", labels: [ "a", "b" ])
     end
   end
 
   test "cosine_similarity computes correctly for identical vectors" do
-    vec = [1.0, 0.0, 0.0]
+    vec = [ 1.0, 0.0, 0.0 ]
     assert_in_delta 1.0, HuggingFaceService.cosine_similarity(vec, vec), 0.001
   end
 
   test "cosine_similarity computes correctly for orthogonal vectors" do
-    vec_a = [1.0, 0.0, 0.0]
-    vec_b = [0.0, 1.0, 0.0]
+    vec_a = [ 1.0, 0.0, 0.0 ]
+    vec_b = [ 0.0, 1.0, 0.0 ]
     assert_in_delta 0.0, HuggingFaceService.cosine_similarity(vec_a, vec_b), 0.001
   end
 
   test "cosine_similarity computes correctly for opposite vectors" do
-    vec_a = [1.0, 0.0]
-    vec_b = [-1.0, 0.0]
+    vec_a = [ 1.0, 0.0 ]
+    vec_b = [ -1.0, 0.0 ]
     assert_in_delta(-1.0, HuggingFaceService.cosine_similarity(vec_a, vec_b), 0.001)
   end
 
@@ -60,8 +60,8 @@ class HuggingFaceServiceTest < ActiveSupport::TestCase
   end
 
   test "cosine_similarity handles zero vectors" do
-    vec_zero = [0.0, 0.0, 0.0]
-    vec = [1.0, 2.0, 3.0]
+    vec_zero = [ 0.0, 0.0, 0.0 ]
+    vec = [ 1.0, 2.0, 3.0 ]
     assert_equal 0.0, HuggingFaceService.cosine_similarity(vec_zero, vec)
   end
 

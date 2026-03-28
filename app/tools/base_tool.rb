@@ -49,7 +49,7 @@ class BaseTool
       self._parameters = _parameters.merge(
         name.to_s => { type: type, description: description, enum: enum, items: items, default: default }.compact
       )
-      self._required_params = (_required_params + [name.to_s]) if required
+      self._required_params = (_required_params + [ name.to_s ]) if required
     end
 
     # Returns the tool definition in the format expected by LLM function calling APIs

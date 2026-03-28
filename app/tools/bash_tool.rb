@@ -48,12 +48,12 @@ class BashTool < BaseTool
     /\|\s*sh\b/, # piping to shell
     /\|\s*bash\b/, # piping to bash
     /`.*`/, # backtick command substitution in dangerous contexts
-    /\$\(.*\bsh\b/, # command substitution with shell
+    /\$\(.*\bsh\b/ # command substitution with shell
   ].freeze
 
   def call(command:, working_directory: nil, timeout: 30)
     validate_command!(command)
-    timeout = [timeout.to_i, MAX_TIMEOUT].min
+    timeout = [ timeout.to_i, MAX_TIMEOUT ].min
     timeout = 5 if timeout <= 0
 
     cwd = resolve_working_directory(working_directory)
@@ -125,7 +125,7 @@ class BashTool < BaseTool
       raise ExecutionError, "Command timed out after #{timeout}s: #{command}"
     end
 
-    [stdout, stderr, status]
+    [ stdout, stderr, status ]
   end
 
   def truncate_output(output)

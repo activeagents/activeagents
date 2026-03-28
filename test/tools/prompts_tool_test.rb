@@ -65,7 +65,7 @@ class PromptsToolTest < ActiveSupport::TestCase
   test "compose adds context as system message" do
     result = PromptsTool.call(
       operation: "compose",
-      parts: [{ "role" => "user", "content" => "Hello" }],
+      parts: [ { "role" => "user", "content" => "Hello" } ],
       context: { "mode" => "test" }
     )
 
@@ -78,7 +78,7 @@ class PromptsToolTest < ActiveSupport::TestCase
     assert_raises(BaseTool::ParameterError) do
       PromptsTool.call(
         operation: "compose",
-        parts: [{ "role" => "hacker", "content" => "bad" }]
+        parts: [ { "role" => "hacker", "content" => "bad" } ]
       )
     end
   end
