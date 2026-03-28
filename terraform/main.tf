@@ -276,6 +276,10 @@ module "dns" {
   dmarc_record           = var.dmarc_record
   additional_txt_records = var.additional_txt_records
 
+  # Subdomain email records (e.g., Loops)
+  subdomain_mx_records     = var.subdomain_mx_records
+  additional_cname_records = var.additional_cname_records
+
   # Docs subdomain (GitHub Pages)
   docs_cname = var.docs_cname
 

@@ -70,3 +70,22 @@ variable "labels" {
   type        = map(string)
   default     = {}
 }
+
+# Subdomain email configuration (e.g., for Loops sending domains)
+variable "subdomain_mx_records" {
+  description = "MX records for subdomains (e.g., envelope.dev for Loops)"
+  type = list(object({
+    name   = string  # Subdomain name (e.g., "envelope.dev")
+    values = list(string)  # MX record values (e.g., ["10 feedback-smtp.us-east-1.amazonses.com."])
+  }))
+  default = []
+}
+
+variable "additional_cname_records" {
+  description = "Additional CNAME records (e.g., DKIM for email)"
+  type = list(object({
+    name  = string  # Record name (e.g., "xxx._domainkey.dev")
+    value = string  # CNAME target (e.g., "xxx.dkim.amazonses.com")
+  }))
+  default = []
+}

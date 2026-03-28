@@ -129,3 +129,25 @@ resource "google_dns_record_set" "docs" {
   ttl          = 300
   rrdatas      = ["${var.docs_cname}."]
 }
+
+# Subdomain MX records (e.g., for Loops sending domains like envelope.dev.activeagents.ai)
+resource "google_dns_record_set" "subdomain_mx" {
+  for_each     = { for r in var.subdomain_mx_records : r.name => r }
+  project      = var.project_id
+  managed_zone = google_dns_managed_zone.main.name
+  name         = "${each.value.name}.${var.domain}."
+  type         = "MX"
+  ttl          = 3600
+  rrdatas      = each.value.values
+}
+
+# Additional CNAME records (e.g., DKIM for email services)
+resource "google_dns_record_set" "additional_cname" {
+  for_each     = { for r in var.additional_cname_records : r.name => r }
+  project      = var.project_id
+  managed_zone = google_dns_managed_zone.main.name
+  name         = "${each.value.name}.${var.domain}."
+  type         = "CNAME"
+  ttl          = 3600
+  rrdatas      = ["${each.value.value}."]
+}
