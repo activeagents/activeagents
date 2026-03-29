@@ -27,3 +27,6 @@ application.register("session-replay", SessionReplayController)
 
 import GitHubStarsController from "./github_stars_controller"
 application.register("github-stars", GitHubStarsController)
+
+import EmailVerificationController from "./email_verification_controller"
+application.register("email-verification", EmailVerificationController)
