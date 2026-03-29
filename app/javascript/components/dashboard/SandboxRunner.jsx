@@ -71,6 +71,9 @@ export default function SandboxRunner({ initialType = 'playwright_mcp', onClose 
   const [isCreating, setIsCreating] = useState(false);
   const [error, setError] = useState(null);
   const [timeRemaining, setTimeRemaining] = useState(null);
+  const [showUpgradeModal, setShowUpgradeModal] = useState(false);
+  const [usage, setUsage] = useState(null);
+  const [isCheckingOut, setIsCheckingOut] = useState(false);
   const outputRef = useRef(null);
 
   // Provider comparison state
@@ -171,10 +174,23 @@ export default function SandboxRunner({ initialType = 'playwright_mcp', onClose 
     !!session?.session_id
   );
 
-  // Create session on mount
+  // Create session on mount and fetch usage
   useEffect(() => {
     createSession();
+    fetchUsage();
   }, [sandboxType]);
+
+  const fetchUsage = async () => {
+    try {
+      const response = await fetch('/api/usage');
+      if (response.ok) {
+        const data = await response.json();
+        setUsage(data.usage);
+      }
+    } catch (err) {
+      console.log('Could not fetch usage (user may not be authenticated)');
+    }
+  };
 
   // Countdown timer
   useEffect(() => {
@@ -257,12 +273,29 @@ export default function SandboxRunner({ initialType = 'playwright_mcp', onClose 
         body: JSON.stringify({ task: task, provider: provider })
       });
 
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.error || 'Task execution failed');
+      const data = await response.json();
+
+      // Handle upgrade required (402 Payment Required)
+      if (response.status === 402 && data.upgrade_required) {
+        setUsage(data.usage);
+        setShowUpgradeModal(true);
+        setCurrentRun(prev => ({
+          ...prev,
+          status: 'failed',
+          error: data.message || 'Plan limit reached'
+        }));
+        setIsRunning(false);
+        return;
       }
 
-      const data = await response.json();
+      if (!response.ok) {
+        throw new Error(data.error || 'Task execution failed');
+      }
+
+      // Update usage from response
+      if (data.usage) {
+        setUsage(data.usage);
+      }
 
       // Poll for completion
       pollRunStatus(data.run_id);
@@ -443,6 +476,47 @@ export default function SandboxRunner({ initialType = 'playwright_mcp', onClose 
   const canRun = session?.status === 'ready' &&
                  session?.runs_count < session?.max_runs &&
                  !isRunning;
+
+  const handleUpgrade = async (billingInterval = 'monthly') => {
+    setIsCheckingOut(true);
+    try {
+      // Get plans to find Pro plan ID
+      const plansResponse = await fetch('/api/v1/plans');
+      const plans = await plansResponse.json();
+      const proPlan = Array.isArray(plans) ? plans.find(p => p.slug === 'pro') : plans.plans?.find(p => p.slug === 'pro');
+
+      if (!proPlan) {
+        throw new Error('Pro plan not found');
+      }
+
+      // Initiate checkout
+      const response = await fetch('/subscriptions/checkout', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Inertia': 'true',
+          'X-CSRF-Token': document.querySelector('meta[name="csrf-token"]')?.content
+        },
+        body: JSON.stringify({
+          plan_id: proPlan.id,
+          billing_interval: billingInterval
+        })
+      });
+
+      const data = await response.json();
+
+      if (data.checkout_url) {
+        window.location.href = data.checkout_url;
+      } else {
+        throw new Error('No checkout URL returned');
+      }
+    } catch (err) {
+      console.error('Checkout error:', err);
+      setError('Failed to initiate checkout. Please try again.');
+    } finally {
+      setIsCheckingOut(false);
+    }
+  };
 
   return (
     <div className="h-full flex flex-col bg-gray-50">
@@ -730,31 +804,58 @@ export default function SandboxRunner({ initialType = 'playwright_mcp', onClose 
               </div>
             </div>
 
-            {/* Free Tier Info */}
+            {/* Usage & Plan Info */}
             <div className="bg-gradient-to-br from-rose-50 to-purple-50 rounded-xl border border-rose-200 p-4">
-              <h4 className="font-medium text-gray-900 mb-3">Free Tier Limits</h4>
+              <h4 className="font-medium text-gray-900 mb-3">
+                {usage?.plan === 'free' ? 'Free Tier' : `${usage?.plan?.toUpperCase() || 'FREE'} Plan`}
+              </h4>
+
+              {/* Usage Progress */}
+              {usage && (
+                <div className="mb-4">
+                  <div className="flex justify-between text-sm mb-1">
+                    <span className="text-gray-600">Agent Runs</span>
+                    <span className={`font-medium ${usage.runs_remaining <= 1 ? 'text-rose-600' : 'text-gray-900'}`}>
+                      {usage.runs_used} / {usage.runs_limit}
+                    </span>
+                  </div>
+                  <div className="w-full bg-white rounded-full h-2 border border-rose-200">
+                    <div
+                      className={`h-2 rounded-full transition-all ${
+                        usage.runs_remaining <= 1 ? 'bg-rose-500' : 'bg-emerald-500'
+                      }`}
+                      style={{ width: `${Math.min((usage.runs_used / usage.runs_limit) * 100, 100)}%` }}
+                    />
+                  </div>
+                  {usage.runs_remaining <= 1 && (
+                    <p className="text-xs text-rose-600 mt-1">
+                      {usage.runs_remaining === 0 ? 'Limit reached!' : 'Almost at limit!'}
+                    </p>
+                  )}
+                </div>
+              )}
+
               <dl className="space-y-2 text-sm">
                 <div className="flex justify-between">
-                  <dt className="text-gray-500">Max Runs</dt>
-                  <dd className="text-gray-900">{FREE_TIER_LIMITS.max_runs}</dd>
+                  <dt className="text-gray-500">Session Runs</dt>
+                  <dd className="text-gray-900">{session?.runs_count || 0}/{session?.max_runs || FREE_TIER_LIMITS.max_runs}</dd>
                 </div>
                 <div className="flex justify-between">
                   <dt className="text-gray-500">Timeout</dt>
                   <dd className="text-gray-900">{FREE_TIER_LIMITS.timeout_seconds}s per task</dd>
                 </div>
-                <div className="flex justify-between">
-                  <dt className="text-gray-500">Session</dt>
-                  <dd className="text-gray-900">{FREE_TIER_LIMITS.session_duration_minutes} min</dd>
-                </div>
               </dl>
-              <div className="mt-4 pt-4 border-t border-rose-200">
-                <a
-                  href="/pricing"
-                  className="block text-center text-sm text-rose-600 hover:text-rose-700 font-medium"
-                >
-                  Upgrade for unlimited access &#8594;
-                </a>
-              </div>
+
+              {usage?.plan === 'free' && (
+                <div className="mt-4 pt-4 border-t border-rose-200">
+                  <button
+                    onClick={() => setShowUpgradeModal(true)}
+                    className="w-full text-center text-sm text-rose-600 hover:text-rose-700 font-medium"
+                  >
+                    Upgrade to PRO &#8594;
+                  </button>
+                </div>
+              )}
             </div>
 
             {/* Run History */}
@@ -799,6 +900,147 @@ export default function SandboxRunner({ initialType = 'playwright_mcp', onClose 
           </div>
         </div>
       </div>
+
+      {/* Upgrade Modal */}
+      {showUpgradeModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl max-w-4xl w-full overflow-hidden shadow-2xl max-h-[90vh] overflow-y-auto">
+            {/* Header */}
+            <div className="bg-gradient-to-r from-rose-500 to-purple-600 px-6 py-6 text-white text-center">
+              <h2 className="text-2xl font-bold mb-1">Upgrade Your Plan</h2>
+              <p className="text-rose-100 text-sm">
+                You've used {usage?.runs_used || 0} of {usage?.runs_limit || 3} runs. Choose a plan to continue.
+              </p>
+            </div>
+
+            {/* Pricing Grid */}
+            <div className="p-6">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                {/* Free Tier */}
+                <div className="border border-gray-200 rounded-xl p-5">
+                  <div className="text-center mb-4">
+                    <h3 className="font-semibold text-gray-900">Free</h3>
+                    <div className="mt-2">
+                      <span className="text-3xl font-bold text-gray-900">$0</span>
+                      <span className="text-gray-500">/mo</span>
+                    </div>
+                  </div>
+                  <ul className="space-y-2 text-sm text-gray-600 mb-4">
+                    <li className="flex items-start">
+                      <span className="text-gray-400 mr-2">-</span>
+                      3 agent runs/month
+                    </li>
+                    <li className="flex items-start">
+                      <span className="text-gray-400 mr-2">-</span>
+                      Community support
+                    </li>
+                    <li className="flex items-start">
+                      <span className="text-gray-400 mr-2">-</span>
+                      Basic features
+                    </li>
+                  </ul>
+                  <button
+                    disabled
+                    className="w-full py-2 px-4 border border-gray-300 text-gray-400 rounded-lg text-sm cursor-not-allowed"
+                  >
+                    Current Plan
+                  </button>
+                </div>
+
+                {/* Pro Tier - Highlighted */}
+                <div className="border-2 border-rose-500 rounded-xl p-5 relative bg-rose-50">
+                  <div className="absolute -top-3 left-1/2 transform -translate-x-1/2">
+                    <span className="bg-rose-500 text-white text-xs font-semibold px-3 py-1 rounded-full">
+                      RECOMMENDED
+                    </span>
+                  </div>
+                  <div className="text-center mb-4 mt-2">
+                    <h3 className="font-semibold text-gray-900">Pro</h3>
+                    <div className="mt-2">
+                      <span className="text-3xl font-bold text-gray-900">$9.99</span>
+                      <span className="text-rose-500 font-bold">+</span>
+                      <span className="text-gray-500">/mo</span>
+                    </div>
+                    <p className="text-xs text-gray-500 mt-1">or $99.99+/year (save 17%)</p>
+                  </div>
+                  <ul className="space-y-2 text-sm text-gray-700 mb-4">
+                    <li className="flex items-start">
+                      <span className="text-green-500 mr-2">&#10003;</span>
+                      1,000 agent runs/month
+                    </li>
+                    <li className="flex items-start">
+                      <span className="text-green-500 mr-2">&#10003;</span>
+                      Advanced cost tracking
+                    </li>
+                    <li className="flex items-start">
+                      <span className="text-green-500 mr-2">&#10003;</span>
+                      25K traces/month
+                    </li>
+                    <li className="flex items-start">
+                      <span className="text-green-500 mr-2">&#10003;</span>
+                      Priority email support
+                    </li>
+                  </ul>
+                  <button
+                    onClick={() => handleUpgrade('monthly')}
+                    disabled={isCheckingOut}
+                    className="w-full py-2 px-4 bg-rose-500 text-white rounded-lg text-sm font-semibold hover:bg-rose-600 transition-colors disabled:opacity-50"
+                  >
+                    {isCheckingOut ? 'Loading...' : 'Upgrade to Pro'}
+                  </button>
+                </div>
+
+                {/* Enterprise Tier */}
+                <div className="border border-gray-200 rounded-xl p-5">
+                  <div className="text-center mb-4">
+                    <h3 className="font-semibold text-gray-900">Enterprise</h3>
+                    <div className="mt-2">
+                      <span className="text-3xl font-bold text-gray-900">$99.99</span>
+                      <span className="text-rose-500 font-bold">+</span>
+                      <span className="text-gray-500">/mo</span>
+                    </div>
+                    <p className="text-xs text-gray-500 mt-1">or $999.99+/year</p>
+                  </div>
+                  <ul className="space-y-2 text-sm text-gray-600 mb-4">
+                    <li className="flex items-start">
+                      <span className="text-green-500 mr-2">&#10003;</span>
+                      Unlimited runs
+                    </li>
+                    <li className="flex items-start">
+                      <span className="text-green-500 mr-2">&#10003;</span>
+                      500K traces/month
+                    </li>
+                    <li className="flex items-start">
+                      <span className="text-green-500 mr-2">&#10003;</span>
+                      SSO & SOC2/HIPAA
+                    </li>
+                    <li className="flex items-start">
+                      <span className="text-green-500 mr-2">&#10003;</span>
+                      Dedicated support
+                    </li>
+                  </ul>
+                  <a
+                    href="mailto:sales@activeagents.ai"
+                    className="block w-full py-2 px-4 border border-gray-300 text-gray-700 rounded-lg text-sm font-semibold text-center hover:bg-gray-50 transition-colors"
+                  >
+                    Contact Sales
+                  </a>
+                </div>
+              </div>
+            </div>
+
+            {/* Footer */}
+            <div className="px-6 py-4 bg-gray-50 border-t border-gray-100 flex justify-center">
+              <button
+                onClick={() => setShowUpgradeModal(false)}
+                className="text-gray-500 hover:text-gray-700 text-sm"
+              >
+                Maybe later
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

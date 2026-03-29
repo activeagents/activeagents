@@ -57,6 +57,11 @@ Rails.application.routes.draw do
 
   # API endpoints
   namespace :api do
+    # Usage tracking
+    resource :usage, only: [ :show ], controller: "usage" do
+      post :check
+    end
+
     # Sandbox-mode endpoints (only available in sandbox containers)
     namespace :sandbox do
       get :status, to: "runs#status"

@@ -107,6 +107,19 @@ module Api
         }, status: :unprocessable_entity
       end
 
+      # Check account-level usage limits for authenticated users
+      if current_user&.primary_account
+        account = current_user.primary_account
+        unless account.can_run_agent?
+          return render json: {
+            error: "Plan limit reached",
+            upgrade_required: true,
+            usage: account.usage_stats,
+            message: "You've used all #{account.effective_agent_runs_limit} agent runs this month. Upgrade to continue."
+          }, status: :payment_required
+        end
+      end
+
       task = params[:task]
       return render json: { error: "Task required" }, status: :bad_request unless task.present?
 
@@ -115,6 +128,9 @@ module Api
       unless %w[anthropic openai ollama].include?(provider)
         return render json: { error: "Invalid provider" }, status: :bad_request
       end
+
+      # Increment usage for authenticated users
+      current_user&.primary_account&.increment_agent_runs!
 
       @sandbox.update!(status: :running)
 
@@ -126,7 +142,8 @@ module Api
         run_id: run_id,
         status: "running",
         provider: provider,
-        sandbox: @sandbox.summary
+        sandbox: @sandbox.summary,
+        usage: current_user&.primary_account&.usage_stats
       }, status: :accepted
     end
 
