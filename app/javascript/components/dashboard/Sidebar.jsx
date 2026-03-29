@@ -1,10 +1,26 @@
-import React from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import AgentAvatar from '../AgentAvatar';
 import { useTheme } from '../../contexts/ThemeContext';
 import { ICONS, TYPOGRAPHY } from '../../utils/designTokens';
 
-export default function Sidebar({ currentView, onNavigate, agentCount }) {
+export default function Sidebar({ currentView, onNavigate, agentCount, account, user }) {
   const { darkMode } = useTheme();
+  const [showAccountMenu, setShowAccountMenu] = useState(false);
+  const menuRef = useRef(null);
+
+  // Close menu when clicking outside
+  useEffect(() => {
+    function handleClickOutside(event) {
+      if (menuRef.current && !menuRef.current.contains(event.target)) {
+        setShowAccountMenu(false);
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  const accountName = account?.name || 'My Workspace';
+  const userName = user?.name || user?.email?.split('@')[0] || 'User';
 
   const agentItems = [
     { id: 'list', label: 'Agents', icon: ICONS.nav.agents, badge: agentCount },
@@ -89,15 +105,100 @@ export default function Sidebar({ currentView, onNavigate, agentCount }) {
         borderColor: darkMode ? '#2a2a2a' : '#e5e7eb'
       }}
     >
-      {/* Logo - uses the same mascot SVG as the lander */}
+      {/* Account Switcher - Stripe-style */}
       <div
-        className="h-16 flex items-center px-6 border-b"
+        className="h-16 flex items-center px-4 border-b relative"
         style={{ borderColor: darkMode ? '#2a2a2a' : '#e5e7eb' }}
+        ref={menuRef}
       >
-        <div className="flex items-center space-x-2">
-          <AgentAvatar size={28} />
-          <span className={`font-bold text-xl ${darkMode ? 'text-white' : 'text-gray-900'}`}>Active Agent</span>
-        </div>
+        <button
+          onClick={() => setShowAccountMenu(!showAccountMenu)}
+          className="w-full flex items-center justify-between px-2 py-2 rounded-lg transition-colors"
+          style={{
+            backgroundColor: showAccountMenu ? (darkMode ? '#252525' : '#f3f4f6') : 'transparent'
+          }}
+        >
+          <div className="flex items-center space-x-3 min-w-0">
+            <AgentAvatar size={28} />
+            <span className={`font-semibold truncate ${darkMode ? 'text-white' : 'text-gray-900'}`}>
+              {accountName}
+            </span>
+          </div>
+          <svg
+            className={`w-4 h-4 flex-shrink-0 transition-transform ${showAccountMenu ? 'rotate-180' : ''}`}
+            style={{ color: darkMode ? '#9ca3af' : '#6b7280' }}
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+          </svg>
+        </button>
+
+        {/* Account dropdown menu */}
+        {showAccountMenu && (
+          <div
+            className="absolute left-4 right-4 top-14 rounded-lg shadow-lg border overflow-hidden z-50"
+            style={{
+              backgroundColor: darkMode ? '#1a1a1a' : '#ffffff',
+              borderColor: darkMode ? '#2a2a2a' : '#e5e7eb'
+            }}
+          >
+            {/* Account header */}
+            <div className="px-4 py-3 border-b" style={{ borderColor: darkMode ? '#2a2a2a' : '#e5e7eb' }}>
+              <div className="flex items-center space-x-3">
+                <AgentAvatar size={32} />
+                <div className="min-w-0">
+                  <div className={`font-medium truncate ${darkMode ? 'text-white' : 'text-gray-900'}`}>
+                    {accountName}
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Menu items */}
+            <div className="py-1">
+              <button
+                onClick={() => { onNavigate('settings'); setShowAccountMenu(false); }}
+                className={`w-full flex items-center space-x-3 px-4 py-2 text-left text-sm transition-colors ${
+                  darkMode
+                    ? 'text-gray-300 hover:bg-gray-800'
+                    : 'text-gray-700 hover:bg-gray-100'
+                }`}
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                </svg>
+                <span>Settings</span>
+              </button>
+
+              <button
+                onClick={() => { onNavigate('organization'); setShowAccountMenu(false); }}
+                className={`w-full flex items-center space-x-3 px-4 py-2 text-left text-sm transition-colors ${
+                  darkMode
+                    ? 'text-gray-300 hover:bg-gray-800'
+                    : 'text-gray-700 hover:bg-gray-100'
+                }`}
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+                </svg>
+                <span>Organization</span>
+              </button>
+            </div>
+
+            {/* User section */}
+            <div className="border-t py-1" style={{ borderColor: darkMode ? '#2a2a2a' : '#e5e7eb' }}>
+              <div className={`px-4 py-2 flex items-center space-x-3 ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                </svg>
+                <span className="text-sm">{userName}</span>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Navigation */}

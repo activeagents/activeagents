@@ -1,29 +1,49 @@
-import React from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { useTheme } from '../../contexts/ThemeContext';
 
-const VIEW_TITLES = {
-  list: 'Your Agents',
-  builder: 'Create New Agent',
-  editor: 'Edit Agent',
-  runner: 'Run Agent'
-};
-
-export default function Header({ user, currentView, selectedAgent }) {
+export default function Header({ user, account }) {
   const { darkMode, toggleDarkMode } = useTheme();
+  const [showUserMenu, setShowUserMenu] = useState(false);
+  const menuRef = useRef(null);
 
-  const title = currentView === 'editor' && selectedAgent
-    ? selectedAgent.name
-    : currentView === 'runner' && selectedAgent
-    ? `Run: ${selectedAgent.name}`
-    : VIEW_TITLES[currentView] || 'Dashboard';
+  // Close menu when clicking outside
+  useEffect(() => {
+    function handleClickOutside(event) {
+      if (menuRef.current && !menuRef.current.contains(event.target)) {
+        setShowUserMenu(false);
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
 
-  const subtitle = currentView === 'editor' && selectedAgent
-    ? `${selectedAgent.provider} / ${selectedAgent.model}`
-    : currentView === 'runner' && selectedAgent
-    ? 'Test and execute your agent'
-    : currentView === 'builder'
-    ? 'Configure your AI agent step by step'
-    : `${user?.name ? `Welcome back, ${user.name}` : 'Manage your AI agents'}`;
+  const handleSignOut = () => {
+    // Get CSRF token
+    const csrfToken = document.querySelector('meta[name="csrf-token"]')?.content;
+
+    // Create and submit a form to sign out
+    const form = document.createElement('form');
+    form.method = 'POST';
+    form.action = '/session';
+
+    const methodInput = document.createElement('input');
+    methodInput.type = 'hidden';
+    methodInput.name = '_method';
+    methodInput.value = 'delete';
+    form.appendChild(methodInput);
+
+    const csrfInput = document.createElement('input');
+    csrfInput.type = 'hidden';
+    csrfInput.name = 'authenticity_token';
+    csrfInput.value = csrfToken;
+    form.appendChild(csrfInput);
+
+    document.body.appendChild(form);
+    form.submit();
+  };
+
+  const userName = user?.name || user?.email?.split('@')[0] || 'User';
+  const userInitial = userName.charAt(0).toUpperCase();
 
   return (
     <header
@@ -33,11 +53,12 @@ export default function Header({ user, currentView, selectedAgent }) {
         borderColor: darkMode ? '#2a2a2a' : '#e5e7eb'
       }}
     >
-      <div>
-        <h1 className={`text-xl font-semibold ${darkMode ? 'text-white' : 'text-gray-900'}`}>{title}</h1>
-        <p className={`text-sm ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>{subtitle}</p>
+      {/* Left side - can be used for breadcrumbs or search later */}
+      <div className="flex items-center space-x-4">
+        {/* Placeholder for future search or breadcrumbs */}
       </div>
 
+      {/* Right side - User controls */}
       <div className="flex items-center space-x-4">
         {/* Dark mode toggle */}
         <button
@@ -66,11 +87,64 @@ export default function Header({ user, currentView, selectedAgent }) {
           <span>Connected</span>
         </div>
 
-        {/* User avatar */}
-        <div className="w-8 h-8 bg-red-100 rounded-full flex items-center justify-center">
-          <span className="text-red-600 font-medium text-sm">
-            {user?.name?.charAt(0).toUpperCase() || 'D'}
-          </span>
+        {/* User menu */}
+        <div className="relative" ref={menuRef}>
+          <button
+            onClick={() => setShowUserMenu(!showUserMenu)}
+            className="flex items-center space-x-2 p-1 rounded-lg transition-colors"
+            style={{
+              backgroundColor: showUserMenu ? (darkMode ? '#252525' : '#f3f4f6') : 'transparent'
+            }}
+          >
+            <div className="w-8 h-8 bg-red-100 rounded-full flex items-center justify-center">
+              <span className="text-red-600 font-medium text-sm">{userInitial}</span>
+            </div>
+          </button>
+
+          {/* User dropdown menu */}
+          {showUserMenu && (
+            <div
+              className="absolute right-0 mt-2 w-64 rounded-lg shadow-lg border overflow-hidden z-50"
+              style={{
+                backgroundColor: darkMode ? '#1a1a1a' : '#ffffff',
+                borderColor: darkMode ? '#2a2a2a' : '#e5e7eb'
+              }}
+            >
+              {/* User info header */}
+              <div className="px-4 py-3 border-b" style={{ borderColor: darkMode ? '#2a2a2a' : '#e5e7eb' }}>
+                <div className="flex items-center space-x-3">
+                  <div className="w-10 h-10 bg-red-100 rounded-full flex items-center justify-center">
+                    <span className="text-red-600 font-medium">{userInitial}</span>
+                  </div>
+                  <div>
+                    <div className={`font-medium ${darkMode ? 'text-white' : 'text-gray-900'}`}>
+                      {userName}
+                    </div>
+                    <div className={`text-sm ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
+                      {user?.email}
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Menu items */}
+              <div className="py-1">
+                <button
+                  onClick={handleSignOut}
+                  className={`w-full flex items-center space-x-3 px-4 py-2 text-left text-sm transition-colors ${
+                    darkMode
+                      ? 'text-gray-300 hover:bg-gray-800'
+                      : 'text-gray-700 hover:bg-gray-100'
+                  }`}
+                >
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+                  </svg>
+                  <span>Sign out</span>
+                </button>
+              </div>
+            </div>
+          )}
         </div>
       </div>
     </header>
