@@ -9,7 +9,7 @@ export default function Sidebar({ currentView, onNavigate, agentCount }) {
   const agentItems = [
     { id: 'list', label: 'Agents', icon: ICONS.nav.agents, badge: agentCount },
     { id: 'builder', label: 'New Agent', icon: ICONS.nav.newAgent },
-    { id: 'sandbox', label: 'Try Demo', icon: ICONS.nav.demo, highlight: true },
+    { id: 'sandbox', label: 'Run Agents', icon: ICONS.nav.demo, highlight: true },
   ];
 
   const observabilityItems = [
