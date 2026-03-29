@@ -957,11 +957,11 @@ export default function SandboxRunner({ initialType = 'playwright_mcp', onClose 
                   <div className="text-center mb-4 mt-2">
                     <h3 className="font-semibold text-gray-900">Pro</h3>
                     <div className="mt-2">
-                      <span className="text-3xl font-bold text-gray-900">$9.99</span>
+                      <span className="text-3xl font-bold text-gray-900">$19.99</span>
                       <span className="text-rose-500 font-bold">+</span>
                       <span className="text-gray-500">/mo</span>
                     </div>
-                    <p className="text-xs text-gray-500 mt-1">or $99.99+/year (save 17%)</p>
+                    <p className="text-xs text-gray-500 mt-1">or $199.99+/year (save 17%)</p>
                   </div>
                   <ul className="space-y-2 text-sm text-gray-700 mb-4">
                     <li className="flex items-start">
@@ -995,11 +995,11 @@ export default function SandboxRunner({ initialType = 'playwright_mcp', onClose 
                   <div className="text-center mb-4">
                     <h3 className="font-semibold text-gray-900">Enterprise</h3>
                     <div className="mt-2">
-                      <span className="text-3xl font-bold text-gray-900">$99.99</span>
+                      <span className="text-3xl font-bold text-gray-900">$199.99</span>
                       <span className="text-rose-500 font-bold">+</span>
                       <span className="text-gray-500">/mo</span>
                     </div>
-                    <p className="text-xs text-gray-500 mt-1">or $999.99+/year</p>
+                    <p className="text-xs text-gray-500 mt-1">or $1,999.99+/year (save 17%)</p>
                   </div>
                   <ul className="space-y-2 text-sm text-gray-600 mb-4">
                     <li className="flex items-start">
