@@ -49,7 +49,18 @@ class User < ApplicationRecord
       email_verified: true,
       email_verification_token: nil
     )
+
+    # Broadcast to pending_verification page to trigger redirect
+    broadcast_email_verified
+
     true
+  end
+
+  def broadcast_email_verified
+    ActionCable.server.broadcast(
+      "email_verification_#{id}",
+      { type: "email_verified", redirect_to: "/complete_profile" }
+    )
   end
 
   def email_verified?
