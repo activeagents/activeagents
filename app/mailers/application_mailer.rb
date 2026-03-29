@@ -1,4 +1,4 @@
 class ApplicationMailer < ActionMailer::Base
-  default from: "ActiveAgent <hello@activeagents.ai>"
+  # From address configured via MAILER_FROM_ADDRESS env var or config/environments
   layout "mailer"
 end

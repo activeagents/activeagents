@@ -14,6 +14,12 @@ variable "image" {
   type        = string
 }
 
+variable "mailer_from_address" {
+  description = "Default from address for transactional emails"
+  type        = string
+  default     = "Active Agent <noreply@staging.activeagents.ai>"
+}
+
 variable "allow_public_access" {
   description = "Allow unauthenticated public access to Cloud Run"
   type        = bool

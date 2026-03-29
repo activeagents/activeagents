@@ -70,7 +70,7 @@ Rails.application.configure do
     tls: true
   }
   config.action_mailer.default_options = {
-    from: "ActiveAgent <hello@activeagents.ai>"
+    from: ENV.fetch("MAILER_FROM_ADDRESS", "ActiveAgent <hello@activeagents.ai>")
   }
 
   # Enable locale fallbacks for I18n (makes lookups for any locale fall back to

@@ -1,7 +1,7 @@
 # frozen_string_literal: true
 
 class UserMailer < ApplicationMailer
-  default from: "Active Agent <noreply@activeagents.ai>"
+  # Uses default from address from ApplicationMailer/config
 
   def email_verification(user)
     @user = user
