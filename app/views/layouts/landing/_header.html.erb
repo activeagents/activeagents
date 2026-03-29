@@ -12,7 +12,7 @@
     <%= link_to "Hosting", "#hosting", class: "nav-link", data: { action: "click->mobile-menu#close" } %>
     <%= link_to "Docs", "https://docs.activeagents.ai", class: "nav-link", target: "_blank", rel: "noopener noreferrer", data: { action: "click->mobile-menu#close" } %>
     <div class="button-group stacked margin-top-l mobile-only">
-      <%= link_to "Sign In", "https://activeagents.ai/dashboard", class: "button tertiary", target: "_blank", rel: "noopener noreferrer" %>
+      <%= link_to "Sign In", dashboard_path, class: "button tertiary" %>
       <%= link_to "Getting Started", "https://docs.activeagents.ai/getting_started", class: "button primary", target: "_blank", rel: "noopener noreferrer" %>
     </div>
   </nav>
@@ -30,7 +30,7 @@
       <span class="theme-icon-sun fa-solid fa-sun icon m"></span>
       <span class="theme-icon-moon fa-solid fa-moon icon m"></span>
     </button>
-    <%= link_to "Sign In", "https://activeagents.ai/dashboard", class: "button tertiary compact hide-on-mobile", target: "_blank", rel: "noopener noreferrer" %>
+    <%= link_to "Sign In", dashboard_path, class: "button tertiary compact hide-on-mobile" %>
     <button class="button ghost compact nav-hamburger" data-action="mobile-menu#toggle" aria-label="Show menu">
       <span class="fa-solid fa-bars icon m"></span>
     </button>
