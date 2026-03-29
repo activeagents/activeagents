@@ -349,13 +349,14 @@ function DashboardContent({ user, initialAgents = [], meta = {} }) {
         currentView={currentView}
         onNavigate={navigateTo}
         agentCount={agents.length}
+        account={user?.primary_account}
+        user={user}
       />
 
       <div className="flex-1 flex flex-col">
         <Header
           user={user}
-          currentView={currentView}
-          selectedAgent={selectedAgent}
+          account={user?.primary_account}
         />
 
         <main className="flex-1 p-6 overflow-auto">
