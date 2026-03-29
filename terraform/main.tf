@@ -182,6 +182,7 @@ module "cloud_run" {
     DB_HOST                = "/cloudsql/${module.cloud_sql.connection_name}"
     DB_NAME                = module.cloud_sql.database_name
     DB_USER                = module.cloud_sql.database_user
+    MAILER_FROM_ADDRESS    = var.mailer_from_address
   }
 
   secret_env_vars = {

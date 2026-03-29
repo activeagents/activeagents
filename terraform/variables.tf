@@ -21,6 +21,13 @@ variable "environment" {
   }
 }
 
+# Email configuration
+variable "mailer_from_address" {
+  description = "Default from address for transactional emails"
+  type        = string
+  default     = "ActiveAgent <hello@activeagents.ai>"
+}
+
 # Cloud Run configuration
 variable "image" {
   description = "Docker image to deploy (full path including tag)"

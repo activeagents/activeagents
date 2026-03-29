@@ -29,6 +29,9 @@ module "activeagents" {
   cpu           = var.cpu      # 2 vCPUs for benchmark API and concurrent operations
   memory        = var.memory   # 2Gi for Rails 8 + ActionCable
 
+  # Email configuration
+  mailer_from_address = var.mailer_from_address
+
   # Sandbox configuration for agent execution (ephemeral containers)
   sandbox_cpu              = var.sandbox_cpu     # 4 vCPUs for parallel Ractor/Thread execution
   sandbox_memory           = var.sandbox_memory  # 4Gi for LLM context and agent workloads
