@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.2].define(version: 2026_03_27_205458) do
+ActiveRecord::Schema[8.2].define(version: 2026_03_29_013040) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
 
@@ -26,10 +26,13 @@ ActiveRecord::Schema[8.2].define(version: 2026_03_27_205458) do
   end
 
   create_table "accounts", force: :cascade do |t|
+    t.integer "agent_runs_limit", default: 3, null: false
+    t.integer "agent_runs_this_period", default: 0, null: false
     t.datetime "created_at", null: false
     t.string "name", null: false
     t.bigint "owner_id", null: false
     t.datetime "updated_at", null: false
+    t.datetime "usage_period_start"
     t.index ["owner_id"], name: "index_accounts_on_owner_id"
   end
 
@@ -513,6 +516,7 @@ ActiveRecord::Schema[8.2].define(version: 2026_03_27_205458) do
     t.string "password_digest", null: false
     t.boolean "profile_completed", default: false, null: false
     t.string "signup_source"
+    t.boolean "synced_to_resend", default: false, null: false
     t.datetime "updated_at", null: false
     t.index ["admin"], name: "index_users_on_admin"
     t.index ["email_address"], name: "index_users_on_email_address", unique: true

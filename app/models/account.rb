@@ -9,6 +9,13 @@ class Account < ApplicationRecord
 
   validates :name, presence: true
 
+  # Usage limits by plan (artificially low for testing)
+  USAGE_LIMITS = {
+    "free" => 3,      # Very low to trigger upgrade quickly
+    "pro" => 1000,
+    "enterprise" => -1  # Unlimited
+  }.freeze
+
   def stripe_attributes(pay_customer)
     {
       metadata: {
@@ -35,5 +42,49 @@ class Account < ApplicationRecord
       # Default to free plan for users without a subscription
       Plan.free.first
     end
+  end
+
+  # Usage tracking methods
+  def reset_usage_period_if_needed!
+    period_start = usage_period_start || created_at
+    if period_start < 1.month.ago
+      update!(
+        agent_runs_this_period: 0,
+        usage_period_start: Time.current.beginning_of_month
+      )
+    end
+  end
+
+  def increment_agent_runs!
+    reset_usage_period_if_needed!
+    increment!(:agent_runs_this_period)
+  end
+
+  def agent_runs_remaining
+    limit = effective_agent_runs_limit
+    return Float::INFINITY if limit == -1
+    [ limit - agent_runs_this_period, 0 ].max
+  end
+
+  def can_run_agent?
+    limit = effective_agent_runs_limit
+    return true if limit == -1  # Unlimited
+    agent_runs_this_period < limit
+  end
+
+  def effective_agent_runs_limit
+    plan_slug = current_plan&.slug || "free"
+    USAGE_LIMITS[plan_slug] || USAGE_LIMITS["free"]
+  end
+
+  def usage_stats
+    {
+      runs_used: agent_runs_this_period,
+      runs_limit: effective_agent_runs_limit,
+      runs_remaining: agent_runs_remaining,
+      can_run: can_run_agent?,
+      period_start: usage_period_start&.iso8601,
+      plan: current_plan&.slug || "free"
+    }
   end
 end
