@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.2].define(version: 2026_03_27_205458) do
+ActiveRecord::Schema[8.2].define(version: 2026_03_29_170601) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
 
@@ -29,8 +29,10 @@ ActiveRecord::Schema[8.2].define(version: 2026_03_27_205458) do
     t.datetime "created_at", null: false
     t.string "name", null: false
     t.bigint "owner_id", null: false
+    t.string "telemetry_api_key"
     t.datetime "updated_at", null: false
     t.index ["owner_id"], name: "index_accounts_on_owner_id"
+    t.index ["telemetry_api_key"], name: "index_accounts_on_telemetry_api_key", unique: true
   end
 
   create_table "active_storage_attachments", force: :cascade do |t|
@@ -487,6 +489,32 @@ ActiveRecord::Schema[8.2].define(version: 2026_03_27_205458) do
     t.index ["user_id"], name: "index_sessions_on_user_id"
   end
 
+  create_table "telemetry_traces", force: :cascade do |t|
+    t.bigint "account_id", null: false
+    t.string "agent_action"
+    t.string "agent_class"
+    t.datetime "created_at", null: false
+    t.string "environment"
+    t.text "error_message"
+    t.jsonb "resource_attributes"
+    t.jsonb "sdk_info"
+    t.string "service_name"
+    t.jsonb "spans"
+    t.string "status"
+    t.datetime "timestamp"
+    t.decimal "total_duration_ms"
+    t.integer "total_input_tokens"
+    t.integer "total_output_tokens"
+    t.integer "total_thinking_tokens"
+    t.string "trace_id"
+    t.datetime "updated_at", null: false
+    t.index ["account_id"], name: "index_telemetry_traces_on_account_id"
+    t.index ["agent_class"], name: "index_telemetry_traces_on_agent_class"
+    t.index ["service_name"], name: "index_telemetry_traces_on_service_name"
+    t.index ["timestamp"], name: "index_telemetry_traces_on_timestamp"
+    t.index ["trace_id"], name: "index_telemetry_traces_on_trace_id"
+  end
+
   create_table "timeline_videos", force: :cascade do |t|
     t.datetime "created_at", null: false
     t.float "end_offset"
@@ -592,6 +620,7 @@ ActiveRecord::Schema[8.2].define(version: 2026_03_27_205458) do
   add_foreign_key "session_recordings", "agent_runs"
   add_foreign_key "session_recordings", "sandbox_sessions"
   add_foreign_key "sessions", "users"
+  add_foreign_key "telemetry_traces", "accounts"
   add_foreign_key "timeline_videos", "video_timelines"
   add_foreign_key "timeline_videos", "videos"
   add_foreign_key "video_events", "videos"

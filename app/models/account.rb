@@ -36,4 +36,25 @@ class Account < ApplicationRecord
       Plan.free.first
     end
   end
+
+  # Telemetry methods
+
+  # Has many telemetry traces received from ActiveAgent clients
+  has_many :telemetry_traces, dependent: :destroy
+
+  # Generates a new telemetry API key for this account
+  def generate_telemetry_api_key!
+    update!(telemetry_api_key: SecureRandom.hex(32))
+    telemetry_api_key
+  end
+
+  # Regenerates the telemetry API key (invalidates old one)
+  def regenerate_telemetry_api_key!
+    generate_telemetry_api_key!
+  end
+
+  # Increments telemetry usage counter (for rate limiting/billing)
+  def increment_telemetry_usage!
+    # No-op for now, can add rate limiting later
+  end
 end
