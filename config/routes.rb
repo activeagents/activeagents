@@ -134,6 +134,9 @@ Rails.application.routes.draw do
 
     namespace :v1 do
       resources :plans, only: [ :index ]
+
+      # Telemetry ingestion endpoint for ActiveAgent clients
+      resources :traces, only: [ :create ]
     end
   end
 end

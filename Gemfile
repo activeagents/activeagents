@@ -25,7 +25,8 @@ gem "rouge"
 # Inertia adapter for Rails [https://inertia-rails.dev]
 gem "inertia_rails"
 # Active Agent - AI agent framework for Rails [https://github.com/activeagents/activeagent]
-gem "activeagent", github: "activeagents/activeagent", branch: "main"
+# Using feat/telemetry-engine branch for dashboard support until merged to main
+gem "activeagent", github: "activeagents/activeagent", branch: "feat/telemetry-engine"
 # Solid Agent - Persistence and context management for ActiveAgent
 gem "solid_agent", github: "activeagents/solid_agent", branch: "main"
 # Anthropic Claude API client for Active Agent providers
