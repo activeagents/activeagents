@@ -10,3 +10,7 @@ Pay.setup do |config|
   config.automount_routes = true
   config.routes_path = "/pay"
 end
+
+# Map STRIPE_WEBHOOK_SECRET to what Pay gem expects
+# Pay gem looks for STRIPE_SIGNING_SECRET or credentials[:stripe][:signing_secret]
+ENV["STRIPE_SIGNING_SECRET"] ||= ENV["STRIPE_WEBHOOK_SECRET"] if ENV["STRIPE_WEBHOOK_SECRET"]
