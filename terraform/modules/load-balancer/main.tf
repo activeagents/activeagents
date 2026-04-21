@@ -76,8 +76,9 @@ resource "google_compute_url_map" "default" {
 
 # Managed SSL certificate (optional, for custom domain)
 # Supports primary domain plus additional domains (e.g., apex + staging)
+# Skip creation if using an existing certificate
 resource "google_compute_managed_ssl_certificate" "default" {
-  count   = var.domain != null ? 1 : 0
+  count   = var.domain != null && var.existing_ssl_cert_name == null ? 1 : 0
   project = var.project_id
   name    = "${var.name}-cert"
 
@@ -86,18 +87,32 @@ resource "google_compute_managed_ssl_certificate" "default" {
   }
 }
 
-# HTTPS proxy (only when domain is configured)
+# Data source for existing SSL certificate (if specified)
+data "google_compute_ssl_certificate" "existing" {
+  count   = var.existing_ssl_cert_name != null ? 1 : 0
+  project = var.project_id
+  name    = var.existing_ssl_cert_name
+}
+
+# Local to determine which cert to use
+locals {
+  ssl_certificate_id = var.existing_ssl_cert_name != null ? data.google_compute_ssl_certificate.existing[0].id : (
+    var.domain != null ? google_compute_managed_ssl_certificate.default[0].id : null
+  )
+}
+
+# HTTPS proxy (only when domain is configured or existing cert is provided)
 resource "google_compute_target_https_proxy" "default" {
-  count            = var.domain != null ? 1 : 0
+  count            = var.domain != null || var.existing_ssl_cert_name != null ? 1 : 0
   project          = var.project_id
   name             = "${var.name}-https-proxy"
   url_map          = google_compute_url_map.default.id
-  ssl_certificates = [google_compute_managed_ssl_certificate.default[0].id]
+  ssl_certificates = [local.ssl_certificate_id]
 }
 
-# HTTPS forwarding rule (only when domain is configured)
+# HTTPS forwarding rule (only when domain or existing cert is configured)
 resource "google_compute_global_forwarding_rule" "https" {
-  count                 = var.domain != null ? 1 : 0
+  count                 = var.domain != null || var.existing_ssl_cert_name != null ? 1 : 0
   project               = var.project_id
   name                  = "${var.name}-https"
   target                = google_compute_target_https_proxy.default[0].id
@@ -113,9 +128,9 @@ resource "google_compute_target_http_proxy" "default" {
   url_map = google_compute_url_map.default.id
 }
 
-# HTTP forwarding rule (for direct HTTP access when no domain)
+# HTTP forwarding rule (for direct HTTP access when no domain and no existing cert)
 resource "google_compute_global_forwarding_rule" "http_direct" {
-  count                 = var.domain == null ? 1 : 0
+  count                 = var.domain == null && var.existing_ssl_cert_name == null ? 1 : 0
   project               = var.project_id
   name                  = "${var.name}-http-direct"
   target                = google_compute_target_http_proxy.default.id
@@ -130,9 +145,9 @@ resource "google_compute_global_address" "default" {
   name    = "${var.name}-ip"
 }
 
-# HTTP to HTTPS redirect (only when domain is configured and redirect enabled)
+# HTTP to HTTPS redirect (only when domain or existing cert is configured and redirect enabled)
 resource "google_compute_url_map" "http_redirect" {
-  count   = var.domain != null && var.enable_http_redirect ? 1 : 0
+  count   = (var.domain != null || var.existing_ssl_cert_name != null) && var.enable_http_redirect ? 1 : 0
   project = var.project_id
   name    = "${var.name}-http-redirect"
 
@@ -144,14 +159,14 @@ resource "google_compute_url_map" "http_redirect" {
 }
 
 resource "google_compute_target_http_proxy" "http_redirect" {
-  count   = var.domain != null && var.enable_http_redirect ? 1 : 0
+  count   = (var.domain != null || var.existing_ssl_cert_name != null) && var.enable_http_redirect ? 1 : 0
   project = var.project_id
   name    = "${var.name}-http-proxy"
   url_map = google_compute_url_map.http_redirect[0].id
 }
 
 resource "google_compute_global_forwarding_rule" "http_redirect" {
-  count                 = var.domain != null && var.enable_http_redirect ? 1 : 0
+  count                 = (var.domain != null || var.existing_ssl_cert_name != null) && var.enable_http_redirect ? 1 : 0
   project               = var.project_id
   name                  = "${var.name}-http"
   target                = google_compute_target_http_proxy.http_redirect[0].id

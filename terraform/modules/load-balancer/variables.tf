@@ -30,6 +30,12 @@ variable "additional_domains" {
   default     = []
 }
 
+variable "existing_ssl_cert_name" {
+  description = "Name of an existing SSL certificate to use instead of creating a new one. Takes precedence over domain/additional_domains."
+  type        = string
+  default     = null
+}
+
 variable "enable_cdn" {
   description = "Enable Cloud CDN for caching"
   type        = bool

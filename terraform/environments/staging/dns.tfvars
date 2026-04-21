@@ -5,6 +5,11 @@
 # Set to true to switch activeagents.ai from Framer to Cloud Run
 enable_apex_domain = true
 
+# Use existing SSL certificate (already provisioned and active)
+# This avoids the 15-60 min provisioning delay when creating new certs
+# Certificate covers: activeagents.ai, www.activeagents.ai, staging.activeagents.ai
+lb_existing_ssl_cert_name = "activeagents-all-domains-cert"
+
 # Framer website A records (apex domain) - IGNORED when enable_apex_domain = true
 # Updated 2026-02-24 - IPs from Framer custom domain settings
 framer_ips = [
