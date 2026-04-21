@@ -134,6 +134,12 @@ variable "lb_domain" {
   default     = null
 }
 
+variable "lb_additional_domains" {
+  description = "Additional domains to include in the SSL certificate (e.g., apex domain)"
+  type        = list(string)
+  default     = []
+}
+
 variable "enable_cdn" {
   description = "Enable Cloud CDN for caching static assets (disable if using IAP)"
   type        = bool

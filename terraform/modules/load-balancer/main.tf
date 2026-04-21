@@ -75,13 +75,14 @@ resource "google_compute_url_map" "default" {
 }
 
 # Managed SSL certificate (optional, for custom domain)
+# Supports primary domain plus additional domains (e.g., apex + staging)
 resource "google_compute_managed_ssl_certificate" "default" {
   count   = var.domain != null ? 1 : 0
   project = var.project_id
   name    = "${var.name}-cert"
 
   managed {
-    domains = [var.domain]
+    domains = concat([var.domain], var.additional_domains)
   }
 }
 

@@ -225,6 +225,7 @@ module "load_balancer" {
   name                   = "activeagents-${var.environment}"
   cloud_run_service_name = module.cloud_run.service_name
   domain                 = var.lb_domain
+  additional_domains     = var.lb_additional_domains
   enable_cdn             = var.enable_cdn
   enable_http_redirect   = true
 

@@ -19,9 +19,15 @@ variable "cloud_run_service_name" {
 }
 
 variable "domain" {
-  description = "Custom domain for SSL certificate (optional)"
+  description = "Primary custom domain for SSL certificate (optional)"
   type        = string
   default     = null
+}
+
+variable "additional_domains" {
+  description = "Additional domains to include in the SSL certificate (e.g., apex domain)"
+  type        = list(string)
+  default     = []
 }
 
 variable "enable_cdn" {
