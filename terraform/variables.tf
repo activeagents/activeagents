@@ -140,6 +140,12 @@ variable "lb_additional_domains" {
   default     = []
 }
 
+variable "lb_existing_ssl_cert_name" {
+  description = "Name of an existing SSL certificate to use instead of creating a new one"
+  type        = string
+  default     = null
+}
+
 variable "enable_cdn" {
   description = "Enable Cloud CDN for caching static assets (disable if using IAP)"
   type        = bool

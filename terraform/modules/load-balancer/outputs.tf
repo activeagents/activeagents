@@ -5,7 +5,9 @@ output "ip_address" {
 
 output "url" {
   description = "The public URL of the load balancer (HTTPS if domain configured, HTTP otherwise)"
-  value       = var.domain != null ? "https://${var.domain}" : "http://${google_compute_global_address.default.address}"
+  value       = var.domain != null ? "https://${var.domain}" : (
+    var.existing_ssl_cert_name != null ? "https://${google_compute_global_address.default.address}" : "http://${google_compute_global_address.default.address}"
+  )
 }
 
 output "backend_service_name" {
@@ -14,6 +16,6 @@ output "backend_service_name" {
 }
 
 output "uses_https" {
-  description = "Whether the load balancer is configured with HTTPS (requires domain)"
-  value       = var.domain != null
+  description = "Whether the load balancer is configured with HTTPS (requires domain or existing cert)"
+  value       = var.domain != null || var.existing_ssl_cert_name != null
 }
