@@ -21,9 +21,10 @@ Gem::Specification.new do |spec|
   spec.homepage = "https://github.com/activeagents/ragents"
   spec.license = "MIT"
 
-  # Ragents requires Ruby 4.0+ for the stabilised Ractor API.
-  # See: https://docs.ruby-lang.org/en/4.0/Ractor.html
-  spec.required_ruby_version = ">= 4.0.0"
+  # Ragents uses Ractors for true parallelism in AI agent orchestration.
+  # Ractors have been available since Ruby 3.0 but became more stable in 3.2+.
+  # Ruby 3.3+ is recommended for the best Ractor performance.
+  spec.required_ruby_version = ">= 3.2.0"
 
   spec.metadata = {
     "homepage_uri"    => spec.homepage,
