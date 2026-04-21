@@ -122,6 +122,12 @@ GIT
       tsort (>= 0.2)
       zeitwerk (~> 2.6)
 
+PATH
+  remote: ragents
+  specs:
+    ragents (0.1.0)
+      json (>= 2.7)
+
 GEM
   remote: https://rubygems.org/
   specs:
@@ -546,6 +552,7 @@ DEPENDENCIES
   pg (~> 1.1)
   propshaft
   puma (>= 5.0)
+  ragents!
   rails!
   redcarpet
   resend

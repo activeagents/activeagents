@@ -135,7 +135,12 @@ Rails.application.routes.draw do
     # Ragents benchmark results — accepts POSTed JSON from bin/bench
     # GET  /api/benchmarks     — list recent runs
     # POST /api/benchmarks     — ingest a new benchmark run from bin/bench
-    resources :benchmarks, only: [ :index, :create ]
+    # POST /api/benchmarks/run — trigger a benchmark run in the cloud
+    resources :benchmarks, only: [ :index, :create ] do
+      collection do
+        post :run
+      end
+    end
 
     namespace :v1 do
       resources :plans, only: [ :index ]
