@@ -15,10 +15,10 @@ class BenchmarkRunnerService
   require "etc"
 
   PROVIDERS = {
-    "mock" => -> (opts) {
+    "mock" => ->(opts) {
       [ Ragents::Providers::SimulatedProvider, { io_ms: opts[:io_ms], cpu_iterations: opts[:cpu_iters] } ]
     },
-    "realistic" => -> (opts) {
+    "realistic" => ->(opts) {
       [ Ragents::Providers::RealisticLLMProvider, {
         median_latency_ms: opts[:median_latency] || 3000,
         latency_sigma: opts[:latency_sigma] || 0.8,
@@ -27,10 +27,10 @@ class BenchmarkRunnerService
         cpu_work_per_token: 100
       } ]
     },
-    "openai" => -> (_opts) {
+    "openai" => ->(_opts) {
       [ Ragents::Providers::OpenAIProvider, { api_key: ENV.fetch("OPENAI_API_KEY", "") } ]
     },
-    "anthropic" => -> (_opts) {
+    "anthropic" => ->(_opts) {
       [ Ragents::Providers::AnthropicProvider, { api_key: ENV.fetch("ANTHROPIC_API_KEY", "") } ]
     }
   }.freeze
