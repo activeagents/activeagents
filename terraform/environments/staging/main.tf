@@ -47,11 +47,13 @@ module "activeagents" {
 
   # Load Balancer for public access (bypasses org policy restrictions)
   # NOTE: IAP is configured manually via gcloud (see modules/load-balancer/main.tf)
-  enable_load_balancer   = var.enable_load_balancer
-  lb_domain              = var.enable_dns ? "staging.${var.dns_domain}" : var.lb_domain
-  # Include apex domain in SSL cert when enable_apex_domain is true
-  lb_additional_domains  = var.enable_apex_domain ? [var.dns_domain] : var.lb_additional_domains
-  enable_cdn             = var.enable_cdn
+  enable_load_balancer      = var.enable_load_balancer
+  lb_domain                 = var.lb_existing_ssl_cert_name == null ? (var.enable_dns ? "staging.${var.dns_domain}" : var.lb_domain) : null
+  # Include apex domain in SSL cert when enable_apex_domain is true (only if not using existing cert)
+  lb_additional_domains     = var.lb_existing_ssl_cert_name == null && var.enable_apex_domain ? [var.dns_domain] : var.lb_additional_domains
+  # Use existing SSL cert if specified (avoids provisioning delays)
+  lb_existing_ssl_cert_name = var.lb_existing_ssl_cert_name
+  enable_cdn                = var.enable_cdn
 
   # DNS configuration
   enable_dns = var.enable_dns
