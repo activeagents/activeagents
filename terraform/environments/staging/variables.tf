@@ -51,6 +51,12 @@ variable "lb_domain" {
   default     = null  # Will use IP address until domain is configured
 }
 
+variable "lb_additional_domains" {
+  description = "Additional domains to include in the SSL certificate (e.g., apex domain)"
+  type        = list(string)
+  default     = []
+}
+
 variable "enable_cdn" {
   description = "Enable Cloud CDN for caching static assets (disabled when IAP is used)"
   type        = bool
