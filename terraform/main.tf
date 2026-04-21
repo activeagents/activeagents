@@ -226,6 +226,7 @@ module "load_balancer" {
   cloud_run_service_name = module.cloud_run.service_name
   domain                 = var.lb_domain
   additional_domains     = var.lb_additional_domains
+  existing_ssl_cert_name = var.lb_existing_ssl_cert_name
   enable_cdn             = var.enable_cdn
   enable_http_redirect   = true
 
