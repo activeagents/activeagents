@@ -28,6 +28,8 @@ gem "inertia_rails"
 gem "activeagent", github: "activeagents/activeagent", branch: "main"
 # Solid Agent - Persistence and context management for ActiveAgent
 gem "solid_agent", github: "activeagents/solid_agent", branch: "main"
+# Ragents - Ractor-based AI agents for benchmarking (Ruby 4.0+)
+gem "ragents", path: "ragents"
 # Anthropic Claude API client for Active Agent providers
 gem "anthropic"
 # Resend email delivery service [https://resend.com/docs/send-with-ruby]

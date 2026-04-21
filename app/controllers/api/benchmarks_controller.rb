@@ -23,6 +23,50 @@ module Api
       }
     end
 
+    # POST /api/benchmarks/run
+    # Triggers a benchmark run within the Rails application.
+    # Useful for running benchmarks in deployed cloud infrastructure.
+    def run
+      options = {
+        requests: params[:requests]&.to_i || 5,
+        io_ms: params[:io_ms]&.to_i || 100,
+        cpu_iters: params[:cpu_iters]&.to_i || 50_000,
+        provider: params[:provider] || "mock",
+        include_ractors: params[:include_ractors] != "false"
+      }
+
+      # Run benchmarks (synchronous for small N, async for larger)
+      if options[:requests] <= 10
+        service = BenchmarkRunnerService.new(**options)
+        results = service.run
+
+        # Store results in cache (same as create action)
+        run_record = {
+          id: SecureRandom.hex(6),
+          run_at: results[:run_at],
+          hardware: results[:hardware],
+          config: results[:config],
+          strategies: results[:strategies],
+          winner: results[:winner],
+          received_at: Time.now.iso8601,
+          source: "cloud_runner"
+        }
+
+        runs = cached_runs
+        runs.unshift(run_record)
+        runs = runs.first(MAX_RETAINED)
+        Rails.cache.write(CACHE_KEY, runs, expires_in: 7.days)
+
+        render json: { ok: true, id: run_record[:id], results: results }
+      else
+        # Queue async job for larger benchmarks
+        BenchmarkRunJob.perform_later(options)
+        render json: { ok: true, status: "queued", message: "Benchmark queued for async execution" }
+      end
+    rescue => e
+      render json: { error: e.message, backtrace: e.backtrace.first(5) }, status: :internal_server_error
+    end
+
     # POST /api/benchmarks
     # Accepts JSON body from ragents/bin/bench.
     # No authentication required so bin/bench works without a session cookie.
