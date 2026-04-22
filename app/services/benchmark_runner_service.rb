@@ -186,15 +186,30 @@ class BenchmarkRunnerService
     strategies
   end
 
+  # Direct provider call for sequential/thread benchmarks (no Ractors)
+  # This avoids Ractor overhead for non-Ractor strategies and works in
+  # environments where Ractors may not be supported (like Cloud Run).
   def run_agent(input)
-    agent = Ragents::Ractor::AgentRactor.new(
-      provider_class: @provider_class,
-      provider_opts: @provider_opts,
-      system_prompt: @system
-    )
+    provider = @provider_class.new(**@provider_opts)
+    messages = [
+      { role: "system", content: @system },
+      { role: "user", content: input }
+    ]
+
     start = Process.clock_gettime(Process::CLOCK_MONOTONIC, :millisecond)
-    result = agent.run(input)
+    gen_result = provider.chat(messages: messages)
     elapsed = Process.clock_gettime(Process::CLOCK_MONOTONIC, :millisecond) - start
+
+    # Wrap in a struct-like object that matches RunResult interface
+    result = Ragents::Ractor::RunResult.new(
+      assistant_message: Ragents::AssistantMessage.new(
+        content: gen_result.content,
+        input_tokens: gen_result.input_tokens,
+        output_tokens: gen_result.output_tokens,
+        model: gen_result.model
+      ),
+      context_snapshot: [].freeze
+    )
     { result: result, duration_ms: elapsed, context_bytes: 0 }
   rescue => e
     { error: "Error: #{e.class}: #{e.message}", duration_ms: 0, context_bytes: 0 }
