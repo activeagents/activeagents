@@ -27,12 +27,23 @@ module Api
     # Triggers a benchmark run within the Rails application.
     # Useful for running benchmarks in deployed cloud infrastructure.
     def run
+      # Ractors are experimental and may not work reliably in Cloud Run.
+      # Default to disabled in Cloud Run (production/staging) unless explicitly enabled.
+      # Cloud Run sets K_SERVICE environment variable.
+      in_cloud_run = ENV["K_SERVICE"].present?
+      ractor_default = !in_cloud_run
+      include_ractors = if params[:include_ractors].present?
+                          params[:include_ractors] == "true"
+      else
+                          ractor_default
+      end
+
       options = {
         requests: params[:requests]&.to_i || 5,
         io_ms: params[:io_ms]&.to_i || 100,
         cpu_iters: params[:cpu_iters]&.to_i || 50_000,
         provider: params[:provider] || "mock",
-        include_ractors: params[:include_ractors] != "false"
+        include_ractors: include_ractors
       }
 
       # Run benchmarks (synchronous for small N, async for larger)
