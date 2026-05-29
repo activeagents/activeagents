@@ -67,6 +67,13 @@ Rails.application.routes.draw do
       get :status, to: "runs#status"
       resources :runs, only: [ :index, :show, :create ]
     end
+    # Tool registry (for agent builder UI)
+    resources :tools, only: [ :index, :show ], param: :id do
+      member do
+        post :test
+      end
+    end
+
     resources :agents do
       member do
         get :versions
@@ -80,6 +87,14 @@ Rails.application.routes.draw do
       end
       collection do
         get :presets
+      end
+
+      # Agent contexts with fragments (Phase 2: Core Skills)
+      resources :contexts, controller: "agent_contexts", only: [ :index, :show, :create, :destroy ] do
+        member do
+          get :fragments
+          post :add_fragment
+        end
       end
     end
 

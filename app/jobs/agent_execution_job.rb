@@ -45,7 +45,22 @@ class AgentExecutionJob < ApplicationJob
   private
 
   def execute_agent(agent_record, run)
-    # Check if we have ActiveAgent available
+    action_name = run.input_params&.dig("action") || "default"
+    session_id = run.input_params&.dig("session_id") || run.trace_id
+
+    # Try deterministic cache first
+    if agent_record.deterministic_action?(action_name)
+      run.add_log("Checking deterministic cache for action: #{action_name}", level: :info)
+      result = agent_record.generate_with_caching(action_name, run.input_prompt, session_id: session_id)
+      if result.dig(:metadata, :cached)
+        run.add_log("Cache hit - returning deterministic response", level: :info)
+        return result
+      end
+      run.add_log("Cache miss - generating new response", level: :info)
+      return result
+    end
+
+    # Standard execution path
     if defined?(ActiveAgent::Base)
       execute_with_active_agent(agent_record, run)
     else
@@ -54,6 +69,9 @@ class AgentExecutionJob < ApplicationJob
   end
 
   def execute_with_active_agent(agent_record, run)
+    tool_definitions = ToolRegistry.definitions_for(agent_record.tools)
+    run.add_log("Tools available: #{agent_record.tools.join(', ')}", level: :info) if agent_record.tools.any?
+
     # Dynamically create an agent class
     agent_class = Class.new(ActiveAgent::Base) do
       # Configure provider
@@ -61,19 +79,28 @@ class AgentExecutionJob < ApplicationJob
 
       define_method :perform do
         prompt instructions: agent_record.instructions if agent_record.instructions.present?
-        prompt message: run.input_prompt
+        if tool_definitions.any?
+          prompt message: run.input_prompt, tools: tool_definitions
+        else
+          prompt message: run.input_prompt
+        end
       end
     end
 
     # Execute the agent
     response = agent_class.perform.generate_now
 
+    # Handle tool calls in the response
+    tool_results = process_tool_calls(response, agent_record, run)
+
     {
       output: response.message&.content,
       metadata: {
         provider: agent_record.provider,
         model: agent_record.model,
-        finish_reason: response.raw_response&.dig("choices", 0, "finish_reason")
+        finish_reason: response.raw_response&.dig("choices", 0, "finish_reason"),
+        tools_available: agent_record.tools,
+        tool_calls: tool_results
       },
       usage: {
         input_tokens: response.usage&.[](:input_tokens) || response.usage&.[](:prompt_tokens),
@@ -83,18 +110,41 @@ class AgentExecutionJob < ApplicationJob
     }
   end
 
+  def process_tool_calls(response, agent_record, run)
+    return [] unless response.respond_to?(:tool_calls) && response.tool_calls.present?
+
+    response.tool_calls.filter_map do |tool_call|
+      tool_name = tool_call["name"] || tool_call[:name]
+      tool_args = tool_call["arguments"] || tool_call[:arguments] || {}
+
+      run.add_log("Executing tool: #{tool_name}", level: :info)
+
+      begin
+        result = ToolRegistry.execute(tool_name, **tool_args.deep_symbolize_keys)
+        { name: tool_name, status: "success", result: result }
+      rescue BaseTool::ToolError => e
+        run.add_log("Tool #{tool_name} failed: #{e.message}", level: :warn)
+        { name: tool_name, status: "error", error: e.message }
+      end
+    end
+  end
+
   def execute_mock(agent_record, run)
     # Mock response for development/testing
     sleep(1) # Simulate processing time
+    tool_definitions = ToolRegistry.definitions_for(agent_record.tools)
 
     {
       output: "Mock response from #{agent_record.name} (#{agent_record.provider}/#{agent_record.model}):\n\n" \
               "Input: #{run.input_prompt}\n\n" \
+              "Tools available: #{agent_record.tools.join(', ')}\n\n" \
               "This is a simulated response. Configure ActiveAgent to enable real AI responses.",
       metadata: {
         provider: agent_record.provider,
         model: agent_record.model,
-        mock: true
+        mock: true,
+        tools_available: agent_record.tools,
+        tool_definitions: tool_definitions.map { |t| t[:name] }
       },
       usage: {
         input_tokens: run.input_prompt.split.size * 2,
