@@ -51,7 +51,8 @@ class AgentExecutionService
           model: model,
           requested_provider: @agent_record.provider,
           mock: mock_fallback?,
-          trace_id: root_span.trace_id
+          trace_id: root_span.trace_id,
+          context_id: conversation_context&.id
         },
         usage: {
           input_tokens: input,
@@ -89,20 +90,43 @@ class AgentExecutionService
     effective_provider = provider
     provider_model = @agent_record.model
     model_options = @agent_record.model_config.to_h.symbolize_keys.slice(:temperature, :max_tokens, :top_p)
+    klass_name = agent_class_name
+    agent_record = @agent_record
+    input = @run.input_prompt
+    instructions = @agent_record.instructions
+    run_trace_id = trace_id
 
-    agent_class =
+    agent_class = Class.new(ActiveAgent::Base) do
+      # SolidAgent persists contexts under self.class.name; anonymous
+      # classes would fail its agent_name presence validation.
+      define_singleton_method(:name) { klass_name }
+
+      # Persist the conversation (agent_contexts / agent_messages /
+      # agent_generations) via solid_agent. contextual: false — the context
+      # is loaded explicitly in the action below.
+      include SolidAgent::HasContext
+      has_context contextual: false
+
       if effective_provider == :mock
-        Class.new(ActiveAgent::Base) { generate_with :mock }
+        generate_with :mock
       else
-        Class.new(ActiveAgent::Base) do
-          generate_with effective_provider, model: provider_model, **model_options
-        end
+        generate_with effective_provider, model: provider_model, **model_options
       end
 
-    options = { message: @run.input_prompt }
-    options[:instructions] = @agent_record.instructions if @agent_record.instructions.present?
+      define_method :ask do
+        # Thread the run's telemetry trace_id through prompt_options so
+        # SolidAgent's provenance (and AgentContext#record_generation_with_
+        # provenance!) can correlate the persisted generation with its trace.
+        prompt_options[:trace_id] = run_trace_id
+        load_context(contextable: agent_record)
 
-    agent_class.prompt(**options).generate_now
+        options = { message: input }
+        options[:instructions] = instructions if instructions.present?
+        prompt(**options)
+      end
+    end
+
+    agent_class.ask.generate_now
   end
 
   def provider_available?(name)
@@ -143,7 +167,13 @@ class AgentExecutionService
 
   # Reuse the run's trace_id so AgentRun and TelemetryTrace correlate.
   def trace_id
-    @run.trace_id.presence || SecureRandom.hex(16)
+    @trace_id ||= @run.trace_id.presence || SecureRandom.hex(16)
+  end
+
+  # The solid_agent conversation context this execution persisted into
+  # (one per agent + action on this platform).
+  def conversation_context
+    AgentContext.find_by(contextable: @agent_record, agent_name: agent_class_name, action_name: "ask")
   end
 
   def account

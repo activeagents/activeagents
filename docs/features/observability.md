@@ -110,6 +110,37 @@ traces/month, pro 25,000/month, enterprise unlimited. The quota is enforced
 at the ingest endpoint (429 when exhausted) and surfaced in
 `Account#usage_stats` (`traces_used` / `traces_limit`).
 
+## Conversation persistence (solid_agent)
+
+Alongside span-level traces, every platform execution persists the
+conversation itself through the solid_agent gem's `HasContext` concern:
+
+- `AgentContext` — one row per (agent, action): the agent's interaction
+  stream (contextable = the dashboard Agent record)
+- `AgentMessage` — user/assistant/system/tool messages, with content
+  checksums and provenance
+- `AgentGeneration` — one row per LLM call: model, tokens, finish reason,
+  tool calls, provenance, and a `trace_id` that joins to
+  `active_agent_telemetry_traces` (and `AgentRun#trace_id`)
+
+`AgentExecutionService` threads the run's trace_id through
+`prompt_options[:trace_id]`; `AgentContext#record_generation_with_provenance!`
+(solid_agent's documented extension point) stores it per generation. The
+dashboard's Interactions view reads these via `GET /api/interactions`.
+
+Upstream PR making trace correlation first-class in solid_agent's
+generators (plus fixes for silently-dropped generations):
+activeagents/solid_agent#3.
+
+## Non-ActiveAgent clients (RubyLLM, others)
+
+The ingest endpoint is framework-agnostic — anything that POSTs the
+documented wire format with a workspace API key feeds the same dashboard.
+For apps built directly on RubyLLM, see
+[docs/integrations/ruby_llm.md](../integrations/ruby_llm.md) for a
+vendorable adapter that bridges RubyLLM's `chat.ruby_llm` instrumentation
+events to `/v1/traces`.
+
 ## Known gem-side gaps (worked around here)
 
 - The gem dashboard engine overrides `Engine.root` after Rails computes load

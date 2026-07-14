@@ -60,6 +60,38 @@ class AgentExecutionServiceTest < ActiveSupport::TestCase
     assert_equal "provider exploded", trace.error_message
   end
 
+  test "persists the conversation through solid_agent with trace correlation" do
+    AgentExecutionService.call(@agent, @run)
+
+    context = AgentContext.find_by(contextable: @agent)
+    assert context, "expected an AgentContext for the agent"
+    assert_equal "SupportBotAgent", context.agent_name
+    assert_equal "ask", context.action_name
+
+    roles = context.messages.chronological.map(&:role)
+    assert_equal %w[user assistant], roles
+    assert_equal @run.input_prompt, context.messages.user_messages.first.content
+
+    generation = context.generations.last
+    assert generation, "expected an AgentGeneration"
+    assert_equal @run.trace_id, generation.trace_id
+    assert_operator generation.input_tokens, :>, 0
+    assert_equal generation.trace_id, generation.provenance["trace_id"]
+    assert_operator context.reload.total_tokens, :>, 0
+  end
+
+  test "conversation stream accumulates across runs of the same agent" do
+    AgentExecutionService.call(@agent, @run)
+    second_run = @agent.agent_runs.create!(input_prompt: "Another question", status: :running, started_at: Time.current)
+    AgentExecutionService.call(@agent, second_run)
+
+    assert_equal 1, AgentContext.where(contextable: @agent).count
+    context = AgentContext.find_by(contextable: @agent)
+    assert_equal 4, context.messages.count
+    assert_equal 2, context.generations.count
+    assert_equal [ @run.trace_id, second_run.trace_id ], context.generations.order(:created_at).pluck(:trace_id)
+  end
+
   test "test_execute persists run results from real execution" do
     run = @agent.test_execute("Ping")
 

@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.2].define(version: 2026_07_14_000001) do
+ActiveRecord::Schema[8.2].define(version: 2026_07_14_000002) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
 
@@ -93,6 +93,66 @@ ActiveRecord::Schema[8.2].define(version: 2026_07_14_000001) do
     t.bigint "blob_id", null: false
     t.string "variation_digest", null: false
     t.index ["blob_id", "variation_digest"], name: "index_active_storage_variant_records_uniqueness", unique: true
+  end
+
+  create_table "agent_contexts", force: :cascade do |t|
+    t.string "action_name", null: false
+    t.string "agent_name", null: false
+    t.bigint "contextable_id"
+    t.string "contextable_type"
+    t.datetime "created_at", null: false
+    t.text "instructions"
+    t.jsonb "options", default: {}
+    t.integer "total_input_tokens", default: 0
+    t.integer "total_output_tokens", default: 0
+    t.string "trace_id"
+    t.datetime "updated_at", null: false
+    t.index ["agent_name", "action_name"], name: "index_agent_contexts_on_agent_name_and_action_name"
+    t.index ["contextable_type", "contextable_id"], name: "index_agent_contexts_on_contextable"
+    t.index ["created_at"], name: "index_agent_contexts_on_created_at"
+    t.index ["trace_id"], name: "index_agent_contexts_on_trace_id"
+  end
+
+  create_table "agent_generations", force: :cascade do |t|
+    t.bigint "agent_context_id", null: false
+    t.text "content"
+    t.datetime "created_at", null: false
+    t.float "duration_seconds"
+    t.string "finish_reason"
+    t.integer "input_tokens", default: 0
+    t.string "model"
+    t.integer "output_tokens", default: 0
+    t.jsonb "provenance", default: {}
+    t.string "provider"
+    t.jsonb "raw_response"
+    t.jsonb "tool_calls", default: []
+    t.string "trace_id"
+    t.datetime "updated_at", null: false
+    t.index ["agent_context_id", "created_at"], name: "index_agent_generations_on_agent_context_id_and_created_at"
+    t.index ["agent_context_id"], name: "index_agent_generations_on_agent_context_id"
+    t.index ["finish_reason"], name: "index_agent_generations_on_finish_reason"
+    t.index ["model"], name: "index_agent_generations_on_model"
+    t.index ["trace_id"], name: "index_agent_generations_on_trace_id"
+  end
+
+  create_table "agent_messages", force: :cascade do |t|
+    t.bigint "agent_context_id", null: false
+    t.jsonb "attachments", default: []
+    t.text "content"
+    t.string "content_checksum"
+    t.datetime "created_at", null: false
+    t.jsonb "metadata", default: {}
+    t.jsonb "provenance", default: {}
+    t.string "role", null: false
+    t.jsonb "tool_arguments", default: {}
+    t.string "tool_call_id"
+    t.string "tool_name"
+    t.jsonb "tool_result"
+    t.datetime "updated_at", null: false
+    t.index ["agent_context_id", "created_at"], name: "index_agent_messages_on_agent_context_id_and_created_at"
+    t.index ["agent_context_id"], name: "index_agent_messages_on_agent_context_id"
+    t.index ["role"], name: "index_agent_messages_on_role"
+    t.index ["tool_call_id"], name: "index_agent_messages_on_tool_call_id"
   end
 
   create_table "agent_runs", force: :cascade do |t|
@@ -600,6 +660,8 @@ ActiveRecord::Schema[8.2].define(version: 2026_07_14_000001) do
   add_foreign_key "active_agent_telemetry_traces", "accounts"
   add_foreign_key "active_storage_attachments", "active_storage_blobs", column: "blob_id"
   add_foreign_key "active_storage_variant_records", "active_storage_blobs", column: "blob_id"
+  add_foreign_key "agent_generations", "agent_contexts"
+  add_foreign_key "agent_messages", "agent_contexts"
   add_foreign_key "agent_runs", "agents"
   add_foreign_key "agent_versions", "agents"
   add_foreign_key "agents", "users"
