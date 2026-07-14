@@ -147,6 +147,9 @@ Rails.application.routes.draw do
     resources :traces, only: [ :index, :show ]
     resource :metrics, only: [ :show ], controller: "metrics"
 
+    # Conversation contexts persisted by solid_agent (Interactions view)
+    resources :interactions, only: [ :index, :show ]
+
     # Ragents benchmark results — accepts POSTed JSON from bin/bench
     # GET  /api/benchmarks     — list recent runs
     # POST /api/benchmarks     — ingest a new benchmark run from bin/bench
