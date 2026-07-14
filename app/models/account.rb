@@ -6,6 +6,11 @@ class Account < ApplicationRecord
   alias_method :email, :email_address
   has_many :account_memberships, dependent: :destroy
   has_many :members, through: :account_memberships, source: :user
+  has_many :telemetry_traces, dependent: :delete_all
+
+  # Bearer token used by the activeagent gem's telemetry reporter to push
+  # traces to POST /v1/traces (ActiveAgent::Dashboard::Api::TracesController).
+  has_secure_token :telemetry_api_key, length: 36
 
   validates :name, presence: true
 
@@ -14,6 +19,13 @@ class Account < ApplicationRecord
     "free" => 3,      # Very low to trigger upgrade quickly
     "pro" => 1000,
     "enterprise" => -1  # Unlimited
+  }.freeze
+
+  # Telemetry trace ingestion limits by plan (traces per monthly period)
+  TRACE_LIMITS = {
+    "free" => 1_000,
+    "pro" => 25_000,
+    "enterprise" => -1 # Unlimited
   }.freeze
 
   def stripe_attributes(pay_customer)
@@ -84,7 +96,38 @@ class Account < ApplicationRecord
       runs_remaining: agent_runs_remaining,
       can_run: can_run_agent?,
       period_start: usage_period_start&.iso8601,
-      plan: current_plan&.slug || "free"
+      plan: current_plan&.slug || "free",
+      traces_used: telemetry_traces_this_period,
+      traces_limit: effective_trace_limit,
+      tokens_used: telemetry_tokens_this_period
     }
+  end
+
+  # -- Telemetry trace quota -------------------------------------------------
+
+  def effective_trace_limit
+    plan_slug = current_plan&.slug || "free"
+    TRACE_LIMITS[plan_slug] || TRACE_LIMITS["free"]
+  end
+
+  def telemetry_traces_this_period
+    telemetry_traces.where(created_at: (usage_period_start || created_at)..).count
+  end
+
+  def telemetry_tokens_this_period
+    telemetry_traces.where(created_at: (usage_period_start || created_at)..)
+      .sum("total_input_tokens + total_output_tokens + total_thinking_tokens")
+  end
+
+  def can_ingest_traces?
+    limit = effective_trace_limit
+    return true if limit == -1
+    telemetry_traces_this_period < limit
+  end
+
+  # Called by ActiveAgent::Dashboard::Api::TracesController on every
+  # authenticated ingest request (rate-limit hook).
+  def increment_telemetry_usage!
+    reset_usage_period_if_needed!
   end
 end

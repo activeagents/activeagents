@@ -1,141 +1,49 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { useTheme } from '../../contexts/ThemeContext';
 import {
-  AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
-  BarChart, Bar
+  AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer
 } from 'recharts';
-import { ICONS, TYPOGRAPHY, getThemeColors, cardStyle, buttonStyle } from '../../utils/designTokens';
+import { ICONS, TYPOGRAPHY } from '../../utils/designTokens';
 
-// Agent types and their actions
-const AGENT_ACTIONS = {
-  TranslationAgent: ['translate', 'detect_language', 'batch_translate'],
-  CodeReviewAgent: ['review', 'analyze_code', 'suggest_fixes', 'security_scan'],
-  DocumentationAgent: ['generate_docs', 'update_readme', 'extract_types'],
-  SupportAgent: ['respond', 'escalate', 'search_kb', 'create_ticket'],
-  DataAnalysisAgent: ['analyze', 'generate_report', 'visualize', 'predict'],
+// Deterministic color assignment for agent classes
+const AGENT_PALETTE = ['#6366f1', '#10b981', '#f59e0b', '#ec4899', '#3b82f6', '#8b5cf6', '#14b8a6', '#f97316'];
+
+const WINDOW_MINUTES = 30;
+const REFRESH_INTERVAL_MS = 30000;
+
+const buildAgentColors = (agents) => {
+  const colors = {};
+  agents.forEach((agent, idx) => {
+    colors[agent] = AGENT_PALETTE[idx % AGENT_PALETTE.length];
+  });
+  return colors;
 };
 
-const AGENT_COLORS = {
-  TranslationAgent: '#6366f1',
-  CodeReviewAgent: '#10b981',
-  DocumentationAgent: '#f59e0b',
-  SupportAgent: '#ec4899',
-  DataAnalysisAgent: '#3b82f6',
-};
-
-// Generate time-series throughput data (last 30 minutes, 1-minute buckets)
-const generateThroughputData = () => {
+// Bucket traces into 1-minute intervals for the throughput chart
+const buildThroughputData = (traces, agents, windowMinutes) => {
   const now = Date.now();
   const data = [];
-  const agents = Object.keys(AGENT_ACTIONS);
 
-  for (let i = 29; i >= 0; i--) {
-    const timestamp = new Date(now - i * 60000);
-    const baseRate = 2 + Math.sin(i / 5) * 1.5;
-    const totalRequests = Math.round(baseRate + Math.random() * 3);
+  for (let i = windowMinutes - 1; i >= 0; i--) {
+    const bucketStart = now - (i + 1) * 60000;
+    const bucketEnd = now - i * 60000;
+    const bucketTraces = traces.filter(
+      (t) => t.timestamp_ms >= bucketStart && t.timestamp_ms < bucketEnd
+    );
 
-    // Distribute requests across agents
     const agentBreakdown = {};
-    let remaining = totalRequests;
-    agents.forEach((agent, idx) => {
-      if (idx === agents.length - 1) {
-        agentBreakdown[agent] = remaining;
-      } else {
-        const count = Math.min(remaining, Math.round(Math.random() * (remaining / 2)));
-        agentBreakdown[agent] = count;
-        remaining -= count;
-      }
-    });
-
-    // Generate traces for this time bucket
-    const bucketTraces = [];
-    Object.entries(agentBreakdown).forEach(([agent, count]) => {
-      for (let j = 0; j < count; j++) {
-        const actions = AGENT_ACTIONS[agent];
-        const action = actions[Math.floor(Math.random() * actions.length)];
-        const isError = Math.random() > 0.92;
-        const duration = Math.round(400 + Math.random() * 2000);
-        const thinkingTokens = Math.random() > 0.6 ? Math.round(500 + Math.random() * 1500) : 0;
-        const hasToolCall = Math.random() > 0.7;
-        const llmDuration = Math.round(duration * 0.7);
-        const toolDuration = hasToolCall ? Math.round(duration * 0.15) : 0;
-
-        // Generate spans for this trace
-        const spans = [
-          { name: `${agent}#${action}`, type: 'root', start: 0, duration },
-          { name: 'prompt', type: 'prompt', start: 20, duration: Math.round(duration * 0.04), nested: 1 },
-          { name: '#generate', type: 'generate', start: Math.round(duration * 0.05), duration: llmDuration, nested: 1, error: isError },
-        ];
-
-        if (!isError) {
-          spans.push({
-            name: agent.includes('Code') ? 'openai.chat' : 'anthropic.messages',
-            type: 'llm',
-            start: Math.round(duration * 0.08),
-            duration: llmDuration - Math.round(duration * 0.1),
-            model: agent.includes('Code') ? 'gpt-4o' : 'claude-sonnet-4',
-            nested: 2
-          });
-
-          if (thinkingTokens > 0) {
-            spans.push({
-              name: 'extended_thinking',
-              type: 'thinking',
-              start: Math.round(duration * 0.1),
-              duration: Math.round(llmDuration * 0.4),
-              thinking_tokens: thinkingTokens,
-              nested: 3
-            });
-          }
-
-          if (hasToolCall) {
-            const toolActions = ['analyze_code', 'search_kb', 'validate', 'fetch_data', 'format_output'];
-            spans.push({
-              name: `tool_call:${toolActions[Math.floor(Math.random() * toolActions.length)]}`,
-              type: 'tool',
-              start: Math.round(duration * 0.5),
-              duration: toolDuration,
-              nested: 3
-            });
-          }
-
-          spans.push({
-            name: 'response',
-            type: 'response',
-            start: duration - Math.round(duration * 0.05),
-            duration: Math.round(duration * 0.04),
-            nested: 1
-          });
-        }
-
-        bucketTraces.push({
-          id: `${agent.substring(0,3).toLowerCase()}-${Math.random().toString(36).substring(2,6)}`,
-          agent,
-          action,
-          duration_ms: duration,
-          cost: parseFloat((0.001 + Math.random() * 0.008).toFixed(4)),
-          status: isError ? 500 : 200,
-          error: isError ? ['Rate limit exceeded', 'Timeout', 'Invalid response'][Math.floor(Math.random() * 3)] : null,
-          timestamp: new Date(timestamp.getTime() + Math.random() * 60000).getTime(),
-          spans,
-          tokens: {
-            thinking: thinkingTokens,
-            input: Math.round(300 + Math.random() * 2000),
-            output: isError ? 0 : Math.round(200 + Math.random() * 2500),
-          }
-        });
-      }
+    agents.forEach((agent) => {
+      agentBreakdown[agent] = bucketTraces.filter((t) => t.agent === agent).length;
     });
 
     data.push({
-      time: timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-      timestamp: timestamp.getTime(),
-      requests: totalRequests,
-      errors: bucketTraces.filter(t => t.status !== 200).length,
+      time: new Date(bucketEnd).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+      timestamp: bucketEnd,
+      requests: bucketTraces.length,
+      errors: bucketTraces.filter((t) => t.status === 'ERROR').length,
       avgLatency: bucketTraces.length > 0
-        ? Math.round(bucketTraces.reduce((a, t) => a + t.duration_ms, 0) / bucketTraces.length)
+        ? Math.round(bucketTraces.reduce((a, t) => a + (t.duration_ms || 0), 0) / bucketTraces.length)
         : 0,
-      p95Latency: Math.round(1500 + Math.random() * 2000),
       traces: bucketTraces,
       ...agentBreakdown,
     });
@@ -143,88 +51,49 @@ const generateThroughputData = () => {
   return data;
 };
 
-// Mock data matching the lander preview design
-const MOCK_TRACES = [
-  {
-    id: 'abc-7f2e',
-    agent: 'TranslationAgent',
-    action: 'translate',
-    duration_ms: 1240,
-    cost: 0.0034,
-    status: 200,
-    created_at: new Date().toISOString(),
-    spans: [
-      { name: 'TranslationAgent#translate', type: 'root', start: 0, duration: 1240 },
-      { name: 'prompt', type: 'prompt', start: 25, duration: 45, nested: 1 },
-      { name: '#generate', type: 'generate', start: 124, duration: 987, nested: 1 },
-      { name: 'anthropic.messages', type: 'llm', start: 149, duration: 892, model: 'claude-sonnet-4', tokens: 2847, nested: 2 },
-      { name: 'extended_thinking', type: 'thinking', start: 149, duration: 412, thinking_tokens: 1600, nested: 3 },
-      { name: 'response', type: 'response', start: 1140, duration: 52, nested: 1 },
-    ],
-    tokens: { thinking: 1600, input: 892, output: 355 }
-  },
-  {
-    id: 'def-3a1b',
-    agent: 'CodeReviewAgent',
-    action: 'review',
-    duration_ms: 2340,
-    cost: 0.0089,
-    status: 200,
-    created_at: new Date(Date.now() - 300000).toISOString(),
-    spans: [
-      { name: 'CodeReviewAgent#review', type: 'root', start: 0, duration: 2340 },
-      { name: 'prompt', type: 'prompt', start: 20, duration: 65, nested: 1 },
-      { name: '#generate', type: 'generate', start: 100, duration: 2100, nested: 1 },
-      { name: 'openai.chat', type: 'llm', start: 120, duration: 1980, model: 'gpt-4o', tokens: 4521, nested: 2 },
-      { name: 'tool_call:analyze_code', type: 'tool', start: 800, duration: 340, nested: 3 },
-      { name: 'response', type: 'response', start: 2220, duration: 80, nested: 1 },
-    ],
-    tokens: { thinking: 0, input: 2100, output: 2421 }
-  },
-  {
-    id: 'ghi-9c4d',
-    agent: 'DocumentationAgent',
-    action: 'generate_docs',
-    duration_ms: 890,
-    cost: 0.0012,
-    status: 500,
-    error: 'Rate limit exceeded',
-    created_at: new Date(Date.now() - 600000).toISOString(),
-    spans: [
-      { name: 'DocumentationAgent#generate_docs', type: 'root', start: 0, duration: 890 },
-      { name: 'prompt', type: 'prompt', start: 15, duration: 35, nested: 1 },
-      { name: '#generate', type: 'generate', start: 60, duration: 830, nested: 1, error: true },
-    ],
-    tokens: { thinking: 0, input: 450, output: 0 }
-  }
-];
-
 export default function TracesView() {
   const { darkMode } = useTheme();
   const [traces, setTraces] = useState([]);
+  const [agentsList, setAgentsList] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState(null);
   const [selectedTrace, setSelectedTrace] = useState(null);
   const [filter, setFilter] = useState({ status: 'all', agent: 'all', action: 'all' });
-  const [throughputData, setThroughputData] = useState([]);
   const [selectedTimeBucket, setSelectedTimeBucket] = useState(null);
   const [viewMode, setViewMode] = useState('timeline'); // 'timeline', 'agents', or 'actions'
 
-  useEffect(() => {
-    setTimeout(() => {
-      const generatedData = generateThroughputData();
-      setThroughputData(generatedData);
-      // Flatten all traces from throughput data
-      const allTraces = generatedData.flatMap(bucket => bucket.traces || []);
-      setTraces(allTraces.length > 0 ? allTraces : MOCK_TRACES);
+  const fetchTraces = useCallback(async () => {
+    try {
+      const response = await fetch(`/api/traces?minutes=${WINDOW_MINUTES}`);
+      if (!response.ok) throw new Error(`Request failed (${response.status})`);
+      const data = await response.json();
+      setTraces(data.traces || []);
+      setAgentsList(data.agents || []);
+      setLoadError(null);
+    } catch (error) {
+      setLoadError(error.message);
+    } finally {
       setIsLoading(false);
-    }, 500);
+    }
   }, []);
+
+  useEffect(() => {
+    fetchTraces();
+    const interval = setInterval(fetchTraces, REFRESH_INTERVAL_MS);
+    return () => clearInterval(interval);
+  }, [fetchTraces]);
+
+  const agentColors = useMemo(() => buildAgentColors(agentsList), [agentsList]);
+
+  const throughputData = useMemo(
+    () => buildThroughputData(traces, agentsList, WINDOW_MINUTES),
+    [traces, agentsList]
+  );
 
   // Filter traces based on selected time bucket and filters
   const filteredTraces = useMemo(() => {
     let result = traces;
 
-    // Filter by time bucket if selected
     if (selectedTimeBucket !== null) {
       const bucket = throughputData[selectedTimeBucket];
       if (bucket) {
@@ -232,27 +101,22 @@ export default function TracesView() {
       }
     }
 
-    // Filter by status
     if (filter.status !== 'all') {
-      result = result.filter(t =>
-        filter.status === 'success' ? t.status === 200 : t.status !== 200
+      result = result.filter((t) =>
+        filter.status === 'success' ? t.status !== 'ERROR' : t.status === 'ERROR'
       );
     }
 
-    // Filter by agent
     if (filter.agent !== 'all') {
-      result = result.filter(t => t.agent === filter.agent);
+      result = result.filter((t) => t.agent === filter.agent);
     }
 
-    // Filter by action (format: "Agent#action" or just "action")
     if (filter.action !== 'all') {
       if (filter.action.includes('#')) {
-        // Full Agent#action format
         const [agent, action] = filter.action.split('#');
-        result = result.filter(t => t.agent === agent && t.action === action);
+        result = result.filter((t) => t.agent === agent && t.action === action);
       } else {
-        // Just action name
-        result = result.filter(t => t.action === filter.action);
+        result = result.filter((t) => t.action === filter.action);
       }
     }
 
@@ -266,32 +130,29 @@ export default function TracesView() {
       : traces;
 
     const stats = {};
-    targetTraces.forEach(trace => {
+    targetTraces.forEach((trace) => {
+      if (!trace.agent) return;
       if (!stats[trace.agent]) {
         stats[trace.agent] = {
           agent: trace.agent,
           count: 0,
           totalDuration: 0,
-          totalCost: 0,
           errors: 0,
           actions: {},
           tokens: { thinking: 0, input: 0, output: 0 },
         };
       }
       stats[trace.agent].count++;
-      stats[trace.agent].totalDuration += trace.duration_ms;
-      stats[trace.agent].totalCost += trace.cost;
-      if (trace.status !== 200) stats[trace.agent].errors++;
+      stats[trace.agent].totalDuration += trace.duration_ms || 0;
+      if (trace.status === 'ERROR') stats[trace.agent].errors++;
       if (trace.tokens) {
         stats[trace.agent].tokens.thinking += trace.tokens.thinking || 0;
         stats[trace.agent].tokens.input += trace.tokens.input || 0;
         stats[trace.agent].tokens.output += trace.tokens.output || 0;
       }
-      // Track actions
-      if (!stats[trace.agent].actions[trace.action]) {
-        stats[trace.agent].actions[trace.action] = 0;
+      if (trace.action) {
+        stats[trace.agent].actions[trace.action] = (stats[trace.agent].actions[trace.action] || 0) + 1;
       }
-      stats[trace.agent].actions[trace.action]++;
     });
 
     return Object.values(stats).sort((a, b) => b.count - a.count);
@@ -304,16 +165,16 @@ export default function TracesView() {
       : traces;
 
     const stats = {};
-    targetTraces.forEach(trace => {
-      const key = `${trace.agent}#${trace.action}`;
+    targetTraces.forEach((trace) => {
+      if (!trace.agent) return;
+      const key = `${trace.agent}#${trace.action || 'unknown'}`;
       if (!stats[key]) {
         stats[key] = {
           key,
           agent: trace.agent,
-          action: trace.action,
+          action: trace.action || 'unknown',
           count: 0,
           totalDuration: 0,
-          totalCost: 0,
           errors: 0,
           minDuration: Infinity,
           maxDuration: 0,
@@ -321,11 +182,10 @@ export default function TracesView() {
         };
       }
       stats[key].count++;
-      stats[key].totalDuration += trace.duration_ms;
-      stats[key].totalCost += trace.cost;
-      stats[key].minDuration = Math.min(stats[key].minDuration, trace.duration_ms);
-      stats[key].maxDuration = Math.max(stats[key].maxDuration, trace.duration_ms);
-      if (trace.status !== 200) stats[key].errors++;
+      stats[key].totalDuration += trace.duration_ms || 0;
+      stats[key].minDuration = Math.min(stats[key].minDuration, trace.duration_ms || 0);
+      stats[key].maxDuration = Math.max(stats[key].maxDuration, trace.duration_ms || 0);
+      if (trace.status === 'ERROR') stats[key].errors++;
       if (trace.tokens) {
         stats[key].tokens.thinking += trace.tokens.thinking || 0;
         stats[key].tokens.input += trace.tokens.input || 0;
@@ -333,8 +193,7 @@ export default function TracesView() {
       }
     });
 
-    // Fix Infinity for actions with no traces
-    Object.values(stats).forEach(s => {
+    Object.values(stats).forEach((s) => {
       if (s.minDuration === Infinity) s.minDuration = 0;
     });
 
@@ -344,11 +203,9 @@ export default function TracesView() {
   // Get available actions for the selected agent (for filter dropdown)
   const availableActions = useMemo(() => {
     if (filter.agent === 'all') {
-      // Show all Agent#action combinations
-      return actionStats.map(s => s.key);
+      return actionStats.map((s) => s.key);
     }
-    // Show just actions for selected agent
-    return (AGENT_ACTIONS[filter.agent] || []).map(a => `${filter.agent}#${a}`);
+    return actionStats.filter((s) => s.agent === filter.agent).map((s) => s.key);
   }, [filter.agent, actionStats]);
 
   // Chart click handler
@@ -361,11 +218,20 @@ export default function TracesView() {
   };
 
   const formatDuration = (ms) => {
-    if (ms < 1000) return `${ms}ms`;
+    if (ms == null) return '—';
+    if (ms < 1000) return `${Math.round(ms)}ms`;
     return `${(ms / 1000).toFixed(2)}s`;
   };
 
-  const formatCost = (cost) => `$${cost.toFixed(4)}`;
+  const formatTokens = (tokens) => {
+    if (!tokens) return '0';
+    const total = (tokens.input || 0) + (tokens.output || 0) + (tokens.thinking || 0);
+    if (total >= 1000) return `${(total / 1000).toFixed(1)}K`;
+    return `${total}`;
+  };
+
+  const totalTokensOf = (tokens) =>
+    (tokens?.input || 0) + (tokens?.output || 0) + (tokens?.thinking || 0);
 
   const getSpanIcon = (type) => {
     switch (type) {
@@ -380,6 +246,8 @@ export default function TracesView() {
     }
   };
 
+  const isSuccess = (trace) => trace.status !== 'ERROR';
+
   if (isLoading) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -387,6 +255,19 @@ export default function TracesView() {
       </div>
     );
   }
+
+  const summaryStats = {
+    requests: throughputData.reduce((sum, b) => sum + b.requests, 0),
+    errors: throughputData.reduce((sum, b) => sum + b.errors, 0),
+    avgLatency: (() => {
+      const withTraffic = throughputData.filter((b) => b.requests > 0);
+      if (withTraffic.length === 0) return 0;
+      return Math.round(withTraffic.reduce((sum, b) => sum + b.avgLatency, 0) / withTraffic.length);
+    })(),
+    throughput: (throughputData.reduce((sum, b) => sum + b.requests, 0) / WINDOW_MINUTES).toFixed(1),
+  };
+
+  const emptyState = traces.length === 0;
 
   // Dark mode uses lander CSS classes, light mode uses Tailwind
   if (darkMode) {
@@ -400,54 +281,30 @@ export default function TracesView() {
               <p style={{ fontSize: '14px', color: 'rgba(255,255,255,0.6)', marginTop: '4px' }}>
                 {selectedTimeBucket !== null
                   ? `Viewing ${throughputData[selectedTimeBucket]?.time} • ${filteredTraces.length} requests`
-                  : 'Agent requests per second • Click timeline to drill down'}
+                  : `Last ${WINDOW_MINUTES} minutes • Click timeline to drill down`}
               </p>
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
               {/* View Mode Toggle */}
               <div style={{ display: 'flex', background: 'rgba(255,255,255,0.1)', borderRadius: '8px', padding: '2px' }}>
-                <button
-                  onClick={() => setViewMode('timeline')}
-                  style={{
-                    padding: '6px 12px',
-                    background: viewMode === 'timeline' ? '#ef4444' : 'transparent',
-                    color: 'white',
-                    borderRadius: '6px',
-                    border: 'none',
-                    fontSize: '13px',
-                    cursor: 'pointer',
-                  }}
-                >
-                  Timeline
-                </button>
-                <button
-                  onClick={() => setViewMode('agents')}
-                  style={{
-                    padding: '6px 12px',
-                    background: viewMode === 'agents' ? '#ef4444' : 'transparent',
-                    color: 'white',
-                    borderRadius: '6px',
-                    border: 'none',
-                    fontSize: '13px',
-                    cursor: 'pointer',
-                  }}
-                >
-                  Agents
-                </button>
-                <button
-                  onClick={() => setViewMode('actions')}
-                  style={{
-                    padding: '6px 12px',
-                    background: viewMode === 'actions' ? '#ef4444' : 'transparent',
-                    color: 'white',
-                    borderRadius: '6px',
-                    border: 'none',
-                    fontSize: '13px',
-                    cursor: 'pointer',
-                  }}
-                >
-                  Actions
-                </button>
+                {['timeline', 'agents', 'actions'].map((mode) => (
+                  <button
+                    key={mode}
+                    onClick={() => setViewMode(mode)}
+                    style={{
+                      padding: '6px 12px',
+                      background: viewMode === mode ? '#ef4444' : 'transparent',
+                      color: 'white',
+                      borderRadius: '6px',
+                      border: 'none',
+                      fontSize: '13px',
+                      cursor: 'pointer',
+                      textTransform: 'capitalize',
+                    }}
+                  >
+                    {mode}
+                  </button>
+                ))}
               </div>
               <select
                 value={filter.agent}
@@ -462,7 +319,7 @@ export default function TracesView() {
                 }}
               >
                 <option value="all">All Agents</option>
-                {Object.keys(AGENT_ACTIONS).map(agent => (
+                {agentsList.map((agent) => (
                   <option key={agent} value={agent}>{agent}</option>
                 ))}
               </select>
@@ -479,7 +336,7 @@ export default function TracesView() {
                 }}
               >
                 <option value="all">All Actions</option>
-                {availableActions.map(action => (
+                {availableActions.map((action) => (
                   <option key={action} value={action}>{action}</option>
                 ))}
               </select>
@@ -520,6 +377,12 @@ export default function TracesView() {
           </div>
         </div>
 
+        {loadError && (
+          <div style={{ margin: '0 24px 16px 24px', padding: '12px 16px', background: 'rgba(239, 68, 68, 0.1)', borderRadius: '8px', color: '#ef4444', fontSize: '13px' }}>
+            Failed to load traces: {loadError}
+          </div>
+        )}
+
         {/* Throughput Chart - New Relic style */}
         <div style={{ padding: '0 24px', marginBottom: '24px' }}>
           <div style={{
@@ -532,8 +395,8 @@ export default function TracesView() {
               <div style={{ fontSize: '14px', fontWeight: '600', color: 'white' }}>
                 Agent Requests / Minute
               </div>
-              <div style={{ display: 'flex', gap: '16px' }}>
-                {Object.entries(AGENT_COLORS).map(([agent, color]) => (
+              <div style={{ display: 'flex', gap: '16px', flexWrap: 'wrap' }}>
+                {Object.entries(agentColors).map(([agent, color]) => (
                   <div key={agent} style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                     <div style={{ width: '10px', height: '10px', borderRadius: '2px', background: color }} />
                     <span style={{ fontSize: '11px', color: 'rgba(255,255,255,0.7)' }}>
@@ -551,7 +414,7 @@ export default function TracesView() {
                   style={{ cursor: 'pointer' }}
                 >
                   <defs>
-                    {Object.entries(AGENT_COLORS).map(([agent, color]) => (
+                    {Object.entries(agentColors).map(([agent, color]) => (
                       <linearGradient key={agent} id={`gradient-${agent}`} x1="0" y1="0" x2="0" y2="1">
                         <stop offset="5%" stopColor={color} stopOpacity={0.8}/>
                         <stop offset="95%" stopColor={color} stopOpacity={0.1}/>
@@ -571,6 +434,7 @@ export default function TracesView() {
                     tick={{ fontSize: 10, fill: 'rgba(255,255,255,0.5)' }}
                     tickLine={false}
                     axisLine={false}
+                    allowDecimals={false}
                   />
                   <Tooltip
                     contentStyle={{
@@ -583,13 +447,13 @@ export default function TracesView() {
                     itemStyle={{ color: 'rgba(255,255,255,0.8)', fontSize: '12px' }}
                     formatter={(value, name) => [value, name.replace('Agent', '')]}
                   />
-                  {Object.keys(AGENT_COLORS).map((agent) => (
+                  {Object.keys(agentColors).map((agent) => (
                     <Area
                       key={agent}
                       type="monotone"
                       dataKey={agent}
                       stackId="1"
-                      stroke={AGENT_COLORS[agent]}
+                      stroke={agentColors[agent]}
                       fill={`url(#gradient-${agent})`}
                     />
                   ))}
@@ -600,25 +464,25 @@ export default function TracesView() {
             <div style={{ display: 'flex', gap: '24px', marginTop: '12px', paddingTop: '12px', borderTop: '1px solid rgba(255,255,255,0.1)' }}>
               <div>
                 <div style={{ fontSize: '20px', fontWeight: '700', color: 'white' }}>
-                  {throughputData.reduce((sum, b) => sum + b.requests, 0)}
+                  {summaryStats.requests}
                 </div>
                 <div style={{ fontSize: '11px', color: 'rgba(255,255,255,0.5)' }}>Total Requests</div>
               </div>
               <div>
                 <div style={{ fontSize: '20px', fontWeight: '700', color: '#ef4444' }}>
-                  {throughputData.reduce((sum, b) => sum + b.errors, 0)}
+                  {summaryStats.errors}
                 </div>
                 <div style={{ fontSize: '11px', color: 'rgba(255,255,255,0.5)' }}>Errors</div>
               </div>
               <div>
                 <div style={{ fontSize: '20px', fontWeight: '700', color: '#10b981' }}>
-                  {Math.round(throughputData.reduce((sum, b) => sum + b.avgLatency, 0) / throughputData.length)}ms
+                  {summaryStats.avgLatency}ms
                 </div>
                 <div style={{ fontSize: '11px', color: 'rgba(255,255,255,0.5)' }}>Avg Latency</div>
               </div>
               <div>
                 <div style={{ fontSize: '20px', fontWeight: '700', color: '#f59e0b' }}>
-                  {(throughputData.reduce((sum, b) => sum + b.requests, 0) / 30).toFixed(1)}/min
+                  {summaryStats.throughput}/min
                 </div>
                 <div style={{ fontSize: '11px', color: 'rgba(255,255,255,0.5)' }}>Throughput</div>
               </div>
@@ -630,14 +494,14 @@ export default function TracesView() {
         {viewMode === 'agents' && (
           <div style={{ padding: '0 24px', marginBottom: '24px' }}>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '16px' }}>
-              {agentStats.map(stat => (
+              {agentStats.map((stat) => (
                 <div
                   key={stat.agent}
                   style={{
                     background: 'rgba(0,0,0,0.3)',
                     borderRadius: '12px',
                     padding: '16px',
-                    border: `1px solid ${AGENT_COLORS[stat.agent]}40`,
+                    border: `1px solid ${agentColors[stat.agent]}40`,
                     cursor: 'pointer',
                   }}
                   onClick={() => setFilter({ ...filter, agent: filter.agent === stat.agent ? 'all' : stat.agent })}
@@ -647,7 +511,7 @@ export default function TracesView() {
                       width: '8px',
                       height: '8px',
                       borderRadius: '50%',
-                      background: AGENT_COLORS[stat.agent]
+                      background: agentColors[stat.agent]
                     }} />
                     <span style={{ fontSize: '15px', fontWeight: '600', color: 'white' }}>
                       {stat.agent}
@@ -656,8 +520,8 @@ export default function TracesView() {
                       marginLeft: 'auto',
                       fontSize: '13px',
                       padding: '2px 8px',
-                      background: AGENT_COLORS[stat.agent] + '30',
-                      color: AGENT_COLORS[stat.agent],
+                      background: agentColors[stat.agent] + '30',
+                      color: agentColors[stat.agent],
                       borderRadius: '4px'
                     }}>
                       {stat.count} calls
@@ -673,8 +537,10 @@ export default function TracesView() {
                       </div>
                     </div>
                     <div>
-                      <div style={{ fontSize: '11px', color: 'rgba(255,255,255,0.5)' }}>Total Cost</div>
-                      <div style={{ fontSize: '14px', color: 'white' }}>${stat.totalCost.toFixed(4)}</div>
+                      <div style={{ fontSize: '11px', color: 'rgba(255,255,255,0.5)' }}>Total Tokens</div>
+                      <div style={{ fontSize: '14px', color: 'white' }}>
+                        {totalTokensOf(stat.tokens).toLocaleString()}
+                      </div>
                     </div>
                     <div>
                       <div style={{ fontSize: '11px', color: 'rgba(255,255,255,0.5)' }}>Error Rate</div>
@@ -683,9 +549,9 @@ export default function TracesView() {
                       </div>
                     </div>
                     <div>
-                      <div style={{ fontSize: '11px', color: 'rgba(255,255,255,0.5)' }}>Total Tokens</div>
+                      <div style={{ fontSize: '11px', color: 'rgba(255,255,255,0.5)' }}>Thinking Tokens</div>
                       <div style={{ fontSize: '14px', color: 'white' }}>
-                        {(stat.tokens.thinking + stat.tokens.input + stat.tokens.output).toLocaleString()}
+                        {stat.tokens.thinking.toLocaleString()}
                       </div>
                     </div>
                   </div>
@@ -731,7 +597,7 @@ export default function TracesView() {
         {viewMode === 'actions' && (
           <div style={{ padding: '0 24px', marginBottom: '24px' }}>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '12px' }}>
-              {actionStats.map(stat => {
+              {actionStats.map((stat) => {
                 const isActive = filter.action === stat.key;
                 return (
                   <div
@@ -744,7 +610,7 @@ export default function TracesView() {
                       background: isActive ? 'rgba(239, 68, 68, 0.15)' : 'rgba(0,0,0,0.3)',
                       borderRadius: '10px',
                       padding: '14px',
-                      border: isActive ? '1px solid #ef4444' : `1px solid ${AGENT_COLORS[stat.agent]}30`,
+                      border: isActive ? '1px solid #ef4444' : `1px solid ${agentColors[stat.agent]}30`,
                       cursor: 'pointer',
                       transition: 'all 0.15s'
                     }}
@@ -756,7 +622,7 @@ export default function TracesView() {
                           width: '6px',
                           height: '6px',
                           borderRadius: '50%',
-                          background: AGENT_COLORS[stat.agent]
+                          background: agentColors[stat.agent]
                         }} />
                         <span style={{ fontSize: '14px', fontWeight: '600', color: 'white' }}>
                           {stat.agent}
@@ -768,8 +634,8 @@ export default function TracesView() {
                       <span style={{
                         fontSize: '12px',
                         padding: '2px 8px',
-                        background: AGENT_COLORS[stat.agent] + '30',
-                        color: AGENT_COLORS[stat.agent],
+                        background: agentColors[stat.agent] + '30',
+                        color: agentColors[stat.agent],
                         borderRadius: '4px'
                       }}>
                         {stat.count} calls
@@ -787,12 +653,8 @@ export default function TracesView() {
                       <div>
                         <div style={{ fontSize: '10px', color: 'rgba(255,255,255,0.5)' }}>Min/Max</div>
                         <div style={{ fontSize: '13px', color: 'rgba(255,255,255,0.8)' }}>
-                          {stat.minDuration}ms / {stat.maxDuration}ms
+                          {Math.round(stat.minDuration)}ms / {Math.round(stat.maxDuration)}ms
                         </div>
-                      </div>
-                      <div>
-                        <div style={{ fontSize: '10px', color: 'rgba(255,255,255,0.5)' }}>Cost</div>
-                        <div style={{ fontSize: '13px', color: 'white' }}>${stat.totalCost.toFixed(4)}</div>
                       </div>
                       <div>
                         <div style={{ fontSize: '10px', color: 'rgba(255,255,255,0.5)' }}>Errors</div>
@@ -803,7 +665,7 @@ export default function TracesView() {
                       <div>
                         <div style={{ fontSize: '10px', color: 'rgba(255,255,255,0.5)' }}>Tokens</div>
                         <div style={{ fontSize: '13px', color: 'rgba(255,255,255,0.8)' }}>
-                          {(stat.tokens.thinking + stat.tokens.input + stat.tokens.output).toLocaleString()}
+                          {totalTokensOf(stat.tokens).toLocaleString()}
                         </div>
                       </div>
                     </div>
@@ -815,7 +677,7 @@ export default function TracesView() {
         )}
 
         {/* Trace List */}
-        {viewMode === 'timeline' && (
+        {viewMode === 'timeline' && !emptyState && (
         <div className="preview-traces">
           {filteredTraces.length === 0 ? (
             <div style={{ textAlign: 'center', padding: '32px' }}>
@@ -832,16 +694,16 @@ export default function TracesView() {
               >
                 <div className="trace-id">
                   <span className="trace-badge">TRACE</span>
-                  <span className="trace-hash">{trace.id}</span>
+                  <span className="trace-hash">{trace.short_id}</span>
                   <span style={{ marginLeft: '12px', color: 'rgba(255,255,255,0.9)', fontWeight: '500' }}>
-                    {trace.agent}#{trace.action}
+                    {trace.display_name}
                   </span>
                 </div>
                 <div className="trace-meta">
                   <span className="meta-item"><i className="fa-solid fa-clock"></i> {formatDuration(trace.duration_ms)}</span>
-                  <span className="meta-item"><i className="fa-solid fa-coins"></i> {formatCost(trace.cost)}</span>
-                  <span className={`meta-item ${trace.status === 200 ? 'success' : 'error'}`}>
-                    <i className={`fa-solid ${trace.status === 200 ? 'fa-check' : 'fa-xmark'}`}></i> {trace.status}
+                  <span className="meta-item"><i className="fa-solid fa-coins"></i> {formatTokens(trace.tokens)} tokens</span>
+                  <span className={`meta-item ${isSuccess(trace) ? 'success' : 'error'}`}>
+                    <i className={`fa-solid ${isSuccess(trace) ? 'fa-check' : 'fa-xmark'}`}></i> {isSuccess(trace) ? 'OK' : 'ERROR'}
                   </span>
                 </div>
               </div>
@@ -850,13 +712,13 @@ export default function TracesView() {
                 <div className="trace-timeline">
                   <div className="timeline-scale">
                     <span>0ms</span>
-                    <span>{Math.round(trace.duration_ms * 0.33)}ms</span>
-                    <span>{Math.round(trace.duration_ms * 0.66)}ms</span>
+                    <span>{Math.round((trace.duration_ms || 0) * 0.33)}ms</span>
+                    <span>{Math.round((trace.duration_ms || 0) * 0.66)}ms</span>
                     <span>{formatDuration(trace.duration_ms)}</span>
                   </div>
 
                   {(trace.spans || []).map((span, idx) => (
-                    <div key={idx} className={`span-row ${span.nested ? `nested-${span.nested}` : ''}`}>
+                    <div key={idx} className={`span-row ${span.nested ? `nested-${Math.min(span.nested, 3)}` : ''}`}>
                       <div className="span-label">
                         <span className={`span-icon ${span.type}`}>{getSpanIcon(span.type)}</span>
                         <span className={`span-name ${span.error ? 'error' : ''}`}>{span.name}</span>
@@ -865,8 +727,8 @@ export default function TracesView() {
                         <div
                           className={`span-bar ${span.type} ${span.error ? 'error' : ''}`}
                           style={{
-                            left: `${(span.start / trace.duration_ms) * 100}%`,
-                            width: `${Math.max((span.duration / trace.duration_ms) * 100, 2)}%`
+                            left: `${trace.duration_ms ? (span.start / trace.duration_ms) * 100 : 0}%`,
+                            width: `${trace.duration_ms ? Math.max((span.duration / trace.duration_ms) * 100, 2) : 2}%`
                           }}
                         ></div>
                       </div>
@@ -878,7 +740,7 @@ export default function TracesView() {
                     <div className="span-label">
                       <span className="span-icon" style={{ fontFamily: TYPOGRAPHY.mono }}>+--</span>
                       <span className="span-name tokens" style={{ fontFamily: TYPOGRAPHY.mono }}>
-                        {(trace.tokens.thinking + trace.tokens.input + trace.tokens.output).toLocaleString()} tokens
+                        {totalTokensOf(trace.tokens).toLocaleString()} tokens
                       </span>
                     </div>
                     <div className="span-bar-container">
@@ -907,10 +769,12 @@ export default function TracesView() {
         </div>
         )}
 
-        {traces.length === 0 && viewMode === 'timeline' && (
+        {emptyState && viewMode === 'timeline' && (
           <div style={{ textAlign: 'center', padding: '48px 0' }}>
             <div style={{ color: 'rgba(255,255,255,0.5)', fontSize: '18px' }}>No traces yet</div>
-            <p style={{ color: 'rgba(255,255,255,0.4)', fontSize: '14px', marginTop: '8px' }}>Run an agent to see traces appear here</p>
+            <p style={{ color: 'rgba(255,255,255,0.4)', fontSize: '14px', marginTop: '8px' }}>
+              Run an agent, or point your app's ActiveAgent telemetry at this workspace to see traces appear here
+            </p>
           </div>
         )}
       </div>
@@ -927,36 +791,23 @@ export default function TracesView() {
           <p className="text-sm text-gray-500">
             {selectedTimeBucket !== null
               ? `Viewing ${throughputData[selectedTimeBucket]?.time} • ${filteredTraces.length} requests`
-              : 'Agent requests per second • Click timeline to drill down'}
+              : `Last ${WINDOW_MINUTES} minutes • Click timeline to drill down`}
           </p>
         </div>
         <div className="flex items-center space-x-3">
           {/* View Mode Toggle */}
           <div className="flex bg-gray-100 rounded-lg p-1">
-            <button
-              onClick={() => setViewMode('timeline')}
-              className={`px-3 py-1 text-sm rounded-md transition-colors ${
-                viewMode === 'timeline' ? 'bg-white shadow text-gray-900' : 'text-gray-600'
-              }`}
-            >
-              Timeline
-            </button>
-            <button
-              onClick={() => setViewMode('agents')}
-              className={`px-3 py-1 text-sm rounded-md transition-colors ${
-                viewMode === 'agents' ? 'bg-white shadow text-gray-900' : 'text-gray-600'
-              }`}
-            >
-              Agents
-            </button>
-            <button
-              onClick={() => setViewMode('actions')}
-              className={`px-3 py-1 text-sm rounded-md transition-colors ${
-                viewMode === 'actions' ? 'bg-white shadow text-gray-900' : 'text-gray-600'
-              }`}
-            >
-              Actions
-            </button>
+            {['timeline', 'agents', 'actions'].map((mode) => (
+              <button
+                key={mode}
+                onClick={() => setViewMode(mode)}
+                className={`px-3 py-1 text-sm rounded-md transition-colors capitalize ${
+                  viewMode === mode ? 'bg-white shadow text-gray-900' : 'text-gray-600'
+                }`}
+              >
+                {mode}
+              </button>
+            ))}
           </div>
           <select
             value={filter.agent}
@@ -964,7 +815,7 @@ export default function TracesView() {
             className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-red-500"
           >
             <option value="all">All Agents</option>
-            {Object.keys(AGENT_ACTIONS).map(agent => (
+            {agentsList.map((agent) => (
               <option key={agent} value={agent}>{agent}</option>
             ))}
           </select>
@@ -976,7 +827,7 @@ export default function TracesView() {
             }`}
           >
             <option value="all">All Actions</option>
-            {availableActions.map(action => (
+            {availableActions.map((action) => (
               <option key={action} value={action}>{action}</option>
             ))}
           </select>
@@ -1000,12 +851,18 @@ export default function TracesView() {
         </div>
       </div>
 
+      {loadError && (
+        <div className="p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700">
+          Failed to load traces: {loadError}
+        </div>
+      )}
+
       {/* Throughput Chart */}
       <div className="bg-white rounded-xl border border-gray-200 p-4">
         <div className="flex justify-between items-center mb-3">
           <h3 className="text-sm font-semibold text-gray-700">Agent Requests / Minute</h3>
-          <div className="flex gap-4">
-            {Object.entries(AGENT_COLORS).map(([agent, color]) => (
+          <div className="flex gap-4 flex-wrap">
+            {Object.entries(agentColors).map(([agent, color]) => (
               <div key={agent} className="flex items-center gap-1.5">
                 <div className="w-2.5 h-2.5 rounded-sm" style={{ background: color }} />
                 <span className="text-xs text-gray-500">{agent.replace('Agent', '')}</span>
@@ -1017,7 +874,7 @@ export default function TracesView() {
           <ResponsiveContainer width="100%" height="100%">
             <AreaChart data={throughputData} onClick={handleChartClick} style={{ cursor: 'pointer' }}>
               <defs>
-                {Object.entries(AGENT_COLORS).map(([agent, color]) => (
+                {Object.entries(agentColors).map(([agent, color]) => (
                   <linearGradient key={agent} id={`gradient-light-${agent}`} x1="0" y1="0" x2="0" y2="1">
                     <stop offset="5%" stopColor={color} stopOpacity={0.6}/>
                     <stop offset="95%" stopColor={color} stopOpacity={0.05}/>
@@ -1037,6 +894,7 @@ export default function TracesView() {
                 tick={{ fontSize: 10, fill: '#6b7280' }}
                 tickLine={false}
                 axisLine={false}
+                allowDecimals={false}
               />
               <Tooltip
                 contentStyle={{
@@ -1048,13 +906,13 @@ export default function TracesView() {
                 labelStyle={{ color: '#111827', fontWeight: '600', marginBottom: '8px' }}
                 formatter={(value, name) => [value, name.replace('Agent', '')]}
               />
-              {Object.keys(AGENT_COLORS).map((agent) => (
+              {Object.keys(agentColors).map((agent) => (
                 <Area
                   key={agent}
                   type="monotone"
                   dataKey={agent}
                   stackId="1"
-                  stroke={AGENT_COLORS[agent]}
+                  stroke={agentColors[agent]}
                   fill={`url(#gradient-light-${agent})`}
                 />
               ))}
@@ -1064,27 +922,19 @@ export default function TracesView() {
         {/* Summary Stats */}
         <div className="flex gap-6 mt-3 pt-3 border-t border-gray-100">
           <div>
-            <div className="text-lg font-bold text-gray-900">
-              {throughputData.reduce((sum, b) => sum + b.requests, 0)}
-            </div>
+            <div className="text-lg font-bold text-gray-900">{summaryStats.requests}</div>
             <div className="text-xs text-gray-500">Total Requests</div>
           </div>
           <div>
-            <div className="text-lg font-bold text-red-500">
-              {throughputData.reduce((sum, b) => sum + b.errors, 0)}
-            </div>
+            <div className="text-lg font-bold text-red-500">{summaryStats.errors}</div>
             <div className="text-xs text-gray-500">Errors</div>
           </div>
           <div>
-            <div className="text-lg font-bold text-green-600">
-              {Math.round(throughputData.reduce((sum, b) => sum + b.avgLatency, 0) / throughputData.length)}ms
-            </div>
+            <div className="text-lg font-bold text-green-600">{summaryStats.avgLatency}ms</div>
             <div className="text-xs text-gray-500">Avg Latency</div>
           </div>
           <div>
-            <div className="text-lg font-bold text-amber-500">
-              {(throughputData.reduce((sum, b) => sum + b.requests, 0) / 30).toFixed(1)}/min
-            </div>
+            <div className="text-lg font-bold text-amber-500">{summaryStats.throughput}/min</div>
             <div className="text-xs text-gray-500">Throughput</div>
           </div>
         </div>
@@ -1093,18 +943,18 @@ export default function TracesView() {
       {/* Agent Breakdown View */}
       {viewMode === 'agents' && (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {agentStats.map(stat => (
+          {agentStats.map((stat) => (
             <div
               key={stat.agent}
               className="bg-white rounded-xl border border-gray-200 p-4 cursor-pointer hover:border-gray-300 transition-colors"
-              style={{ borderLeftColor: AGENT_COLORS[stat.agent], borderLeftWidth: '4px' }}
+              style={{ borderLeftColor: agentColors[stat.agent], borderLeftWidth: '4px' }}
               onClick={() => setFilter({ ...filter, agent: filter.agent === stat.agent ? 'all' : stat.agent })}
             >
               <div className="flex items-center justify-between mb-3">
                 <span className="font-semibold text-gray-900">{stat.agent}</span>
                 <span
                   className="text-sm px-2 py-0.5 rounded"
-                  style={{ background: AGENT_COLORS[stat.agent] + '20', color: AGENT_COLORS[stat.agent] }}
+                  style={{ background: agentColors[stat.agent] + '20', color: agentColors[stat.agent] }}
                 >
                   {stat.count} calls
                 </span>
@@ -1115,8 +965,8 @@ export default function TracesView() {
                   <div className="font-medium">{Math.round(stat.totalDuration / stat.count)}ms</div>
                 </div>
                 <div>
-                  <div className="text-gray-500 text-xs">Total Cost</div>
-                  <div className="font-medium">${stat.totalCost.toFixed(4)}</div>
+                  <div className="text-gray-500 text-xs">Total Tokens</div>
+                  <div className="font-medium">{totalTokensOf(stat.tokens).toLocaleString()}</div>
                 </div>
                 <div>
                   <div className="text-gray-500 text-xs">Error Rate</div>
@@ -1125,10 +975,8 @@ export default function TracesView() {
                   </div>
                 </div>
                 <div>
-                  <div className="text-gray-500 text-xs">Total Tokens</div>
-                  <div className="font-medium">
-                    {(stat.tokens.thinking + stat.tokens.input + stat.tokens.output).toLocaleString()}
-                  </div>
+                  <div className="text-gray-500 text-xs">Thinking Tokens</div>
+                  <div className="font-medium">{stat.tokens.thinking.toLocaleString()}</div>
                 </div>
               </div>
               <div className="border-t border-gray-100 pt-2">
@@ -1163,7 +1011,7 @@ export default function TracesView() {
       {/* Actions Breakdown View - per Agent#action */}
       {viewMode === 'actions' && (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-          {actionStats.map(stat => {
+          {actionStats.map((stat) => {
             const isActive = filter.action === stat.key;
             return (
               <div
@@ -1177,21 +1025,21 @@ export default function TracesView() {
                     ? 'bg-red-50 border-2 border-red-500'
                     : 'bg-white border border-gray-200 hover:border-gray-300'
                 }`}
-                style={{ borderLeftColor: AGENT_COLORS[stat.agent], borderLeftWidth: isActive ? '2px' : '4px' }}
+                style={{ borderLeftColor: agentColors[stat.agent], borderLeftWidth: isActive ? '2px' : '4px' }}
               >
                 {/* Header: Agent#action */}
                 <div className="flex items-center justify-between mb-3">
                   <div className="flex items-center gap-2">
                     <div
                       className="w-2 h-2 rounded-full"
-                      style={{ background: AGENT_COLORS[stat.agent] }}
+                      style={{ background: agentColors[stat.agent] }}
                     />
                     <span className="font-semibold text-gray-900">{stat.agent}</span>
                     <span className="text-gray-500">#{stat.action}</span>
                   </div>
                   <span
                     className="text-xs px-2 py-0.5 rounded"
-                    style={{ background: AGENT_COLORS[stat.agent] + '20', color: AGENT_COLORS[stat.agent] }}
+                    style={{ background: agentColors[stat.agent] + '20', color: agentColors[stat.agent] }}
                   >
                     {stat.count} calls
                   </span>
@@ -1205,11 +1053,7 @@ export default function TracesView() {
                   </div>
                   <div>
                     <div className="text-xs text-gray-500">Min/Max</div>
-                    <div className="text-gray-600">{stat.minDuration}ms / {stat.maxDuration}ms</div>
-                  </div>
-                  <div>
-                    <div className="text-xs text-gray-500">Cost</div>
-                    <div className="font-medium">${stat.totalCost.toFixed(4)}</div>
+                    <div className="text-gray-600">{Math.round(stat.minDuration)}ms / {Math.round(stat.maxDuration)}ms</div>
                   </div>
                   <div>
                     <div className="text-xs text-gray-500">Errors</div>
@@ -1219,9 +1063,7 @@ export default function TracesView() {
                   </div>
                   <div>
                     <div className="text-xs text-gray-500">Tokens</div>
-                    <div className="text-gray-600">
-                      {(stat.tokens.thinking + stat.tokens.input + stat.tokens.output).toLocaleString()}
-                    </div>
+                    <div className="text-gray-600">{totalTokensOf(stat.tokens).toLocaleString()}</div>
                   </div>
                 </div>
               </div>
@@ -1231,7 +1073,7 @@ export default function TracesView() {
       )}
 
       {/* Trace List */}
-      {viewMode === 'timeline' && (
+      {viewMode === 'timeline' && !emptyState && (
       <div className="space-y-4">
         {filteredTraces.length === 0 ? (
           <div className="text-center py-8 text-gray-500">No traces match filters</div>
@@ -1248,10 +1090,10 @@ export default function TracesView() {
               <div className="flex items-center space-x-4">
                 <div className="flex items-center space-x-2">
                   <span className="px-2 py-1 bg-gray-100 text-gray-600 text-xs font-mono rounded">TRACE</span>
-                  <span className="text-sm font-mono text-gray-500">{trace.id}</span>
+                  <span className="text-sm font-mono text-gray-500">{trace.short_id}</span>
                 </div>
                 <span className="text-sm font-medium text-gray-900">
-                  {trace.agent}#{trace.action}
+                  {trace.display_name}
                 </span>
               </div>
               <div className="flex items-center space-x-4">
@@ -1261,11 +1103,11 @@ export default function TracesView() {
                 </span>
                 <span className="text-sm text-gray-500">
                   <i className="fa-solid fa-coins mr-1"></i>
-                  {formatCost(trace.cost)}
+                  {formatTokens(trace.tokens)} tokens
                 </span>
-                <span className={`text-sm ${trace.status === 200 ? 'text-green-600' : 'text-red-600'}`}>
-                  <i className={`fa-solid ${trace.status === 200 ? 'fa-check' : 'fa-xmark'} mr-1`}></i>
-                  {trace.status}
+                <span className={`text-sm ${isSuccess(trace) ? 'text-green-600' : 'text-red-600'}`}>
+                  <i className={`fa-solid ${isSuccess(trace) ? 'fa-check' : 'fa-xmark'} mr-1`}></i>
+                  {isSuccess(trace) ? 'OK' : 'ERROR'}
                 </span>
               </div>
             </div>
@@ -1275,8 +1117,8 @@ export default function TracesView() {
               <div className="border-t border-gray-100 p-4 bg-gray-50">
                 <div className="flex justify-between text-xs text-gray-400 mb-2 px-32">
                   <span>0ms</span>
-                  <span>{Math.round(trace.duration_ms * 0.33)}ms</span>
-                  <span>{Math.round(trace.duration_ms * 0.66)}ms</span>
+                  <span>{Math.round((trace.duration_ms || 0) * 0.33)}ms</span>
+                  <span>{Math.round((trace.duration_ms || 0) * 0.66)}ms</span>
                   <span>{formatDuration(trace.duration_ms)}</span>
                 </div>
 
@@ -1307,8 +1149,8 @@ export default function TracesView() {
                             span.type === 'response' ? 'bg-teal-400' : 'bg-gray-300'
                           } ${span.error ? 'bg-red-400' : ''}`}
                           style={{
-                            left: `${(span.start / trace.duration_ms) * 100}%`,
-                            width: `${Math.max((span.duration / trace.duration_ms) * 100, 1)}%`
+                            left: `${trace.duration_ms ? (span.start / trace.duration_ms) * 100 : 0}%`,
+                            width: `${trace.duration_ms ? Math.max((span.duration / trace.duration_ms) * 100, 1) : 1}%`
                           }}
                         />
                       </div>
@@ -1323,6 +1165,9 @@ export default function TracesView() {
                   )}
                   <span className="text-sm text-blue-600" style={{ fontFamily: TYPOGRAPHY.mono }}>in:{trace.tokens.input.toLocaleString()}</span>
                   <span className="text-sm text-green-600" style={{ fontFamily: TYPOGRAPHY.mono }}>out:{trace.tokens.output.toLocaleString()}</span>
+                  {trace.provider && (
+                    <span className="text-sm text-gray-500" style={{ fontFamily: TYPOGRAPHY.mono }}>{trace.provider}{trace.model ? ` · ${trace.model}` : ''}</span>
+                  )}
                 </div>
 
                 {trace.error && (
@@ -1337,10 +1182,12 @@ export default function TracesView() {
       </div>
       )}
 
-      {traces.length === 0 && viewMode === 'timeline' && (
+      {emptyState && viewMode === 'timeline' && (
         <div className="text-center py-12">
           <div className="text-gray-400 text-lg">No traces yet</div>
-          <p className="text-gray-500 text-sm mt-2">Run an agent to see traces appear here</p>
+          <p className="text-gray-500 text-sm mt-2">
+            Run an agent, or point your app's ActiveAgent telemetry at this workspace to see traces appear here
+          </p>
         </div>
       )}
     </div>

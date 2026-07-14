@@ -45,62 +45,6 @@ class AgentExecutionJob < ApplicationJob
   private
 
   def execute_agent(agent_record, run)
-    # Check if we have ActiveAgent available
-    if defined?(ActiveAgent::Base)
-      execute_with_active_agent(agent_record, run)
-    else
-      execute_mock(agent_record, run)
-    end
-  end
-
-  def execute_with_active_agent(agent_record, run)
-    # Dynamically create an agent class
-    agent_class = Class.new(ActiveAgent::Base) do
-      # Configure provider
-      generate_with agent_record.provider.to_sym, model: agent_record.model
-
-      define_method :perform do
-        prompt instructions: agent_record.instructions if agent_record.instructions.present?
-        prompt message: run.input_prompt
-      end
-    end
-
-    # Execute the agent
-    response = agent_class.perform.generate_now
-
-    {
-      output: response.message&.content,
-      metadata: {
-        provider: agent_record.provider,
-        model: agent_record.model,
-        finish_reason: response.raw_response&.dig("choices", 0, "finish_reason")
-      },
-      usage: {
-        input_tokens: response.usage&.[](:input_tokens) || response.usage&.[](:prompt_tokens),
-        output_tokens: response.usage&.[](:output_tokens) || response.usage&.[](:completion_tokens),
-        total_tokens: response.usage&.[](:total_tokens)
-      }
-    }
-  end
-
-  def execute_mock(agent_record, run)
-    # Mock response for development/testing
-    sleep(1) # Simulate processing time
-
-    {
-      output: "Mock response from #{agent_record.name} (#{agent_record.provider}/#{agent_record.model}):\n\n" \
-              "Input: #{run.input_prompt}\n\n" \
-              "This is a simulated response. Configure ActiveAgent to enable real AI responses.",
-      metadata: {
-        provider: agent_record.provider,
-        model: agent_record.model,
-        mock: true
-      },
-      usage: {
-        input_tokens: run.input_prompt.split.size * 2,
-        output_tokens: 50,
-        total_tokens: run.input_prompt.split.size * 2 + 50
-      }
-    }
+    AgentExecutionService.call(agent_record, run)
   end
 end

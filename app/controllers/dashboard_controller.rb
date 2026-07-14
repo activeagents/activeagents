@@ -73,7 +73,9 @@ class DashboardController < ApplicationController
     {
       id: account.id,
       name: account.name,
-      subscribed: account.subscribed?
+      subscribed: account.subscribed?,
+      created_at: account.created_at&.iso8601,
+      telemetry_api_key: account.telemetry_api_key
     }
   rescue NoMethodError
     nil

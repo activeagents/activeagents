@@ -1,8 +1,33 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { useTheme } from '../../contexts/ThemeContext';
 
-export default function OrganizationView({ account, user, subscription }) {
+const formatNumber = (num) => {
+  if (num == null) return '0';
+  if (num >= 1000000) return (num / 1000000).toFixed(1) + 'M';
+  if (num >= 1000) return (num / 1000).toFixed(1) + 'K';
+  return num.toString();
+};
+
+export default function OrganizationView({ account, user, subscription, agentCount = 0 }) {
   const { darkMode } = useTheme();
+  const [usage, setUsage] = useState(null);
+  const [keyCopied, setKeyCopied] = useState(false);
+  const [showKey, setShowKey] = useState(false);
+
+  useEffect(() => {
+    fetch('/api/usage')
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data) => setUsage(data?.usage || null))
+      .catch(() => setUsage(null));
+  }, []);
+
+  const copyKey = () => {
+    if (!account?.telemetry_api_key) return;
+    navigator.clipboard.writeText(account.telemetry_api_key).then(() => {
+      setKeyCopied(true);
+      setTimeout(() => setKeyCopied(false), 2000);
+    });
+  };
 
   const cardStyle = {
     backgroundColor: darkMode ? '#1f1f1f' : '#ffffff',
@@ -186,20 +211,72 @@ export default function OrganizationView({ account, user, subscription }) {
         </h3>
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
           <div className="text-center p-4 rounded-lg" style={{ backgroundColor: darkMode ? '#252525' : '#f9fafb' }}>
-            <p className={`text-2xl font-bold ${darkMode ? 'text-white' : 'text-gray-900'}`}>0</p>
+            <p className={`text-2xl font-bold ${darkMode ? 'text-white' : 'text-gray-900'}`}>{agentCount}</p>
             <p className={`text-sm ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>Agents</p>
           </div>
           <div className="text-center p-4 rounded-lg" style={{ backgroundColor: darkMode ? '#252525' : '#f9fafb' }}>
-            <p className={`text-2xl font-bold ${darkMode ? 'text-white' : 'text-gray-900'}`}>0</p>
+            <p className={`text-2xl font-bold ${darkMode ? 'text-white' : 'text-gray-900'}`}>
+              {formatNumber(usage?.traces_used)}
+              {usage?.traces_limit > 0 && (
+                <span className={`text-sm font-normal ${darkMode ? 'text-gray-500' : 'text-gray-400'}`}> / {formatNumber(usage.traces_limit)}</span>
+              )}
+            </p>
             <p className={`text-sm ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>Traces</p>
           </div>
           <div className="text-center p-4 rounded-lg" style={{ backgroundColor: darkMode ? '#252525' : '#f9fafb' }}>
-            <p className={`text-2xl font-bold ${darkMode ? 'text-white' : 'text-gray-900'}`}>0</p>
+            <p className={`text-2xl font-bold ${darkMode ? 'text-white' : 'text-gray-900'}`}>{formatNumber(usage?.runs_used)}</p>
             <p className={`text-sm ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>Executions</p>
           </div>
           <div className="text-center p-4 rounded-lg" style={{ backgroundColor: darkMode ? '#252525' : '#f9fafb' }}>
-            <p className={`text-2xl font-bold ${darkMode ? 'text-white' : 'text-gray-900'}`}>$0.00</p>
-            <p className={`text-sm ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>Est. Cost</p>
+            <p className={`text-2xl font-bold ${darkMode ? 'text-white' : 'text-gray-900'}`}>{formatNumber(usage?.tokens_used)}</p>
+            <p className={`text-sm ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>Tokens</p>
+          </div>
+        </div>
+      </div>
+
+      {/* Telemetry Ingestion */}
+      <div className="border rounded-lg p-6" style={cardStyle}>
+        <h3 className={`text-lg font-semibold mb-1 ${darkMode ? 'text-white' : 'text-gray-900'}`}>
+          Telemetry
+        </h3>
+        <p className={`text-sm mb-4 ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
+          Send traces from your own ActiveAgent app to this workspace. Add this to your{' '}
+          <code className={`px-1 rounded text-xs ${darkMode ? 'bg-gray-800 text-gray-300' : 'bg-gray-100 text-gray-700'}`}>config/active_agent.yml</code>:
+        </p>
+        <pre
+          className={`text-xs rounded-lg p-4 overflow-x-auto mb-4 ${darkMode ? 'bg-black text-gray-300' : 'bg-gray-900 text-gray-100'}`}
+        >
+{`telemetry:
+  enabled: true
+  endpoint: ${window.location.origin}/v1/traces
+  api_key: <%= ENV["ACTIVEAGENTS_API_KEY"] %>`}
+        </pre>
+        <div className="flex items-center justify-between gap-3">
+          <div className="min-w-0 flex-1">
+            <p className={`text-xs uppercase tracking-wide mb-1 ${darkMode ? 'text-gray-500' : 'text-gray-400'}`}>API Key</p>
+            <code
+              className={`block truncate text-sm font-mono px-3 py-2 rounded-lg border ${
+                darkMode ? 'bg-gray-900 border-gray-700 text-gray-300' : 'bg-gray-50 border-gray-200 text-gray-700'
+              }`}
+            >
+              {account?.telemetry_api_key
+                ? (showKey ? account.telemetry_api_key : '•'.repeat(24))
+                : 'Not available'}
+            </code>
+          </div>
+          <div className="flex gap-2 flex-shrink-0 self-end">
+            <button
+              onClick={() => setShowKey(!showKey)}
+              className="px-3 py-2 text-sm bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors"
+            >
+              {showKey ? 'Hide' : 'Show'}
+            </button>
+            <button
+              onClick={copyKey}
+              className="px-3 py-2 text-sm bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors"
+            >
+              {keyCopied ? 'Copied!' : 'Copy'}
+            </button>
           </div>
         </div>
       </div>

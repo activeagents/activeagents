@@ -32,14 +32,11 @@ export default function Sidebar({ currentView, onNavigate, agentCount, account, 
     { id: 'traces', label: 'Traces', icon: ICONS.nav.traces },
     { id: 'metrics', label: 'Metrics', icon: ICONS.nav.metrics },
     { id: 'replay', label: 'Session Replay', icon: ICONS.nav.replay },
-    { id: 'evaluations', label: 'Evaluations', icon: ICONS.nav.evaluations },
-    { id: 'interactions', label: 'Interactions', icon: ICONS.nav.interactions },
     { id: 'benchmarks', label: 'Benchmarks', icon: ICONS.nav.benchmarks },
   ];
 
   const workspaceItems = [
     { id: 'organization', label: 'Organization', icon: '🏢' },
-    { id: 'prompts', label: 'Prompts', icon: '💬' },
     { id: 'settings', label: 'Settings', icon: '⚙️' },
   ];
 
@@ -277,7 +274,7 @@ export default function Sidebar({ currentView, onNavigate, agentCount, account, 
       {/* Version */}
       <div className="px-6 py-4 border-t" style={{ borderColor: darkMode ? '#2a2a2a' : '#e5e7eb' }}>
         <div className={`text-xs ${darkMode ? 'text-gray-500' : 'text-gray-400'}`}>
-          Active Agent v1.0.1
+          Active Agent v1.0.3
         </div>
       </div>
     </aside>
