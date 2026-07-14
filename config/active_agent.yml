@@ -1,0 +1,49 @@
+# Generation provider configuration for ActiveAgent.
+#
+# Providers are only usable when their credentials are present in the
+# environment; AgentExecutionService falls back to the :mock provider when a
+# requested provider is not configured (see app/services/agent_execution_service.rb).
+#
+# The mock provider ships with the activeagent gem and exercises the full
+# prompt -> provider -> response pipeline (including usage accounting and
+# instrumentation) without making network calls.
+
+shared:
+  mock: &mock
+    service: "Mock"
+
+  openai: &openai
+    service: "OpenAI"
+    access_token: <%= ENV["OPENAI_API_KEY"] %>
+    model: "gpt-4o-mini"
+
+  anthropic: &anthropic
+    service: "Anthropic"
+    access_token: <%= ENV["ANTHROPIC_API_KEY"] %>
+    model: "claude-sonnet-4-5"
+
+  ollama: &ollama
+    service: "Ollama"
+    host: <%= ENV["OLLAMA_HOST"] %>
+    model: "llama3"
+
+  openrouter: &openrouter
+    service: "OpenRouter"
+    access_token: <%= ENV["OPENROUTER_API_KEY"] %>
+
+development:
+  mock: *mock
+  openai: *openai
+  anthropic: *anthropic
+  ollama: *ollama
+  openrouter: *openrouter
+
+test:
+  mock: *mock
+
+production:
+  mock: *mock
+  openai: *openai
+  anthropic: *anthropic
+  ollama: *ollama
+  openrouter: *openrouter
