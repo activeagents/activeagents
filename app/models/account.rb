@@ -14,11 +14,12 @@ class Account < ApplicationRecord
 
   validates :name, presence: true
 
-  # Usage limits by plan (artificially low for testing)
+  # Agent execution limits per monthly period, by plan slug.
+  # Pro matches the advertised 10,000 executions/month on the pricing page.
   USAGE_LIMITS = {
-    "free" => 3,      # Very low to trigger upgrade quickly
-    "pro" => 1000,
-    "enterprise" => -1  # Unlimited
+    "free" => 100,
+    "pro" => 10_000,
+    "enterprise" => -1 # Unlimited
   }.freeze
 
   # Telemetry trace ingestion limits by plan (traces per monthly period)

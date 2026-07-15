@@ -4,10 +4,11 @@
 # records tokens only; the platform layers pricing on top for the cost
 # figures shown in Traces and Metrics.
 #
-# Prices are USD per million tokens [input, output]. Patterns match the
-# denormalized model string from telemetry llm spans. Unknown models fall
-# back to a conservative blended rate so totals stay meaningful; costs are
-# always presented as estimates.
+# Rates come from RubyLLM's model registry (USD per million tokens,
+# maintained upstream per model) when the model is known there; the static
+# pattern table below is the fallback for aliases/self-hosted models, and
+# a conservative blended rate covers everything else so totals stay
+# meaningful. Costs are always presented as estimates.
 class ModelPricing
   PRICES = [
     # [pattern, input $/1M, output $/1M]
@@ -42,6 +43,28 @@ class ModelPricing
   def self.rate_for(model)
     return DEFAULT_RATE if model.blank?
 
+    registry_rate(model) || static_rate(model)
+  end
+
+  # Exact per-model rates from RubyLLM's registry. Lookups are memoized —
+  # the registry scan is not free and trace serialization calls this per
+  # row.
+  def self.registry_rate(model)
+    @registry_rates ||= {}
+    return @registry_rates[model] if @registry_rates.key?(model)
+
+    @registry_rates[model] = begin
+      info = RubyLLM.models.find(model.to_s)
+      tokens = info&.pricing&.text_tokens
+      if tokens&.input && tokens&.output
+        [ tokens.input, tokens.output ]
+      end
+    rescue StandardError
+      nil
+    end
+  end
+
+  def self.static_rate(model)
     PRICES.each do |pattern, input_rate, output_rate|
       return [ input_rate, output_rate ] if model.to_s.match?(pattern)
     end

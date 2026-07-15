@@ -32,7 +32,8 @@
     </tr>
     <%= render "pages/components/comparison_row", feature: "Team seats", values: ["Unlimited", "5", "Unlimited"] %>
     <%= render "pages/components/comparison_row", feature: "Workspaces", values: ["Unlimited", "1", "Unlimited"] %>
-    <%= render "pages/components/comparison_row", feature: "SSO & compliance options", values: [false, false, "On request"] %>
+    <%= render "pages/components/comparison_row", feature: "SSO / SAML & RBAC", values: [false, false, true] %>
+    <%= render "pages/components/comparison_row", feature: "SOC 2 Type II & HIPAA", values: [false, false, true] %>
 
     <tr class="pricing-table-row">
       <td class="paragraph s bold" colspan="4" style="background: var(--color-bg-secondary);">Support</td>
