@@ -80,6 +80,22 @@ class Api::MetricsControllerTest < ActionDispatch::IntegrationTest
     assert_equal 1, billing["errors"]
   end
 
+  test "includes estimated cost totals and per-agent costs" do
+    trace = create_trace(input: 1_000_000, output: 1_000_000)
+    llm_span = {
+      "span_id" => "l1", "parent_span_id" => "r1", "type" => "llm", "name" => "llm.generate",
+      "attributes" => { "llm.model" => "gpt-4o" }, "tokens" => {}
+    }
+    trace.update_columns(spans: trace.spans + [ llm_span ])
+
+    get "/api/metrics"
+
+    # gpt-4o: $2.50/1M input + $10.00/1M output = $12.50
+    assert_in_delta 12.5, json_response.dig("summary", "total_cost"), 0.01
+    agent_row = json_response["by_agent"].find { |a| a["name"] == "SupportAgent" }
+    assert_in_delta 12.5, agent_row["cost"], 0.01
+  end
+
   test "computes previous-period change" do
     create_trace(timestamp: 30.hours.ago)
     create_trace

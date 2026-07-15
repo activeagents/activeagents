@@ -93,8 +93,12 @@ module Api
         tokens: {
           input: generation.input_tokens,
           output: generation.output_tokens,
-          total: generation.total_tokens
+          total: generation.total_tokens,
+          cached: generation.cached_tokens,
+          thinking: generation.reasoning_tokens
         },
+        cache_hit: generation.cache_hit?,
+        thinking: generation.thinking?,
         duration_seconds: generation.duration_seconds,
         trace_id: generation.trace_id,
         created_at: generation.created_at.iso8601(3)

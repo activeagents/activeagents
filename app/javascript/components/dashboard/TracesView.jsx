@@ -233,6 +233,11 @@ export default function TracesView() {
   const totalTokensOf = (tokens) =>
     (tokens?.input || 0) + (tokens?.output || 0) + (tokens?.thinking || 0);
 
+  const formatCost = (cost) => {
+    if (cost == null) return null;
+    return `$${cost.toFixed(4)}`;
+  };
+
   const getSpanIcon = (type) => {
     switch (type) {
       case 'root': return ICONS.spans.root;
@@ -701,7 +706,10 @@ export default function TracesView() {
                 </div>
                 <div className="trace-meta">
                   <span className="meta-item"><i className="fa-solid fa-clock"></i> {formatDuration(trace.duration_ms)}</span>
-                  <span className="meta-item"><i className="fa-solid fa-coins"></i> {formatTokens(trace.tokens)} tokens</span>
+                  <span className="meta-item">{formatTokens(trace.tokens)} tokens</span>
+                  {trace.estimated_cost != null && (
+                    <span className="meta-item"><i className="fa-solid fa-coins"></i> {formatCost(trace.estimated_cost)}</span>
+                  )}
                   <span className={`meta-item ${isSuccess(trace) ? 'success' : 'error'}`}>
                     <i className={`fa-solid ${isSuccess(trace) ? 'fa-check' : 'fa-xmark'}`}></i> {isSuccess(trace) ? 'OK' : 'ERROR'}
                   </span>
@@ -1102,9 +1110,14 @@ export default function TracesView() {
                   {formatDuration(trace.duration_ms)}
                 </span>
                 <span className="text-sm text-gray-500">
-                  <i className="fa-solid fa-coins mr-1"></i>
                   {formatTokens(trace.tokens)} tokens
                 </span>
+                {trace.estimated_cost != null && (
+                  <span className="text-sm text-gray-500">
+                    <i className="fa-solid fa-coins mr-1"></i>
+                    {formatCost(trace.estimated_cost)}
+                  </span>
+                )}
                 <span className={`text-sm ${isSuccess(trace) ? 'text-green-600' : 'text-red-600'}`}>
                   <i className={`fa-solid ${isSuccess(trace) ? 'fa-check' : 'fa-xmark'} mr-1`}></i>
                   {isSuccess(trace) ? 'OK' : 'ERROR'}

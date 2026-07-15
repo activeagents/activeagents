@@ -132,6 +132,30 @@ Upstream PR making trace correlation first-class in solid_agent's
 generators (plus fixes for silently-dropped generations):
 activeagents/solid_agent#3.
 
+## Evaluations
+
+Evaluations score an agent's persisted generations (`agent_generations`)
+against configurable criteria — matching the lander's Evaluations preview:
+
+- **Rule-based criteria** (always available, deterministic):
+  `response_present`, `min_length`, `max_latency_ms`, `token_budget`,
+  `contains` / `not_contains`
+- **LLM-as-judge** (`llm_judge`): a judge model scores each sample
+  0.0–1.0; requires real provider credentials and is reported as
+  *skipped* — never faked — without them
+
+Models: `Evaluation` (per-agent definition) and `EvaluationRun` (scores
+per criterion with min/max/passed counts). API: `/api/evaluations`
+(index/show/create/run/destroy). Runner: `EvaluationRunnerService`.
+
+## Cost estimation
+
+The gem's telemetry records tokens only; the platform layers pricing on
+top via `ModelPricing` (per-model $/1M token table with a blended
+fallback). Estimated costs appear per trace (`estimated_cost` in
+`/api/traces`), and in `/api/metrics` as `summary.total_cost` plus a
+per-agent `cost` — always labeled as estimates.
+
 ## Non-ActiveAgent clients (RubyLLM, others)
 
 The ingest endpoint is framework-agnostic — anything that POSTs the

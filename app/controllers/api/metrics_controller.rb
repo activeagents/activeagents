@@ -22,10 +22,12 @@ module Api
       current = traces_scope.for_date_range(hours.hours.ago(now), now)
       previous = traces_scope.for_date_range((hours * 2).hours.ago(now), hours.hours.ago(now))
 
+      costs = cost_statistics(current)
+
       render json: {
-        summary: summary_for(current, previous),
+        summary: summary_for(current, previous).merge(total_cost: costs[:total]),
         hourly_requests: hourly_requests(current, hours, now),
-        by_agent: agent_statistics(current),
+        by_agent: agent_statistics(current).map { |row| row.merge(cost: costs[:by_agent][row[:name]] || 0.0) },
         window_hours: hours
       }
     end
@@ -105,6 +107,35 @@ module Api
             errors: row.error_count.to_i
           }
         end
+    end
+
+    # Estimated spend for the window, total and per agent class. The model
+    # lives inside the spans jsonb (first llm span), so it's extracted in
+    # SQL to avoid loading span payloads.
+    def cost_statistics(scope)
+      rows = scope.pluck(
+        Arel.sql(
+          "(SELECT s.value -> 'attributes' ->> 'llm.model' " \
+          "FROM jsonb_array_elements(spans) AS s " \
+          "WHERE s.value ->> 'type' = 'llm' LIMIT 1)"
+        ),
+        :agent_class,
+        :total_input_tokens,
+        :total_output_tokens
+      )
+
+      by_agent = Hash.new(0.0)
+      total = 0.0
+
+      rows.each do |model, agent_class, input_tokens, output_tokens|
+        cost = ModelPricing.estimate(model: model, input_tokens: input_tokens, output_tokens: output_tokens)
+        next unless cost
+
+        total += cost
+        by_agent[agent_class] += cost if agent_class
+      end
+
+      { total: total.round(4), by_agent: by_agent.transform_values { |v| v.round(4) } }
     end
 
     def percent_change(previous, current)

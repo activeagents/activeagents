@@ -12,6 +12,7 @@ import Header from '../components/dashboard/Header';
 import TracesView from '../components/dashboard/TracesView';
 import MetricsView from '../components/dashboard/MetricsView';
 import InteractionsView from '../components/dashboard/InteractionsView';
+import EvaluationsView from '../components/dashboard/EvaluationsView';
 import SandboxRunner from '../components/dashboard/SandboxRunner';
 import BenchmarkView from '../components/dashboard/BenchmarkView';
 import SessionReplayView from '../components/dashboard/SessionReplayView';
@@ -43,6 +44,8 @@ function DashboardContent({ user, initialAgents = [], meta = {}, account = null,
       setCurrentView('metrics');
     } else if (path.includes('/interactions')) {
       setCurrentView('interactions');
+    } else if (path.includes('/evaluations')) {
+      setCurrentView('evaluations');
     } else if (path.includes('/analytics') && !path.includes('/agents/')) {
       setCurrentView('analytics');
     } else if (path.includes('/agents/new')) {
@@ -218,6 +221,7 @@ function DashboardContent({ user, initialAgents = [], meta = {}, account = null,
     else if (view === 'traces') path = '/dashboard/traces';
     else if (view === 'metrics') path = '/dashboard/metrics';
     else if (view === 'interactions') path = '/dashboard/interactions';
+    else if (view === 'evaluations') path = '/dashboard/evaluations';
     else if (view === 'benchmarks') path = '/dashboard/benchmarks';
     else if (view === 'replay') path = '/dashboard/replay';
     else if (view === 'sandbox') path = '/dashboard/sandbox';
@@ -287,6 +291,8 @@ function DashboardContent({ user, initialAgents = [], meta = {}, account = null,
         return <MetricsView />;
       case 'interactions':
         return <InteractionsView />;
+      case 'evaluations':
+        return <EvaluationsView />;
       case 'benchmarks':
         return <BenchmarkView />;
       case 'replay':

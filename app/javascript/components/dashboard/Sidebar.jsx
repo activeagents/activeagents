@@ -32,6 +32,7 @@ export default function Sidebar({ currentView, onNavigate, agentCount, account, 
     { id: 'traces', label: 'Traces', icon: ICONS.nav.traces },
     { id: 'metrics', label: 'Metrics', icon: ICONS.nav.metrics },
     { id: 'interactions', label: 'Interactions', icon: ICONS.nav.interactions },
+    { id: 'evaluations', label: 'Evaluations', icon: ICONS.nav.evaluations },
     { id: 'replay', label: 'Session Replay', icon: ICONS.nav.replay },
     { id: 'benchmarks', label: 'Benchmarks', icon: ICONS.nav.benchmarks },
   ];
