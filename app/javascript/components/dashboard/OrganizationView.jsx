@@ -54,7 +54,7 @@ export default function OrganizationView({ account, user, subscription, agentCou
       seats: 1,
       workspaces: 1,
       agents: 3,
-      traces: '1,000/mo',
+      traces: '250/mo trial',
     },
     pro: {
       seats: 5,

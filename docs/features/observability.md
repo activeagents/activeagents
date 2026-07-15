@@ -2,10 +2,13 @@
 
 The platform's observability stack is the **hosted, multi-tenant deployment of
 the activeagent gem's own dashboard/telemetry implementation** — the same
-pipeline a developer gets for free by self-hosting with the gem. Feature set
-and metric definitions are kept in parity with the gem's dashboard
-(`ActiveAgent::Dashboard`), and the hosted code reuses the gem's classes
-rather than reimplementing them.
+pipeline behind the gem's local dev console. Metric definitions match the
+gem's dashboard (`ActiveAgent::Dashboard`), and the hosted code reuses the
+gem's classes rather than reimplementing them.
+
+Positioning: the gem's dashboard is a **development console**; production
+observability is the paid platform product. Free workspaces get a
+deliberately low-volume trial (see Quotas) to evaluate it.
 
 ## Architecture
 
@@ -73,7 +76,7 @@ Every trace belongs to an `Account`. Accounts get a `telemetry_api_key`
 (generated via `has_secure_token`) shown on the dashboard's Organization
 page.
 
-## Customer setup (self-hosted → hosted)
+## Customer setup (dev console → hosted)
 
 A customer app using the activeagent gem sends traces here with:
 
@@ -85,9 +88,10 @@ telemetry:
   api_key: <%= ENV["ACTIVEAGENTS_API_KEY"] %>
 ```
 
-Self-hosters can instead run the gem's own dashboard
-(`rails g active_agent:dashboard:install` + `local_storage: true`) and get
-the same Traces/Metrics feature set locally — that's the parity contract.
+During development the gem's own dev console
+(`rails g active_agent:dashboard:install` + `local_storage: true`) shows the
+same Traces/Metrics views against local data — same pipeline, so what a
+developer sees locally is what the platform shows in production.
 
 ## Platform-executed agents
 
@@ -105,10 +109,13 @@ the same Traces/Metrics feature set locally — that's the parity contract.
 
 ## Quotas
 
-Trace ingestion is limited per plan (`Account::TRACE_LIMITS`): free 1,000
-traces/month, pro 25,000/month, enterprise unlimited. The quota is enforced
-at the ingest endpoint (429 when exhausted) and surfaced in
-`Account#usage_stats` (`traces_used` / `traces_limit`).
+Trace ingestion is limited per plan (`Account::TRACE_LIMITS`): free 250
+traces/month (trial-sized), pro 25,000/month, enterprise unlimited. Agent
+executions follow `Account::USAGE_LIMITS` (free 25/month trial, pro 10,000).
+Retention is plan-based too (`TraceRetentionJob::RETENTION`: 3 days free,
+14 days pro, 400 days enterprise — job not yet scheduled). Quotas are
+enforced at the ingest endpoint (429 when exhausted) and the execution API
+(402), and surfaced in `Account#usage_stats`.
 
 ## Conversation persistence (solid_agent)
 

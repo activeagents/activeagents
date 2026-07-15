@@ -2,9 +2,9 @@
   <div class="text-centered full-width">
     <h2>The Platform</h2>
     <p class="paragraph m secondary">
-      The same dashboard, hosted — plus teams, quotas, and retention. Point
-      your gem's telemetry at us and ship. Every workspace starts free with
-      1,000 traces and 100 executions/month.
+      Production observability for your agents — traces, costs, evaluations,
+      and team workspaces. Point your gem's telemetry at us and ship. Every
+      workspace starts with a free trial: 25 executions and 250 traces/month.
     </p>
   </div>
 
@@ -39,19 +39,19 @@
   <!-- Hosted Platform Pricing -->
   <div class="grid columns-3 margin-top-xl">
     <%= render "pages/components/pricing_card",
-      name: "Self-Hosted",
+      name: "Dev Console",
       link: nil,
-      license: "The gem's dashboard, in your app",
+      license: "In the free gem, for development",
       price: "Free",
       price_suffix: nil,
       features: [
         "One command: rails g active_agent:dashboard:install",
-        "Traces & metrics in your own database",
-        "Unlimited agents & executions",
+        "Local traces & metrics while you build",
+        "Runs in your development environment",
         "Community support on GitHub & Discord",
-        "MIT licensed, forever free"
+        "MIT licensed"
       ],
-      tagline: "Full control, your infrastructure",
+      tagline: "See your agents while you build",
       cta_text: "Get Started",
       cta_link: "https://docs.activeagents.ai/getting_started",
       cta_style: "tertiary",
