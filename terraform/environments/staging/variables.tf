@@ -63,6 +63,12 @@ variable "lb_existing_ssl_cert_name" {
   default     = null
 }
 
+variable "lb_extra_managed_domains" {
+  description = "Domains covered by an additional managed SSL certificate attached alongside the primary/existing one (e.g., api.activeagents.ai)"
+  type        = list(string)
+  default     = []
+}
+
 variable "enable_cdn" {
   description = "Enable Cloud CDN for caching static assets (disabled when IAP is used)"
   type        = bool

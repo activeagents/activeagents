@@ -10,6 +10,14 @@ enable_apex_domain = true
 # Certificate covers: activeagents.ai, www.activeagents.ai, staging.activeagents.ai
 lb_existing_ssl_cert_name = "activeagents-all-domains-cert"
 
+# Domains added after activeagents-all-domains-cert was issued. These get
+# their own managed certificate attached alongside it on the HTTPS proxy
+# (SNI selects the right cert), so the existing cert never needs reissuing.
+# NOTE: after apply, the api cert takes 15-60 min to provision; existing
+# domains are unaffected during that window. The api DNS A record is created
+# in the same apply, which Google requires before it will issue the cert.
+lb_extra_managed_domains = ["api.activeagents.ai"]
+
 # Framer website A records (apex domain) - IGNORED when enable_apex_domain = true
 # Updated 2026-02-24 - IPs from Framer custom domain settings
 framer_ips = [
