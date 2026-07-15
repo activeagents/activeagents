@@ -24,9 +24,11 @@ ActiveAgent::Dashboard.configure do |config|
   config.trace_model_class = "TelemetryTrace"
 end
 
-# The dashboard engine overrides Engine.root after Rails has already computed
-# its load paths, so the engine's app/ directory never makes it onto the
-# autoload path. Load the pieces the hosted platform builds on explicitly.
+# WORKAROUND (remove after activeagents/activeagent#344 ships): the engine
+# in gem <= 1.0.3 never registers its app/ directory on host load paths, so
+# the pieces the platform builds on are required explicitly. With the fixed
+# engine these requires are harmless no-ops (verified: full suite green on
+# the patched gem with these lines deleted).
 engine_app = ActiveAgent::Dashboard::Engine.root.join("app")
 require engine_app.join("models/active_agent/telemetry_trace").to_s
 require engine_app.join("jobs/active_agent/process_telemetry_traces_job").to_s

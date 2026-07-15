@@ -2,7 +2,8 @@
   <div class="heading centered fade-in-up" data-controller="scroll-animate">
     <h2 class="no-top-margin">Observe Every Interaction</h2>
     <p class="paragraph m secondary">
-      Trace, measure, and evaluate your agents. Built-in observability for production AI.
+      The dashboard ships free with the gem — self-host it, or point your
+      telemetry at our hosted platform. Same traces, same pipeline.
     </p>
   </div>
 
@@ -10,24 +11,24 @@
     <div class="preview-row">
       <%= render "pages/components/product_preview",
         title: "Trace Timeline",
-        description: "Every call broken into spans. See prompts, reasoning, LLM calls, and tool use with token costs.",
+        description: "Every run broken into spans — prompt, LLM call, tool use, thinking — with tokens and estimated cost.",
         preview_type: :trace_timeline %>
 
       <%= render "pages/components/product_preview",
         title: "Evaluations",
-        description: "Score outputs with LLM-as-judge, rule-based checks, or custom criteria. Catch regressions early.",
+        description: "Rule-based checks and LLM-as-judge scores over real agent output. Catch regressions early.",
         preview_type: :evaluation %>
     </div>
 
     <div class="preview-row">
       <%= render "pages/components/product_preview",
         title: "Metrics",
-        description: "Track requests, latency, costs, and token usage across all agents in real-time.",
+        description: "Requests, latency, error rate, tokens, and estimated cost — per agent, updated live.",
         preview_type: :metrics_dashboard %>
 
       <%= render "pages/components/product_preview",
         title: "Interactions",
-        description: "Message fragments cached for replay. Tool calls are deterministic. Extended thinking captured.",
+        description: "Every conversation persisted — messages, tool calls, prompt-cache hits, and thinking tokens, linked to their traces.",
         preview_type: :session_log %>
     </div>
   </div>

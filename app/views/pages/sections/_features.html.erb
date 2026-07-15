@@ -45,13 +45,16 @@
     <%# Example: test/agents/examples/flip_card_examples.rb %>
     <%= render "pages/components/flip_card",
       title: "Any LLM",
-      description: "OpenAI, Anthropic, Ollama. Switch with one line.",
+      description: "OpenAI, Anthropic, Gemini, Bedrock, Ollama. Switch with one line.",
       code: <<~CODE,
         # OpenAI
         generate_with :open_ai, model: "gpt-4o"
 
         # Anthropic
         generate_with :anthropic, model: "claude-sonnet-4-5-20250929"
+
+        # Google Gemini
+        generate_with :gemini, model: "gemini-2.0-flash"
 
         # Ollama (local)
         generate_with :ollama, model: "llama3"
@@ -63,19 +66,18 @@
     <%# Example: test/agents/examples/flip_card_examples.rb %>
     <%= render "pages/components/flip_card",
       title: "Resilient by Default",
-      description: "Retries, backoff, graceful failures. Agents that don't give up.",
+      description: "Automatic retries on provider errors. Configure once, apply everywhere.",
       code: <<~CODE,
-        class ReliableAgent < ApplicationAgent
-          generate_with :openai,
-            model: "gpt-4o",
-            retries: 3,
-            backoff: :exponential
-
-          on_error :handle_failure
-        end
+        # config/active_agent.yml
+        production:
+          openai:
+            service: "OpenAI"
+            model: "gpt-4o"
+            retries: true
+            retries_count: 3
       CODE
-      docs_link: "https://docs.activeagents.ai/agents/retries",
-      docs_text: "docs/agents/retries" %>
+      docs_link: "https://docs.activeagents.ai/framework",
+      docs_text: "docs/framework" %>
 
     <%# Example: test/agents/examples/flip_card_examples.rb %>
     <%= render "pages/components/flip_card",
@@ -146,17 +148,17 @@
     <%# Example: test/agents/examples/flip_card_examples.rb %>
     <%= render "pages/components/flip_card",
       title: "MCP Support",
-      description: "Model Context Protocol. Connect agents to any MCP server.",
+      description: "Model Context Protocol. Connect agents to remote MCP servers.",
       code: <<~CODE,
         generate_with :anthropic,
           model: "claude-sonnet-4-5-20250929",
-          mcp_servers: {
-            filesystem: {
-              command: "npx",
-              args: ["-y", "@anthropic/mcp-fs"]
-            },
-            github: { url: "https://mcp.github.com" }
-          }
+          mcp_servers: [
+            {
+              type: "url",
+              name: "stripe",
+              url: "https://mcp.stripe.com"
+            }
+          ]
       CODE
       docs_link: "https://docs.activeagents.ai/agents/mcp",
       docs_text: "docs/mcp" %>

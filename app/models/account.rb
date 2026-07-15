@@ -111,11 +111,11 @@ class Account < ApplicationRecord
   end
 
   def telemetry_traces_this_period
-    telemetry_traces.where(created_at: (usage_period_start || created_at)..).count
+    telemetry_traces.where(timestamp: (usage_period_start || created_at)..).count
   end
 
   def telemetry_tokens_this_period
-    telemetry_traces.where(created_at: (usage_period_start || created_at)..)
+    telemetry_traces.where(timestamp: (usage_period_start || created_at)..)
       .sum("total_input_tokens + total_output_tokens + total_thinking_tokens")
   end
 

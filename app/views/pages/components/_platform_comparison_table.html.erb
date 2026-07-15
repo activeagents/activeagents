@@ -23,17 +23,16 @@
       <td class="paragraph s bold" colspan="4" style="background: var(--color-bg-secondary);">Observability & Evaluation</td>
     </tr>
     <%= render "pages/components/comparison_row", feature: "Cost & latency analytics", values: [true, true, true] %>
-    <%= render "pages/components/comparison_row", feature: "LLM-as-judge evaluators", values: ["DIY", "5 prebuilt", "Unlimited custom"] %>
-    <%= render "pages/components/comparison_row", feature: "A/B prompt testing", values: [false, true, true] %>
-    <%= render "pages/components/comparison_row", feature: "Anomaly detection (ML)", values: [false, false, true] %>
+    <%= render "pages/components/comparison_row", feature: "Rule-based evaluations", values: ["DIY", true, true] %>
+    <%= render "pages/components/comparison_row", feature: "LLM-as-judge evaluations", values: ["DIY", true, "Unlimited custom"] %>
+    <%= render "pages/components/comparison_row", feature: "Conversation history & provenance", values: ["Via solid_agent", true, true] %>
 
     <tr class="pricing-table-row">
       <td class="paragraph s bold" colspan="4" style="background: var(--color-bg-secondary);">Team & Security</td>
     </tr>
     <%= render "pages/components/comparison_row", feature: "Team seats", values: ["Unlimited", "5", "Unlimited"] %>
     <%= render "pages/components/comparison_row", feature: "Workspaces", values: ["Unlimited", "1", "Unlimited"] %>
-    <%= render "pages/components/comparison_row", feature: "SSO / SAML & RBAC", values: [false, false, true] %>
-    <%= render "pages/components/comparison_row", feature: "SOC 2 Type II & HIPAA", values: [false, false, true] %>
+    <%= render "pages/components/comparison_row", feature: "SSO & compliance options", values: [false, false, "On request"] %>
 
     <tr class="pricing-table-row">
       <td class="paragraph s bold" colspan="4" style="background: var(--color-bg-secondary);">Support</td>
