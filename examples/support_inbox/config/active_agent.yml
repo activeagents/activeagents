@@ -1,0 +1,61 @@
+# Providers + telemetry for the Support Inbox example.
+#
+# Providers: the mock provider ships with the activeagent gem, needs no
+# credentials, and exercises the full prompt -> provider -> response
+# pipeline (usage accounting, instrumentation, telemetry) — so this app
+# works out of the box. Set OPENAI_API_KEY or ANTHROPIC_API_KEY (and
+# optionally AI_PROVIDER) to generate with a real model.
+#
+# Telemetry (the monitoring story):
+#   - development without ACTIVEAGENTS_API_KEY: traces are stored locally
+#     and browsable in the gem's dev console at /active_agent.
+#   - development with ACTIVEAGENTS_API_KEY: traces POST to the
+#     ActiveAgents platform instead — handy for testing the hosted
+#     pipeline from your machine.
+#   - production: traces always POST to the platform. Get an API key from
+#     your workspace's Organization page.
+shared:
+  mock: &mock
+    service: "Mock"
+
+  openai: &openai
+    service: "OpenAI"
+    access_token: <%= ENV["OPENAI_API_KEY"] %>
+    model: "gpt-4o-mini"
+
+  anthropic: &anthropic
+    service: "Anthropic"
+    access_token: <%= ENV["ANTHROPIC_API_KEY"] %>
+    model: "claude-haiku-4-5"
+
+development:
+  mock: *mock
+  openai: *openai
+  anthropic: *anthropic
+  telemetry:
+    enabled: true
+    <% if ENV["ACTIVEAGENTS_API_KEY"].to_s.strip != "" %>
+    endpoint: <%= ENV.fetch("ACTIVEAGENTS_TELEMETRY_ENDPOINT", "https://api.activeagents.ai/v1/traces") %>
+    api_key: <%= ENV["ACTIVEAGENTS_API_KEY"] %>
+    flush_interval: 2
+    <% else %>
+    local_storage: true
+    <% end %>
+    service_name: "support_inbox"
+
+test:
+  mock: *mock
+  telemetry:
+    enabled: true
+    local_storage: true
+    service_name: "support_inbox"
+
+production:
+  mock: *mock
+  openai: *openai
+  anthropic: *anthropic
+  telemetry:
+    enabled: true
+    endpoint: <%= ENV.fetch("ACTIVEAGENTS_TELEMETRY_ENDPOINT", "https://api.activeagents.ai/v1/traces") %>
+    api_key: <%= ENV["ACTIVEAGENTS_API_KEY"] %>
+    service_name: "support_inbox"

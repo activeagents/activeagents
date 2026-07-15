@@ -1,0 +1,51 @@
+# frozen_string_literal: true
+
+class CreateAgentGenerations < ActiveRecord::Migration[8.1]
+  def change
+    create_table :agent_generations do |t|
+      t.references :agent_context, null: false, foreign_key: true, index: true
+
+      # The assistant's response content
+      t.text :content
+
+      # Model information
+      t.string :model
+      t.string :provider
+
+      # Finish reason: stop, tool_calls, length, etc.
+      t.string :finish_reason
+
+      # Token usage for this generation
+      t.integer :input_tokens, default: 0
+      t.integer :output_tokens, default: 0
+      # Provider prompt-cache hits and extended-thinking usage
+      t.integer :cached_tokens, default: 0
+      t.integer :reasoning_tokens, default: 0
+
+      # Tool calls made in this generation
+      t.json :tool_calls, default: []
+
+      # Raw response from the provider (for debugging)
+      t.json :raw_response
+
+      # Timing
+      t.float :duration_seconds
+
+      # Telemetry correlation: the distributed trace this generation belongs
+      # to (e.g. ActiveAgent::Telemetry trace_id), threaded through
+      # prompt_options[:trace_id]
+      t.string :trace_id
+
+      # Provenance snapshot (agent/prompt/context checksums) captured at
+      # generation time — see SolidAgent::HasContext#current_provenance
+      t.json :provenance, default: {}
+
+      t.timestamps
+    end
+
+    add_index :agent_generations, :model
+    add_index :agent_generations, :finish_reason
+    add_index :agent_generations, :trace_id
+    add_index :agent_generations, [:agent_context_id, :created_at]
+  end
+end

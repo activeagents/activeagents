@@ -237,6 +237,27 @@ module "load_balancer" {
   ]
 }
 
+# Demo app: the Support Inbox example (examples/support_inbox) deployed as
+# a public Cloud Run service, posting telemetry to the platform
+module "demo_app" {
+  count  = var.enable_demo_app ? 1 : 0
+  source = "./modules/demo-app"
+
+  project_id           = var.project_id
+  region               = var.region
+  name                 = "support-inbox-demo-${var.environment}"
+  image                = var.demo_app_image
+  telemetry_endpoint   = var.demo_telemetry_endpoint
+  activeagents_api_key = var.demo_activeagents_api_key
+  ai_provider          = var.demo_ai_provider
+  allow_public_access  = var.allow_public_access
+  labels               = local.common_labels
+
+  depends_on = [
+    google_project_service.apis,
+  ]
+}
+
 # Sandbox infrastructure for dynamic agent execution environments
 # Similar to HuggingFace Spaces or Google Colab
 module "sandbox" {
