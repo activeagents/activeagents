@@ -19,8 +19,8 @@
           </div>
           <div class="trace-meta">
             <span class="meta-item"><i class="fa-solid fa-clock"></i> 1.24s</span>
-            <span class="meta-item"><i class="fa-solid fa-coins"></i> $0.0034</span>
-            <span class="meta-item success"><i class="fa-solid fa-check"></i> 200</span>
+            <span class="meta-item"><i class="fa-solid fa-coins"></i> ~$0.0034</span>
+            <span class="meta-item success"><i class="fa-solid fa-check"></i> OK</span>
           </div>
         </div>
         <div class="trace-timeline">
@@ -69,7 +69,7 @@
                   <div class="popover-row"><span>Model</span><span>claude-sonnet-4</span></div>
                   <div class="popover-row"><span>Duration</span><span>892ms</span></div>
                   <div class="popover-row"><span>Tokens</span><span>2,847</span></div>
-                  <div class="popover-row"><span>Cost</span><span>$0.0089</span></div>
+                  <div class="popover-row"><span>Est. cost</span><span>~$0.0089</span></div>
                 </div>
               </div>
             </div>
@@ -122,7 +122,7 @@
           <div class="metric-card hoverable">
             <div class="metric-label">Total Requests</div>
             <div class="metric-value">12,847</div>
-            <div class="metric-trend up"><i class="fa-solid fa-arrow-up"></i> 23% vs last week</div>
+            <div class="metric-trend up"><i class="fa-solid fa-arrow-up"></i> 23% vs previous 24h</div>
             <div class="metric-sparkline">
               <svg viewBox="0 0 60 20" class="sparkline">
                 <polyline points="0,15 10,12 20,14 30,8 40,10 50,5 60,7" />
@@ -142,7 +142,7 @@
           <div class="metric-card hoverable">
             <div class="metric-label">Total Cost</div>
             <div class="metric-value">$42.18</div>
-            <div class="metric-trend neutral">this period</div>
+            <div class="metric-trend neutral">estimated, this period</div>
             <div class="metric-sparkline">
               <svg viewBox="0 0 60 20" class="sparkline neutral">
                 <polyline points="0,10 10,11 20,9 30,10 40,10 50,11 60,10" />
@@ -229,7 +229,7 @@
           </div>
           <div class="eval-row hoverable">
             <span class="eval-key">Criteria</span>
-            <span class="eval-val">semantic_similarity, grammar, tone</span>
+            <span class="eval-val">response_present, min_length, llm_judge</span>
           </div>
           <div class="eval-row hoverable">
             <span class="eval-key">Samples</span>
@@ -242,13 +242,13 @@
         <div class="session-header hoverable">
           <span class="session-badge">SESSION</span>
           <span class="session-id">user_8f2a_chat</span>
-          <span class="session-count">3 fragments</span>
+          <span class="session-count">5 messages</span>
         </div>
         <div class="session-fragments">
           <div class="fragment hoverable">
             <div class="fragment-header">
-              <span class="fragment-badge">FRAGMENT</span>
-              <span class="fragment-hash">frag_a8c2</span>
+              <span class="fragment-badge">MESSAGES</span>
+              <span class="fragment-hash">9c8506ee</span>
               <span class="fragment-cache hit"><i class="fa-solid fa-bolt"></i> cache hit</span>
             </div>
             <div class="fragment-messages">
@@ -264,9 +264,9 @@
           </div>
           <div class="fragment hoverable expanded">
             <div class="fragment-header">
-              <span class="fragment-badge tool">TOOL FRAGMENT</span>
-              <span class="fragment-hash">frag_b3d1</span>
-              <span class="fragment-deterministic"><i class="fa-solid fa-lock"></i> deterministic</span>
+              <span class="fragment-badge tool">TOOL CALL</span>
+              <span class="fragment-hash">7f2e8a</span>
+              <span class="fragment-deterministic"><i class="fa-solid fa-lock"></i> fingerprinted</span>
             </div>
             <div class="fragment-messages">
               <div class="msg msg-assistant">
@@ -290,8 +290,8 @@
           </div>
           <div class="fragment hoverable">
             <div class="fragment-header">
-              <span class="fragment-badge">FRAGMENT</span>
-              <span class="fragment-hash">frag_c9e4</span>
+              <span class="fragment-badge">MESSAGES</span>
+              <span class="fragment-hash">f4e9b9ca</span>
               <span class="fragment-cache miss"><i class="fa-solid fa-circle"></i> generated</span>
             </div>
             <div class="fragment-messages">

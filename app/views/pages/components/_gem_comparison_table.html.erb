@@ -13,16 +13,16 @@
     </tr>
     <%= render "pages/components/comparison_row", feature: link_to("Active Agent", "https://docs.activeagents.ai/agents"), values: [true, true, true] %>
     <%= render "pages/components/comparison_row", feature: link_to("Action Prompt", "https://docs.activeagents.ai/actions"), values: [true, true, true] %>
-    <%= render "pages/components/comparison_row", feature: "#{link_to("Generation Providers", "https://docs.activeagents.ai/providers")} (RubyLLM, OpenAI, Anthropic)".html_safe, values: [true, true, true] %>
+    <%= render "pages/components/comparison_row", feature: "#{link_to("Generation Providers", "https://docs.activeagents.ai/providers")} (OpenAI, Anthropic, Gemini, Bedrock, Ollama, RubyLLM…)".html_safe, values: [true, true, true] %>
     <%= render "pages/components/comparison_row", feature: link_to("Instrumentation, Error Handling, Retries", "https://docs.activeagents.ai/agents/retries"), values: [true, true, true] %>
     <%= render "pages/components/comparison_row", feature: "#{link_to("Streaming", "https://docs.activeagents.ai/agents/streaming")} & #{link_to("Structured Output", "https://docs.activeagents.ai/actions/structured_output")}".html_safe, values: [true, true, true] %>
-    <%= render "pages/components/comparison_row", feature: link_to("Agent Management Web UI", "https://docs.activeagents.ai/web-ui"), values: [true, true, true] %>
+    <%= render "pages/components/comparison_row", feature: link_to("Self-hosted dashboard (traces & metrics)", "https://docs.activeagents.ai/framework/dashboard"), values: [true, true, true] %>
 
     <tr class="pricing-table-row">
       <td class="paragraph s bold" colspan="4" style="background: var(--color-bg-secondary);">Active Agent Pro</td>
     </tr>
-    <%= render "pages/components/comparison_row", feature: "Observable Evaluations & Compliance", values: [false, true, true] %>
-    <%= render "pages/components/comparison_row", feature: "Generative UI & Generative Generators", values: [false, true, true] %>
+    <%= render "pages/components/comparison_row", feature: "Versioned agents, prompts & contexts", values: [false, true, true] %>
+    <%= render "pages/components/comparison_row", feature: "Generative UI components", values: [false, true, true] %>
     <%= render "pages/components/comparison_row", feature: "Parallel tasks & advanced retries", values: [false, true, true] %>
     <%= render "pages/components/comparison_row", feature: "HITL generative UI", values: [false, true, true] %>
     <%= render "pages/components/comparison_row", feature: "Agentic workflows (pausable multi-agent)", values: [false, true, true] %>

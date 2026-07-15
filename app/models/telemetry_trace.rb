@@ -17,10 +17,12 @@ class TelemetryTrace < ActiveAgent::TelemetryTrace
 
   validates :trace_id, uniqueness: { scope: :account_id }
 
-  # The gem's telemetry instrumentation mirrors LLM token usage onto both the
-  # llm span and the root span, and create_from_payload sums tokens across
-  # all spans — which double-counts. When child spans carry token data,
-  # recompute the denormalized totals from child spans only.
+  # WORKAROUND (redundant once activeagents/activeagent#344 ships, then
+  # removable): the gem's telemetry instrumentation mirrors LLM token usage
+  # onto both the llm span and the root span, and create_from_payload in
+  # gem <= 1.0.3 sums tokens across all spans — which double-counts. When
+  # child spans carry token data, recompute the denormalized totals from
+  # child spans only. Idempotent alongside the fixed gem.
   def self.create_from_payload(trace, sdk_info = {}, account: nil)
     record = super
     record.send(:dedupe_token_totals!)
