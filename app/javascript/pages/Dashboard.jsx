@@ -352,6 +352,7 @@ function DashboardContent({ user, initialAgents = [], meta = {}, account = null,
         agentCount={agents.length}
         account={account}
         user={user}
+        gemVersion={meta.activeagentVersion}
       />
 
       <div className="flex-1 flex flex-col">

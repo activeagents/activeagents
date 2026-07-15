@@ -51,6 +51,7 @@ class DashboardController < ApplicationController
 
   def meta_data
     {
+      activeagentVersion: (ActiveAgent::VERSION if defined?(ActiveAgent::VERSION)),
       providers: Agent::PROVIDERS,
       presetTypes: Agent::PRESET_TYPES,
       instructionSets: Agent::INSTRUCTION_SETS,
