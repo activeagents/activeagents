@@ -227,6 +227,7 @@ module "load_balancer" {
   domain                 = var.lb_domain
   additional_domains     = var.lb_additional_domains
   existing_ssl_cert_name = var.lb_existing_ssl_cert_name
+  extra_managed_domains  = var.lb_extra_managed_domains
   enable_cdn             = var.enable_cdn
   enable_http_redirect   = true
 
@@ -276,6 +277,10 @@ module "dns" {
 
   # Production IP - set when apex domain is enabled or in production environment
   production_ip = var.enable_load_balancer && (var.environment == "production" || var.enable_apex_domain) ? module.load_balancer[0].ip_address : null
+
+  # API subdomain (api.activeagents.ai) - same load balancer as the apex.
+  # TLS is provided by lb_extra_managed_domains on the load balancer module.
+  api_ip = var.enable_load_balancer && (var.environment == "production" || var.enable_apex_domain) ? module.load_balancer[0].ip_address : null
 
   # Keep main site on Framer during migration
   framer_ips       = var.framer_ips

@@ -20,6 +20,12 @@ variable "production_ip" {
   default     = null
 }
 
+variable "api_ip" {
+  description = "IP address for the api subdomain (api.domain)"
+  type        = string
+  default     = null
+}
+
 variable "framer_ips" {
   description = "Framer A record IPs for apex domain during migration"
   type        = list(string)
