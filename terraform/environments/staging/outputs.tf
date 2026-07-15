@@ -39,3 +39,8 @@ output "staging_domain" {
   description = "Staging domain name"
   value       = module.activeagents.staging_domain
 }
+
+output "demo_app_url" {
+  description = "Public URL of the Support Inbox demo app"
+  value       = module.activeagents.demo_app_url
+}

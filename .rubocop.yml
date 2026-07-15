@@ -6,3 +6,9 @@ inherit_gem: { rubocop-rails-omakase: rubocop.yml }
 # # Use `[a, [b, c]]` not `[ a, [ b, c ] ]`
 # Layout/SpaceInsideArrayLiteralBrackets:
 #   Enabled: false
+
+# The example app (examples/support_inbox) is a standalone Rails app with
+# its own conventions; lint the platform only.
+AllCops:
+  Exclude:
+    - "examples/**/*"

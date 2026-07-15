@@ -152,6 +152,39 @@ variable "lb_extra_managed_domains" {
   default     = []
 }
 
+# -- Demo app (examples/support_inbox) --------------------------------------
+
+variable "enable_demo_app" {
+  description = "Deploy the Support Inbox example app as a public Cloud Run service"
+  type        = bool
+  default     = false
+}
+
+variable "demo_app_image" {
+  description = "Container image for the demo app (built from examples/support_inbox)"
+  type        = string
+  default     = ""
+}
+
+variable "demo_telemetry_endpoint" {
+  description = "Trace ingest endpoint the demo app posts to (e.g. https://staging.activeagents.ai/v1/traces)"
+  type        = string
+  default     = "https://api.activeagents.ai/v1/traces"
+}
+
+variable "demo_activeagents_api_key" {
+  description = "Workspace telemetry API key for the demo app (copy from the Organization page after signing up)"
+  type        = string
+  sensitive   = true
+  default     = ""
+}
+
+variable "demo_ai_provider" {
+  description = "Provider the demo agents use: mock (no credentials), openai, anthropic"
+  type        = string
+  default     = "mock"
+}
+
 variable "enable_cdn" {
   description = "Enable Cloud CDN for caching static assets (disable if using IAP)"
   type        = bool

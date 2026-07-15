@@ -83,3 +83,8 @@ output "staging_domain" {
   description = "Staging domain name"
   value       = var.enable_dns && var.enable_load_balancer ? "staging.${var.dns_domain}" : null
 }
+
+output "demo_app_url" {
+  description = "Public URL of the Support Inbox demo app"
+  value       = var.enable_demo_app ? module.demo_app[0].url : null
+}

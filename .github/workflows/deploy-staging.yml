@@ -62,6 +62,21 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
+      # The Support Inbox example (examples/support_inbox) — an app built on
+      # the activeagent gem that posts telemetry to this platform. Enabled by
+      # setting the repository variable DEPLOY_DEMO_APP=true.
+      - name: Build and push demo app image (Support Inbox example)
+        if: ${{ vars.DEPLOY_DEMO_APP == 'true' }}
+        uses: docker/build-push-action@v6
+        with:
+          context: examples/support_inbox
+          push: true
+          tags: |
+            ${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.REPOSITORY }}/support-inbox-demo:${{ github.sha }}
+            ${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.REPOSITORY }}/support-inbox-demo:staging
+          cache-from: type=gha,scope=demo
+          cache-to: type=gha,mode=max,scope=demo
+
       - name: Output image URL
         run: |
           echo "image=${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.REPOSITORY }}/activeagents:${{ github.sha }}" >> $GITHUB_OUTPUT
@@ -107,6 +122,9 @@ jobs:
             -var="project_id=${{ env.PROJECT_ID }}" \
             -var="region=${{ env.REGION }}" \
             -var="image=${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.REPOSITORY }}/activeagents:${{ github.sha }}" \
+            -var="enable_demo_app=${{ vars.DEPLOY_DEMO_APP == 'true' }}" \
+            -var="demo_app_image=${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.REPOSITORY }}/support-inbox-demo:${{ github.sha }}" \
+            -var="demo_activeagents_api_key=${{ secrets.DEMO_ACTIVEAGENTS_API_KEY }}" \
             -var-file=dns.tfvars \
             -out=tfplan
 
@@ -150,6 +168,12 @@ jobs:
             echo "**Load Balancer IP:** $LB_IP" >> $GITHUB_STEP_SUMMARY
           fi
           echo "**Image:** ${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.REPOSITORY }}/activeagents:${{ github.sha }}" >> $GITHUB_STEP_SUMMARY
+
+          # Demo app URL (present when DEPLOY_DEMO_APP=true)
+          DEMO_URL=$(terraform output -raw demo_app_url 2>/dev/null || echo "")
+          if [ -n "$DEMO_URL" ] && [ "$DEMO_URL" != "null" ]; then
+            echo "**Demo App (Support Inbox):** $DEMO_URL" >> $GITHUB_STEP_SUMMARY
+          fi
 
   migrate:
     needs: deploy
