@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useTheme } from '../../contexts/ThemeContext';
+import { startCheckout } from '../../utils/checkout';
 
 const formatNumber = (num) => {
   if (num == null) return '0';
@@ -13,6 +14,8 @@ export default function OrganizationView({ account, user, subscription, agentCou
   const [usage, setUsage] = useState(null);
   const [keyCopied, setKeyCopied] = useState(false);
   const [showKey, setShowKey] = useState(false);
+  const [isUpgrading, setIsUpgrading] = useState(false);
+  const [upgradeError, setUpgradeError] = useState(null);
 
   useEffect(() => {
     fetch('/api/usage')
@@ -20,6 +23,17 @@ export default function OrganizationView({ account, user, subscription, agentCou
       .then((data) => setUsage(data?.usage || null))
       .catch(() => setUsage(null));
   }, []);
+
+  const handleUpgrade = async () => {
+    setIsUpgrading(true);
+    setUpgradeError(null);
+    try {
+      await startCheckout({ planSlug: 'pro' });
+    } catch (err) {
+      setUpgradeError(err.message);
+      setIsUpgrading(false);
+    }
+  };
 
   const copyKey = () => {
     if (!account?.telemetry_api_key) return;
@@ -136,9 +150,18 @@ export default function OrganizationView({ account, user, subscription, agentCou
             </div>
           </div>
           {planName.toLowerCase() !== 'enterprise' && (
-            <button className="mt-4 w-full px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors">
-              Upgrade Plan
-            </button>
+            <>
+              <button
+                onClick={handleUpgrade}
+                disabled={isUpgrading}
+                className="mt-4 w-full px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {isUpgrading ? 'Redirecting to checkout…' : 'Upgrade Plan'}
+              </button>
+              {upgradeError && (
+                <p className="mt-2 text-sm text-red-500 text-center">{upgradeError}</p>
+              )}
+            </>
           )}
         </div>
       </div>
