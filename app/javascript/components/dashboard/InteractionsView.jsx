@@ -193,7 +193,9 @@ export default function InteractionsView() {
                                 </div>
                                 <div className="text-xs mt-0.5 font-mono" style={{ color: colors.textMuted }}>
                                   {new Date(message.created_at).toLocaleTimeString()}
-                                  {message.content_checksum && ` · ${message.content_checksum.slice(0, 8)}`}
+                                  {message.content_checksum && (
+                                    <span title="Content fingerprint"> · 🔒 {message.content_checksum.slice(0, 8)}</span>
+                                  )}
                                 </div>
                               </div>
                             </div>
@@ -209,6 +211,18 @@ export default function InteractionsView() {
                             <div className="space-y-1">
                               {detail.generations.map((generation) => (
                                 <div key={generation.id} className="flex flex-wrap items-center gap-3 text-xs font-mono" style={{ color: colors.textSecondary }}>
+                                  <span
+                                    title={generation.cache_hit ? `${formatNumber(generation.tokens.cached)} cached prompt tokens` : 'No prompt cache hit'}
+                                    className={generation.cache_hit ? 'text-green-600' : ''}
+                                    style={generation.cache_hit ? {} : { color: colors.textMuted }}
+                                  >
+                                    {generation.cache_hit ? '⚡ cache hit' : '● generated'}
+                                  </span>
+                                  {generation.thinking && (
+                                    <span className="text-amber-600" title={`${formatNumber(generation.tokens.thinking)} thinking tokens`}>
+                                      🧠 {formatNumber(generation.tokens.thinking)}
+                                    </span>
+                                  )}
                                   <span>{generation.model || 'unknown-model'}</span>
                                   {generation.provider && <span>{generation.provider}</span>}
                                   <span className="text-blue-500">in:{formatNumber(generation.tokens.input)}</span>

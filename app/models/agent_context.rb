@@ -36,6 +36,8 @@ class AgentContext < ApplicationRecord
       finish_reason: value_if_responds(response, :finish_reason),
       input_tokens: usage&.input_tokens || 0,
       output_tokens: usage&.output_tokens || 0,
+      cached_tokens: value_if_responds(usage, :cached_tokens) || 0,
+      reasoning_tokens: value_if_responds(usage, :reasoning_tokens) || 0,
       tool_calls: extract_tool_calls(response),
       raw_response: value_if_responds(response, :raw_response),
       duration_seconds: extract_duration_seconds(response, usage)

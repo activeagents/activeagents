@@ -4,6 +4,7 @@ class Agent < ApplicationRecord
   belongs_to :user, optional: true
   has_many :agent_versions, dependent: :destroy
   has_many :agent_runs, dependent: :destroy
+  has_many :evaluations, dependent: :destroy
 
   # Validations
   validates :name, presence: true, length: { minimum: 2, maximum: 100 }

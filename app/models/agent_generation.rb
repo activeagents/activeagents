@@ -27,6 +27,16 @@ class AgentGeneration < ApplicationRecord
     finish_reason == "length"
   end
 
+  # Provider prompt-cache hit on this generation?
+  def cache_hit?
+    cached_tokens.to_i.positive?
+  end
+
+  # Extended thinking captured?
+  def thinking?
+    reasoning_tokens.to_i.positive?
+  end
+
   # The telemetry trace this generation belongs to, when recorded.
   def telemetry_trace
     return nil if trace_id.blank?

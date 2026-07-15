@@ -156,6 +156,13 @@ export default function MetricsView() {
             </div>
           </MetricCard>
 
+          <MetricCard label="Total Cost">
+            <div style={{ fontSize: '32px', fontWeight: 'bold', color: colors.textPrimary, fontFamily: 'monospace' }}>
+              ${(summary.total_cost ?? 0).toFixed(2)}
+            </div>
+            <div style={{ fontSize: '13px', color: colors.textSecondary, marginTop: '8px' }}>estimated, this period</div>
+          </MetricCard>
+
           <MetricCard label="Tokens Used">
             <div style={{ fontSize: '32px', fontWeight: 'bold', color: colors.textPrimary, fontFamily: 'monospace' }}>{formatNumber(summary.tokens_used)}</div>
             <div style={{ fontSize: '13px', marginTop: '8px', display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
@@ -222,6 +229,7 @@ export default function MetricsView() {
                   <th style={{ paddingBottom: '12px', fontWeight: '500' }}>Agent</th>
                   <th style={{ paddingBottom: '12px', fontWeight: '500', textAlign: 'right' }}>Requests</th>
                   <th style={{ paddingBottom: '12px', fontWeight: '500', textAlign: 'right' }}>Tokens</th>
+                  <th style={{ paddingBottom: '12px', fontWeight: '500', textAlign: 'right' }}>Cost</th>
                   <th style={{ paddingBottom: '12px', fontWeight: '500', textAlign: 'right' }}>Avg Duration</th>
                   <th style={{ paddingBottom: '12px', fontWeight: '500', textAlign: 'right' }}>Errors</th>
                 </tr>
@@ -251,6 +259,7 @@ export default function MetricsView() {
                     </td>
                     <td style={{ padding: '12px 0', textAlign: 'right', color: colors.textCell }}>{formatNumber(agent.requests)}</td>
                     <td style={{ padding: '12px 0', textAlign: 'right', color: colors.textCell }}>{formatNumber(agent.tokens)}</td>
+                    <td style={{ padding: '12px 0', textAlign: 'right', color: colors.textCell }}>${(agent.cost ?? 0).toFixed(2)}</td>
                     <td style={{ padding: '12px 0', textAlign: 'right', color: colors.textCell }}>{agent.avg_duration_ms}ms</td>
                     <td style={{ padding: '12px 0', textAlign: 'right' }}>
                       <span style={{ color: agent.errors > 0 ? colors.badgeText : colors.textCell }}>{agent.errors}</span>

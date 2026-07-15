@@ -150,6 +150,13 @@ Rails.application.routes.draw do
     # Conversation contexts persisted by solid_agent (Interactions view)
     resources :interactions, only: [ :index, :show ]
 
+    # Agent output evaluations (Evaluations view)
+    resources :evaluations, only: [ :index, :show, :create, :destroy ] do
+      member do
+        post :run
+      end
+    end
+
     # Ragents benchmark results — accepts POSTed JSON from bin/bench
     # GET  /api/benchmarks     — list recent runs
     # POST /api/benchmarks     — ingest a new benchmark run from bin/bench

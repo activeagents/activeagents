@@ -43,6 +43,11 @@ class TelemetryTraceSerializer
         thinking: @trace.total_thinking_tokens || 0,
         total: @trace.total_tokens
       },
+      estimated_cost: ModelPricing.estimate(
+        model: @trace.model,
+        input_tokens: @trace.total_input_tokens,
+        output_tokens: @trace.total_output_tokens
+      ),
       spans: serialized_spans
     }
   end

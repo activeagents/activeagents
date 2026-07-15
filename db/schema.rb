@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.2].define(version: 2026_07_14_000002) do
+ActiveRecord::Schema[8.2].define(version: 2026_07_15_000002) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
 
@@ -115,6 +115,7 @@ ActiveRecord::Schema[8.2].define(version: 2026_07_14_000002) do
 
   create_table "agent_generations", force: :cascade do |t|
     t.bigint "agent_context_id", null: false
+    t.integer "cached_tokens", default: 0
     t.text "content"
     t.datetime "created_at", null: false
     t.float "duration_seconds"
@@ -125,6 +126,7 @@ ActiveRecord::Schema[8.2].define(version: 2026_07_14_000002) do
     t.jsonb "provenance", default: {}
     t.string "provider"
     t.jsonb "raw_response"
+    t.integer "reasoning_tokens", default: 0
     t.jsonb "tool_calls", default: []
     t.string "trace_id"
     t.datetime "updated_at", null: false
@@ -297,6 +299,34 @@ ActiveRecord::Schema[8.2].define(version: 2026_07_14_000002) do
     t.index ["investor_document_id", "created_at"], name: "idx_on_investor_document_id_created_at_a40801d0d5"
     t.index ["investor_document_id"], name: "index_document_access_logs_on_investor_document_id"
     t.index ["investor_id"], name: "index_document_access_logs_on_investor_id"
+  end
+
+  create_table "evaluation_runs", force: :cascade do |t|
+    t.datetime "completed_at"
+    t.datetime "created_at", null: false
+    t.text "error_message"
+    t.bigint "evaluation_id", null: false
+    t.integer "samples_evaluated", default: 0
+    t.integer "samples_passed", default: 0
+    t.jsonb "scores", default: {}
+    t.integer "status", default: 0, null: false
+    t.datetime "updated_at", null: false
+    t.index ["evaluation_id", "created_at"], name: "index_evaluation_runs_on_evaluation_id_and_created_at"
+    t.index ["evaluation_id"], name: "index_evaluation_runs_on_evaluation_id"
+    t.index ["status"], name: "index_evaluation_runs_on_status"
+  end
+
+  create_table "evaluations", force: :cascade do |t|
+    t.bigint "agent_id", null: false
+    t.datetime "created_at", null: false
+    t.jsonb "criteria", default: [], null: false
+    t.string "judge_kind", default: "rules", null: false
+    t.string "judge_model"
+    t.string "name", null: false
+    t.integer "sample_size", default: 20, null: false
+    t.datetime "updated_at", null: false
+    t.index ["agent_id", "name"], name: "index_evaluations_on_agent_id_and_name", unique: true
+    t.index ["agent_id"], name: "index_evaluations_on_agent_id"
   end
 
   create_table "investor_documents", force: :cascade do |t|
@@ -672,6 +702,8 @@ ActiveRecord::Schema[8.2].define(version: 2026_07_14_000002) do
   add_foreign_key "document_access_grants", "investors"
   add_foreign_key "document_access_logs", "investor_documents"
   add_foreign_key "document_access_logs", "investors"
+  add_foreign_key "evaluation_runs", "evaluations"
+  add_foreign_key "evaluations", "agents"
   add_foreign_key "investor_documents", "accounts"
   add_foreign_key "investor_documents", "safe_agreements"
   add_foreign_key "investors", "accounts"

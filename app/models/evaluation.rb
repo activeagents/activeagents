@@ -1,0 +1,58 @@
+# frozen_string_literal: true
+
+# An evaluation definition for an agent: a named set of criteria scored
+# against the agent's recent generations (solid_agent's agent_generations).
+#
+# Criteria are stored as an array of { "key", "type", "config" } hashes.
+# Rule-based criterion types run deterministically; the llm_judge type asks
+# a judge model to score each sample and requires a configured provider.
+class Evaluation < ApplicationRecord
+  belongs_to :agent
+  has_many :evaluation_runs, dependent: :destroy
+
+  JUDGE_KINDS = %w[rules llm].freeze
+
+  RULE_CRITERION_TYPES = %w[
+    response_present min_length max_latency_ms token_budget contains not_contains
+  ].freeze
+  CRITERION_TYPES = (RULE_CRITERION_TYPES + %w[llm_judge]).freeze
+
+  validates :name, presence: true, uniqueness: { scope: :agent_id }
+  validates :judge_kind, inclusion: { in: JUDGE_KINDS }
+  validates :sample_size, numericality: { greater_than: 0, less_than_or_equal_to: 100 }
+  validate :validate_criteria
+
+  scope :recent, -> { order(updated_at: :desc) }
+
+  def latest_run
+    evaluation_runs.order(created_at: :desc).first
+  end
+
+  def run!
+    EvaluationRunnerService.call(self)
+  end
+
+  def llm_criteria
+    criteria.select { |c| c["type"] == "llm_judge" }
+  end
+
+  private
+
+  def validate_criteria
+    if criteria.blank?
+      errors.add(:criteria, "must include at least one criterion")
+      return
+    end
+
+    criteria.each do |criterion|
+      unless criterion.is_a?(Hash) && criterion["key"].present?
+        errors.add(:criteria, "entries must have a key")
+        next
+      end
+
+      unless CRITERION_TYPES.include?(criterion["type"])
+        errors.add(:criteria, "unknown criterion type #{criterion['type']}")
+      end
+    end
+  end
+end
