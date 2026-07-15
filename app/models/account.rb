@@ -15,16 +15,19 @@ class Account < ApplicationRecord
   validates :name, presence: true
 
   # Agent execution limits per monthly period, by plan slug.
-  # Pro matches the advertised 10,000 executions/month on the pricing page.
+  # Free is a deliberately low observability trial — enough to evaluate the
+  # product, not enough to run production on. Pro matches the advertised
+  # 10,000 executions/month on the pricing page.
   USAGE_LIMITS = {
-    "free" => 100,
+    "free" => 25,
     "pro" => 10_000,
     "enterprise" => -1 # Unlimited
   }.freeze
 
-  # Telemetry trace ingestion limits by plan (traces per monthly period)
+  # Telemetry trace ingestion limits by plan (traces per monthly period).
+  # Free is trial-sized (see USAGE_LIMITS note).
   TRACE_LIMITS = {
-    "free" => 1_000,
+    "free" => 250,
     "pro" => 25_000,
     "enterprise" => -1 # Unlimited
   }.freeze

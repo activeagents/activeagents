@@ -880,7 +880,7 @@ export default function SandboxRunner({ initialType = 'playwright_mcp', onClose 
             <div className="bg-gradient-to-r from-rose-500 to-purple-600 px-6 py-6 text-white text-center">
               <h2 className="text-2xl font-bold mb-1">Upgrade Your Plan</h2>
               <p className="text-rose-100 text-sm">
-                You've used {usage?.runs_used || 0} of {usage?.runs_limit || 100} runs. Choose a plan to continue.
+                You've used {usage?.runs_used || 0} of {usage?.runs_limit || 25} trial runs. Choose a plan to continue.
               </p>
             </div>
 
@@ -899,7 +899,7 @@ export default function SandboxRunner({ initialType = 'playwright_mcp', onClose 
                   <ul className="space-y-2 text-sm text-gray-600 mb-4">
                     <li className="flex items-start">
                       <span className="text-gray-400 mr-2">-</span>
-                      100 agent runs/month
+                      25 trial runs/month
                     </li>
                     <li className="flex items-start">
                       <span className="text-gray-400 mr-2">-</span>

@@ -216,8 +216,7 @@ plans = [
       "structured_outputs" => true,
       "error_handling" => true,
       "community_support" => true,
-      "100_runs_monthly" => true,
-      "traces_1k_monthly" => true
+      "observability_trial" => true
     }
   },
   {

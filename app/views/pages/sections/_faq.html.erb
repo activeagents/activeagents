@@ -12,7 +12,7 @@
 
     <%= render "pages/components/faq_item",
       question: "What's free and what's paid?",
-      answer: "The gem — the framework, every provider, and the self-hosted dashboard — is MIT licensed and free forever. The hosted platform (managed dashboard, team features, higher quotas) and the commercial gem extensions are paid. Services are custom." %>
+      answer: "The gem — the framework, every provider, and a local dev console — is MIT licensed and free forever. Production observability and monitoring live on the hosted platform: every workspace starts with a low-volume free trial, and paid plans lift the limits. Commercial gem extensions and services are separate." %>
 
     <%= render "pages/components/faq_item",
       question: "Which providers are supported?",
@@ -20,15 +20,15 @@
 
     <%= render "pages/components/faq_item",
       question: "How does the hosted platform get my data?",
-      answer: "Your app's gem posts trace JSON to our ingest endpoint, authenticated with your workspace API key — one YAML block in <code>config/active_agent.yml</code>. Self-hosters keep everything local; the wire format is documented and open.".html_safe %>
+      answer: "Your app's gem posts trace JSON to our ingest endpoint, authenticated with your workspace API key — one YAML block in <code>config/active_agent.yml</code>. In development the same traces stay local in the gem's dev console; the wire format is documented and open.".html_safe %>
 
     <%= render "pages/components/faq_item",
       question: "What's the difference between the free gem and Pro?",
-      answer: "The free gem covers the framework, all providers, and the self-hosted dashboard. ActiveAgent.PRO ($99/mo or $995/yr) adds versioned agents and prompts, pausable multi-agent workflows, cached reasoning traces, generative UI with human-in-the-loop controls, and email support." %>
+      answer: "The free gem covers the framework, all providers, and the local dev console. ActiveAgent.PRO ($99/mo or $995/yr) adds versioned agents and prompts, pausable multi-agent workflows, cached reasoning traces, generative UI with human-in-the-loop controls, and email support." %>
 
     <%= render "pages/components/faq_item",
       question: "Do I need the platform to get observability?",
-      answer: "No. Traces and metrics ship free in the gem's self-hosted dashboard (<code>rails g active_agent:dashboard:install</code>). The platform adds hosted ingestion, evaluations, conversation history, cost estimates, and team workspaces on top of the same pipeline.".html_safe %>
+      answer: "For production, yes. The gem includes a dev console (<code>rails g active_agent:dashboard:install</code>) so you can watch traces while you build, but production monitoring — hosted ingestion, evaluations, conversation history, cost estimates, retention, and team workspaces — is the platform. Every workspace starts with a free low-volume trial.".html_safe %>
 
     <%= render "pages/components/faq_item",
       question: "Can I use Active Agent with existing Rails apps?",
@@ -36,6 +36,6 @@
 
     <%= render "pages/components/faq_item",
       question: "Can I self-host everything?",
-      answer: "Yes. The framework and the dashboard are MIT licensed with no limits — your agents, traces, and data never have to leave your infrastructure. The hosted platform and commercial gems are optional." %>
+      answer: "The framework is MIT licensed with no limits — your agents and data never leave your infrastructure, and the gem's dev console keeps development traces local. Production observability (evaluations, retention, teams) is the hosted platform's job; if your traces can't leave your network, Enterprise includes private VPC deployment." %>
   </div>
 </section>
