@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import AgentAvatar from '../AgentAvatar';
 import { useActionCable } from '../../hooks/useActionCable';
+import { startCheckout } from '../../utils/checkout';
 
 const PROVIDERS = [
   { id: 'anthropic', name: 'Anthropic', model: 'claude-sonnet-4-20250514', color: 'bg-orange-500' },
@@ -480,40 +481,10 @@ export default function SandboxRunner({ initialType = 'playwright_mcp', onClose 
   const handleUpgrade = async (billingInterval = 'monthly') => {
     setIsCheckingOut(true);
     try {
-      // Get plans to find Pro plan ID
-      const plansResponse = await fetch('/api/v1/plans');
-      const plans = await plansResponse.json();
-      const proPlan = Array.isArray(plans) ? plans.find(p => p.slug === 'pro') : plans.plans?.find(p => p.slug === 'pro');
-
-      if (!proPlan) {
-        throw new Error('Pro plan not found');
-      }
-
-      // Initiate checkout
-      const response = await fetch('/subscriptions/checkout', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'X-Inertia': 'true',
-          'X-CSRF-Token': document.querySelector('meta[name="csrf-token"]')?.content
-        },
-        body: JSON.stringify({
-          plan_id: proPlan.id,
-          billing_interval: billingInterval
-        })
-      });
-
-      const data = await response.json();
-
-      if (data.checkout_url) {
-        window.location.href = data.checkout_url;
-      } else {
-        throw new Error('No checkout URL returned');
-      }
+      await startCheckout({ planSlug: 'pro', billingInterval });
     } catch (err) {
       console.error('Checkout error:', err);
-      setError('Failed to initiate checkout. Please try again.');
-    } finally {
+      setError(err.message || 'Failed to initiate checkout. Please try again.');
       setIsCheckingOut(false);
     }
   };
@@ -909,7 +880,7 @@ export default function SandboxRunner({ initialType = 'playwright_mcp', onClose 
             <div className="bg-gradient-to-r from-rose-500 to-purple-600 px-6 py-6 text-white text-center">
               <h2 className="text-2xl font-bold mb-1">Upgrade Your Plan</h2>
               <p className="text-rose-100 text-sm">
-                You've used {usage?.runs_used || 0} of {usage?.runs_limit || 3} runs. Choose a plan to continue.
+                You've used {usage?.runs_used || 0} of {usage?.runs_limit || 100} runs. Choose a plan to continue.
               </p>
             </div>
 
@@ -928,7 +899,7 @@ export default function SandboxRunner({ initialType = 'playwright_mcp', onClose 
                   <ul className="space-y-2 text-sm text-gray-600 mb-4">
                     <li className="flex items-start">
                       <span className="text-gray-400 mr-2">-</span>
-                      3 agent runs/month
+                      100 agent runs/month
                     </li>
                     <li className="flex items-start">
                       <span className="text-gray-400 mr-2">-</span>
@@ -957,16 +928,15 @@ export default function SandboxRunner({ initialType = 'playwright_mcp', onClose 
                   <div className="text-center mb-4 mt-2">
                     <h3 className="font-semibold text-gray-900">Pro</h3>
                     <div className="mt-2">
-                      <span className="text-3xl font-bold text-gray-900">$19.99</span>
-                      <span className="text-rose-500 font-bold">+</span>
+                      <span className="text-3xl font-bold text-gray-900">$99</span>
                       <span className="text-gray-500">/mo</span>
                     </div>
-                    <p className="text-xs text-gray-500 mt-1">or $199.99+/year (save 17%)</p>
+                    <p className="text-xs text-gray-500 mt-1">or $995/year (save 16%)</p>
                   </div>
                   <ul className="space-y-2 text-sm text-gray-700 mb-4">
                     <li className="flex items-start">
                       <span className="text-green-500 mr-2">&#10003;</span>
-                      1,000 agent runs/month
+                      10,000 agent runs/month
                     </li>
                     <li className="flex items-start">
                       <span className="text-green-500 mr-2">&#10003;</span>
@@ -995,11 +965,10 @@ export default function SandboxRunner({ initialType = 'playwright_mcp', onClose 
                   <div className="text-center mb-4">
                     <h3 className="font-semibold text-gray-900">Enterprise</h3>
                     <div className="mt-2">
-                      <span className="text-3xl font-bold text-gray-900">$199.99</span>
-                      <span className="text-rose-500 font-bold">+</span>
+                      <span className="text-3xl font-bold text-gray-900">$269</span>
                       <span className="text-gray-500">/mo</span>
                     </div>
-                    <p className="text-xs text-gray-500 mt-1">or $1,999.99+/year (save 17%)</p>
+                    <p className="text-xs text-gray-500 mt-1">or $2,690/year (save 16%)</p>
                   </div>
                   <ul className="space-y-2 text-sm text-gray-600 mb-4">
                     <li className="flex items-start">

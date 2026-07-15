@@ -206,7 +206,8 @@ plans = [
     annual_price_cents: 0,
     trial_days: 0,
     included_seats: 1,
-    included_workspaces: 0,
+    # Every signup gets a default workspace (see RegistrationsController)
+    included_workspaces: 1,
     features: {
       "web_ui_dashboard" => true,
       "action_prompt" => true,
@@ -214,7 +215,9 @@ plans = [
       "streaming" => true,
       "structured_outputs" => true,
       "error_handling" => true,
-      "community_support" => true
+      "community_support" => true,
+      "100_runs_monthly" => true,
+      "traces_1k_monthly" => true
     }
   },
   {
@@ -242,6 +245,7 @@ plans = [
       "cost_analytics" => true,
       "ab_testing" => true,
       "email_support" => true,
+      "10k_runs_monthly" => true,
       "traces_25k_monthly" => true,
       "14_day_retention" => true
     }
