@@ -12,6 +12,11 @@ Rails.application.configure do
   # Show full error reports.
   config.consider_all_requests_local = true
 
+  # Allow previewing the host-split landers locally (e.g. via /etc/hosts or
+  # curl -H "Host: ..."). PagesController#home picks the open-source or
+  # commercial lander by host; ?site=oss|commercial also forces a variant.
+  config.hosts << "activeagent.dev" << "www.activeagent.dev" << "activeagent.pro" << "www.activeagent.pro"
+
   # Enable server timing.
   config.server_timing = true
 

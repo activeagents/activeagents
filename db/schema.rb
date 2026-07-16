@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.2].define(version: 2026_03_29_170601) do
+ActiveRecord::Schema[8.2].define(version: 2026_07_15_000002) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
 
@@ -36,6 +36,35 @@ ActiveRecord::Schema[8.2].define(version: 2026_03_29_170601) do
     t.datetime "usage_period_start"
     t.index ["owner_id"], name: "index_accounts_on_owner_id"
     t.index ["telemetry_api_key"], name: "index_accounts_on_telemetry_api_key", unique: true
+  end
+
+  create_table "active_agent_telemetry_traces", force: :cascade do |t|
+    t.bigint "account_id", null: false
+    t.string "agent_action"
+    t.string "agent_class"
+    t.datetime "created_at", null: false
+    t.string "environment"
+    t.text "error_message"
+    t.jsonb "resource_attributes", default: {}
+    t.jsonb "sdk_info", default: {}
+    t.string "service_name"
+    t.jsonb "spans", default: []
+    t.string "status", default: "UNSET"
+    t.datetime "timestamp", null: false
+    t.decimal "total_duration_ms"
+    t.integer "total_input_tokens", default: 0
+    t.integer "total_output_tokens", default: 0
+    t.integer "total_thinking_tokens", default: 0
+    t.string "trace_id"
+    t.datetime "updated_at", null: false
+    t.index ["account_id", "timestamp"], name: "idx_on_account_id_timestamp_15bb53c037"
+    t.index ["account_id", "trace_id"], name: "index_active_agent_telemetry_traces_on_account_id_and_trace_id", unique: true
+    t.index ["account_id"], name: "index_active_agent_telemetry_traces_on_account_id"
+    t.index ["agent_class"], name: "index_active_agent_telemetry_traces_on_agent_class"
+    t.index ["service_name"], name: "index_active_agent_telemetry_traces_on_service_name"
+    t.index ["status"], name: "index_active_agent_telemetry_traces_on_status"
+    t.index ["timestamp"], name: "index_active_agent_telemetry_traces_on_timestamp"
+    t.index ["trace_id"], name: "index_active_agent_telemetry_traces_on_trace_id"
   end
 
   create_table "active_storage_attachments", force: :cascade do |t|
@@ -64,6 +93,68 @@ ActiveRecord::Schema[8.2].define(version: 2026_03_29_170601) do
     t.bigint "blob_id", null: false
     t.string "variation_digest", null: false
     t.index ["blob_id", "variation_digest"], name: "index_active_storage_variant_records_uniqueness", unique: true
+  end
+
+  create_table "agent_contexts", force: :cascade do |t|
+    t.string "action_name", null: false
+    t.string "agent_name", null: false
+    t.bigint "contextable_id"
+    t.string "contextable_type"
+    t.datetime "created_at", null: false
+    t.text "instructions"
+    t.jsonb "options", default: {}
+    t.integer "total_input_tokens", default: 0
+    t.integer "total_output_tokens", default: 0
+    t.string "trace_id"
+    t.datetime "updated_at", null: false
+    t.index ["agent_name", "action_name"], name: "index_agent_contexts_on_agent_name_and_action_name"
+    t.index ["contextable_type", "contextable_id"], name: "index_agent_contexts_on_contextable"
+    t.index ["created_at"], name: "index_agent_contexts_on_created_at"
+    t.index ["trace_id"], name: "index_agent_contexts_on_trace_id"
+  end
+
+  create_table "agent_generations", force: :cascade do |t|
+    t.bigint "agent_context_id", null: false
+    t.integer "cached_tokens", default: 0
+    t.text "content"
+    t.datetime "created_at", null: false
+    t.float "duration_seconds"
+    t.string "finish_reason"
+    t.integer "input_tokens", default: 0
+    t.string "model"
+    t.integer "output_tokens", default: 0
+    t.jsonb "provenance", default: {}
+    t.string "provider"
+    t.jsonb "raw_response"
+    t.integer "reasoning_tokens", default: 0
+    t.jsonb "tool_calls", default: []
+    t.string "trace_id"
+    t.datetime "updated_at", null: false
+    t.index ["agent_context_id", "created_at"], name: "index_agent_generations_on_agent_context_id_and_created_at"
+    t.index ["agent_context_id"], name: "index_agent_generations_on_agent_context_id"
+    t.index ["finish_reason"], name: "index_agent_generations_on_finish_reason"
+    t.index ["model"], name: "index_agent_generations_on_model"
+    t.index ["trace_id"], name: "index_agent_generations_on_trace_id"
+  end
+
+  create_table "agent_messages", force: :cascade do |t|
+    t.bigint "agent_context_id", null: false
+    t.jsonb "attachments", default: []
+    t.text "content"
+    t.string "content_checksum"
+    t.datetime "created_at", null: false
+    t.jsonb "metadata", default: {}
+    t.jsonb "provenance", default: {}
+    t.string "role", null: false
+    t.jsonb "tool_arguments", default: {}
+    t.string "tool_call_id"
+    t.string "tool_name"
+    t.jsonb "tool_result"
+    t.datetime "updated_at", null: false
+    t.index ["agent_context_id", "created_at"], name: "index_agent_messages_on_agent_context_id_and_created_at"
+    t.index ["agent_context_id"], name: "index_agent_messages_on_agent_context_id"
+    t.index ["role"], name: "index_agent_messages_on_role"
+    t.index ["tool_call_id"], name: "index_agent_messages_on_tool_call_id"
   end
 
   create_table "agent_runs", force: :cascade do |t|
@@ -208,6 +299,34 @@ ActiveRecord::Schema[8.2].define(version: 2026_03_29_170601) do
     t.index ["investor_document_id", "created_at"], name: "idx_on_investor_document_id_created_at_a40801d0d5"
     t.index ["investor_document_id"], name: "index_document_access_logs_on_investor_document_id"
     t.index ["investor_id"], name: "index_document_access_logs_on_investor_id"
+  end
+
+  create_table "evaluation_runs", force: :cascade do |t|
+    t.datetime "completed_at"
+    t.datetime "created_at", null: false
+    t.text "error_message"
+    t.bigint "evaluation_id", null: false
+    t.integer "samples_evaluated", default: 0
+    t.integer "samples_passed", default: 0
+    t.jsonb "scores", default: {}
+    t.integer "status", default: 0, null: false
+    t.datetime "updated_at", null: false
+    t.index ["evaluation_id", "created_at"], name: "index_evaluation_runs_on_evaluation_id_and_created_at"
+    t.index ["evaluation_id"], name: "index_evaluation_runs_on_evaluation_id"
+    t.index ["status"], name: "index_evaluation_runs_on_status"
+  end
+
+  create_table "evaluations", force: :cascade do |t|
+    t.bigint "agent_id", null: false
+    t.datetime "created_at", null: false
+    t.jsonb "criteria", default: [], null: false
+    t.string "judge_kind", default: "rules", null: false
+    t.string "judge_model"
+    t.string "name", null: false
+    t.integer "sample_size", default: 20, null: false
+    t.datetime "updated_at", null: false
+    t.index ["agent_id", "name"], name: "index_evaluations_on_agent_id_and_name", unique: true
+    t.index ["agent_id"], name: "index_evaluations_on_agent_id"
   end
 
   create_table "investor_documents", force: :cascade do |t|
@@ -492,32 +611,6 @@ ActiveRecord::Schema[8.2].define(version: 2026_03_29_170601) do
     t.index ["user_id"], name: "index_sessions_on_user_id"
   end
 
-  create_table "telemetry_traces", force: :cascade do |t|
-    t.bigint "account_id", null: false
-    t.string "agent_action"
-    t.string "agent_class"
-    t.datetime "created_at", null: false
-    t.string "environment"
-    t.text "error_message"
-    t.jsonb "resource_attributes"
-    t.jsonb "sdk_info"
-    t.string "service_name"
-    t.jsonb "spans"
-    t.string "status"
-    t.datetime "timestamp"
-    t.decimal "total_duration_ms"
-    t.integer "total_input_tokens"
-    t.integer "total_output_tokens"
-    t.integer "total_thinking_tokens"
-    t.string "trace_id"
-    t.datetime "updated_at", null: false
-    t.index ["account_id"], name: "index_telemetry_traces_on_account_id"
-    t.index ["agent_class"], name: "index_telemetry_traces_on_agent_class"
-    t.index ["service_name"], name: "index_telemetry_traces_on_service_name"
-    t.index ["timestamp"], name: "index_telemetry_traces_on_timestamp"
-    t.index ["trace_id"], name: "index_telemetry_traces_on_trace_id"
-  end
-
   create_table "timeline_videos", force: :cascade do |t|
     t.datetime "created_at", null: false
     t.float "end_offset"
@@ -594,8 +687,11 @@ ActiveRecord::Schema[8.2].define(version: 2026_03_29_170601) do
   add_foreign_key "account_memberships", "accounts"
   add_foreign_key "account_memberships", "users"
   add_foreign_key "accounts", "users", column: "owner_id"
+  add_foreign_key "active_agent_telemetry_traces", "accounts"
   add_foreign_key "active_storage_attachments", "active_storage_blobs", column: "blob_id"
   add_foreign_key "active_storage_variant_records", "active_storage_blobs", column: "blob_id"
+  add_foreign_key "agent_generations", "agent_contexts"
+  add_foreign_key "agent_messages", "agent_contexts"
   add_foreign_key "agent_runs", "agents"
   add_foreign_key "agent_versions", "agents"
   add_foreign_key "agents", "users"
@@ -606,6 +702,8 @@ ActiveRecord::Schema[8.2].define(version: 2026_03_29_170601) do
   add_foreign_key "document_access_grants", "investors"
   add_foreign_key "document_access_logs", "investor_documents"
   add_foreign_key "document_access_logs", "investors"
+  add_foreign_key "evaluation_runs", "evaluations"
+  add_foreign_key "evaluations", "agents"
   add_foreign_key "investor_documents", "accounts"
   add_foreign_key "investor_documents", "safe_agreements"
   add_foreign_key "investors", "accounts"
@@ -624,7 +722,6 @@ ActiveRecord::Schema[8.2].define(version: 2026_03_29_170601) do
   add_foreign_key "session_recordings", "agent_runs"
   add_foreign_key "session_recordings", "sandbox_sessions"
   add_foreign_key "sessions", "users"
-  add_foreign_key "telemetry_traces", "accounts"
   add_foreign_key "timeline_videos", "video_timelines"
   add_foreign_key "timeline_videos", "videos"
   add_foreign_key "video_events", "videos"

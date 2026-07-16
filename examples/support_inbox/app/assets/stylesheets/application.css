@@ -1,0 +1,81 @@
+/* Minimal, dependency-free styling for the Support Inbox example. */
+:root {
+  --ink: #1a1a1a;
+  --muted: #6b7280;
+  --line: #e5e7eb;
+  --panel: #fafafa;
+  --accent: #dc2626;
+  --ok: #16a34a;
+  --warn: #d97706;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  color: var(--ink);
+  font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  line-height: 1.55;
+  background: #fff;
+}
+
+.container { max-width: 760px; margin: 0 auto; padding: 2rem 1rem 4rem; }
+
+h1 { font-size: 1.6rem; margin: 0 0 .25rem; }
+h2 { font-size: 1.15rem; margin: 2rem 0 .75rem; }
+h3 { font-size: 1rem; margin: 0 0 .5rem; }
+h4 { font-size: .9rem; margin: 1.25rem 0 .5rem; }
+
+a { color: var(--accent); }
+code { background: var(--panel); padding: 0 .3em; border-radius: 4px; font-size: .85em; }
+
+.subtitle, .muted { color: var(--muted); }
+.small { font-size: .85rem; }
+.empty { color: var(--muted); font-style: italic; }
+
+.flash { padding: .6rem .9rem; border-radius: 8px; font-size: .9rem; }
+.flash.notice { background: #ecfdf5; color: #065f46; }
+.flash.alert { background: #fef2f2; color: #991b1b; }
+
+.field { margin-bottom: .6rem; }
+input[type="text"], input[type="email"], textarea {
+  width: 100%; padding: .55rem .7rem; border: 1px solid var(--line);
+  border-radius: 8px; font: inherit;
+}
+input[type="submit"], .action button, button {
+  background: var(--ink); color: #fff; border: 0; border-radius: 8px;
+  padding: .5rem 1rem; font: inherit; cursor: pointer;
+}
+input[type="submit"]:hover, button:hover { opacity: .85; }
+
+.ticket-list { list-style: none; margin: 0; padding: 0; }
+.ticket-row { padding: .9rem 0; border-bottom: 1px solid var(--line); }
+.ticket-subject { font-weight: 600; text-decoration: none; }
+.ticket-main { display: flex; gap: .75rem; align-items: baseline; flex-wrap: wrap; }
+
+.badges { display: inline-flex; gap: .35rem; margin: .3rem 0; flex-wrap: wrap; }
+.badge {
+  display: inline-block; font-size: .72rem; text-transform: uppercase;
+  letter-spacing: .03em; padding: .1rem .5rem; border-radius: 999px;
+  background: var(--panel); border: 1px solid var(--line); color: var(--muted);
+}
+.badge.status-open { color: var(--ok); border-color: currentColor; }
+.badge.status-waiting { color: var(--warn); border-color: currentColor; }
+.badge.priority-urgent, .badge.priority-high { color: var(--accent); border-color: currentColor; }
+.badge.sentiment-negative { color: var(--accent); }
+.badge.sentiment-positive { color: var(--ok); }
+.badge.draft-badge { color: var(--warn); }
+
+.panel {
+  border: 1px solid var(--line); border-radius: 12px;
+  padding: 1rem 1.25rem; margin: 1rem 0; background: #fff;
+}
+
+.agent-actions { display: flex; gap: .5rem; align-items: center; flex-wrap: wrap; margin: 1rem 0; }
+.agent-actions form { display: inline; }
+.action.small button { padding: .3rem .7rem; font-size: .8rem; }
+
+.message { border-left: 3px solid var(--line); padding: .5rem 0 .5rem 1rem; margin: .75rem 0; }
+.message.customer { border-color: var(--accent); }
+.message.draft { border-color: var(--warn); background: #fffbeb; border-radius: 0 8px 8px 0; }
+.message .meta { margin: 0 0 .25rem; font-size: .85rem; color: var(--muted); }

@@ -5,6 +5,7 @@ import { ThemeProvider, useTheme } from '../../contexts/ThemeContext'
 function PlansContent({ plans, current_plan, signed_in }) {
   const { darkMode, toggleDarkMode } = useTheme()
   const [billingInterval, setBillingInterval] = useState('monthly')
+  const [checkoutError, setCheckoutError] = useState(null)
 
   // Theme colors - single source of truth
   const colors = {
@@ -21,11 +22,18 @@ function PlansContent({ plans, current_plan, signed_in }) {
   async function handleSelectPlan(plan) {
     if (plan.free) return
 
+    // Enterprise is sold white-glove, not self-serve checkout
+    if (plan.slug === 'enterprise') {
+      window.location.href = 'mailto:sales@activeagents.ai?subject=Enterprise%20plan%20inquiry'
+      return
+    }
+
     if (!signed_in) {
       router.visit('/registration/new')
       return
     }
 
+    setCheckoutError(null)
     try {
       const response = await fetch('/subscriptions/checkout', {
         method: 'POST',
@@ -40,12 +48,21 @@ function PlansContent({ plans, current_plan, signed_in }) {
         }),
       })
 
-      const data = await response.json()
-      if (data.checkout_url) {
-        window.location.href = data.checkout_url
+      let data = null
+      try {
+        data = await response.json()
+      } catch {
+        // Non-JSON response (e.g. an HTML error page) — fall through
       }
+
+      if (!response.ok || !data?.checkout_url) {
+        throw new Error(data?.error || 'Unable to start checkout. Please try again.')
+      }
+
+      window.location.href = data.checkout_url
     } catch (error) {
       console.error('Checkout error:', error)
+      setCheckoutError(error.message)
     }
   }
 
@@ -137,6 +154,17 @@ function PlansContent({ plans, current_plan, signed_in }) {
             </button>
           </div>
         </div>
+
+        {checkoutError && (
+          <div style={{
+            marginTop: '24px',
+            textAlign: 'center',
+            color: '#ef4444',
+            fontSize: '14px'
+          }}>
+            {checkoutError}
+          </div>
+        )}
 
         {/* Plan cards */}
         <div style={{

@@ -64,13 +64,9 @@ class AgentRun < ApplicationRecord
 
   # Stream output updates via ActionCable
   def broadcast_update
-    ActionCable.server.broadcast(
-      "agent_run_#{id}",
-      {
-        type: "update",
-        run: summary
-      }
-    )
+    payload = { type: "update", run: summary }
+    ActionCable.server.broadcast("agent_run_#{id}", payload)
+    ActionCable.server.broadcast("agent_runs_#{agent_id}", payload)
   end
 
   # Cancel a running execution

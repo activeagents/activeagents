@@ -23,6 +23,13 @@ module ActiveSupport
       )
     end
 
+    # Helper to create an account owned by a user
+    def create_account(owner:, name: "Workspace #{SecureRandom.hex(3)}")
+      account = Account.create!(name: name, owner: owner)
+      account.account_memberships.create!(user: owner, role: "owner")
+      account
+    end
+
     # Helper to create an agent for a user
     def create_agent(user:, name: "Test Agent", **attrs)
       defaults = {

@@ -11,11 +11,12 @@ module Api
       account = current_user&.primary_account
 
       unless account
+        free_limit = Account::USAGE_LIMITS["free"]
         return render json: {
           usage: {
             runs_used: 0,
-            runs_limit: 3,
-            runs_remaining: 3,
+            runs_limit: free_limit,
+            runs_remaining: free_limit,
             can_run: true,
             plan: "free"
           }
@@ -33,7 +34,7 @@ module Api
       unless account
         return render json: {
           can_run: true,
-          usage: { runs_used: 0, runs_limit: 3, runs_remaining: 3, plan: "free" },
+          usage: { runs_used: 0, runs_limit: Account::USAGE_LIMITS["free"], runs_remaining: Account::USAGE_LIMITS["free"], plan: "free" },
           message: "Create an account to track usage"
         }
       end
@@ -52,17 +53,10 @@ module Api
           usage: account.usage_stats,
           upgrade_required: true,
           message: "You've reached your plan limit. Upgrade to continue.",
-          upgrade_url: checkout_path
+          # A navigable GET page — checkout itself is POST-only
+          upgrade_url: "/pricing"
         }, status: :payment_required
       end
-    end
-
-    private
-
-    def checkout_path
-      # Return URL for Pro plan checkout
-      pro_plan = Plan.find_by(slug: "pro")
-      "/subscriptions/checkout?plan_id=#{pro_plan&.id}&billing_interval=monthly"
     end
   end
 end

@@ -1,0 +1,83 @@
+<p><%= link_to "← Back to inbox", tickets_path %></p>
+
+<header class="page-header">
+  <h1><%= @ticket.subject %></h1>
+  <div class="badges">
+    <span class="badge status-<%= @ticket.status %>"><%= @ticket.status %></span>
+    <% if @ticket.priority %><span class="badge priority-<%= @ticket.priority %>"><%= @ticket.priority %></span><% end %>
+    <% if @ticket.category %><span class="badge"><%= @ticket.category %></span><% end %>
+    <% if @ticket.sentiment %><span class="badge sentiment-<%= @ticket.sentiment %>"><%= @ticket.sentiment %></span><% end %>
+  </div>
+</header>
+
+<section class="agent-actions">
+  <%= button_to "Triage", triage_ticket_path(@ticket), class: "action" %>
+  <%= button_to "Draft reply", draft_reply_ticket_path(@ticket), class: "action" %>
+  <%= button_to "Summarize thread", summarize_ticket_path(@ticket), class: "action" %>
+  <span class="muted small">Each button runs an agent — watch it land as a trace.</span>
+</section>
+
+<% if @ticket.triage_summary %>
+  <section class="panel">
+    <h3>Triage</h3>
+    <p><%= @ticket.triage_summary %></p>
+    <p class="muted small">Triaged <%= time_ago_in_words(@ticket.triaged_at) %> ago by TriageAgent.</p>
+  </section>
+<% end %>
+
+<% if @ticket.ai_summary %>
+  <section class="panel">
+    <h3>Thread summary</h3>
+    <p><%= simple_format(@ticket.ai_summary) %></p>
+  </section>
+<% end %>
+
+<section class="panel">
+  <h3>Conversation</h3>
+  <div class="message customer">
+    <p class="meta"><strong><%= @ticket.customer_email %></strong> · <%= @ticket.created_at.to_fs(:short) %></p>
+    <%= simple_format(@ticket.body) %>
+  </div>
+
+  <% @ticket.replies.order(:created_at).each do |reply| %>
+    <div class="message <%= reply.draft? ? "draft" : "sent" %>">
+      <p class="meta">
+        <strong><%= reply.author %></strong> · <%= reply.created_at.to_fs(:short) %>
+        <% if reply.ai_generated? %><span class="badge">AI</span><% end %>
+        <% if reply.draft? %><span class="badge draft-badge">draft</span><% end %>
+      </p>
+      <%= simple_format(reply.body) %>
+      <% if reply.draft? %>
+        <%= button_to "Send this draft", send_reply_ticket_reply_path(@ticket, reply), class: "action small" %>
+      <% end %>
+    </div>
+  <% end %>
+
+  <h4>Reply manually</h4>
+  <%= form_with model: [ @ticket, Reply.new ] do |f| %>
+    <div class="field"><%= f.text_area :body, rows: 3, required: true, placeholder: "Write a reply…" %></div>
+    <%= f.submit "Send reply" %>
+  <% end %>
+</section>
+
+<% if @ticket.agent_contexts.any? %>
+  <section class="panel">
+    <h3>Persisted agent activity (solid_agent)</h3>
+    <% @ticket.agent_contexts.each do |context| %>
+      <p class="muted small">
+        <strong><%= context.agent_name %>#<%= context.action_name %></strong> —
+        <%= context.messages.count %> messages,
+        <%= context.generations.count %> generations,
+        <%= context.total_tokens %> tokens
+      </p>
+      <ul class="muted small">
+        <% context.generations.order(:created_at).each do |generation| %>
+          <li>
+            <%= generation.model %> · <%= generation.input_tokens %> in / <%= generation.output_tokens %> out
+            <% if generation.trace_id %>· trace <code><%= generation.trace_id %></code><% end %>
+          </li>
+        <% end %>
+      </ul>
+    <% end %>
+  </section>
+<% end %>

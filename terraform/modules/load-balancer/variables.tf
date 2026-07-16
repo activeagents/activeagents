@@ -36,6 +36,12 @@ variable "existing_ssl_cert_name" {
   default     = null
 }
 
+variable "extra_managed_domains" {
+  description = "Domains that each get their own managed SSL certificate attached alongside the primary/existing certificate (e.g., api subdomain or alias domains added after the original cert was issued). Per-domain certs mean an undelegated domain never blocks the others."
+  type        = list(string)
+  default     = []
+}
+
 variable "enable_cdn" {
   description = "Enable Cloud CDN for caching"
   type        = bool

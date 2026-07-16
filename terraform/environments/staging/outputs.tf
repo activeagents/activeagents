@@ -39,3 +39,13 @@ output "staging_domain" {
   description = "Staging domain name"
   value       = module.activeagents.staging_domain
 }
+
+output "demo_app_url" {
+  description = "Public URL of the Support Inbox demo app"
+  value       = module.activeagents.demo_app_url
+}
+
+output "alias_domain_name_servers" {
+  description = "Per-alias-domain Cloud DNS name servers — delegate each domain to these at its registrar"
+  value       = module.activeagents.alias_domain_name_servers
+}

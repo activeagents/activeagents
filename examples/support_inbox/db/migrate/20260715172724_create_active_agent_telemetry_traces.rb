@@ -1,0 +1,50 @@
+# frozen_string_literal: true
+
+class CreateActiveAgentTelemetryTraces < ActiveRecord::Migration[8.1]
+  def change
+    create_table :active_agent_telemetry_traces do |t|
+
+      # Trace identification
+      t.string :trace_id, null: false
+      t.string :service_name
+      t.string :environment
+
+      # Timing
+      t.datetime :timestamp, null: false
+
+      # Span data (JSON array of spans)
+      t.json :spans, default: []
+
+      # Resource attributes
+      t.json :resource_attributes, default: {}
+
+      # SDK info
+      t.json :sdk_info, default: {}
+
+      # Aggregated metrics (for quick queries)
+      t.integer :total_duration_ms
+      t.integer :total_input_tokens, default: 0
+      t.integer :total_output_tokens, default: 0
+      t.integer :total_thinking_tokens, default: 0
+
+      # Status
+      t.string :status, default: "UNSET"
+
+      # Agent info (denormalized for queries)
+      t.string :agent_class
+      t.string :agent_action
+
+      # Error info
+      t.text :error_message
+
+      t.timestamps
+    end
+
+    add_index :active_agent_telemetry_traces, :trace_id, unique: true
+    add_index :active_agent_telemetry_traces, :timestamp
+    add_index :active_agent_telemetry_traces, :service_name
+    add_index :active_agent_telemetry_traces, :environment
+    add_index :active_agent_telemetry_traces, :agent_class
+    add_index :active_agent_telemetry_traces, :status
+  end
+end

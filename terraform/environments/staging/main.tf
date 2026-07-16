@@ -53,6 +53,11 @@ module "activeagents" {
   lb_additional_domains     = var.lb_existing_ssl_cert_name == null && var.enable_apex_domain ? [var.dns_domain] : var.lb_additional_domains
   # Use existing SSL cert if specified (avoids provisioning delays)
   lb_existing_ssl_cert_name = var.lb_existing_ssl_cert_name
+  # Domains added after the existing cert was issued (api subdomain, alias
+  # domains) each get their own managed cert attached alongside it
+  lb_extra_managed_domains  = var.lb_extra_managed_domains
+  # Whole domains served by this app with host-split landers
+  alias_domains             = var.alias_domains
   enable_cdn                = var.enable_cdn
 
   # DNS configuration
@@ -78,4 +83,12 @@ module "activeagents" {
 
   # Docs subdomain (GitHub Pages)
   docs_cname = var.docs_cname
+
+  # Demo app (examples/support_inbox) — end-to-end product testing:
+  # its agents post telemetry to this platform's /v1/traces
+  enable_demo_app           = var.enable_demo_app
+  demo_app_image            = var.demo_app_image
+  demo_telemetry_endpoint   = var.demo_telemetry_endpoint
+  demo_activeagents_api_key = var.demo_activeagents_api_key
+  demo_ai_provider          = var.demo_ai_provider
 }

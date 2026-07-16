@@ -4,6 +4,7 @@ class Agent < ApplicationRecord
   belongs_to :user, optional: true
   has_many :agent_versions, dependent: :destroy
   has_many :agent_runs, dependent: :destroy
+  has_many :evaluations, dependent: :destroy
 
   # Validations
   validates :name, presence: true, length: { minimum: 2, maximum: 100 }
@@ -126,7 +127,7 @@ class Agent < ApplicationRecord
 
     begin
       # Build and execute the agent
-      result = build_and_execute_agent(input_prompt, **params)
+      result = AgentExecutionService.call(self, run)
 
       run.update!(
         output: result[:output],
@@ -204,15 +205,5 @@ class Agent < ApplicationRecord
     return "" if instructions.blank?
 
     "\n    prompt instructions: <<~INSTRUCTIONS\n      #{instructions.gsub("\n", "\n      ")}\n    INSTRUCTIONS"
-  end
-
-  def build_and_execute_agent(input_prompt, **params)
-    # This will be implemented to actually execute via ActiveAgent
-    # For now, return a mock response
-    {
-      output: "Mock response for: #{input_prompt}",
-      metadata: { provider: provider, model: model },
-      usage: { input_tokens: 10, output_tokens: 20, total_tokens: 30 }
-    }
   end
 end

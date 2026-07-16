@@ -83,3 +83,13 @@ output "staging_domain" {
   description = "Staging domain name"
   value       = var.enable_dns && var.enable_load_balancer ? "staging.${var.dns_domain}" : null
 }
+
+output "demo_app_url" {
+  description = "Public URL of the Support Inbox demo app"
+  value       = var.enable_demo_app ? module.demo_app[0].url : null
+}
+
+output "alias_domain_name_servers" {
+  description = "Per-alias-domain Cloud DNS name servers — delegate each domain to these at its registrar"
+  value       = { for domain, mod in module.domain_alias : domain => mod.name_servers }
+}

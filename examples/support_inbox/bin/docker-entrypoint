@@ -1,0 +1,10 @@
+#!/bin/bash -e
+
+# If running the rails server then create or migrate existing database.
+# Seeds are idempotent and re-run on every boot because the demo's SQLite
+# database is ephemeral on Cloud Run.
+if [ "${@: -2:1}" == "./bin/rails" ] && [ "${@: -1:1}" == "server" ]; then
+  ./bin/rails db:prepare db:seed
+fi
+
+exec "${@}"

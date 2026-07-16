@@ -51,6 +51,7 @@ class DashboardController < ApplicationController
 
   def meta_data
     {
+      activeagentVersion: (ActiveAgent::VERSION if defined?(ActiveAgent::VERSION)),
       providers: Agent::PROVIDERS,
       presetTypes: Agent::PRESET_TYPES,
       instructionSets: Agent::INSTRUCTION_SETS,
@@ -73,7 +74,9 @@ class DashboardController < ApplicationController
     {
       id: account.id,
       name: account.name,
-      subscribed: account.subscribed?
+      subscribed: account.subscribed?,
+      created_at: account.created_at&.iso8601,
+      telemetry_api_key: account.telemetry_api_key
     }
   rescue NoMethodError
     nil

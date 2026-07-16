@@ -1,0 +1,43 @@
+<section id="dev-console">
+  <div class="text-centered full-width">
+    <h2>See your agents while you build</h2>
+    <p class="paragraph m secondary">
+      The gem ships a local dev console — every generation recorded as a
+      trace with a span waterfall, token usage, and per-agent metrics,
+      entirely in your development database.
+    </p>
+  </div>
+
+  <div class="grid columns-2 margin-top-xl">
+    <div class="feature-card">
+      <div class="feature-heading">
+        <h3 class="color-accent no-top-margin">One command</h3>
+        <p class="paragraph s secondary">Install the console and its migrations, then flip local telemetry on.</p>
+      </div>
+      <pre class="code-block"><code>$ rails generate active_agent:dashboard:install
+$ rails db:migrate
+
+# config/active_agent.yml
+telemetry:
+  enabled: true
+  local_storage: true</code></pre>
+    </div>
+    <div class="feature-card">
+      <div class="feature-heading">
+        <h3 class="color-accent no-top-margin">Everything a generation did</h3>
+        <p class="paragraph s secondary">
+          Open <code>/active_agent</code> and every prompt shows up as a
+          trace: prompt &rarr; LLM &rarr; tool spans with timings, token
+          counts (input / output / thinking), provider and model. Metrics
+          roll up per agent over the last 24 hours.
+        </p>
+        <p class="paragraph s secondary">
+          For production — retention, evaluations, cost estimates, team
+          workspaces — point the same telemetry at
+          <%= link_to "activeagents.ai", "https://activeagents.ai" %> with
+          one YAML change.
+        </p>
+      </div>
+    </div>
+  </div>
+</section>
