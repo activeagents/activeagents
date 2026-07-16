@@ -3,6 +3,8 @@
 module Api
   class AgentsController < BaseController
     before_action :set_agent, only: [ :show, :update, :destroy, :versions, :runs, :execute, :test, :restore, :duplicate, :export, :analytics ]
+    before_action :require_account!, only: [ :execute, :test ]
+    before_action :enforce_run_limit!, only: [ :execute, :test ]
 
     # GET /api/agents
     def index
@@ -109,6 +111,7 @@ module Api
         params[:prompt],
         **params.fetch(:params, {}).to_unsafe_h.symbolize_keys
       )
+      current_account.increment_agent_runs!
 
       render json: { run: run.summary }, status: :accepted
     end
@@ -119,6 +122,7 @@ module Api
         params[:prompt],
         **params.fetch(:params, {}).to_unsafe_h.symbolize_keys
       )
+      current_account.increment_agent_runs!
 
       render json: { run: run.summary, output: run.output }
     end
@@ -217,6 +221,19 @@ module Api
     end
 
     private
+
+    # Same contract as Api::SandboxesController#run: 402 + usage stats so the
+    # frontend can show the upgrade prompt.
+    def enforce_run_limit!
+      return if current_account.can_run_agent?
+
+      render json: {
+        error: "Plan limit reached",
+        upgrade_required: true,
+        usage: current_account.usage_stats,
+        message: "You've used all #{current_account.effective_agent_runs_limit} agent runs this month. Upgrade to continue."
+      }, status: :payment_required
+    end
 
     def current_user_agents
       current_user ? current_user.agents : Agent.none

@@ -3,7 +3,7 @@ import AgentAvatar from '../AgentAvatar';
 import { useTheme } from '../../contexts/ThemeContext';
 import { ICONS, TYPOGRAPHY } from '../../utils/designTokens';
 
-export default function Sidebar({ currentView, onNavigate, agentCount, account, user }) {
+export default function Sidebar({ currentView, onNavigate, agentCount, account, user, gemVersion }) {
   const { darkMode } = useTheme();
   const [showAccountMenu, setShowAccountMenu] = useState(false);
   const menuRef = useRef(null);
@@ -31,15 +31,14 @@ export default function Sidebar({ currentView, onNavigate, agentCount, account, 
   const observabilityItems = [
     { id: 'traces', label: 'Traces', icon: ICONS.nav.traces },
     { id: 'metrics', label: 'Metrics', icon: ICONS.nav.metrics },
-    { id: 'replay', label: 'Session Replay', icon: ICONS.nav.replay },
-    { id: 'evaluations', label: 'Evaluations', icon: ICONS.nav.evaluations },
     { id: 'interactions', label: 'Interactions', icon: ICONS.nav.interactions },
+    { id: 'evaluations', label: 'Evaluations', icon: ICONS.nav.evaluations },
+    { id: 'replay', label: 'Session Replay', icon: ICONS.nav.replay },
     { id: 'benchmarks', label: 'Benchmarks', icon: ICONS.nav.benchmarks },
   ];
 
   const workspaceItems = [
     { id: 'organization', label: 'Organization', icon: '🏢' },
-    { id: 'prompts', label: 'Prompts', icon: '💬' },
     { id: 'settings', label: 'Settings', icon: '⚙️' },
   ];
 
@@ -277,7 +276,7 @@ export default function Sidebar({ currentView, onNavigate, agentCount, account, 
       {/* Version */}
       <div className="px-6 py-4 border-t" style={{ borderColor: darkMode ? '#2a2a2a' : '#e5e7eb' }}>
         <div className={`text-xs ${darkMode ? 'text-gray-500' : 'text-gray-400'}`}>
-          Active Agent v1.0.1
+          Active Agent {gemVersion ? `v${gemVersion}` : ''}
         </div>
       </div>
     </aside>

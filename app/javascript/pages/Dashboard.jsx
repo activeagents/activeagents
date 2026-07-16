@@ -11,13 +11,12 @@ import Sidebar from '../components/dashboard/Sidebar';
 import Header from '../components/dashboard/Header';
 import TracesView from '../components/dashboard/TracesView';
 import MetricsView from '../components/dashboard/MetricsView';
-import EvaluationsView from '../components/dashboard/EvaluationsView';
 import InteractionsView from '../components/dashboard/InteractionsView';
+import EvaluationsView from '../components/dashboard/EvaluationsView';
 import SandboxRunner from '../components/dashboard/SandboxRunner';
 import BenchmarkView from '../components/dashboard/BenchmarkView';
 import SessionReplayView from '../components/dashboard/SessionReplayView';
 import OrganizationView from '../components/dashboard/OrganizationView';
-import PromptsView from '../components/dashboard/PromptsView';
 import SettingsView from '../components/dashboard/SettingsView';
 import { ThemeProvider, useTheme } from '../contexts/ThemeContext';
 
@@ -27,7 +26,7 @@ import { ThemeProvider, useTheme } from '../contexts/ThemeContext';
  * Routes are handled client-side for SPA-like experience
  * Real routes still go through Rails/Inertia for SSR benefits
  */
-function DashboardContent({ user, initialAgents = [], meta = {} }) {
+function DashboardContent({ user, initialAgents = [], meta = {}, account = null, subscription = null }) {
   const { darkMode } = useTheme();
   const [agents, setAgents] = useState(initialAgents);
   const [currentView, setCurrentView] = useState('list'); // list, builder, editor, runner, analytics, agent-analytics, history
@@ -43,10 +42,10 @@ function DashboardContent({ user, initialAgents = [], meta = {} }) {
       setCurrentView('traces');
     } else if (path.includes('/metrics')) {
       setCurrentView('metrics');
-    } else if (path.includes('/evaluations')) {
-      setCurrentView('evaluations');
     } else if (path.includes('/interactions')) {
       setCurrentView('interactions');
+    } else if (path.includes('/evaluations')) {
+      setCurrentView('evaluations');
     } else if (path.includes('/analytics') && !path.includes('/agents/')) {
       setCurrentView('analytics');
     } else if (path.includes('/agents/new')) {
@@ -71,8 +70,6 @@ function DashboardContent({ user, initialAgents = [], meta = {} }) {
       setCurrentView('sandbox');
     } else if (path.includes('/organization')) {
       setCurrentView('organization');
-    } else if (path.includes('/prompts')) {
-      setCurrentView('prompts');
     } else if (path.includes('/settings')) {
       setCurrentView('settings');
     }
@@ -223,13 +220,12 @@ function DashboardContent({ user, initialAgents = [], meta = {} }) {
     else if (view === 'analytics') path = '/dashboard/analytics';
     else if (view === 'traces') path = '/dashboard/traces';
     else if (view === 'metrics') path = '/dashboard/metrics';
-    else if (view === 'evaluations') path = '/dashboard/evaluations';
     else if (view === 'interactions') path = '/dashboard/interactions';
+    else if (view === 'evaluations') path = '/dashboard/evaluations';
     else if (view === 'benchmarks') path = '/dashboard/benchmarks';
     else if (view === 'replay') path = '/dashboard/replay';
     else if (view === 'sandbox') path = '/dashboard/sandbox';
     else if (view === 'organization') path = '/dashboard/organization';
-    else if (view === 'prompts') path = '/dashboard/prompts';
     else if (view === 'settings') path = '/dashboard/settings';
 
     window.history.pushState({}, '', path);
@@ -293,10 +289,10 @@ function DashboardContent({ user, initialAgents = [], meta = {} }) {
         return <TracesView />;
       case 'metrics':
         return <MetricsView />;
-      case 'evaluations':
-        return <EvaluationsView />;
       case 'interactions':
         return <InteractionsView />;
+      case 'evaluations':
+        return <EvaluationsView />;
       case 'benchmarks':
         return <BenchmarkView />;
       case 'replay':
@@ -318,9 +314,14 @@ function DashboardContent({ user, initialAgents = [], meta = {} }) {
           />
         );
       case 'organization':
-        return <OrganizationView user={user} />;
-      case 'prompts':
-        return <PromptsView />;
+        return (
+          <OrganizationView
+            user={user}
+            account={account}
+            subscription={subscription}
+            agentCount={agents.length}
+          />
+        );
       case 'settings':
         return <SettingsView user={user} />;
       default:
@@ -349,14 +350,15 @@ function DashboardContent({ user, initialAgents = [], meta = {} }) {
         currentView={currentView}
         onNavigate={navigateTo}
         agentCount={agents.length}
-        account={user?.primary_account}
+        account={account}
         user={user}
+        gemVersion={meta.activeagentVersion}
       />
 
       <div className="flex-1 flex flex-col">
         <Header
           user={user}
-          account={user?.primary_account}
+          account={account}
         />
 
         <main className="flex-1 p-6 overflow-auto">

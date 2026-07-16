@@ -14,6 +14,14 @@ module Api
       Current.session&.user
     end
 
+    def current_account
+      @current_account ||= current_user&.primary_account
+    end
+
+    def require_account!
+      render json: { error: "No account" }, status: :unauthorized if current_account.nil?
+    end
+
     def not_found
       render json: { error: "Record not found" }, status: :not_found
     end

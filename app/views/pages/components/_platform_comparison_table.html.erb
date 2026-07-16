@@ -2,7 +2,7 @@
   <thead>
     <tr class="pricing-table-row">
       <th class="paragraph s bold"></th>
-      <th class="paragraph s bold">Self-Hosted</th>
+      <th class="paragraph s bold">Dev Console (gem)</th>
       <th class="paragraph s bold">Pro Platform</th>
       <th class="paragraph s bold">Enterprise</th>
     </tr>
@@ -11,27 +11,27 @@
     <tr class="pricing-table-row">
       <td class="paragraph s bold" colspan="4" style="background: var(--color-bg-secondary);">Infrastructure</td>
     </tr>
-    <%= render "pages/components/comparison_row", feature: "Web UI dashboard", values: ["Local", "Hosted", "Hosted"] %>
-    <%= render "pages/components/comparison_row", feature: "Agent deployments", values: ["Unlimited", "3", "Unlimited"] %>
-    <%= render "pages/components/comparison_row", feature: "Executions / month", values: ["Unlimited", "10,000", "Unlimited"] %>
-    <%= render "pages/components/comparison_row", feature: "Traces / month", values: ["Unlimited", "25,000", "500,000+"] %>
-    <%= render "pages/components/comparison_row", feature: "Trace retention", values: ["You control", "14 days", "400 days"] %>
-    <%= render "pages/components/comparison_row", feature: "Private VPC / on-premise", values: [true, false, true] %>
+    <%= render "pages/components/comparison_row", feature: "Web UI dashboard", values: ["Local dev only", "Hosted", "Hosted"] %>
+    <%= render "pages/components/comparison_row", feature: "Agent deployments", values: ["—", "3", "Unlimited"] %>
+    <%= render "pages/components/comparison_row", feature: "Executions / month", values: ["Local dev only", "10,000", "Unlimited"] %>
+    <%= render "pages/components/comparison_row", feature: "Traces / month", values: ["Local dev only", "25,000", "500,000+"] %>
+    <%= render "pages/components/comparison_row", feature: "Trace retention", values: ["While you develop", "14 days", "400 days"] %>
+    <%= render "pages/components/comparison_row", feature: "Private VPC / on-premise", values: ["—", false, true] %>
     <%= render "pages/components/comparison_row", feature: "Agent rate limiting", values: [false, false, true] %>
 
     <tr class="pricing-table-row">
       <td class="paragraph s bold" colspan="4" style="background: var(--color-bg-secondary);">Observability & Evaluation</td>
     </tr>
-    <%= render "pages/components/comparison_row", feature: "Cost & latency analytics", values: [true, true, true] %>
-    <%= render "pages/components/comparison_row", feature: "LLM-as-judge evaluators", values: ["DIY", "5 prebuilt", "Unlimited custom"] %>
-    <%= render "pages/components/comparison_row", feature: "A/B prompt testing", values: [false, true, true] %>
-    <%= render "pages/components/comparison_row", feature: "Anomaly detection (ML)", values: [false, false, true] %>
+    <%= render "pages/components/comparison_row", feature: "Cost & latency analytics", values: ["Tokens & latency only", true, true] %>
+    <%= render "pages/components/comparison_row", feature: "Rule-based evaluations", values: ["DIY", true, true] %>
+    <%= render "pages/components/comparison_row", feature: "LLM-as-judge evaluations", values: ["DIY", true, "Unlimited custom"] %>
+    <%= render "pages/components/comparison_row", feature: "Conversation history & provenance", values: ["Via solid_agent", true, true] %>
 
     <tr class="pricing-table-row">
       <td class="paragraph s bold" colspan="4" style="background: var(--color-bg-secondary);">Team & Security</td>
     </tr>
-    <%= render "pages/components/comparison_row", feature: "Team seats", values: ["Unlimited", "5", "Unlimited"] %>
-    <%= render "pages/components/comparison_row", feature: "Workspaces", values: ["Unlimited", "1", "Unlimited"] %>
+    <%= render "pages/components/comparison_row", feature: "Team seats", values: ["—", "5", "Unlimited"] %>
+    <%= render "pages/components/comparison_row", feature: "Workspaces", values: ["—", "1", "Unlimited"] %>
     <%= render "pages/components/comparison_row", feature: "SSO / SAML & RBAC", values: [false, false, true] %>
     <%= render "pages/components/comparison_row", feature: "SOC 2 Type II & HIPAA", values: [false, false, true] %>
 

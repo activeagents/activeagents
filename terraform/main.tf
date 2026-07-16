@@ -227,11 +227,51 @@ module "load_balancer" {
   domain                 = var.lb_domain
   additional_domains     = var.lb_additional_domains
   existing_ssl_cert_name = var.lb_existing_ssl_cert_name
+  extra_managed_domains  = var.lb_extra_managed_domains
   enable_cdn             = var.enable_cdn
   enable_http_redirect   = true
 
   depends_on = [
     module.cloud_run,
+    google_project_service.apis,
+  ]
+}
+
+# Alias domains (activeagent.dev, activeagent.pro) pointed at the same
+# load balancer — the Rails app splits landers by host. Each needs NS
+# delegation at its registrar (see alias_domain_name_servers output) and a
+# per-domain managed cert via lb_extra_managed_domains.
+module "domain_alias" {
+  for_each = var.enable_load_balancer ? toset(var.alias_domains) : toset([])
+  source   = "./modules/domain-alias"
+
+  project_id = var.project_id
+  domain     = each.value
+  lb_ip      = module.load_balancer[0].ip_address
+  labels     = local.common_labels
+
+  depends_on = [
+    google_project_service.apis,
+  ]
+}
+
+# Demo app: the Support Inbox example (examples/support_inbox) deployed as
+# a public Cloud Run service, posting telemetry to the platform
+module "demo_app" {
+  count  = var.enable_demo_app ? 1 : 0
+  source = "./modules/demo-app"
+
+  project_id           = var.project_id
+  region               = var.region
+  name                 = "support-inbox-demo-${var.environment}"
+  image                = var.demo_app_image
+  telemetry_endpoint   = var.demo_telemetry_endpoint
+  activeagents_api_key = var.demo_activeagents_api_key
+  ai_provider          = var.demo_ai_provider
+  allow_public_access  = var.allow_public_access
+  labels               = local.common_labels
+
+  depends_on = [
     google_project_service.apis,
   ]
 }
@@ -276,6 +316,10 @@ module "dns" {
 
   # Production IP - set when apex domain is enabled or in production environment
   production_ip = var.enable_load_balancer && (var.environment == "production" || var.enable_apex_domain) ? module.load_balancer[0].ip_address : null
+
+  # API subdomain (api.activeagents.ai) - same load balancer as the apex.
+  # TLS is provided by lb_extra_managed_domains on the load balancer module.
+  api_ip = var.enable_load_balancer && (var.environment == "production" || var.enable_apex_domain) ? module.load_balancer[0].ip_address : null
 
   # Keep main site on Framer during migration
   framer_ips       = var.framer_ips

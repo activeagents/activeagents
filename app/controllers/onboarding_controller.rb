@@ -40,7 +40,14 @@ class OnboardingController < ApplicationController
       claim_user_sessions
 
       UserMailer.welcome(@user).deliver_later
-      redirect_to dashboard_path, notice: "Welcome to Active Agent! Let's build your first agent."
+
+      # A paid plan selection continues straight into Stripe checkout;
+      # otherwise land on the free dashboard.
+      if (checkout_url = pending_plan_checkout_url)
+        redirect_to checkout_url, allow_other_host: true
+      else
+        redirect_to dashboard_path, notice: "Welcome to Active Agent! Let's build your first agent."
+      end
     else
       @plans = Plan.active.order(:price_cents)
       render :complete_profile, status: :unprocessable_entity
@@ -59,6 +66,36 @@ class OnboardingController < ApplicationController
 
     # Store selected plan for checkout after profile completion
     session[:selected_plan_slug] = plan.slug
+  end
+
+  # Builds a Stripe Checkout session for the plan chosen on the
+  # complete-profile page. Returns nil for free/unknown plans or when Stripe
+  # isn't configured, so onboarding never hard-fails on billing — the user
+  # lands on the dashboard and can upgrade from /pricing instead.
+  def pending_plan_checkout_url
+    slug = session.delete(:selected_plan_slug)
+    return nil unless slug
+
+    plan = Plan.find_by(slug: slug)
+    return nil unless plan&.paid?
+
+    account = Current.user.primary_account
+    return nil unless account
+
+    price_id = plan.stripe_monthly_price_id
+    return nil unless price_id
+
+    pay_customer = account.set_payment_processor(:stripe)
+    pay_customer.checkout(
+      mode: "subscription",
+      line_items: [ { price: price_id, quantity: 1 } ],
+      success_url: subscriptions_url,
+      cancel_url: dashboard_url,
+      subscription_data: plan.trial_days.positive? ? { trial_period_days: plan.trial_days } : {}
+    ).url
+  rescue => e
+    Rails.logger.error("Onboarding checkout failed for user #{Current.user.id}: #{e.message}")
+    nil
   end
 
   def redirect_if_complete

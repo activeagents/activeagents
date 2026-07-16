@@ -5,6 +5,7 @@ require "test_helper"
 class Api::AgentsControllerTest < ActionDispatch::IntegrationTest
   setup do
     @user = create_user(email: "test@example.com")
+    @account = create_account(owner: @user)
     @agent = create_agent(user: @user, name: "Test Agent", status: :active)
     sign_in_as(@user)
   end
@@ -349,6 +350,42 @@ class Api::AgentsControllerTest < ActionDispatch::IntegrationTest
     assert_includes data["run"]["input_preview"], "Review this code"
   end
 
+  test "execute counts against the account's monthly usage" do
+    assert_difference -> { @account.reload.agent_runs_this_period }, 1 do
+      post "/api/agents/#{@agent.id}/execute", params: { prompt: "Hello" }
+    end
+
+    assert_response :accepted
+  end
+
+  test "execute is blocked with 402 when the plan run limit is reached" do
+    @account.update!(
+      agent_runs_this_period: Account::USAGE_LIMITS["free"],
+      usage_period_start: Time.current
+    )
+
+    assert_no_difference "AgentRun.count" do
+      post "/api/agents/#{@agent.id}/execute", params: { prompt: "Hello" }
+    end
+
+    assert_response :payment_required
+    data = json_response
+
+    assert data["upgrade_required"]
+    assert_equal Account::USAGE_LIMITS["free"], data["usage"]["runs_limit"]
+    assert_equal false, data["usage"]["can_run"]
+  end
+
+  test "execute requires an account" do
+    user_without_account = create_user
+    agent = create_agent(user: user_without_account, status: :active)
+    sign_in_as(user_without_account)
+
+    post "/api/agents/#{agent.id}/execute", params: { prompt: "Hello" }
+
+    assert_response :unauthorized
+  end
+
   # ===========================================
   # Test Execution Tests
   # ===========================================
@@ -363,6 +400,26 @@ class Api::AgentsControllerTest < ActionDispatch::IntegrationTest
 
     assert_equal "complete", data["run"]["status"]
     assert data["output"].present?
+  end
+
+  test "test counts against the account's monthly usage" do
+    assert_difference -> { @account.reload.agent_runs_this_period }, 1 do
+      post "/api/agents/#{@agent.id}/test", params: { prompt: "Hello" }
+    end
+
+    assert_response :success
+  end
+
+  test "test is blocked with 402 when the plan run limit is reached" do
+    @account.update!(
+      agent_runs_this_period: Account::USAGE_LIMITS["free"],
+      usage_period_start: Time.current
+    )
+
+    post "/api/agents/#{@agent.id}/test", params: { prompt: "Hello" }
+
+    assert_response :payment_required
+    assert json_response["upgrade_required"]
   end
 
   # ===========================================

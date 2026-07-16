@@ -27,7 +27,9 @@ class SubscriptionsController < ApplicationController
     end
 
     unless price_id
-      redirect_to plans_path, alert: "This plan is not available for purchase."
+      # The JSON branch must come first: fetch() callers parse the body, and
+      # a redirect here would be swallowed silently by response.json()
+      checkout_error("This plan is not available for purchase.", status: :unprocessable_entity)
       return
     end
 
@@ -46,6 +48,9 @@ class SubscriptionsController < ApplicationController
     else
       redirect_to checkout_session.url, allow_other_host: true
     end
+  rescue Pay::Error, Stripe::StripeError => e
+    Rails.logger.error("Stripe checkout failed for account #{current_account&.id}: #{e.class}: #{e.message}")
+    checkout_error("Unable to start checkout. Please try again or contact support.", status: :service_unavailable)
   end
 
   def billing_portal
@@ -123,10 +128,22 @@ class SubscriptionsController < ApplicationController
   def ensure_account_for_checkout
     return if current_account
 
-    # Create an account for the user if they don't have one
+    # Create an account for the user if they don't have one, with the same
+    # owner membership registration provisions
     @current_account = current_user.owned_accounts.create!(
       name: "#{current_user.email_address.split('@').first}'s Account"
     )
+    AccountMembership.create!(account: @current_account, user: current_user, role: "owner")
+  end
+
+  # Renders checkout failures in a shape each caller can consume: JSON for
+  # fetch()/Inertia callers, flash redirect for plain form posts.
+  def checkout_error(message, status:)
+    if request.headers["X-Inertia"]
+      render json: { error: message }, status: status
+    else
+      redirect_to plans_path, alert: message
+    end
   end
 
   def stripe_public_key

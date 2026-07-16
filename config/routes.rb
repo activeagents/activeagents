@@ -55,6 +55,16 @@ Rails.application.routes.draw do
     root to: "spaces#index"
   end
 
+  # Telemetry ingestion — the activeagent gem's telemetry reporter POSTs
+  # batched traces here (Configuration::DEFAULT_ENDPOINT is
+  # https://api.activeagents.ai/v1/traces). Authenticated with the
+  # account's telemetry API key (Bearer token).
+  scope module: :api do
+    namespace :v1 do
+      resources :traces, only: [ :create ]
+    end
+  end
+
   # API endpoints
   namespace :api do
     # Usage tracking
@@ -132,6 +142,21 @@ Rails.application.routes.draw do
 
     resource :analytics, only: [ :show ], controller: "analytics", action: :index
 
+    # Observability read APIs (dashboard Traces & Metrics views).
+    # Backed by the activeagent gem's TelemetryTrace scopes, account-scoped.
+    resources :traces, only: [ :index, :show ]
+    resource :metrics, only: [ :show ], controller: "metrics"
+
+    # Conversation contexts persisted by solid_agent (Interactions view)
+    resources :interactions, only: [ :index, :show ]
+
+    # Agent output evaluations (Evaluations view)
+    resources :evaluations, only: [ :index, :show, :create, :destroy ] do
+      member do
+        post :run
+      end
+    end
+
     # Ragents benchmark results — accepts POSTed JSON from bin/bench
     # GET  /api/benchmarks     — list recent runs
     # POST /api/benchmarks     — ingest a new benchmark run from bin/bench
@@ -144,6 +169,8 @@ Rails.application.routes.draw do
 
     namespace :v1 do
       resources :plans, only: [ :index ]
+      # Alias of POST /v1/traces for clients configured with an /api prefix.
+      resources :traces, only: [ :create ]
     end
   end
 end

@@ -1,12 +1,16 @@
 import React, { useState, useEffect, useRef } from 'react';
 import AgentAvatar from '../AgentAvatar';
 import { TYPOGRAPHY } from '../../utils/designTokens';
+import { startCheckout } from '../../utils/checkout';
 
 export default function AgentRunner({ agent, onBack }) {
   const [prompt, setPrompt] = useState('');
   const [runs, setRuns] = useState([]);
   const [isRunning, setIsRunning] = useState(false);
   const [currentRun, setCurrentRun] = useState(null);
+  const [limitUsage, setLimitUsage] = useState(null);
+  const [isUpgrading, setIsUpgrading] = useState(false);
+  const [upgradeError, setUpgradeError] = useState(null);
   const outputRef = useRef(null);
 
   useEffect(() => {
@@ -50,6 +54,21 @@ export default function AgentRunner({ agent, onBack }) {
 
       const data = await response.json();
 
+      // Plan limit reached (402) — show the upgrade prompt
+      if (response.status === 402 && data.upgrade_required) {
+        setLimitUsage(data.usage);
+        setCurrentRun(prev => ({
+          ...prev,
+          status: 'failed',
+          error_message: data.message || 'Plan limit reached'
+        }));
+        return;
+      }
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Run failed');
+      }
+
       setCurrentRun({
         ...data.run,
         output: data.output
@@ -90,10 +109,47 @@ export default function AgentRunner({ agent, onBack }) {
     return `${(ms / 1000).toFixed(2)}s`;
   };
 
+  const handleUpgrade = async () => {
+    setIsUpgrading(true);
+    setUpgradeError(null);
+    try {
+      await startCheckout({ planSlug: 'pro' });
+    } catch (err) {
+      setUpgradeError(err.message);
+      setIsUpgrading(false);
+    }
+  };
+
   return (
     <div className="grid grid-cols-3 gap-6 h-full">
       {/* Main Runner Interface */}
       <div className="col-span-2 flex flex-col space-y-4">
+        {/* Plan limit banner */}
+        {limitUsage && (
+          <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 flex items-center justify-between gap-4">
+            <div>
+              <p className="font-medium text-amber-900">Monthly run limit reached</p>
+              <p className="text-sm text-amber-700 mt-0.5">
+                You've used {limitUsage.runs_used} of {limitUsage.runs_limit} runs on the{' '}
+                {limitUsage.plan || 'free'} plan. Upgrade to keep running agents.
+              </p>
+              {upgradeError && <p className="text-sm text-red-600 mt-1">{upgradeError}</p>}
+            </div>
+            <div className="flex items-center gap-2 flex-shrink-0">
+              <a href="/pricing" className="px-4 py-2 text-sm text-amber-800 hover:text-amber-900">
+                See plans
+              </a>
+              <button
+                onClick={handleUpgrade}
+                disabled={isUpgrading}
+                className="px-4 py-2 text-sm bg-amber-500 text-white rounded-lg hover:bg-amber-600 transition-colors disabled:opacity-50"
+              >
+                {isUpgrading ? 'Redirecting…' : 'Upgrade to Pro'}
+              </button>
+            </div>
+          </div>
+        )}
+
         {/* Input */}
         <div className="bg-white rounded-xl border border-gray-200 p-4">
           <div className="flex items-start space-x-4">

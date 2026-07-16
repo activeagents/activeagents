@@ -37,6 +37,20 @@ resource "google_dns_record_set" "production" {
   rrdatas      = [var.production_ip]
 }
 
+# API A record - api subdomain for programmatic access (trace ingestion, REST API)
+# Points to the same load balancer as the apex; the URL map has no host rules,
+# so the Rails app serves all hosts. TLS for this subdomain comes from the
+# load balancer module's extra_managed_domains certificate.
+resource "google_dns_record_set" "api" {
+  count        = var.api_ip != null ? 1 : 0
+  project      = var.project_id
+  managed_zone = google_dns_managed_zone.main.name
+  name         = "api.${var.domain}."
+  type         = "A"
+  ttl          = 300
+  rrdatas      = [var.api_ip]
+}
+
 # WWW CNAME - points to Framer during migration, or apex domain when live
 resource "google_dns_record_set" "www" {
   project      = var.project_id

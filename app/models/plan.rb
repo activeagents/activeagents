@@ -10,6 +10,10 @@ class Plan < ApplicationRecord
     price_cents.zero?
   end
 
+  def paid?
+    !free?
+  end
+
   def price_dollars
     price_cents / 100.0
   end

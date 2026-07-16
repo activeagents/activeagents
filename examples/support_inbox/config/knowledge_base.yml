@@ -1,0 +1,32 @@
+# Knowledge base articles used to ground SupportReplyAgent drafts.
+# `keywords` drive the (intentionally simple) retrieval in
+# app/models/knowledge_base.rb.
+- title: "How billing works"
+  keywords: [billing, invoice, charge, charged, refund, card, payment, price, upgrade, downgrade, plan]
+  body: |
+    Plans are billed monthly on the day you subscribed. Upgrades take
+    effect immediately with a prorated charge; downgrades apply at the next
+    renewal. Refunds are available within 14 days of any charge — reply to
+    the invoice email or contact support with the invoice number.
+
+- title: "Resetting your password"
+  keywords: [password, reset, login, log, locked, signin, sign-in, access, account]
+  body: |
+    Use "Forgot password?" on the sign-in page. Reset links expire after
+    2 hours. If the email never arrives, check spam and confirm the
+    address on file; support can re-send verification from the admin
+    console.
+
+- title: "Exporting your data"
+  keywords: [export, csv, download, data, backup, migrate, migration]
+  body: |
+    Workspace admins can export all data as CSV from Settings → Data →
+    Export. Exports are generated asynchronously and emailed within 15
+    minutes. API users can page through /api/v1/records for the same data.
+
+- title: "API rate limits"
+  keywords: [api, rate, limit, limits, throttle, 429, token, requests]
+  body: |
+    The API allows 600 requests/minute per key. 429 responses include a
+    Retry-After header. Contact support to discuss burst allowances on the
+    Pro plan.

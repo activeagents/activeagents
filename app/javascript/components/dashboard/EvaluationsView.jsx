@@ -1,77 +1,139 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useTheme } from '../../contexts/ThemeContext';
 
-// Mock data matching the lander preview design
-const MOCK_EVALUATIONS = [
-  {
-    id: 'eval-001',
-    name: 'Translation Quality',
-    agent: 'TranslationAgent',
-    created_at: new Date(Date.now() - 120000).toISOString(),
-    model_judge: 'claude-3-haiku',
-    criteria: ['semantic_similarity', 'grammar', 'tone'],
-    samples: { passed: 50, total: 50 },
-    scores: [
-      { label: 'Accuracy', value: 0.94, status: 'high' },
-      { label: 'Fluency', value: 0.88, status: 'high' },
-      { label: 'Faithfulness', value: 0.72, status: 'medium', warning: 'Below threshold (0.80)' },
-    ],
-  },
-  {
-    id: 'eval-002',
-    name: 'Code Review Accuracy',
-    agent: 'CodeReviewAgent',
-    created_at: new Date(Date.now() - 3600000).toISOString(),
-    model_judge: 'gpt-4o',
-    criteria: ['bug_detection', 'suggestion_quality', 'clarity'],
-    samples: { passed: 47, total: 50 },
-    scores: [
-      { label: 'Bug Detection', value: 0.91, status: 'high' },
-      { label: 'Suggestion Quality', value: 0.86, status: 'high' },
-      { label: 'Clarity', value: 0.89, status: 'high' },
-    ],
-  },
-  {
-    id: 'eval-003',
-    name: 'Documentation Completeness',
-    agent: 'DocumentationAgent',
-    created_at: new Date(Date.now() - 7200000).toISOString(),
-    model_judge: 'claude-3-haiku',
-    criteria: ['coverage', 'accuracy', 'readability'],
-    samples: { passed: 42, total: 50 },
-    scores: [
-      { label: 'Coverage', value: 0.78, status: 'medium', warning: 'Could improve coverage' },
-      { label: 'Accuracy', value: 0.92, status: 'high' },
-      { label: 'Readability', value: 0.85, status: 'high' },
-    ],
-  },
+const RULE_CRITERIA = [
+  { type: 'response_present', key: 'response_present', label: 'Response present', config: {} },
+  { type: 'min_length', key: 'response_length', label: 'Response length ≥ 40 chars', config: { chars: 40 } },
+  { type: 'max_latency_ms', key: 'latency', label: 'Latency ≤ 5s', config: { ms: 5000 } },
+  { type: 'token_budget', key: 'token_budget', label: 'Output ≤ 1000 tokens', config: { output_tokens: 1000 } },
 ];
+
+const csrfToken = () => document.querySelector('meta[name="csrf-token"]')?.content;
+
+const timeAgo = (iso) => {
+  if (!iso) return '';
+  const mins = Math.floor((Date.now() - new Date(iso).getTime()) / 60000);
+  if (mins < 1) return 'just now';
+  if (mins < 60) return `${mins} min ago`;
+  if (mins < 1440) return `${Math.floor(mins / 60)} hours ago`;
+  return `${Math.floor(mins / 1440)} days ago`;
+};
+
+const scoreStatus = (value) => {
+  if (value >= 0.85) return 'high';
+  if (value >= 0.7) return 'medium';
+  return 'low';
+};
 
 export default function EvaluationsView() {
   const { darkMode } = useTheme();
   const [evaluations, setEvaluations] = useState([]);
+  const [agents, setAgents] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState(null);
   const [expandedEval, setExpandedEval] = useState(null);
-  const [filter, setFilter] = useState('all');
+  const [showForm, setShowForm] = useState(false);
+  const [runningId, setRunningId] = useState(null);
+  const [form, setForm] = useState({
+    agent_id: '', name: '', sample_size: 20,
+    criteria: RULE_CRITERIA.map((c) => c.key),
+    containsPattern: '', llmJudgePrompt: '',
+  });
+  const [formError, setFormError] = useState(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
-  useEffect(() => {
-    setTimeout(() => {
-      setEvaluations(MOCK_EVALUATIONS);
+  const fetchEvaluations = useCallback(async () => {
+    try {
+      const response = await fetch('/api/evaluations');
+      if (!response.ok) throw new Error(`Request failed (${response.status})`);
+      const data = await response.json();
+      setEvaluations(data.evaluations || []);
+      setLoadError(null);
+    } catch (error) {
+      setLoadError(error.message);
+    } finally {
       setIsLoading(false);
-      setExpandedEval(MOCK_EVALUATIONS[0]?.id);
-    }, 500);
+    }
   }, []);
 
-  const formatTime = (dateStr) => {
-    const date = new Date(dateStr);
-    const now = new Date();
-    const diffMs = now - date;
-    const diffMins = Math.floor(diffMs / 60000);
+  useEffect(() => {
+    fetchEvaluations();
+    fetch('/api/agents')
+      .then((r) => (r.ok ? r.json() : { agents: [] }))
+      .then((data) => setAgents(data.agents || []))
+      .catch(() => setAgents([]));
+  }, [fetchEvaluations]);
 
-    if (diffMins < 60) return `${diffMins} min ago`;
-    if (diffMins < 1440) return `${Math.floor(diffMins / 60)} hours ago`;
-    return `${Math.floor(diffMins / 1440)} days ago`;
+  const buildCriteria = () => {
+    const criteria = RULE_CRITERIA
+      .filter((c) => form.criteria.includes(c.key))
+      .map(({ key, type, config }) => ({ key, type, config }));
+    if (form.containsPattern.trim()) {
+      criteria.push({ key: 'contains', type: 'contains', config: { pattern: form.containsPattern.trim() } });
+    }
+    if (form.llmJudgePrompt.trim()) {
+      criteria.push({ key: 'quality', type: 'llm_judge', config: { prompt: form.llmJudgePrompt.trim() } });
+    }
+    return criteria;
   };
+
+  const handleCreate = async (event) => {
+    event.preventDefault();
+    setIsSubmitting(true);
+    setFormError(null);
+    try {
+      const response = await fetch('/api/evaluations', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': csrfToken() },
+        body: JSON.stringify({
+          evaluation: {
+            agent_id: form.agent_id,
+            name: form.name,
+            sample_size: form.sample_size,
+            judge_kind: form.llmJudgePrompt.trim() ? 'llm' : 'rules',
+            criteria: buildCriteria(),
+          },
+        }),
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error((data.errors || [data.error]).filter(Boolean).join(', ') || 'Failed to create evaluation');
+      setShowForm(false);
+      setForm({ ...form, name: '' });
+      await fetchEvaluations();
+      setExpandedEval(data.evaluation?.id ?? null);
+    } catch (error) {
+      setFormError(error.message);
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleRun = async (id) => {
+    setRunningId(id);
+    try {
+      await fetch(`/api/evaluations/${id}/run`, {
+        method: 'POST',
+        headers: { 'X-CSRF-Token': csrfToken() },
+      });
+      await fetchEvaluations();
+    } finally {
+      setRunningId(null);
+    }
+  };
+
+  const colors = {
+    cardBg: darkMode ? '#1f1f1f' : '#ffffff',
+    cardBorder: darkMode ? '#2a2a2a' : '#e5e7eb',
+    innerBg: darkMode ? 'rgba(255,255,255,0.04)' : '#f9fafb',
+    trackBg: darkMode ? 'rgba(255,255,255,0.1)' : '#f3f4f6',
+    textPrimary: darkMode ? '#ffffff' : '#111827',
+    textSecondary: darkMode ? 'rgba(255,255,255,0.6)' : '#6b7280',
+    textMuted: darkMode ? 'rgba(255,255,255,0.4)' : '#9ca3af',
+    inputBg: darkMode ? 'rgba(255,255,255,0.06)' : '#ffffff',
+    inputBorder: darkMode ? 'rgba(255,255,255,0.2)' : '#d1d5db',
+  };
+
+  const statusColor = { high: '#22c55e', medium: '#eab308', low: '#ef4444' };
 
   if (isLoading) {
     return (
@@ -81,276 +143,272 @@ export default function EvaluationsView() {
     );
   }
 
-  const avgAllScores = evaluations.flatMap(e => e.scores).reduce((sum, s) => sum + s.value, 0) /
-    evaluations.flatMap(e => e.scores).length;
+  const completedRuns = evaluations.map((e) => e.latest_run).filter((r) => r && r.status === 'complete');
+  const avgScore = completedRuns.length
+    ? completedRuns.reduce((sum, r) => sum + (r.average_score || 0), 0) / completedRuns.length
+    : null;
+  const samplesEvaluated = completedRuns.reduce((sum, r) => sum + (r.samples_evaluated || 0), 0);
 
-  const getScoreColor = (value, mode = 'dark') => {
-    if (value >= 0.85) return mode === 'dark' ? '#22c55e' : 'text-green-600';
-    if (value >= 0.70) return mode === 'dark' ? '#eab308' : 'text-yellow-600';
-    return mode === 'dark' ? '#ef4444' : 'text-red-600';
+  const inputStyle = {
+    padding: '8px 12px', borderRadius: '8px', fontSize: '14px',
+    background: colors.inputBg, border: `1px solid ${colors.inputBorder}`, color: colors.textPrimary,
   };
 
-  // Light mode version
-  if (!darkMode) {
-    return (
-      <div className="space-y-6">
-        {/* Header */}
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-2xl font-bold text-gray-900">Evaluations</h1>
-            <p className="text-sm text-gray-500 mt-1">Score outputs with LLM-as-judge, rule-based checks, or custom criteria</p>
-          </div>
-          <div className="flex items-center gap-3">
-            <select
-              value={filter}
-              onChange={(e) => setFilter(e.target.value)}
-              className="px-3 py-2 bg-white border border-gray-300 rounded-lg text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-red-500"
-            >
-              <option value="all">All Evaluations</option>
-              <option value="passing">Passing</option>
-              <option value="failing">Failing</option>
-            </select>
-            <button className="px-4 py-2 bg-red-500 text-white rounded-lg text-sm font-medium hover:bg-red-600 transition-colors">
-              New Evaluation
-            </button>
-          </div>
+  return (
+    <div className="space-y-6">
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-bold" style={{ color: colors.textPrimary }}>Evaluations</h1>
+          <p className="text-sm mt-1" style={{ color: colors.textSecondary }}>
+            Score outputs with LLM-as-judge, rule-based checks, or custom criteria
+          </p>
         </div>
+        <button
+          onClick={() => setShowForm(!showForm)}
+          className="px-4 py-2 bg-red-500 text-white rounded-lg text-sm font-medium hover:bg-red-600 transition-colors"
+        >
+          {showForm ? 'Cancel' : 'New Evaluation'}
+        </button>
+      </div>
 
-        {/* Summary Stats */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <div className="bg-white rounded-xl p-5 border border-gray-200 shadow-sm">
-            <div className="text-sm text-gray-500 mb-1">Total Evaluations</div>
-            <div className="text-3xl font-bold text-gray-900">{evaluations.length}</div>
-          </div>
-          <div className="bg-white rounded-xl p-5 border border-gray-200 shadow-sm">
-            <div className="text-sm text-gray-500 mb-1">Average Score</div>
-            <div className={`text-3xl font-bold ${avgAllScores >= 0.85 ? 'text-green-600' : avgAllScores >= 0.70 ? 'text-yellow-600' : 'text-red-600'}`}>
-              {(avgAllScores * 100).toFixed(0)}%
-            </div>
-          </div>
-          <div className="bg-white rounded-xl p-5 border border-gray-200 shadow-sm">
-            <div className="text-sm text-gray-500 mb-1">Samples Evaluated</div>
-            <div className="text-3xl font-bold text-gray-900">
-              {evaluations.reduce((sum, e) => sum + e.samples.total, 0)}
-            </div>
-          </div>
+      {loadError && (
+        <div className="p-3 rounded-lg text-sm" style={{ background: darkMode ? 'rgba(239,68,68,0.1)' : '#fef2f2', color: '#ef4444' }}>
+          Failed to load evaluations: {loadError}
         </div>
+      )}
 
-        {/* Evaluations List */}
-        <div className="space-y-4">
-          {evaluations.map((evaluation) => (
-            <div key={evaluation.id} className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
-              <div
-                className="flex items-center justify-between p-4 cursor-pointer hover:bg-gray-50"
-                onClick={() => setExpandedEval(expandedEval === evaluation.id ? null : evaluation.id)}
+      {/* New Evaluation form */}
+      {showForm && (
+        <form
+          onSubmit={handleCreate}
+          className="rounded-xl border p-5 space-y-4"
+          style={{ backgroundColor: colors.cardBg, borderColor: colors.cardBorder }}
+        >
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div>
+              <label className="block text-xs uppercase tracking-wide mb-1" style={{ color: colors.textMuted }}>Agent</label>
+              <select
+                required
+                value={form.agent_id}
+                onChange={(e) => setForm({ ...form, agent_id: e.target.value })}
+                style={{ ...inputStyle, width: '100%' }}
               >
-                <div className="flex items-center gap-3">
-                  <span className="px-2 py-1 text-xs font-medium bg-purple-100 text-purple-700 rounded">EVALUATION</span>
-                  <span className="font-medium text-gray-900">{evaluation.name}</span>
+                <option value="">Select agent…</option>
+                {agents.map((agent) => (
+                  <option key={agent.id} value={agent.id}>{agent.name}</option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="block text-xs uppercase tracking-wide mb-1" style={{ color: colors.textMuted }}>Name</label>
+              <input
+                required
+                type="text"
+                value={form.name}
+                onChange={(e) => setForm({ ...form, name: e.target.value })}
+                placeholder="Response Quality"
+                style={{ ...inputStyle, width: '100%' }}
+              />
+            </div>
+            <div>
+              <label className="block text-xs uppercase tracking-wide mb-1" style={{ color: colors.textMuted }}>Sample size</label>
+              <input
+                type="number" min="1" max="100"
+                value={form.sample_size}
+                onChange={(e) => setForm({ ...form, sample_size: e.target.value })}
+                style={{ ...inputStyle, width: '100%' }}
+              />
+            </div>
+          </div>
+
+          <div>
+            <label className="block text-xs uppercase tracking-wide mb-2" style={{ color: colors.textMuted }}>Rule-based criteria</label>
+            <div className="flex flex-wrap gap-3">
+              {RULE_CRITERIA.map((criterion) => (
+                <label key={criterion.key} className="flex items-center gap-2 text-sm" style={{ color: colors.textPrimary }}>
+                  <input
+                    type="checkbox"
+                    checked={form.criteria.includes(criterion.key)}
+                    onChange={(e) => setForm({
+                      ...form,
+                      criteria: e.target.checked
+                        ? [...form.criteria, criterion.key]
+                        : form.criteria.filter((k) => k !== criterion.key),
+                    })}
+                  />
+                  {criterion.label}
+                </label>
+              ))}
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-xs uppercase tracking-wide mb-1" style={{ color: colors.textMuted }}>
+                Must contain (optional pattern)
+              </label>
+              <input
+                type="text"
+                value={form.containsPattern}
+                onChange={(e) => setForm({ ...form, containsPattern: e.target.value })}
+                placeholder="e.g. password reset"
+                style={{ ...inputStyle, width: '100%' }}
+              />
+            </div>
+            <div>
+              <label className="block text-xs uppercase tracking-wide mb-1" style={{ color: colors.textMuted }}>
+                LLM judge criterion (optional, needs provider credentials)
+              </label>
+              <input
+                type="text"
+                value={form.llmJudgePrompt}
+                onChange={(e) => setForm({ ...form, llmJudgePrompt: e.target.value })}
+                placeholder="e.g. Is the answer helpful and accurate?"
+                style={{ ...inputStyle, width: '100%' }}
+              />
+            </div>
+          </div>
+
+          {formError && <div className="text-sm text-red-500">{formError}</div>}
+
+          <button
+            type="submit"
+            disabled={isSubmitting}
+            className="px-4 py-2 bg-red-500 text-white rounded-lg text-sm font-medium hover:bg-red-600 transition-colors disabled:opacity-50"
+          >
+            {isSubmitting ? 'Creating & running…' : 'Create & Run'}
+          </button>
+        </form>
+      )}
+
+      {/* Summary Stats */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="rounded-xl p-5 border shadow-sm" style={{ backgroundColor: colors.cardBg, borderColor: colors.cardBorder }}>
+          <div className="text-sm mb-1" style={{ color: colors.textSecondary }}>Total Evaluations</div>
+          <div className="text-3xl font-bold" style={{ color: colors.textPrimary }}>{evaluations.length}</div>
+        </div>
+        <div className="rounded-xl p-5 border shadow-sm" style={{ backgroundColor: colors.cardBg, borderColor: colors.cardBorder }}>
+          <div className="text-sm mb-1" style={{ color: colors.textSecondary }}>Average Score</div>
+          <div className="text-3xl font-bold" style={{ color: avgScore == null ? colors.textMuted : statusColor[scoreStatus(avgScore)] }}>
+            {avgScore == null ? '—' : `${(avgScore * 100).toFixed(0)}%`}
+          </div>
+        </div>
+        <div className="rounded-xl p-5 border shadow-sm" style={{ backgroundColor: colors.cardBg, borderColor: colors.cardBorder }}>
+          <div className="text-sm mb-1" style={{ color: colors.textSecondary }}>Samples Evaluated</div>
+          <div className="text-3xl font-bold" style={{ color: colors.textPrimary }}>{samplesEvaluated}</div>
+        </div>
+      </div>
+
+      {/* Evaluations List */}
+      <div className="space-y-4">
+        {evaluations.map((evaluation) => {
+          const run = evaluation.latest_run;
+          const isExpanded = expandedEval === evaluation.id;
+          return (
+            <div
+              key={evaluation.id}
+              className="rounded-xl border shadow-sm overflow-hidden"
+              style={{ backgroundColor: colors.cardBg, borderColor: colors.cardBorder }}
+            >
+              <div
+                className="flex items-center justify-between p-4 cursor-pointer"
+                onClick={() => setExpandedEval(isExpanded ? null : evaluation.id)}
+              >
+                <div className="flex items-center gap-3 min-w-0">
+                  <span className="px-2 py-1 text-xs font-medium bg-purple-100 text-purple-700 rounded flex-shrink-0">EVALUATION</span>
+                  <span className="font-medium truncate" style={{ color: colors.textPrimary }}>{evaluation.name}</span>
+                  <span className="text-sm truncate" style={{ color: colors.textSecondary }}>{evaluation.agent?.name}</span>
                 </div>
-                <span className="text-sm text-gray-500">{formatTime(evaluation.created_at)}</span>
+                <div className="flex items-center gap-4 flex-shrink-0 text-sm" style={{ color: colors.textSecondary }}>
+                  {run?.status === 'failed' && <span className="text-red-500">failed</span>}
+                  {run?.status === 'complete' && run.average_score != null && (
+                    <span style={{ color: statusColor[scoreStatus(run.average_score)], fontWeight: 600 }}>
+                      {(run.average_score * 100).toFixed(0)}%
+                    </span>
+                  )}
+                  <span style={{ color: colors.textMuted }}>{timeAgo(run?.completed_at || evaluation.created_at)}</span>
+                </div>
               </div>
 
-              {expandedEval === evaluation.id && (
-                <div className="border-t border-gray-200">
-                  {/* Scores */}
-                  <div className="p-4 space-y-3">
-                    {evaluation.scores.map((score) => (
-                      <div key={score.label} className="flex items-center gap-4">
-                        <div className="w-24 text-sm text-gray-600">{score.label}</div>
-                        <div className="flex-1 h-2 bg-gray-100 rounded-full overflow-hidden">
-                          <div
-                            className={`h-full rounded-full transition-all ${
-                              score.status === 'high' ? 'bg-green-500' :
-                              score.status === 'medium' ? 'bg-yellow-500' : 'bg-red-500'
-                            }`}
-                            style={{ width: `${score.value * 100}%` }}
-                          />
+              {isExpanded && (
+                <div className="border-t" style={{ borderColor: colors.cardBorder }}>
+                  {run?.status === 'failed' ? (
+                    <div className="p-4 text-sm text-red-500">{run.error_message}</div>
+                  ) : run?.scores ? (
+                    <div className="p-4 space-y-3">
+                      {Object.entries(run.scores).map(([label, score]) => (
+                        <div key={label} className="flex items-center gap-4">
+                          <div className="w-32 text-sm truncate" style={{ color: colors.textSecondary }}>{label.replace(/_/g, ' ')}</div>
+                          {score.skipped ? (
+                            <div className="flex-1 text-xs italic" style={{ color: colors.textMuted }} title={score.reason}>
+                              skipped — {score.reason}
+                            </div>
+                          ) : (
+                            <>
+                              <div className="flex-1 h-2 rounded-full overflow-hidden" style={{ background: colors.trackBg }}>
+                                <div
+                                  className="h-full rounded-full transition-all"
+                                  style={{ width: `${score.score * 100}%`, background: statusColor[scoreStatus(score.score)] }}
+                                />
+                              </div>
+                              <div
+                                className="w-12 text-sm font-medium text-right"
+                                style={{ color: statusColor[scoreStatus(score.score)] }}
+                                title={`min ${score.min} · max ${score.max} · ${score.passed}/${score.total} passed`}
+                              >
+                                {score.score.toFixed(2)}
+                              </div>
+                            </>
+                          )}
                         </div>
-                        <div className={`w-12 text-sm font-medium text-right ${
-                          score.status === 'high' ? 'text-green-600' :
-                          score.status === 'medium' ? 'text-yellow-600' : 'text-red-600'
-                        }`}>
-                          {score.value.toFixed(2)}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="p-4 text-sm" style={{ color: colors.textMuted }}>No runs yet</div>
+                  )}
 
                   {/* Details */}
-                  <div className="p-4 bg-gray-50 grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+                  <div className="p-4 grid grid-cols-2 md:grid-cols-5 gap-4 text-sm" style={{ background: colors.innerBg }}>
                     <div>
-                      <div className="text-gray-500">Model Judge</div>
-                      <div className="font-medium text-gray-900">{evaluation.model_judge}</div>
+                      <div style={{ color: colors.textMuted }}>Judge</div>
+                      <div className="font-medium" style={{ color: colors.textPrimary }}>
+                        {evaluation.judge_kind === 'llm' ? (evaluation.judge_model || 'LLM judge') : 'Rule-based'}
+                      </div>
+                    </div>
+                    <div className="col-span-2">
+                      <div style={{ color: colors.textMuted }}>Criteria</div>
+                      <div className="font-medium truncate" style={{ color: colors.textPrimary }}>
+                        {(evaluation.criteria || []).map((c) => c.key).join(', ')}
+                      </div>
                     </div>
                     <div>
-                      <div className="text-gray-500">Criteria</div>
-                      <div className="font-medium text-gray-900">{evaluation.criteria.join(', ')}</div>
+                      <div style={{ color: colors.textMuted }}>Samples</div>
+                      <div className="font-medium" style={{ color: colors.textPrimary }}>
+                        {run ? `${run.samples_passed} / ${run.samples_evaluated} passed` : '—'}
+                      </div>
                     </div>
-                    <div>
-                      <div className="text-gray-500">Samples</div>
-                      <div className="font-medium text-gray-900">{evaluation.samples.passed} / {evaluation.samples.total} passed</div>
-                    </div>
-                    <div>
-                      <div className="text-gray-500">Agent</div>
-                      <div className="font-medium text-gray-900">{evaluation.agent}</div>
+                    <div className="flex items-end justify-end">
+                      <button
+                        onClick={(e) => { e.stopPropagation(); handleRun(evaluation.id); }}
+                        disabled={runningId === evaluation.id}
+                        className="px-3 py-1.5 text-sm bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors disabled:opacity-50"
+                      >
+                        {runningId === evaluation.id ? 'Running…' : 'Run again'}
+                      </button>
                     </div>
                   </div>
                 </div>
               )}
             </div>
-          ))}
-        </div>
-
-        {evaluations.length === 0 && (
-          <div className="text-center py-12 bg-white rounded-xl border border-gray-200">
-            <div className="text-gray-500 text-lg">No evaluations yet</div>
-            <p className="text-gray-400 text-sm mt-2">Create an evaluation to start scoring agent outputs</p>
-          </div>
-        )}
-      </div>
-    );
-  }
-
-  // Dark mode version
-  return (
-    <div className="preview-content" style={{ borderRadius: '12px', overflow: 'hidden', minHeight: 'calc(100vh - 200px)' }}>
-      {/* Header inside dark container */}
-      <div style={{ padding: '24px 24px 0 24px', borderBottom: '1px solid rgba(255,255,255,0.1)', marginBottom: '16px', paddingBottom: '16px' }}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          <div>
-            <h1 style={{ fontSize: '24px', fontWeight: 'bold', color: 'white', margin: 0 }}>Evaluations</h1>
-            <p style={{ fontSize: '14px', color: 'rgba(255,255,255,0.6)', marginTop: '4px' }}>Score outputs with LLM-as-judge, rule-based checks, or custom criteria</p>
-          </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-            <select
-              value={filter}
-              onChange={(e) => setFilter(e.target.value)}
-              style={{
-                padding: '8px 12px',
-                background: 'rgba(255,255,255,0.1)',
-                border: '1px solid rgba(255,255,255,0.2)',
-                borderRadius: '8px',
-                color: 'white',
-                fontSize: '14px'
-              }}
-            >
-              <option value="all">All Evaluations</option>
-              <option value="passing">Passing</option>
-              <option value="failing">Failing</option>
-            </select>
-            <button style={{
-              padding: '8px 16px',
-              background: '#ef4444',
-              color: 'white',
-              borderRadius: '8px',
-              border: 'none',
-              fontSize: '14px',
-              fontWeight: '500',
-              cursor: 'pointer'
-            }}>
-              New Evaluation
-            </button>
-          </div>
-        </div>
+          );
+        })}
       </div>
 
-      {/* Summary Stats - Dark themed */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '16px', padding: '0 24px 24px 24px' }}>
-        <div style={{
-          background: 'rgba(255,255,255,0.05)',
-          borderRadius: '12px',
-          padding: '20px',
-          border: '1px solid rgba(255,255,255,0.1)'
-        }}>
-          <div style={{ fontSize: '13px', color: 'rgba(255,255,255,0.5)', marginBottom: '4px' }}>Total Evaluations</div>
-          <div style={{ fontSize: '32px', fontWeight: 'bold', color: 'white' }}>{evaluations.length}</div>
-        </div>
-        <div style={{
-          background: 'rgba(255,255,255,0.05)',
-          borderRadius: '12px',
-          padding: '20px',
-          border: '1px solid rgba(255,255,255,0.1)'
-        }}>
-          <div style={{ fontSize: '13px', color: 'rgba(255,255,255,0.5)', marginBottom: '4px' }}>Average Score</div>
-          <div style={{
-            fontSize: '32px',
-            fontWeight: 'bold',
-            color: avgAllScores >= 0.85 ? '#22c55e' : avgAllScores >= 0.70 ? '#eab308' : '#ef4444'
-          }}>
-            {(avgAllScores * 100).toFixed(0)}%
-          </div>
-        </div>
-        <div style={{
-          background: 'rgba(255,255,255,0.05)',
-          borderRadius: '12px',
-          padding: '20px',
-          border: '1px solid rgba(255,255,255,0.1)'
-        }}>
-          <div style={{ fontSize: '13px', color: 'rgba(255,255,255,0.5)', marginBottom: '4px' }}>Samples Evaluated</div>
-          <div style={{ fontSize: '32px', fontWeight: 'bold', color: 'white' }}>
-            {evaluations.reduce((sum, e) => sum + e.samples.total, 0)}
-          </div>
-        </div>
-      </div>
-
-      {/* Evaluations List */}
-      {evaluations.map((evaluation) => (
-        <div key={evaluation.id} className="preview-evaluation">
-          <div
-            className="eval-header"
-            onClick={() => setExpandedEval(expandedEval === evaluation.id ? null : evaluation.id)}
-            style={{ cursor: 'pointer' }}
-          >
-            <span className="eval-badge">EVALUATION</span>
-            <span className="eval-name">{evaluation.name}</span>
-            <span className="eval-time">{formatTime(evaluation.created_at)}</span>
-          </div>
-
-          {expandedEval === evaluation.id && (
-            <>
-              <div className="eval-scores">
-                {evaluation.scores.map((score) => (
-                  <div key={score.label} className="score-item">
-                    <div className="score-label">{score.label}</div>
-                    <div className="score-bar-container">
-                      <div
-                        className={`score-bar ${score.status} animated`}
-                        style={{ width: `${score.value * 100}%` }}
-                      ></div>
-                    </div>
-                    <div className={`score-value ${score.status}`}>{score.value.toFixed(2)}</div>
-                  </div>
-                ))}
-              </div>
-
-              <div className="eval-details">
-                <div className="eval-row">
-                  <span className="eval-key">Model Judge</span>
-                  <span className="eval-val">{evaluation.model_judge}</span>
-                </div>
-                <div className="eval-row">
-                  <span className="eval-key">Criteria</span>
-                  <span className="eval-val">{evaluation.criteria.join(', ')}</span>
-                </div>
-                <div className="eval-row">
-                  <span className="eval-key">Samples</span>
-                  <span className="eval-val">{evaluation.samples.passed} / {evaluation.samples.total} passed</span>
-                </div>
-                <div className="eval-row">
-                  <span className="eval-key">Agent</span>
-                  <span className="eval-val">{evaluation.agent}</span>
-                </div>
-              </div>
-            </>
-          )}
-        </div>
-      ))}
-
-      {evaluations.length === 0 && (
-        <div style={{ textAlign: 'center', padding: '48px 0' }}>
-          <div style={{ color: 'rgba(255,255,255,0.5)', fontSize: '18px' }}>No evaluations yet</div>
-          <p style={{ color: 'rgba(255,255,255,0.4)', fontSize: '14px', marginTop: '8px' }}>Create an evaluation to start scoring agent outputs</p>
+      {evaluations.length === 0 && !showForm && (
+        <div className="text-center py-12 rounded-xl border" style={{ backgroundColor: colors.cardBg, borderColor: colors.cardBorder }}>
+          <div className="text-lg" style={{ color: colors.textMuted }}>No evaluations yet</div>
+          <p className="text-sm mt-2" style={{ color: colors.textSecondary }}>Create an evaluation to start scoring agent outputs</p>
         </div>
       )}
     </div>

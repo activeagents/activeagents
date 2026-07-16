@@ -11,31 +11,31 @@
       answer: "Add <code>gem 'activeagent'</code> to your Gemfile and run <code>bundle install</code>. Then run <code>rails generate active_agent:install</code> to set up the initial configuration.".html_safe %>
 
     <%= render "pages/components/faq_item",
-      question: "What gems are included in the free tier?",
-      answer: "The free tier includes the Active Agent gem, Action Prompt, and all Generation Provider modules (RubyLLM, OpenAI, Anthropic — both official and community gems). You also get Instrumentation, Error Handling, and Retries modules at no cost." %>
+      question: "What's free and what's paid?",
+      answer: "The gem — the framework, every provider, and a local dev console — is MIT licensed and free forever. Production observability and monitoring live on the hosted platform: every workspace starts with a low-volume free trial, and paid plans lift the limits. Commercial gem extensions and services are separate." %>
 
     <%= render "pages/components/faq_item",
-      question: "Which Generation Providers are supported?",
-      answer: "Active Agent supports multiple providers through its Generation Providers module: RubyLLM, OpenAI (official and community gems), Anthropic (official and community gems), Ollama, and OpenRouter. Switch providers with one line of code." %>
+      question: "Which providers are supported?",
+      answer: "OpenAI, Anthropic, Google Gemini, AWS Bedrock, Azure OpenAI, Ollama, OpenRouter, Requesty, and RubyLLM (which unlocks 15+ more). Switch providers with one line of code." %>
 
     <%= render "pages/components/faq_item",
-      question: "What are the Reasonable Reasons gems in Pro?",
-      answer: "The Reasonable Reasons gems are Pro-tier modules that include Observable Evaluations, Observable Compliance, Deterministically Generative, Generally Deterministic, Generative UI, and Generative Generators (with self-healing capabilities). These gems add advanced analytics and generative capabilities to your agents." %>
+      question: "How does the hosted platform get my data?",
+      answer: "Your app's gem posts trace JSON to our ingest endpoint, authenticated with your workspace API key — one YAML block in <code>config/active_agent.yml</code>. In development the same traces stay local in the gem's dev console; the wire format is documented and open.".html_safe %>
 
     <%= render "pages/components/faq_item",
-      question: "What's the difference between Community and Pro?",
-      answer: "The Community (Dev) tier gives you full access to the open-source Active Agent gem, Action Prompt, all Generation Providers, and core modules (Instrumentation, Error Handling, Retries) — free forever. Pro ($99/mo or $995/yr) adds the Reasonable Reasons gems, HITL generative UI, parallel tasks & retries, agentic workflows with pausable multi-agent actions, async tasks with external triggers, hosted observability, and 48-hour email support SLA." %>
+      question: "What's the difference between the free gem and Pro?",
+      answer: "The free gem covers the framework, all providers, and the local dev console. ActiveAgent.PRO ($99/mo or $995/yr) adds versioned agents and prompts, pausable multi-agent workflows, cached reasoning traces, generative UI with human-in-the-loop controls, and email support." %>
 
     <%= render "pages/components/faq_item",
-      question: "What are agentic workflows?",
-      answer: "Agentic workflows in the Pro tier allow you to break complex tasks into many agents' actions, which can be paused between tasks. Combined with HITL generative UI and async tasks with external triggers (webhooks, human approval, timeouts), you can build sophisticated human-in-the-loop AI systems." %>
+      question: "Do I need the platform to get observability?",
+      answer: "For production, yes. The gem includes a dev console (<code>rails g active_agent:dashboard:install</code>) so you can watch traces while you build, but production monitoring — hosted ingestion, evaluations, conversation history, cost estimates, retention, and team workspaces — is the platform. Every workspace starts with a free low-volume trial.".html_safe %>
 
     <%= render "pages/components/faq_item",
       question: "Can I use Active Agent with existing Rails apps?",
       answer: "Yes! Active Agent is designed to integrate seamlessly with existing Rails applications. It works alongside your existing models, controllers, and services." %>
 
     <%= render "pages/components/faq_item",
-      question: "Can I self-host Active Agent?",
-      answer: "Absolutely! The core framework is MIT licensed and can be self-hosted without limits on any tier. The hosted services (observability, evaluation, collaboration) and Pro gems are what differentiate the paid tiers." %>
+      question: "Can I self-host everything?",
+      answer: "The framework is MIT licensed with no limits — your agents and data never leave your infrastructure, and the gem's dev console keeps development traces local. Production observability (evaluations, retention, teams) is the hosted platform's job; if your traces can't leave your network, Enterprise includes private VPC deployment." %>
   </div>
 </section>

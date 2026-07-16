@@ -1,5 +1,10 @@
 # Agent Builder Dashboard Implementation
 
+> **See also:** [features/observability.md](features/observability.md) for the
+> observability stack (traces, metrics, interactions, evaluations, telemetry
+> ingest) — the platform runs the activeagent gem's dashboard/telemetry
+> engine in multi-tenant mode and persists conversations via solid_agent.
+
 ## Overview
 
 The Agent Builder Dashboard provides a visual interface for creating, configuring, and testing AI agents built with ActiveAgent.
@@ -106,6 +111,16 @@ Records each agent execution for debugging and analytics.
 | GET | /api/runs/:id | Get run details |
 | POST | /api/runs/:id/cancel | Cancel running execution |
 
+#### Observability
+
+| Method | Path | Description |
+|--------|------|-------------|
+| GET | /api/traces | Telemetry traces (account-scoped) |
+| GET | /api/metrics | 24h metrics, per-agent stats, cost estimates |
+| GET | /api/interactions | Conversation streams (solid_agent) |
+| GET/POST | /api/evaluations | Evaluations + runs |
+| POST | /v1/traces | Telemetry ingest (Bearer telemetry_api_key) |
+
 ### React Components
 
 #### Dashboard (`app/javascript/pages/Dashboard.jsx`)
@@ -166,9 +181,11 @@ Interactive testing interface for agents.
 Async agent execution via SolidQueue.
 
 **Features:**
-- Dynamic agent class generation
-- ActiveAgent integration
-- Mock mode for development
+- Executes through AgentExecutionService: real provider generation when
+  credentials are configured (config/active_agent.yml), the gem's mock
+  provider otherwise — either way the full ActiveAgent pipeline runs
+- Records a telemetry trace and persists the conversation (solid_agent)
+  per run, correlated on trace_id
 - Error handling and logging
 - ActionCable broadcast for real-time updates
 
