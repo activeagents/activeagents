@@ -73,8 +73,5 @@ the mock provider.
 
 ## Notes
 
-- The `Gemfile` tracks the activeagent/solid_agent PR branches until
-  activeagents/activeagent#344 and activeagents/solid_agent#3 merge; switch
-  both back to `branch: "main"` afterwards.
-- Generated migrations were adjusted from `t.jsonb` to `t.json` for SQLite;
-  the generators emit `t.json` upstream as of #344.
+- The `Gemfile` tracks both gems' `main` branches (pin released versions
+  once activeagent v2 ships).

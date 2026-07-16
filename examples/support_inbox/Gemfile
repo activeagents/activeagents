@@ -9,16 +9,11 @@ gem "sqlite3", ">= 2.1"
 # Use the Puma web server [https://github.com/puma/puma]
 gem "puma", ">= 5.0"
 
-# Active Agent — the AI framework these product features are built on.
-# Tracking the dashboard-production-ready branch until
-# activeagents/activeagent#344 merges (it fixes the dev console engine);
-# switch back to branch: "main" after the merge.
-gem "activeagent", github: "activeagents/activeagent", branch: "claude/dashboard-production-ready"
+# Active Agent — the AI framework these product features are built on
+gem "activeagent", github: "activeagents/activeagent", branch: "main"
 # Solid Agent — persists agent conversations (contexts, messages,
-# generations) with telemetry trace correlation. Tracking the
-# trace-correlation branch until activeagents/solid_agent#3 merges;
-# switch back to branch: "main" after the merge.
-gem "solid_agent", github: "activeagents/solid_agent", branch: "claude/telemetry-trace-correlation"
+# generations) with telemetry trace correlation
+gem "solid_agent", github: "activeagents/solid_agent", branch: "main"
 
 # Use Active Model has_secure_password [https://guides.rubyonrails.org/active_model_basics.html#securepassword]
 # gem "bcrypt", "~> 3.1.7"

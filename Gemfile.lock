@@ -1,6 +1,6 @@
 GIT
   remote: https://github.com/activeagents/activeagent.git
-  revision: ef5edc66f92d5cc659ce78b0a305623155afb6a5
+  revision: 26440278002a39cd2c3e82607e81b9a30a7323f0
   branch: main
   specs:
     activeagent (1.0.3)
@@ -12,7 +12,7 @@ GIT
 
 GIT
   remote: https://github.com/activeagents/solid_agent.git
-  revision: eeba5984270ca28f10610c0a46433004c9bc5dba
+  revision: 41fd2fe2a31e24994baf2ff8017dad7c3795deac
   branch: main
   specs:
     solid_agent (0.1.1)
@@ -323,7 +323,7 @@ GEM
     language_server-protocol (3.17.0.5)
     lint_roller (1.1.0)
     logger (1.7.0)
-    loofah (2.25.1)
+    loofah (2.25.2)
       crass (~> 1.0.2)
       nokogiri (>= 1.12.0)
     mail (2.9.0)
