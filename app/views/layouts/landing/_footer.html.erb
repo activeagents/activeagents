@@ -11,6 +11,11 @@
         <%= link_to "Documentation", "https://docs.activeagents.ai", class: "ui s" %>
         <%= link_to "Gems", "#gems", class: "ui s" %>
         <%= link_to "GitHub", "https://github.com/activeagents/activeagent", class: "ui s", target: "_blank" %>
+        <% if defined?(oss_site?) && oss_site? %>
+          <%= link_to "Platform (activeagents.ai)", "https://activeagents.ai", class: "ui s" %>
+        <% else %>
+          <%= link_to "Open Source (activeagent.dev)", "https://activeagent.dev", class: "ui s" %>
+        <% end %>
       </div>
     </div>
     <div>

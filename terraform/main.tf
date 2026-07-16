@@ -237,6 +237,24 @@ module "load_balancer" {
   ]
 }
 
+# Alias domains (activeagent.dev, activeagent.pro) pointed at the same
+# load balancer — the Rails app splits landers by host. Each needs NS
+# delegation at its registrar (see alias_domain_name_servers output) and a
+# per-domain managed cert via lb_extra_managed_domains.
+module "domain_alias" {
+  for_each = var.enable_load_balancer ? toset(var.alias_domains) : toset([])
+  source   = "./modules/domain-alias"
+
+  project_id = var.project_id
+  domain     = each.value
+  lb_ip      = module.load_balancer[0].ip_address
+  labels     = local.common_labels
+
+  depends_on = [
+    google_project_service.apis,
+  ]
+}
+
 # Demo app: the Support Inbox example (examples/support_inbox) deployed as
 # a public Cloud Run service, posting telemetry to the platform
 module "demo_app" {

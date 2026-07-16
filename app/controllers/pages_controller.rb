@@ -4,9 +4,20 @@ class PagesController < ApplicationController
   allow_unauthenticated_access
   layout "landing"
 
+  # The same app serves two landers, split by host (the load balancer's URL
+  # map has no host rules, so every domain lands here):
+  #   - activeagent.dev            -> open-source lander (framework, free gem)
+  #   - activeagents.ai / .pro     -> commercial lander (platform, PRO gems)
+  # ?site=oss / ?site=commercial force a variant for previewing.
+  OSS_HOSTS = %w[activeagent.dev www.activeagent.dev].freeze
+
+  helper_method :oss_site?
+
   def home
     @sections = load_sections
     @demo_mode = params[:demo_mode].present?
+
+    render :home_oss if oss_site?
   end
 
   def pricing
@@ -14,6 +25,13 @@ class PagesController < ApplicationController
   end
 
   private
+
+  def oss_site?
+    return true if params[:site] == "oss"
+    return false if params[:site] == "commercial"
+
+    OSS_HOSTS.include?(request.host)
+  end
 
   def load_sections(*names)
     names = [ :hero, :features, :pricing, :services, :platform, :faq ] if names.empty?

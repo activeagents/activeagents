@@ -37,7 +37,7 @@ variable "existing_ssl_cert_name" {
 }
 
 variable "extra_managed_domains" {
-  description = "Domains to cover with an additional managed SSL certificate attached alongside the primary/existing certificate (e.g., api subdomain added after the original cert was issued). Use this to add domains without reissuing an existing certificate."
+  description = "Domains that each get their own managed SSL certificate attached alongside the primary/existing certificate (e.g., api subdomain or alias domains added after the original cert was issued). Per-domain certs mean an undelegated domain never blocks the others."
   type        = list(string)
   default     = []
 }
