@@ -175,6 +175,16 @@ jobs:
             echo "**Demo App (Support Inbox):** $DEMO_URL" >> $GITHUB_STEP_SUMMARY
           fi
 
+          # Alias domain name servers — delegate each domain to these at its registrar
+          ALIAS_NS=$(terraform output -json alias_domain_name_servers 2>/dev/null || echo "")
+          if [ -n "$ALIAS_NS" ] && [ "$ALIAS_NS" != "{}" ] && [ "$ALIAS_NS" != "null" ]; then
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "**Alias domain name servers (delegate at registrar):**" >> $GITHUB_STEP_SUMMARY
+            echo '```json' >> $GITHUB_STEP_SUMMARY
+            echo "$ALIAS_NS" >> $GITHUB_STEP_SUMMARY
+            echo '```' >> $GITHUB_STEP_SUMMARY
+          fi
+
   migrate:
     needs: deploy
     runs-on: ubuntu-latest
