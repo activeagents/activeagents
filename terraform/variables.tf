@@ -152,6 +152,12 @@ variable "lb_extra_managed_domains" {
   default     = []
 }
 
+variable "alias_domains" {
+  description = "Whole domains (e.g. activeagent.dev) served by the same load balancer — the app splits landers by host. Each gets a Cloud DNS zone; delegate NS at the registrar after apply."
+  type        = list(string)
+  default     = []
+}
+
 # -- Demo app (examples/support_inbox) --------------------------------------
 
 variable "enable_demo_app" {

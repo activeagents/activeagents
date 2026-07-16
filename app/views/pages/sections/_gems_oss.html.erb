@@ -1,0 +1,56 @@
+<section id="gems" class="section">
+  <div class="text-centered full-width">
+    <h2>Free, and free forever</h2>
+    <p class="paragraph m secondary">
+      The core framework is MIT licensed — every provider, streaming,
+      structured outputs, persistence via solid_agent, and the local dev
+      console included.
+    </p>
+  </div>
+
+  <div class="grid columns-2 margin-top-xl">
+    <%= render "pages/components/pricing_card",
+      name: "ActiveAgent.dev",
+      link: "https://github.com/activeagents/activeagent",
+      license: "MIT License",
+      price: "Free",
+      price_suffix: nil,
+      features: [
+        "Every provider: OpenAI, Anthropic, Gemini, Bedrock, Ollama & more",
+        "Action Prompt for composable prompt contexts",
+        "Solid Agent for context management and persistence",
+        "Streaming, structured outputs, error handling & retries",
+        "Local dev console (traces & metrics in development)",
+        "Community support on GitHub & Discord"
+      ],
+      tagline: "Ship your first agent today",
+      cta_text: "Get Started",
+      cta_link: "https://docs.activeagents.ai/getting_started",
+      cta_style: "primary",
+      highlighted: true %>
+
+    <div class="feature-card">
+      <div class="feature-heading">
+        <h3 class="no-top-margin">Need more than the framework?</h3>
+        <p class="paragraph s secondary">
+          The commercial side lives at
+          <%= link_to "activeagents.ai", "https://activeagents.ai" %>:
+        </p>
+        <ul class="paragraph s secondary">
+          <li><strong>Hosted monitoring</strong> — production traces, evaluations, cost estimates, retention, and team workspaces (free low-volume trial included)</li>
+          <li><strong>ActiveAgent.PRO</strong> — versioned agents &amp; prompts, pausable multi-agent workflows, generative UI</li>
+          <li><strong>Enterprise</strong> — SSO, SOC 2, HIPAA, private VPC, org-wide licensing</li>
+        </ul>
+        <div class="button-group margin-paragraph">
+          <%= link_to "Explore the platform", "https://activeagents.ai", class: "button tertiary" %>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Gem feature comparison -->
+  <details class="accordion-item comparison-accordion margin-top-xl">
+    <summary class="paragraph m bold">Compare gem editions</summary>
+    <%= render "pages/components/gem_comparison_table" %>
+  </details>
+</section>

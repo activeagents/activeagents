@@ -69,6 +69,12 @@ variable "lb_extra_managed_domains" {
   default     = []
 }
 
+variable "alias_domains" {
+  description = "Whole domains (e.g. activeagent.dev) served by the same load balancer with host-split landers"
+  type        = list(string)
+  default     = []
+}
+
 variable "enable_demo_app" {
   description = "Deploy the Support Inbox example app as a public Cloud Run service"
   type        = bool

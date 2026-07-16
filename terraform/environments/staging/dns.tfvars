@@ -10,13 +10,31 @@ enable_apex_domain = true
 # Certificate covers: activeagents.ai, www.activeagents.ai, staging.activeagents.ai
 lb_existing_ssl_cert_name = "activeagents-all-domains-cert"
 
-# Domains added after activeagents-all-domains-cert was issued. These get
-# their own managed certificate attached alongside it on the HTTPS proxy
-# (SNI selects the right cert), so the existing cert never needs reissuing.
-# NOTE: after apply, the api cert takes 15-60 min to provision; existing
-# domains are unaffected during that window. The api DNS A record is created
-# in the same apply, which Google requires before it will issue the cert.
-lb_extra_managed_domains = ["api.activeagents.ai"]
+# Domains added after activeagents-all-domains-cert was issued. Each gets
+# its OWN managed certificate attached alongside it on the HTTPS proxy
+# (SNI selects the right cert), so the existing cert never needs reissuing
+# and a not-yet-delegated domain can't block the others' certs.
+# NOTE: certs take 15-60 min to provision once their DNS resolves to the
+# load balancer. api.activeagents.ai resolves after this apply; the
+# activeagent.dev / activeagent.pro names resolve only after their
+# registrars delegate NS to the Cloud DNS zones (see the
+# alias_domain_name_servers output).
+lb_extra_managed_domains = [
+  "api.activeagents.ai",
+  "activeagent.dev",
+  "www.activeagent.dev",
+  "activeagent.pro",
+  "www.activeagent.pro"
+]
+
+# Whole domains served by this app: the Rails lander splits by host —
+# activeagent.dev renders the open-source lander, activeagent.pro (and the
+# activeagents.ai apex) render the commercial one. Apply creates the Cloud
+# DNS zones; then delegate each domain's NS at its registrar.
+alias_domains = [
+  "activeagent.dev",
+  "activeagent.pro"
+]
 
 # Framer website A records (apex domain) - IGNORED when enable_apex_domain = true
 # Updated 2026-02-24 - IPs from Framer custom domain settings

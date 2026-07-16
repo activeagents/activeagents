@@ -53,9 +53,11 @@ module "activeagents" {
   lb_additional_domains     = var.lb_existing_ssl_cert_name == null && var.enable_apex_domain ? [var.dns_domain] : var.lb_additional_domains
   # Use existing SSL cert if specified (avoids provisioning delays)
   lb_existing_ssl_cert_name = var.lb_existing_ssl_cert_name
-  # Domains added after the existing cert was issued (e.g., api.activeagents.ai)
-  # get their own managed cert attached alongside it
+  # Domains added after the existing cert was issued (api subdomain, alias
+  # domains) each get their own managed cert attached alongside it
   lb_extra_managed_domains  = var.lb_extra_managed_domains
+  # Whole domains served by this app with host-split landers
+  alias_domains             = var.alias_domains
   enable_cdn                = var.enable_cdn
 
   # DNS configuration

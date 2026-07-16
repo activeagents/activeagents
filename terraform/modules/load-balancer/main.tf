@@ -87,24 +87,20 @@ resource "google_compute_managed_ssl_certificate" "default" {
   }
 }
 
-# Additional managed SSL certificate for domains added after the primary
-# certificate was issued (e.g., api.activeagents.ai). Attached to the HTTPS
-# proxy alongside the primary/existing certificate — SNI picks the right one —
-# so new domains come up without reissuing or replacing the original cert.
-# The name embeds a hash of the domain list because managed certs are
-# immutable: changing the list provisions a replacement cert before the old
-# one is detached (no TLS downtime for the other domains).
+# Additional managed SSL certificates for domains added after the primary
+# certificate was issued (e.g., api.activeagents.ai, activeagent.dev).
+# One certificate PER domain, attached alongside the primary/existing
+# certificate — SNI picks the right one. Per-domain certs matter: a domain
+# whose DNS isn't delegated yet just leaves its own cert PROVISIONING
+# without blocking issuance for any other domain, and adding/removing a
+# domain never touches the others' certificates.
 resource "google_compute_managed_ssl_certificate" "extra" {
-  count   = length(var.extra_managed_domains) > 0 ? 1 : 0
-  project = var.project_id
-  name    = "${var.name}-extra-cert-${substr(md5(join(",", var.extra_managed_domains)), 0, 8)}"
+  for_each = toset(var.extra_managed_domains)
+  project  = var.project_id
+  name     = "${var.name}-extra-${replace(each.value, ".", "-")}"
 
   managed {
-    domains = var.extra_managed_domains
-  }
-
-  lifecycle {
-    create_before_destroy = true
+    domains = [each.value]
   }
 }
 
@@ -122,7 +118,7 @@ locals {
   )
   ssl_certificate_ids = concat(
     local.ssl_certificate_id != null ? [local.ssl_certificate_id] : [],
-    google_compute_managed_ssl_certificate.extra[*].id
+    [for cert in google_compute_managed_ssl_certificate.extra : cert.id]
   )
   https_enabled = var.domain != null || var.existing_ssl_cert_name != null || length(var.extra_managed_domains) > 0
 }
