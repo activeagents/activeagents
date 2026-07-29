@@ -44,6 +44,26 @@ class AgentToolboxTest < ActiveSupport::TestCase
     assert_match(/Empty expression/, AgentToolbox.calculate(expression: "")[:error])
   end
 
+  test "call caches successful results and tags replays" do
+    original_cache = Rails.cache
+    Rails.cache = ActiveSupport::Cache::MemoryStore.new
+
+    first = AgentToolbox.call("calculate", expression: "2+2")
+    second = AgentToolbox.call("calculate", expression: "2+2")
+
+    assert_equal 4, first[:result]
+    assert_nil first[:cached]
+    assert_equal 4, second[:result]
+    assert second[:cached], "second identical call should replay the cached result"
+
+    # Error results are never cached.
+    2.times { AgentToolbox.call("calculate", expression: "1/0") }
+    error_keys = Rails.cache.instance_variable_get(:@data).keys.grep(/1.0/)
+    assert_empty error_keys
+  ensure
+    Rails.cache = original_cache
+  end
+
   test "fetch_url refuses non-http and private targets" do
     assert_equal "Only http(s) URLs are supported", AgentToolbox.fetch_url(url: "ftp://example.com")[:error]
     assert_equal "URL host is not allowed", AgentToolbox.fetch_url(url: "http://127.0.0.1/latest")[:error]

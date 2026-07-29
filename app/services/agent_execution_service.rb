@@ -45,6 +45,7 @@ class AgentExecutionService
       llm_span.set_tokens(input: input, output: output, thinking: thinking)
       llm_span.finish
       tool_calls = record_tool_spans(root_span, response)
+      persist_tool_messages(response)
       root_span.finish
 
       {
@@ -156,6 +157,31 @@ class AgentExecutionService
     return [] if provider == :mock
 
     AgentToolbox.definitions_for(@agent_record.tools)
+  end
+
+  # Persists the tool interaction stream to the solid_agent conversation
+  # context so the Interactions view shows the full agent <-> tool
+  # exchange. Deduped by tool_call_id — newer solid_agent versions persist
+  # these from HasContext already, in which case this is a no-op.
+  def persist_tool_messages(response)
+    context = conversation_context
+    return unless context
+    return unless response.respond_to?(:messages)
+
+    Array(response.messages).each do |message|
+      next unless message.respond_to?(:role) && message.role.to_s == "tool"
+
+      tool_call_id = message.respond_to?(:tool_call_id) ? message.tool_call_id : nil
+      next if tool_call_id.present? && context.messages.exists?(role: "tool", tool_call_id: tool_call_id)
+
+      context.add_tool_message(
+        tool_call_id: tool_call_id,
+        tool_name: (message.name if message.respond_to?(:name)),
+        result: (message.content if message.respond_to?(:content))
+      )
+    end
+  rescue StandardError => e
+    Rails.logger.error("[AgentExecutionService] Failed to persist tool messages: #{e.message}")
   end
 
   # Records a :tool span per tool-call roundtrip found in the response's
