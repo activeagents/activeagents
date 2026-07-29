@@ -32,6 +32,35 @@ class AgentToolbox
         }
       }
     ],
+    "playwright" => [
+      {
+        name: "browse_page",
+        description: "Browse a page on the trusted documentation site (docs.activeagents.ai) and return its readable text. Use to look up Active Agent concepts, APIs, and guides. Pass a full URL or a path like /docs/agents.",
+        parameters: {
+          type: "object",
+          properties: {
+            url: { type: "string", description: "URL or path on docs.activeagents.ai" }
+          },
+          required: [ "url" ]
+        }
+      }
+    ],
+    # Subject-bound like memory: routed by AgentExecutionService (needs the
+    # calling agent's account scope), so NOT in FUNCTIONS below.
+    "agents" => [
+      {
+        name: "call_agent",
+        description: "Delegate a task to another agent in this workspace and return its reply. Use when another agent has tools, memory, or expertise this task needs.",
+        parameters: {
+          type: "object",
+          properties: {
+            slug: { type: "string", description: "The slug of the agent to call, e.g. local-qwen-assistant" },
+            message: { type: "string", description: "The task or question for that agent" }
+          },
+          required: [ "slug", "message" ]
+        }
+      }
+    ],
     "search" => [
       {
         name: "web_search",
@@ -93,8 +122,12 @@ class AgentToolbox
   FUNCTIONS = {
     "fetch_url" => :fetch_url,
     "web_search" => :web_search,
-    "calculate" => :calculate
+    "calculate" => :calculate,
+    "browse_page" => :browse_page
   }.freeze
+
+  # Hosts browse_page may fetch — the platform's own trusted docs.
+  BROWSE_ALLOWED_HOSTS = %w[docs.activeagents.ai].freeze
 
   class << self
     # Tool definitions for the subset of an agent's enabled tools that have
@@ -171,6 +204,32 @@ class AgentToolbox
       { expression: expression, result: Calculator.evaluate(expression.to_s) }
     rescue Calculator::Error => e
       { error: e.message }
+    end
+
+    # Trusted-docs browser: fetch_url restricted to BROWSE_ALLOWED_HOSTS,
+    # with HTML reduced to readable text so small models aren't drowned in
+    # markup. Accepts bare paths ("/docs/agents") against the docs host.
+    def browse_page(url:)
+      url = "https://#{BROWSE_ALLOWED_HOSTS.first}#{url.start_with?('/') ? url : "/#{url}"}" unless url.to_s.match?(%r{\Ahttps?://})
+      host = URI.parse(url.to_s).host
+      unless BROWSE_ALLOWED_HOSTS.include?(host)
+        return { error: "browse_page is limited to trusted hosts: #{BROWSE_ALLOWED_HOSTS.join(', ')}" }
+      end
+
+      result = fetch_url(url: url)
+      return result if result[:error]
+
+      text = result[:body].to_s
+        .gsub(%r{<(script|style)[^>]*>.*?</\1>}mi, " ")
+        .gsub(/<[^>]+>/, " ")
+        .then { |stripped| CGI.unescapeHTML(stripped) }
+        .gsub(/[ \t]+/, " ")
+        .gsub(/\n{3,}/, "\n\n")
+        .strip
+
+      { url: result[:url], status: result[:status], text: text.byteslice(0, 20_000).to_s.scrub, truncated: result[:truncated] || text.bytesize > 20_000 }
+    rescue URI::InvalidURIError
+      { error: "Invalid URL" }
     end
 
     private

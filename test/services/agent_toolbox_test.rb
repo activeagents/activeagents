@@ -4,13 +4,19 @@ require "test_helper"
 
 class AgentToolboxTest < ActiveSupport::TestCase
   test "definitions_for maps supported agent tools and skips the rest" do
-    definitions = AgentToolbox.definitions_for(%w[fetch search code terminal playwright])
+    definitions = AgentToolbox.definitions_for(%w[fetch search code terminal playwright agents])
 
-    assert_equal %w[fetch_url web_search calculate], definitions.map { |d| d[:name] }
+    assert_equal %w[fetch_url web_search calculate browse_page call_agent], definitions.map { |d| d[:name] }
     definitions.each do |definition|
       assert definition[:description].present?
       assert_equal "object", definition.dig(:parameters, :type)
     end
+  end
+
+  test "browse_page rejects hosts outside the trusted allowlist" do
+    result = AgentToolbox.call("browse_page", url: "https://example.com/docs")
+
+    assert_match(/limited to trusted hosts/, result[:error])
   end
 
   test "definitions_for handles nil and empty tool lists" do

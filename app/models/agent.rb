@@ -39,7 +39,7 @@ class Agent < ApplicationRecord
 
   # Available tools/MCPs
   AVAILABLE_TOOLS = %w[
-    terminal playwright filesystem code database slack fetch search edit translate memory
+    terminal playwright filesystem code database slack fetch search edit translate memory agents
   ].freeze
 
   # Available providers
