@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useTheme } from '../../contexts/ThemeContext';
+import InteractionStream from './InteractionStream';
 
 const REFRESH_INTERVAL_MS = 30000;
 
@@ -18,6 +19,7 @@ const timeAgo = (iso) => {
   if (seconds < 86400) return `${Math.floor(seconds / 3600)}h ago`;
   return `${Math.floor(seconds / 86400)}d ago`;
 };
+
 
 export default function InteractionsView() {
   const { darkMode } = useTheme();
@@ -177,30 +179,7 @@ export default function InteractionsView() {
                       </div>
                     ) : (
                       <>
-                        {detail.messages.map((message) => {
-                          const bubble = roleBubble(message.role);
-                          return (
-                            <div key={message.id} className="flex gap-3 items-start">
-                              <span
-                                className="px-2 py-0.5 rounded text-xs font-medium flex-shrink-0 mt-0.5"
-                                style={{ background: bubble.background, color: bubble.color, minWidth: '72px', textAlign: 'center' }}
-                              >
-                                {bubble.label}
-                              </span>
-                              <div className="min-w-0 flex-1">
-                                <div className="text-sm whitespace-pre-wrap break-words" style={{ color: colors.textPrimary }}>
-                                  {message.content || (message.tool_name ? `→ ${message.tool_name}(${JSON.stringify(message.tool_calls || {})})` : '—')}
-                                </div>
-                                <div className="text-xs mt-0.5 font-mono" style={{ color: colors.textMuted }}>
-                                  {new Date(message.created_at).toLocaleTimeString()}
-                                  {message.content_checksum && (
-                                    <span title="Content fingerprint"> · 🔒 {message.content_checksum.slice(0, 8)}</span>
-                                  )}
-                                </div>
-                              </div>
-                            </div>
-                          );
-                        })}
+                        <InteractionStream messages={detail.messages} darkMode={darkMode} />
 
                         {/* Generation metadata */}
                         {detail.generations.length > 0 && (

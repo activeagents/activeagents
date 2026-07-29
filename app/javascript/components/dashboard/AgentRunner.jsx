@@ -34,19 +34,25 @@ export default function AgentRunner({ agent, onBack }) {
     }
   };
 
+  // Kick off an async run, then poll the run endpoint so the activity feed
+  // streams pending llm/tool/agent events while the run executes.
+  const POLL_INTERVAL_MS = 1200;
+  const POLL_TIMEOUT_MS = 10 * 60 * 1000;
+
   const handleRun = async () => {
     if (!prompt.trim() || isRunning) return;
 
     setIsRunning(true);
     setCurrentRun({
-      status: 'running',
+      status: 'pending',
       input_prompt: prompt,
       output: '',
+      logs: [],
       started_at: new Date().toISOString()
     });
 
     try {
-      const response = await fetch(`/api/agents/${agent.id}/test`, {
+      const response = await fetch(`/api/agents/${agent.id}/execute`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ prompt: prompt })
@@ -69,23 +75,55 @@ export default function AgentRunner({ agent, onBack }) {
         throw new Error(data.error || 'Run failed');
       }
 
-      setCurrentRun({
-        ...data.run,
-        output: data.output
-      });
+      const runId = data.run.id;
+      const startedPolling = Date.now();
 
-      // Refresh runs list
-      loadRuns();
+      const poll = async () => {
+        try {
+          const runResponse = await fetch(`/api/runs/${runId}`);
+          if (runResponse.ok) {
+            const runData = await runResponse.json();
+            setCurrentRun(runData.run);
+            if (!['pending', 'running'].includes(runData.run.status)) {
+              setIsRunning(false);
+              loadRuns();
+              return;
+            }
+          }
+        } catch {
+          // transient poll failure — keep trying until timeout
+        }
+        if (Date.now() - startedPolling < POLL_TIMEOUT_MS) {
+          setTimeout(poll, POLL_INTERVAL_MS);
+        } else {
+          setIsRunning(false);
+        }
+      };
+      poll();
     } catch (error) {
       setCurrentRun(prev => ({
         ...prev,
         status: 'failed',
         error_message: error.message
       }));
-    } finally {
       setIsRunning(false);
     }
   };
+
+  // Pair started/done progress events by eid for the live activity feed.
+  const activityFeed = (run) => {
+    const events = (run?.logs || []).filter(entry => entry.eid);
+    const byEid = new Map();
+    events.forEach(event => {
+      const existing = byEid.get(event.eid);
+      if (!existing || event.status !== 'started') {
+        byEid.set(event.eid, { ...(existing || {}), ...event });
+      }
+    });
+    return [...byEid.values()];
+  };
+
+  const EVENT_ICONS = { llm: '∿', tool: '[]', agent: '@', mcp: '<>', thinking: '~' };
 
   const handleKeyDown = (e) => {
     if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
@@ -220,19 +258,51 @@ export default function AgentRunner({ agent, onBack }) {
             className="flex-1 p-4 overflow-auto bg-gray-50 font-mono text-sm"
           >
             {currentRun ? (
-              currentRun.status === 'running' ? (
-                <div className="flex items-center space-x-2 text-gray-500">
-                  <span className="animate-pulse">●</span>
-                  <span>Generating response...</span>
-                </div>
-              ) : currentRun.error_message ? (
-                <div className="text-red-600">
-                  <div className="font-semibold mb-2">Error:</div>
-                  <pre className="whitespace-pre-wrap">{currentRun.error_message}</pre>
-                </div>
-              ) : (
-                <pre className="whitespace-pre-wrap text-gray-800">{currentRun.output || 'No output'}</pre>
-              )
+              <>
+                {/* Live activity feed — pending llm/tool/agent calls */}
+                {activityFeed(currentRun).length > 0 && (
+                  <div className="mb-4 space-y-1.5">
+                    {activityFeed(currentRun).map(event => (
+                      <div key={event.eid} className="flex items-start space-x-2 text-xs">
+                        <span className={`w-8 text-center flex-shrink-0 ${
+                          event.status === 'error' ? 'text-red-500' :
+                          event.status === 'started' ? 'text-blue-500' : 'text-emerald-600'
+                        }`}>
+                          {EVENT_ICONS[event.kind] || '·'}
+                        </span>
+                        <span className={event.status === 'started' ? 'text-gray-700' : 'text-gray-500'}>
+                          {event.label}
+                        </span>
+                        {event.status === 'started' ? (
+                          <span className="text-blue-500 animate-pulse">running…</span>
+                        ) : (
+                          <span className={event.status === 'error' ? 'text-red-500' : 'text-gray-400'}>
+                            {event.status === 'error' ? 'failed' : '✓'}
+                            {event.duration_ms != null && ` ${formatDuration(event.duration_ms)}`}
+                          </span>
+                        )}
+                        {event.detail && event.status !== 'done' && (
+                          <span className="text-gray-400 truncate max-w-md" title={event.detail}>{event.detail}</span>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {['pending', 'running'].includes(currentRun.status) ? (
+                  <div className="flex items-center space-x-2 text-gray-500">
+                    <span className="animate-pulse">●</span>
+                    <span>{activityFeed(currentRun).length > 0 ? 'Working…' : 'Starting run…'}</span>
+                  </div>
+                ) : currentRun.error_message ? (
+                  <div className="text-red-600">
+                    <div className="font-semibold mb-2">Error:</div>
+                    <pre className="whitespace-pre-wrap">{currentRun.error_message}</pre>
+                  </div>
+                ) : (
+                  <pre className="whitespace-pre-wrap text-gray-800">{currentRun.output || 'No output'}</pre>
+                )}
+              </>
             ) : (
               <div className="text-gray-400 text-center py-12">
                 Enter a prompt and click Run to test your agent
