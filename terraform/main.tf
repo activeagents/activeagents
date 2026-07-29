@@ -179,6 +179,9 @@ module "cloud_run" {
     RAILS_LOG_TO_STDOUT    = "true"
     RAILS_SERVE_STATIC_FILES = "true"
     SOLID_QUEUE_IN_PUMA    = "true"
+    # Migrations run via the dedicated Cloud Run migrate job; the web
+    # container boots straight to the server (see bin/docker-entrypoint)
+    SKIP_DB_PREPARE        = "true"
     DB_HOST                = "/cloudsql/${module.cloud_sql.connection_name}"
     DB_NAME                = module.cloud_sql.database_name
     DB_USER                = module.cloud_sql.database_user
