@@ -94,6 +94,18 @@ class AlignTelemetryTracesWithActiveAgent < ActiveRecord::Migration[8.2]
       add_index TABLE, :status
     end
 
+    # accounts.telemetry_api_key entered schema.rb in April without a
+    # migration ever being written, so schema-loaded databases have these
+    # while migration-evolved ones (staging) don't. Same defensive guards
+    # for the usage-tracking columns the Account model reads at runtime.
+    add_column :accounts, :telemetry_api_key, :string, if_not_exists: true
+    unless index_exists?(:accounts, :telemetry_api_key, unique: true)
+      add_index :accounts, :telemetry_api_key, unique: true
+    end
+    add_column :accounts, :agent_runs_this_period, :integer, default: 0, null: false, if_not_exists: true
+    add_column :accounts, :agent_runs_limit, :integer, default: 3, null: false, if_not_exists: true
+    add_column :accounts, :usage_period_start, :datetime, if_not_exists: true
+
     # Backfill telemetry API keys for accounts created before the key
     # generation callback existed.
     Account.reset_column_information
