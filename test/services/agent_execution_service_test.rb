@@ -10,6 +10,40 @@ class AgentExecutionServiceTest < ActiveSupport::TestCase
     @run = @agent.agent_runs.create!(input_prompt: "Hello there", status: :running, started_at: Time.current)
   end
 
+  test "execute_tool routes memory tools to the agent's AgentMemory" do
+    service = AgentExecutionService.new(@agent, @run)
+
+    saved = service.execute_tool("save_memory", content: "User is on the pro plan", category: "fact")
+    assert saved[:saved]
+
+    recalled = service.execute_tool("recall_memory")
+    assert_equal 1, recalled[:count]
+    assert_equal "User is on the pro plan", recalled[:entries].first[:content]
+    assert_equal "SupportBotAgent", recalled[:entries].first[:source_agent]
+
+    # Persisted on the shared AgentMemory, so another agent run on the same
+    # record picks it up (handoff).
+    assert_equal [ "User is on the pro plan" ], @agent.memory.summary_list
+  end
+
+  test "execute_tool routes non-memory tools to AgentToolbox" do
+    service = AgentExecutionService.new(@agent, @run)
+
+    result = service.execute_tool("calculate", expression: "6*7")
+    assert_equal 42, result[:result]
+  end
+
+  test "memory tool schemas are exposed when the agent enables the memory tool" do
+    agent = create_agent(user: @user, name: "Rememberer", tools: %w[memory])
+    run = agent.agent_runs.create!(input_prompt: "Hi", status: :running, started_at: Time.current)
+    # Account provider key makes openai "available" so tool schemas are built.
+    @account.provider_keys.create!(provider: "openai", credential: "sk-test")
+
+    service = AgentExecutionService.new(agent, run)
+    names = service.send(:tool_schemas).map { |d| d[:name] }
+    assert_equal %w[save_memory recall_memory], names
+  end
+
   test "runs with tools configured still succeed on the mock fallback" do
     agent = create_agent(user: @user, name: "Tool Bot", tools: %w[fetch code])
     run = agent.agent_runs.create!(input_prompt: "What is 2+2?", status: :running, started_at: Time.current)

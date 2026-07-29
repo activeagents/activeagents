@@ -57,6 +57,35 @@ class AgentToolbox
           required: [ "expression" ]
         }
       }
+    ],
+    # Memory tools mirror solid_agent's HasMemory contract. They are NOT in
+    # FUNCTIONS below — execution is subject-bound, so AgentExecutionService
+    # routes them to the run's AgentMemory instead of this module.
+    "memory" => [
+      {
+        name: "save_memory",
+        description: "Persist a short summary note to long-term memory. Use for facts, decisions, task outcomes, or anything a future agent or session should know. Keep each note self-contained.",
+        parameters: {
+          type: "object",
+          properties: {
+            content: { type: "string", description: "The summary note to remember" },
+            category: { type: "string", description: "Optional label, e.g. fact, task, handoff" }
+          },
+          required: [ "content" ]
+        }
+      },
+      {
+        name: "recall_memory",
+        description: "Read back previously saved memory notes for the current subject, most recent first. Use before starting work to pick up prior context or another agent's handoff.",
+        parameters: {
+          type: "object",
+          properties: {
+            category: { type: "string", description: "Only return notes with this label" },
+            limit: { type: "integer", description: "Maximum notes to return (default 20)" }
+          },
+          required: []
+        }
+      }
     ]
   }.freeze
 

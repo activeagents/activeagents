@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.2].define(version: 2026_07_29_000001) do
+ActiveRecord::Schema[8.2].define(version: 2026_07_29_000002) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
 
@@ -135,6 +135,28 @@ ActiveRecord::Schema[8.2].define(version: 2026_07_29_000001) do
     t.index ["finish_reason"], name: "index_agent_generations_on_finish_reason"
     t.index ["model"], name: "index_agent_generations_on_model"
     t.index ["trace_id"], name: "index_agent_generations_on_trace_id"
+  end
+
+  create_table "agent_memories", force: :cascade do |t|
+    t.datetime "created_at", null: false
+    t.bigint "memorable_id"
+    t.string "memorable_type"
+    t.string "scope", default: "default", null: false
+    t.datetime "updated_at", null: false
+    t.index ["memorable_type", "memorable_id", "scope"], name: "idx_on_memorable_type_memorable_id_scope_4cc0762a41", unique: true
+    t.index ["memorable_type", "memorable_id"], name: "index_agent_memories_on_memorable"
+  end
+
+  create_table "agent_memory_entries", force: :cascade do |t|
+    t.bigint "agent_memory_id", null: false
+    t.string "category"
+    t.text "content", null: false
+    t.datetime "created_at", null: false
+    t.string "source_agent"
+    t.datetime "updated_at", null: false
+    t.index ["agent_memory_id", "created_at"], name: "index_agent_memory_entries_on_agent_memory_id_and_created_at"
+    t.index ["agent_memory_id"], name: "index_agent_memory_entries_on_agent_memory_id"
+    t.index ["category"], name: "index_agent_memory_entries_on_category"
   end
 
   create_table "agent_messages", force: :cascade do |t|
@@ -713,6 +735,7 @@ ActiveRecord::Schema[8.2].define(version: 2026_07_29_000001) do
   add_foreign_key "active_storage_attachments", "active_storage_blobs", column: "blob_id"
   add_foreign_key "active_storage_variant_records", "active_storage_blobs", column: "blob_id"
   add_foreign_key "agent_generations", "agent_contexts"
+  add_foreign_key "agent_memory_entries", "agent_memories"
   add_foreign_key "agent_messages", "agent_contexts"
   add_foreign_key "agent_runs", "agents"
   add_foreign_key "agent_versions", "agents"
