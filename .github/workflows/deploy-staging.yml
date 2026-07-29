@@ -204,12 +204,24 @@ jobs:
 
       # The migrate job is terraform-managed (modules/cloud-run) and updated
       # to the new image by the deploy step above. Failures fail the
-      # pipeline — no silent skip.
+      # pipeline — no silent skip — and dump the job's logs so the actual
+      # Rails error is visible right here in CI.
       - name: Run database migrations
         run: |
           gcloud run jobs execute activeagents-staging-migrate \
             --region=${{ env.REGION }} \
-            --wait
+            --wait \
+          || {
+            echo "--- migrate job logs (last hour) ---"
+            gcloud logging read \
+              'resource.type="cloud_run_job" AND resource.labels.job_name="activeagents-staging-migrate"' \
+              --project=${{ env.PROJECT_ID }} \
+              --freshness=1h \
+              --limit=200 \
+              --order=asc \
+              --format="value(textPayload)" || true
+            exit 1
+          }
 
   smoke-test:
     needs: [deploy, migrate]
