@@ -136,8 +136,11 @@ resource "google_cloud_run_v2_job" "migrate" {
 
       containers {
         image   = var.image
+        # Migrate only the primary database: the cache/queue schemas are
+        # managed separately and db:prepare's create-if-missing behavior
+        # across all three databases needs privileges the app user may lack
         command = ["./bin/rails"]
-        args    = ["db:prepare"]
+        args    = ["db:migrate:primary"]
 
         resources {
           limits = {
