@@ -155,6 +155,14 @@ jobs:
             PUBLIC_URL="$CLOUD_RUN_URL"
           fi
 
+          # Prefer the staging hostname over the raw LB IP: TLS to a bare IP
+          # can never pass SNI certificate validation, which made every
+          # smoke test against https://<ip> fail with connection errors.
+          STAGING_DOMAIN=$(terraform output -raw staging_domain 2>/dev/null || echo "")
+          if [ -n "$STAGING_DOMAIN" ] && [ "$STAGING_DOMAIN" != "null" ]; then
+            PUBLIC_URL="https://$STAGING_DOMAIN"
+          fi
+
           echo "Public URL: $PUBLIC_URL"
           echo "url=$PUBLIC_URL" >> $GITHUB_OUTPUT
           echo "cloud_run_url=$CLOUD_RUN_URL" >> $GITHUB_OUTPUT
