@@ -3,10 +3,12 @@
 # Executes a dashboard-configured Agent through the activeagent gem and
 # records a telemetry trace for the run.
 #
-# The requested provider is used when its credentials are configured in
-# config/active_agent.yml; otherwise execution falls back to the gem's mock
-# provider so the full prompt -> provider -> response pipeline (including
-# usage accounting) still runs without external API keys.
+# The requested provider is used when credentials are available — the
+# account's own provider key (Settings -> Provider API Keys) when configured,
+# else the platform keys in config/active_agent.yml; otherwise execution
+# falls back to the gem's mock provider so the full prompt -> provider ->
+# response pipeline (including usage accounting) still runs without external
+# API keys.
 #
 # Traces are built with the gem's ActiveAgent::Telemetry::Span and persisted
 # through TelemetryTrace.create_from_payload — the same normalizer used by
@@ -42,6 +44,7 @@ class AgentExecutionService
 
       llm_span.set_tokens(input: input, output: output, thinking: thinking)
       llm_span.finish
+      tool_calls = record_tool_spans(root_span, response)
       root_span.finish
 
       {
@@ -52,7 +55,8 @@ class AgentExecutionService
           requested_provider: @agent_record.provider,
           mock: mock_fallback?,
           trace_id: root_span.trace_id,
-          context_id: conversation_context&.id
+          context_id: conversation_context&.id,
+          tool_calls: tool_calls
         },
         usage: {
           input_tokens: input,
@@ -90,11 +94,17 @@ class AgentExecutionService
     effective_provider = provider
     provider_model = @agent_record.model
     model_options = @agent_record.model_config.to_h.symbolize_keys.slice(:temperature, :max_tokens, :top_p)
+    if (account_key = account_provider_key(effective_provider))
+      # The account's own credential (API key, or host URL for ollama)
+      # overrides the platform's config/active_agent.yml settings.
+      model_options.merge!(account_key.generation_options)
+    end
     klass_name = agent_class_name
     agent_record = @agent_record
     input = @run.input_prompt
     instructions = @agent_record.instructions
     run_trace_id = trace_id
+    tool_definitions = tool_schemas
 
     agent_class = Class.new(ActiveAgent::Base) do
       # SolidAgent persists contexts under self.class.name; anonymous
@@ -113,6 +123,15 @@ class AgentExecutionService
         generate_with effective_provider, model: provider_model, **model_options
       end
 
+      # Expose the agent's server-executable tools (AgentToolbox) as public
+      # methods so the gem's tools_function can route provider tool calls
+      # to them.
+      tool_definitions.each do |definition|
+        define_method(definition[:name]) do |**kwargs|
+          AgentToolbox.call(definition[:name], **kwargs)
+        end
+      end
+
       define_method :ask do
         # Thread the run's telemetry trace_id through prompt_options so
         # SolidAgent's provenance (and AgentContext#record_generation_with_
@@ -122,6 +141,7 @@ class AgentExecutionService
 
         options = { message: input }
         options[:instructions] = instructions if instructions.present?
+        options[:tools] = tool_definitions if tool_definitions.present?
         prompt(**options)
       end
     end
@@ -129,8 +149,37 @@ class AgentExecutionService
     agent_class.ask.generate_now
   end
 
+  # Function-calling schemas for the agent's enabled tools that have
+  # server-side implementations (none for mock runs — the mock provider
+  # doesn't do tool calling).
+  def tool_schemas
+    return [] if provider == :mock
+
+    AgentToolbox.definitions_for(@agent_record.tools)
+  end
+
+  # Records a :tool span per tool-call roundtrip found in the response's
+  # message stack, mirroring the gem's telemetry instrumentation, so tool
+  # usage shows up in the Traces/Metrics views. Returns the tool names.
+  def record_tool_spans(root_span, response)
+    messages = response.respond_to?(:messages) ? Array(response.messages) : []
+    tool_messages = messages.select { |message| message.respond_to?(:role) && message.role.to_s == "tool" }
+
+    tool_messages.map do |message|
+      name = message.respond_to?(:name) && message.name.presence || "unknown"
+      tool_span = root_span.add_span("tool.#{name}", span_type: :tool)
+      tool_span.set_attribute("tool.name", name)
+      if message.respond_to?(:tool_call_id) && message.tool_call_id.present?
+        tool_span.set_attribute("tool.id", message.tool_call_id)
+      end
+      tool_span.finish
+      name
+    end
+  end
+
   def provider_available?(name)
     return true if name.to_s == "mock"
+    return true if account_provider_key(name).present?
 
     config = ActiveAgent.configuration[name.to_sym]
     return false unless config.respond_to?(:[])
@@ -142,6 +191,10 @@ class AgentExecutionService
     end
   rescue StandardError
     false
+  end
+
+  def account_provider_key(name)
+    account&.provider_key_for(name)
   end
 
   def build_root_span
