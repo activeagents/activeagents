@@ -79,6 +79,15 @@ resource "google_project_iam_member" "cloud_run_cloudsql_client" {
   member  = "serviceAccount:${google_service_account.cloud_run.email}"
 }
 
+# Grant the CI service account log read access so the deploy pipeline can
+# surface Cloud Run job output (e.g. migrate job failures) in CI logs
+resource "google_project_iam_member" "ci_logging_viewer" {
+  count   = var.ci_service_account != null ? 1 : 0
+  project = var.project_id
+  role    = "roles/logging.viewer"
+  member  = "serviceAccount:${var.ci_service_account}"
+}
+
 # Artifact Registry for Docker images
 resource "google_artifact_registry_repository" "activeagents" {
   project       = var.project_id
