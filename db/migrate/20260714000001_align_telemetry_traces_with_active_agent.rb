@@ -53,6 +53,26 @@ class AlignTelemetryTracesWithActiveAgent < ActiveRecord::Migration[8.2]
       add_index TABLE, :agent_class
     end
 
+    # The renamed table may predate some columns (staging drift) — add any
+    # that are missing before touching their defaults.
+    {
+      spans: [ :jsonb, { default: [] } ],
+      resource_attributes: [ :jsonb, { default: {} } ],
+      sdk_info: [ :jsonb, { default: {} } ],
+      total_duration_ms: [ :decimal, {} ],
+      total_input_tokens: [ :integer, { default: 0 } ],
+      total_output_tokens: [ :integer, { default: 0 } ],
+      total_thinking_tokens: [ :integer, { default: 0 } ],
+      status: [ :string, { default: "UNSET" } ],
+      agent_class: [ :string, {} ],
+      agent_action: [ :string, {} ],
+      error_message: [ :text, {} ],
+      service_name: [ :string, {} ],
+      environment: [ :string, {} ]
+    }.each do |column, (type, options)|
+      add_column TABLE, column, type, if_not_exists: true, **options
+    end
+
     # Defaults expected by ActiveAgent::TelemetryTrace.create_from_payload
     change_column_default TABLE, :spans, []
     change_column_default TABLE, :resource_attributes, {}
@@ -62,7 +82,7 @@ class AlignTelemetryTracesWithActiveAgent < ActiveRecord::Migration[8.2]
     change_column_default TABLE, :total_thinking_tokens, 0
     change_column_default TABLE, :status, "UNSET"
 
-    change_column_null TABLE, :timestamp, false, Time.current
+    change_column_null TABLE, :timestamp, false, Time.current if column_exists?(TABLE, :timestamp)
 
     unless index_exists?(TABLE, [ :account_id, :trace_id ], unique: true)
       add_index TABLE, [ :account_id, :trace_id ], unique: true

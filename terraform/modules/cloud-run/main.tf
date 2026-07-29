@@ -141,8 +141,9 @@ resource "google_cloud_run_v2_job" "migrate" {
 
         resources {
           limits = {
-            cpu    = "1"
-            memory = "1Gi"
+            # Match the service: a full Rails boot needs the same headroom
+            cpu    = var.cpu
+            memory = var.memory
           }
         }
 
