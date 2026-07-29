@@ -55,6 +55,11 @@ Rails.application.routes.draw do
     root to: "spaces#index"
   end
 
+  # MCP service — the account's agents presented as an authenticated MCP
+  # server (tools + agent:// resources) over Streamable HTTP JSON-RPC.
+  # Authenticated with a platform API key (Settings -> API Keys).
+  post "mcp", to: "api/mcp#create"
+
   # Telemetry ingestion — the activeagent gem's telemetry reporter POSTs
   # batched traces here (Configuration::DEFAULT_ENDPOINT is
   # https://api.activeagents.ai/v1/traces). Authenticated with the

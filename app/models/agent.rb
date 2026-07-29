@@ -5,6 +5,7 @@ class Agent < ApplicationRecord
   has_many :agent_versions, dependent: :destroy
   has_many :agent_runs, dependent: :destroy
   has_many :evaluations, dependent: :destroy
+  has_many :agent_memories, as: :memorable, dependent: :destroy
 
   # Validations
   validates :name, presence: true, length: { minimum: 2, maximum: 100 }
@@ -43,6 +44,20 @@ class Agent < ApplicationRecord
 
   # Available providers
   PROVIDERS = %w[openai anthropic ollama openrouter].freeze
+
+  # The ActiveAgent class name this agent's runs are recorded under — the
+  # correlation key between platform Agent records and telemetry traces
+  # (TelemetryTrace#agent_class) and solid_agent contexts.
+  def telemetry_agent_class
+    base = agent_class_name.presence || name.parameterize(separator: "_").camelize
+    base.end_with?("Agent") ? base : "#{base}Agent"
+  end
+
+  # The agent's long-term memory (solid_agent HasMemory contract) — the
+  # summary list its runs read/write via the memory tools.
+  def memory
+    AgentMemory.for(self)
+  end
 
   # Returns the configuration as a hash for versioning
   def configuration_snapshot

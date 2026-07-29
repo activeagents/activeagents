@@ -85,7 +85,44 @@ class AgentExecutionService
     provider == :mock && @agent_record.provider != "mock"
   end
 
+  # Routes a provider tool call to its implementation: memory tools bind to
+  # the agent record's AgentMemory (the solid_agent HasMemory contract);
+  # everything else is stateless and lives in AgentToolbox.
+  def execute_tool(name, **kwargs)
+    case name.to_s
+    when "save_memory"
+      entry = agent_memory.remember(
+        kwargs[:content].to_s,
+        source_agent: agent_class_name,
+        category: kwargs[:category]
+      )
+      { saved: true, id: entry.id, content: entry.content }
+    when "recall_memory"
+      entries = agent_memory.recall(limit: kwargs[:limit], category: kwargs[:category])
+      {
+        count: entries.size,
+        entries: entries.map do |entry|
+          {
+            content: entry.content,
+            category: entry.category,
+            source_agent: entry.source_agent,
+            created_at: entry.created_at&.iso8601
+          }.compact
+        end
+      }
+    else
+      AgentToolbox.call(name, **kwargs)
+    end
+  rescue StandardError => e
+    Rails.logger.warn("[AgentExecutionService] Tool #{name} failed: #{e.class} - #{e.message}")
+    { error: "#{name} failed: #{e.message}" }
+  end
+
   private
+
+  def agent_memory
+    @agent_memory ||= AgentMemory.for(@agent_record)
+  end
 
   def model
     mock_fallback? ? "mock-#{@agent_record.model}" : @agent_record.model
@@ -106,6 +143,7 @@ class AgentExecutionService
     instructions = @agent_record.instructions
     run_trace_id = trace_id
     tool_definitions = tool_schemas
+    service = self
 
     agent_class = Class.new(ActiveAgent::Base) do
       # SolidAgent persists contexts under self.class.name; anonymous
@@ -124,12 +162,13 @@ class AgentExecutionService
         generate_with effective_provider, model: provider_model, **model_options
       end
 
-      # Expose the agent's server-executable tools (AgentToolbox) as public
-      # methods so the gem's tools_function can route provider tool calls
-      # to them.
+      # Expose the agent's server-executable tools as public methods so the
+      # gem's tools_function can route provider tool calls to them. The
+      # service routes each call to AgentToolbox or, for memory tools, to
+      # the run's AgentMemory.
       tool_definitions.each do |definition|
         define_method(definition[:name]) do |**kwargs|
-          AgentToolbox.call(definition[:name], **kwargs)
+          service.execute_tool(definition[:name], **kwargs)
         end
       end
 
@@ -240,8 +279,7 @@ class AgentExecutionService
   end
 
   def agent_class_name
-    base = @agent_record.agent_class_name.presence || @agent_record.name.parameterize(separator: "_").camelize
-    base.end_with?("Agent") ? base : "#{base}Agent"
+    @agent_record.telemetry_agent_class
   end
 
   # Reuse the run's trace_id so AgentRun and TelemetryTrace correlate.

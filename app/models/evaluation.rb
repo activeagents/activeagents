@@ -1,11 +1,14 @@
 # frozen_string_literal: true
 
 # An evaluation definition for an agent: a named set of criteria scored
-# against the agent's recent generations (solid_agent's agent_generations).
+# against the agent's recorded behavior — its recent generations
+# (solid_agent's agent_generations dataset) and its telemetry traces.
 #
 # Criteria are stored as an array of { "key", "type", "config" } hashes.
-# Rule-based criterion types run deterministically; the llm_judge type asks
-# a judge model to score each sample and requires a configured provider.
+# Rule-based criterion types score each sampled generation
+# deterministically; telemetry criterion types score aggregates over the
+# agent's traces (error rate, latency); the llm_judge type asks a judge
+# model to score each sample and requires a configured provider.
 class Evaluation < ApplicationRecord
   belongs_to :agent
   has_many :evaluation_runs, dependent: :destroy
@@ -15,7 +18,9 @@ class Evaluation < ApplicationRecord
   RULE_CRITERION_TYPES = %w[
     response_present min_length max_latency_ms token_budget contains not_contains
   ].freeze
-  CRITERION_TYPES = (RULE_CRITERION_TYPES + %w[llm_judge]).freeze
+  # Scored from the agent's telemetry traces (aggregate, not per-sample).
+  TELEMETRY_CRITERION_TYPES = %w[trace_error_rate trace_latency].freeze
+  CRITERION_TYPES = (RULE_CRITERION_TYPES + TELEMETRY_CRITERION_TYPES + %w[llm_judge]).freeze
 
   validates :name, presence: true, uniqueness: { scope: :agent_id }
   validates :judge_kind, inclusion: { in: JUDGE_KINDS }

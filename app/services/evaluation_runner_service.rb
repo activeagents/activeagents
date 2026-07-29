@@ -21,8 +21,12 @@ class EvaluationRunnerService
   def call
     run = @evaluation.evaluation_runs.create!(status: :running)
 
-    samples = sample_generations
-    if samples.empty?
+    sample_criteria, telemetry_criteria = @evaluation.criteria.partition do |criterion|
+      !Evaluation::TELEMETRY_CRITERION_TYPES.include?(criterion["type"])
+    end
+
+    samples = sample_criteria.any? ? sample_generations : []
+    if sample_criteria.any? && samples.empty?
       run.update!(
         status: :failed,
         error_message: "No generations to evaluate yet — run the agent first",
@@ -34,7 +38,11 @@ class EvaluationRunnerService
     scores = {}
     per_sample_scores = Hash.new { |h, k| h[k] = [] }
 
-    @evaluation.criteria.each do |criterion|
+    telemetry_criteria.each do |criterion|
+      scores[criterion["key"]] = score_telemetry_criterion(criterion)
+    end
+
+    sample_criteria.each do |criterion|
       sample_scores = samples.map { |generation| score_sample(criterion, generation) }
 
       # nil means the criterion could not be scored (e.g. llm_judge without
@@ -84,6 +92,69 @@ class EvaluationRunnerService
       .order(created_at: :desc)
       .limit(@evaluation.sample_size)
       .to_a
+  end
+
+  # --- Telemetry criteria ---------------------------------------------------
+  #
+  # Scored from the agent's telemetry traces over a config window — an
+  # aggregate per criterion, not per sample. min/max/passed/total mirror the
+  # aggregate so results render like sample-based criteria in the UI.
+
+  def score_telemetry_criterion(criterion)
+    config = criterion["config"] || {}
+    window_hours = config.fetch("window_hours", 168).to_i.clamp(1, 720)
+
+    unless account
+      return { "skipped" => true, "reason" => "No account for telemetry lookup" }
+    end
+
+    traces = telemetry_traces(window_hours)
+    total = traces.count
+    if total.zero?
+      return {
+        "skipped" => true,
+        "reason" => "No telemetry traces for #{@evaluation.agent.telemetry_agent_class} in the last #{window_hours}h"
+      }
+    end
+
+    score, observed = case criterion["type"]
+    when "trace_error_rate"
+      max_rate = config.fetch("max_error_rate", 5.0).to_f
+      errors = traces.with_errors.count
+      rate = errors * 100.0 / total
+      value = if rate <= max_rate
+        1.0
+      elsif rate.zero?
+        1.0
+      else
+        max_rate.positive? ? (max_rate / rate).clamp(0.0, 1.0) : 0.0
+      end
+      [ value, { "error_rate" => rate.round(2), "errors" => errors, "max_error_rate" => max_rate } ]
+    when "trace_latency"
+      budget = config.fetch("max_avg_ms", 5_000).to_f
+      avg = traces.average(:total_duration_ms).to_f
+      value = avg.zero? || avg <= budget ? 1.0 : (budget / avg).clamp(0.0, 1.0)
+      [ value, { "avg_duration_ms" => avg.round, "max_avg_ms" => budget } ]
+    end
+
+    {
+      "score" => score.round(3),
+      "min" => score.round(3),
+      "max" => score.round(3),
+      "passed" => score >= PASS_THRESHOLD ? 1 : 0,
+      "total" => 1,
+      "source" => "telemetry",
+      "window_hours" => window_hours,
+      "traces" => total,
+      "observed" => observed
+    }
+  end
+
+  def telemetry_traces(window_hours)
+    TelemetryTrace
+      .for_account(account)
+      .for_agent(@evaluation.agent.telemetry_agent_class)
+      .for_date_range(window_hours.hours.ago, Time.current)
   end
 
   # Returns 0.0..1.0, or nil when the criterion cannot be scored.
