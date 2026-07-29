@@ -114,6 +114,80 @@ resource "google_cloud_run_v2_service" "main" {
   }
 }
 
+# Database migration job — executed by the deploy pipeline after each image
+# rollout (`gcloud run jobs execute activeagents-<env>-migrate --wait`).
+# Runs db:prepare with the same image/env/Cloud SQL wiring as the service.
+# The web service itself skips db:prepare at boot (SKIP_DB_PREPARE env) so
+# container startup goes straight to the app server instead of spending the
+# startup-probe window on a second Rails boot plus migrations.
+resource "google_cloud_run_v2_job" "migrate" {
+  project  = var.project_id
+  name     = "activeagents-${var.environment}-migrate"
+  location = var.region
+
+  template {
+    template {
+      service_account = var.service_account
+
+      vpc_access {
+        connector = var.vpc_connector_id
+        egress    = "PRIVATE_RANGES_ONLY"
+      }
+
+      containers {
+        image   = var.image
+        command = ["./bin/rails"]
+        args    = ["db:prepare"]
+
+        resources {
+          limits = {
+            cpu    = "1"
+            memory = "1Gi"
+          }
+        }
+
+        dynamic "env" {
+          for_each = var.env_vars
+          content {
+            name  = env.key
+            value = env.value
+          }
+        }
+
+        dynamic "env" {
+          for_each = var.secret_env_vars
+          content {
+            name = env.key
+            value_source {
+              secret_key_ref {
+                secret  = env.value
+                version = "latest"
+              }
+            }
+          }
+        }
+
+        volume_mounts {
+          name       = "cloudsql"
+          mount_path = "/cloudsql"
+        }
+      }
+
+      volumes {
+        name = "cloudsql"
+        cloud_sql_instance {
+          instances = [var.cloud_sql_connection]
+        }
+      }
+
+      timeout     = "900s"
+      max_retries = 1
+    }
+  }
+
+  labels = var.labels
+}
+
 # Allow unauthenticated access (public web app)
 # Note: This may fail if GCP org policy restricts public access
 # In that case, set allow_public_access = false
