@@ -1,0 +1,54 @@
+# frozen_string_literal: true
+
+require "test_helper"
+
+class AgentToolboxTest < ActiveSupport::TestCase
+  test "definitions_for maps supported agent tools and skips the rest" do
+    definitions = AgentToolbox.definitions_for(%w[fetch search code terminal playwright])
+
+    assert_equal %w[fetch_url web_search calculate], definitions.map { |d| d[:name] }
+    definitions.each do |definition|
+      assert definition[:description].present?
+      assert_equal "object", definition.dig(:parameters, :type)
+    end
+  end
+
+  test "definitions_for handles nil and empty tool lists" do
+    assert_equal [], AgentToolbox.definitions_for(nil)
+    assert_equal [], AgentToolbox.definitions_for([])
+  end
+
+  test "call returns an error hash for unknown tools" do
+    result = AgentToolbox.call("rm_rf", path: "/")
+
+    assert_equal "Unknown tool: rm_rf", result[:error]
+  end
+
+  test "call returns an error hash for bad arguments instead of raising" do
+    result = AgentToolbox.call("calculate", wrong_kwarg: "2+2")
+
+    assert_match(/Invalid arguments for calculate/, result[:error])
+  end
+
+  test "calculate evaluates arithmetic" do
+    assert_equal 14, AgentToolbox.calculate(expression: "2 + 3 * 4")[:result]
+    assert_equal 22.5, AgentToolbox.calculate(expression: "(2 + 3) * 4.5")[:result]
+    assert_equal(-6, AgentToolbox.calculate(expression: "-2 * 3")[:result])
+    assert_equal 1, AgentToolbox.calculate(expression: "7 % 3")[:result]
+    assert_in_delta 0.333333, AgentToolbox.calculate(expression: "1/3")[:result], 0.0001
+  end
+
+  test "calculate rejects division by zero and non-arithmetic input" do
+    assert_match(/Division by zero/, AgentToolbox.calculate(expression: "1 / 0")[:error])
+    assert_match(/Unsupported characters/, AgentToolbox.calculate(expression: "system('ls')")[:error])
+    assert_match(/Empty expression/, AgentToolbox.calculate(expression: "")[:error])
+  end
+
+  test "fetch_url refuses non-http and private targets" do
+    assert_equal "Only http(s) URLs are supported", AgentToolbox.fetch_url(url: "ftp://example.com")[:error]
+    assert_equal "URL host is not allowed", AgentToolbox.fetch_url(url: "http://127.0.0.1/latest")[:error]
+    assert_equal "URL host is not allowed", AgentToolbox.fetch_url(url: "http://localhost:11434/v1")[:error]
+    assert_equal "URL host is not allowed", AgentToolbox.fetch_url(url: "http://10.0.0.8/internal")[:error]
+    assert_equal "URL host is not allowed", AgentToolbox.fetch_url(url: "http://169.254.169.254/metadata")[:error]
+  end
+end

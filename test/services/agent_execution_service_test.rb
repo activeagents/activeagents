@@ -10,6 +10,52 @@ class AgentExecutionServiceTest < ActiveSupport::TestCase
     @run = @agent.agent_runs.create!(input_prompt: "Hello there", status: :running, started_at: Time.current)
   end
 
+  test "runs with tools configured still succeed on the mock fallback" do
+    agent = create_agent(user: @user, name: "Tool Bot", tools: %w[fetch code])
+    run = agent.agent_runs.create!(input_prompt: "What is 2+2?", status: :running, started_at: Time.current)
+
+    result = AgentExecutionService.call(agent, run)
+
+    assert result[:output].present?
+    assert_equal [], result[:metadata][:tool_calls]
+  end
+
+  test "records tool spans from the response's tool messages" do
+    fake_message = Struct.new(:role, :name, :tool_call_id)
+    fake_response = Struct.new(:messages)
+    response = fake_response.new([
+      fake_message.new("assistant", nil, nil),
+      fake_message.new("tool", "calculate", "call_1"),
+      fake_message.new("tool", "fetch_url", "call_2")
+    ])
+
+    service = AgentExecutionService.new(@agent, @run)
+    root_span = service.send(:build_root_span)
+    names = service.send(:record_tool_spans, root_span, response)
+
+    assert_equal %w[calculate fetch_url], names
+    tool_spans = root_span.children.select { |span| span.span_type.to_s == "tool" }
+    assert_equal 2, tool_spans.length
+    assert_equal "tool.calculate", tool_spans.first.name
+  end
+
+  test "treats the requested provider as available when the account stores a key for it" do
+    @account.provider_keys.create!(provider: "openai", credential: "sk-users-own-key")
+
+    service = AgentExecutionService.new(@agent, @run)
+    assert_equal :openai, service.provider
+    assert_not service.mock_fallback?
+  end
+
+  test "treats ollama as available when the account stores a host for it" do
+    agent = create_agent(user: @user, name: "Local Bot", provider: "ollama", model: "llama3")
+    run = agent.agent_runs.create!(input_prompt: "Hi", status: :running, started_at: Time.current)
+    @account.provider_keys.create!(provider: "ollama", credential: "http://localhost:11434/v1")
+
+    service = AgentExecutionService.new(agent, run)
+    assert_equal :ollama, service.provider
+  end
+
   test "falls back to the gem's mock provider when the requested provider is not configured" do
     result = AgentExecutionService.call(@agent, @run)
 

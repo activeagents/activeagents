@@ -169,29 +169,45 @@ class EvaluationRunnerService
   end
 
   def judge_provider
-    @judge_provider ||= %i[anthropic openai openrouter].find do |name|
-      config = ActiveAgent.configuration[name]
-      config.respond_to?(:[]) && config[:access_token].present?
-    end
+    @judge_provider ||=
+      %i[anthropic openai openrouter].find do |name|
+        account_provider_key(name).present? || global_provider_token?(name)
+      end || (:ollama if account_provider_key(:ollama).present?)
+  end
+
+  def global_provider_token?(name)
+    config = ActiveAgent.configuration[name]
+    config.respond_to?(:[]) && config[:access_token].present?
+  end
+
+  # The evaluated agent owner's stored provider key (Settings -> Provider
+  # API Keys); preferred over the platform's ENV credentials for the judge.
+  def account_provider_key(name)
+    account&.provider_key_for(name)
+  end
+
+  def account
+    @account ||= @evaluation.agent.user&.primary_account
   end
 
   def judge_class
     provider = judge_provider
     model = @evaluation.judge_model.presence
+    options = {}
+    options[:model] = model if model
+    if (account_key = account_provider_key(provider))
+      options.merge!(account_key.generation_options)
+    end
 
     @judge_class ||= Class.new(ActiveAgent::Base) do
       define_singleton_method(:name) { "EvaluationJudgeAgent" }
-      if model
-        generate_with provider, model: model
-      else
-        generate_with provider
-      end
+      generate_with provider, **options
     end
   end
 
   def skip_reason(criterion)
     if criterion["type"] == "llm_judge"
-      "LLM judge requires provider credentials (set ANTHROPIC_API_KEY or OPENAI_API_KEY)"
+      "LLM judge requires provider credentials (add a provider API key in Settings or set ANTHROPIC_API_KEY / OPENAI_API_KEY)"
     else
       "No scorable samples"
     end

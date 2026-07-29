@@ -142,6 +142,11 @@ Rails.application.routes.draw do
 
     resource :analytics, only: [ :show ], controller: "analytics", action: :index
 
+    # Settings -> API Keys: platform keys (token shown once on create) and
+    # per-account LLM provider credentials, both encrypted at rest.
+    resources :api_keys, only: [ :index, :create, :destroy ]
+    resources :provider_keys, only: [ :index, :create, :destroy ], param: :provider
+
     # Observability read APIs (dashboard Traces & Metrics views).
     # Backed by the activeagent gem's TelemetryTrace scopes, account-scoped.
     resources :traces, only: [ :index, :show ]
