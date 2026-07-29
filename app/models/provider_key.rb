@@ -23,7 +23,7 @@ class ProviderKey < ApplicationRecord
   validates :provider, presence: true, inclusion: { in: PROVIDERS },
     uniqueness: { scope: :account_id }
   validates :credential, presence: true, length: { maximum: 500 }
-  validates :credential, format: { with: %r{\Ahttps?://}, message: "must be an http(s):// URL" },
+  validates :credential, format: { with: %r{\Ahttps?://\S+\z}, message: "must be an http(s):// URL" },
     if: :host_based?
 
   def host_based?
