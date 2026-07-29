@@ -202,12 +202,14 @@ jobs:
       - name: Set up Cloud SDK
         uses: google-github-actions/setup-gcloud@v3
 
+      # The migrate job is terraform-managed (modules/cloud-run) and updated
+      # to the new image by the deploy step above. Failures fail the
+      # pipeline — no silent skip.
       - name: Run database migrations
         run: |
           gcloud run jobs execute activeagents-staging-migrate \
             --region=${{ env.REGION }} \
-            --wait \
-            || echo "Migration job may not exist yet, skipping..."
+            --wait
 
   smoke-test:
     needs: [deploy, migrate]
