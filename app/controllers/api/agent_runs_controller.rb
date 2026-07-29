@@ -8,6 +8,7 @@ module Api
     def show
       render json: {
         run: run_json(@run),
+        messages: interaction_messages(@run),
         agent: {
           id: @run.agent.id,
           name: @run.agent.name,
@@ -51,6 +52,33 @@ module Api
 
     def set_run
       @run = AgentRun.find(params[:id])
+    end
+
+    # The run's slice of its agent's conversation stream, for the shared
+    # InteractionStream UI. User messages carry the run's trace_id in
+    # provenance (SolidAgent::HasContext); the slice spans from this run's
+    # user message up to the next user message with a different trace_id.
+    def interaction_messages(run)
+      return [] if run.trace_id.blank?
+
+      context = AgentContext.for_agents(Agent.where(id: run.agent_id)).order(created_at: :desc).first
+      return [] unless context
+
+      messages = context.messages.chronological.to_a
+      start_index = messages.index do |message|
+        message.role == "user" && message.provenance&.dig("trace_id") == run.trace_id
+      end
+      return [] unless start_index
+
+      slice = [ messages[start_index] ]
+      messages[(start_index + 1)..].each do |message|
+        trace = message.provenance&.dig("trace_id")
+        break if message.role == "user" && trace.present? && trace != run.trace_id
+
+        slice << message
+      end
+
+      slice.map { |message| AgentMessageSerializer.call(message) }
     end
 
     def run_json(run, include_agent: false)

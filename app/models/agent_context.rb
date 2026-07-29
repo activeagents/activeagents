@@ -76,12 +76,14 @@ class AgentContext < ApplicationRecord
     messages.create!(role: "system", content: content)
   end
 
-  def add_tool_message(tool_call_id:, tool_name:, result:)
+  def add_tool_message(tool_call_id:, tool_name:, result:, arguments: nil, duration_ms: nil)
     messages.create!(
       role: "tool",
       tool_call_id: tool_call_id,
       tool_name: tool_name,
       tool_result: result,
+      tool_arguments: arguments.presence || {},
+      metadata: duration_ms ? { "duration_ms" => duration_ms } : {},
       content: result.is_a?(String) ? result : result.to_json
     )
   end

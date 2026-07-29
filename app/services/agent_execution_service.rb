@@ -24,16 +24,35 @@ class AgentExecutionService
   def initialize(agent_record, run)
     @agent_record = agent_record
     @run = run
+    @tool_invocations = []
+    @event_sequence = 0
+  end
+
+  # Emits a progress event on the run (streamed to the UI by pollers).
+  # Never lets telemetry break execution.
+  def emit_event(**kwargs)
+    @run.append_event(**kwargs)
+  rescue StandardError => e
+    Rails.logger.warn("[AgentExecutionService] event emit failed: #{e.message}")
+  end
+
+  def next_event_id
+    @event_sequence += 1
+    "#{@run.id}-#{@event_sequence}"
   end
 
   def call
-    root_span = build_root_span
+    root_span = @root_span = build_root_span
     llm_span = root_span.add_span(
       "llm.generate",
       span_type: :llm,
       "llm.provider" => provider.to_s,
       "llm.model" => model
     )
+
+    llm_eid = next_event_id
+    llm_started = Process.clock_gettime(Process::CLOCK_MONOTONIC)
+    emit_event(eid: llm_eid, kind: "llm", label: "#{provider}/#{model} generating", status: "started")
 
     begin
       response = generate!
@@ -44,6 +63,11 @@ class AgentExecutionService
 
       llm_span.set_tokens(input: input, output: output, thinking: thinking)
       llm_span.finish
+      emit_event(
+        eid: llm_eid, kind: "llm", label: "#{provider}/#{model} generating", status: "done",
+        duration_ms: ((Process.clock_gettime(Process::CLOCK_MONOTONIC) - llm_started) * 1000).round,
+        detail: "#{input} in / #{output} out tokens#{thinking.positive? ? " / #{thinking} thinking" : ""}"
+      )
       tool_calls = record_tool_spans(root_span, response)
       persist_tool_messages(response)
       root_span.finish
@@ -70,6 +94,7 @@ class AgentExecutionService
       llm_span.finish
       root_span.record_error(e)
       root_span.finish
+      emit_event(eid: llm_eid, kind: "llm", label: "#{provider}/#{model} generating", status: "error", detail: e.message)
       raise
     ensure
       record_trace(root_span)
@@ -88,37 +113,113 @@ class AgentExecutionService
   # Routes a provider tool call to its implementation: memory tools bind to
   # the agent record's AgentMemory (the solid_agent HasMemory contract);
   # everything else is stateless and lives in AgentToolbox.
+  #
+  # Each call is wrapped in a live :tool span (real start/end around the
+  # execution) and recorded in @tool_invocations so tool names, arguments
+  # and durations reach Traces and the persisted conversation.
   def execute_tool(name, **kwargs)
-    case name.to_s
-    when "save_memory"
-      entry = agent_memory.remember(
-        kwargs[:content].to_s,
-        source_agent: agent_class_name,
-        category: kwargs[:category]
-      )
-      { saved: true, id: entry.id, content: entry.content }
-    when "recall_memory"
-      entries = agent_memory.recall(limit: kwargs[:limit], category: kwargs[:category])
-      {
-        count: entries.size,
-        entries: entries.map do |entry|
-          {
-            content: entry.content,
-            category: entry.category,
-            source_agent: entry.source_agent,
-            created_at: entry.created_at&.iso8601
-          }.compact
-        end
-      }
-    else
-      AgentToolbox.call(name, **kwargs)
+    span = @root_span&.add_span("tool.#{name}", span_type: :tool)
+    span&.set_attribute("tool.name", name.to_s)
+    span&.set_attribute("tool.args", kwargs.to_json.byteslice(0, 500)) if kwargs.present?
+    started = Process.clock_gettime(Process::CLOCK_MONOTONIC)
+
+    event_kind = name.to_s == "call_agent" ? "agent" : "tool"
+    event_label = name.to_s == "call_agent" ? "call_agent → #{kwargs[:slug]}" : name.to_s
+    event_id = next_event_id
+    emit_event(eid: event_id, kind: event_kind, label: event_label, status: "started", detail: kwargs.to_json)
+
+    result = begin
+      case name.to_s
+      when "save_memory"
+        entry = agent_memory.remember(
+          kwargs[:content].to_s,
+          source_agent: agent_class_name,
+          category: kwargs[:category]
+        )
+        { saved: true, id: entry.id, content: entry.content }
+      when "recall_memory"
+        entries = agent_memory.recall(limit: kwargs[:limit], category: kwargs[:category])
+        {
+          count: entries.size,
+          entries: entries.map do |entry|
+            {
+              content: entry.content,
+              category: entry.category,
+              source_agent: entry.source_agent,
+              created_at: entry.created_at&.iso8601
+            }.compact
+          end
+        }
+      when "call_agent"
+        call_agent(slug: kwargs[:slug], message: kwargs[:message])
+      else
+        AgentToolbox.call(name, **kwargs)
+      end
+    rescue StandardError => e
+      Rails.logger.warn("[AgentExecutionService] Tool #{name} failed: #{e.class} - #{e.message}")
+      { error: "#{name} failed: #{e.message}" }
     end
-  rescue StandardError => e
-    Rails.logger.warn("[AgentExecutionService] Tool #{name} failed: #{e.class} - #{e.message}")
-    { error: "#{name} failed: #{e.message}" }
+
+    duration_ms = ((Process.clock_gettime(Process::CLOCK_MONOTONIC) - started) * 1000).round(2)
+    errored = result.respond_to?(:key?) && (result.key?(:error) || result.key?("error"))
+    span&.set_attribute("tool.error", true) if errored
+    span&.finish
+    emit_event(
+      eid: event_id, kind: event_kind, label: event_label,
+      status: errored ? "error" : "done", duration_ms: duration_ms,
+      detail: errored ? (result[:error] || result["error"]).to_s : nil
+    )
+    @tool_invocations << {
+      name: name.to_s,
+      arguments: kwargs,
+      duration_ms: duration_ms,
+      error: errored
+    }
+
+    result
   end
 
   private
+
+  # Maximum agent-to-agent delegation depth for the call_agent tool. A
+  # thread-local counter guards it because the sub-agent runs synchronously
+  # on the same thread via Agent#test_execute.
+  MAX_CALL_DEPTH = 2
+
+  # Executes another agent of the same account synchronously and returns
+  # its reply, so agents can delegate to each other as a tool call. The
+  # sub-run is a real AgentRun with its own trace.
+  def call_agent(slug:, message:)
+    depth = Thread.current[:agent_call_depth].to_i
+    return { error: "call_agent depth limit (#{MAX_CALL_DEPTH}) reached" } if depth >= MAX_CALL_DEPTH
+
+    target = workspace_agents.where.not(id: @agent_record.id).find_by(slug: slug.to_s)
+    return { error: "No agent with slug '#{slug}' in this workspace" } unless target
+
+    Thread.current[:agent_call_depth] = depth + 1
+    begin
+      sub_run = target.test_execute(message.to_s)
+      {
+        agent: target.slug,
+        run_id: sub_run.id,
+        status: sub_run.status,
+        output: sub_run.output.presence || sub_run.error_message
+      }
+    ensure
+      Thread.current[:agent_call_depth] = depth
+    end
+  end
+
+  # Agents callable via call_agent: same workspace as the calling agent's
+  # owner (mirrors Api::McpController#account_agents scoping).
+  def workspace_agents
+    owner = @agent_record.user
+    return Agent.none unless owner
+
+    account = owner.primary_account
+    user_ids = account ? ([ account.owner_id ] | account.members.pluck(:id)) : [ owner.id ]
+    Agent.where(user_id: user_ids).where.not(status: :archived)
+  end
 
   def agent_memory
     @agent_memory ||= AgentMemory.for(@agent_record)
@@ -207,26 +308,37 @@ class AgentExecutionService
     return unless context
     return unless response.respond_to?(:messages)
 
-    Array(response.messages).each do |message|
-      next unless message.respond_to?(:role) && message.role.to_s == "tool"
+    tool_messages = Array(response.messages).select do |message|
+      message.respond_to?(:role) && message.role.to_s == "tool"
+    end
 
+    tool_messages.each_with_index do |message, index|
       tool_call_id = message.respond_to?(:tool_call_id) ? message.tool_call_id : nil
       next if tool_call_id.present? && context.messages.exists?(role: "tool", tool_call_id: tool_call_id)
 
+      # Provider tool messages often carry no name (Ollama's don't); fall
+      # back to the service's own invocation record, matched by order.
+      invocation = @tool_invocations[index]
+      name = (message.name if message.respond_to?(:name)).presence || invocation&.dig(:name)
+
       context.add_tool_message(
         tool_call_id: tool_call_id,
-        tool_name: (message.name if message.respond_to?(:name)),
-        result: (message.content if message.respond_to?(:content))
+        tool_name: name,
+        result: (message.content if message.respond_to?(:content)),
+        arguments: invocation&.dig(:arguments),
+        duration_ms: invocation&.dig(:duration_ms)
       )
     end
   rescue StandardError => e
     Rails.logger.error("[AgentExecutionService] Failed to persist tool messages: #{e.message}")
   end
 
-  # Records a :tool span per tool-call roundtrip found in the response's
-  # message stack, mirroring the gem's telemetry instrumentation, so tool
-  # usage shows up in the Traces/Metrics views. Returns the tool names.
+  # Tool names for run metadata. Spans are recorded live in execute_tool;
+  # the response-message scan only covers calls the provider executed
+  # without routing through the service (none today, but cheap insurance).
   def record_tool_spans(root_span, response)
+    return @tool_invocations.map { |invocation| invocation[:name] } if @tool_invocations.any?
+
     messages = response.respond_to?(:messages) ? Array(response.messages) : []
     tool_messages = messages.select { |message| message.respond_to?(:role) && message.role.to_s == "tool" }
 
