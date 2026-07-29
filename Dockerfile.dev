@@ -1,0 +1,22 @@
+# Development image for running the dashboard in a container on macOS
+# (Docker Desktop, OrbStack, or Apple's `container` CLI) while a local LLM
+# (Ollama) runs natively on the host for Metal acceleration.
+#
+# The app source is bind-mounted; gems and node_modules live in named
+# volumes so installs survive rebuilds. See docs/local-mac-llm.md.
+FROM ruby:3.4.8-slim
+
+RUN apt-get update -qq && \
+    apt-get install --no-install-recommends -y \
+      build-essential git curl libpq-dev libyaml-dev pkg-config postgresql-client nodejs npm && \
+    rm -rf /var/lib/apt/lists/*
+
+WORKDIR /app
+
+ENV BUNDLE_PATH=/bundle \
+    RAILS_ENV=development
+
+EXPOSE 3000
+
+# Deps are installed at boot (source is bind-mounted) — see docker-compose.dev.yml.
+CMD ["bash", "-lc", "bundle check || bundle install && npm install --no-audit --no-fund && npm run build && npm run build:css && bin/rails db:prepare && bin/rails server -b 0.0.0.0 -p 3000"]
