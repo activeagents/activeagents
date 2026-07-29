@@ -1,9 +1,11 @@
 import React, { useState, useEffect, useRef } from 'react';
 import AgentAvatar from '../AgentAvatar';
+import InteractionStream from './InteractionStream';
 
 export default function ConversationHistory({ agent, onBack }) {
   const [runs, setRuns] = useState([]);
   const [selectedRun, setSelectedRun] = useState(null);
+  const [selectedMessages, setSelectedMessages] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [page, setPage] = useState(1);
   const [hasMore, setHasMore] = useState(true);
@@ -45,6 +47,7 @@ export default function ConversationHistory({ agent, onBack }) {
       const response = await fetch(`/api/runs/${runId}`);
       const data = await response.json();
       setSelectedRun(data.run);
+      setSelectedMessages(data.messages || []);
     } catch (error) {
       console.error('Failed to load run details:', error);
     }
@@ -250,6 +253,20 @@ export default function ConversationHistory({ agent, onBack }) {
                   </div>
                 </div>
               </div>
+
+              {/* Full interaction stream — same component as the
+                  Interactions view, scoped to this run (tool calls,
+                  arguments, results, provenance). */}
+              {selectedMessages.length > 0 && (
+                <div className="max-w-3xl mx-auto w-full">
+                  <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-4">
+                    <div className="text-xs uppercase tracking-wide text-gray-400 mb-3">
+                      Interaction stream · {selectedMessages.length} messages — click a message for details
+                    </div>
+                    <InteractionStream messages={selectedMessages} darkMode={false} />
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* Run Stats */}
