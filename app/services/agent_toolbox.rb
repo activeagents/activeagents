@@ -80,10 +80,16 @@ class AgentToolbox
 
     # Executes a tool call. Returns a result hash; errors are returned as
     # { error: ... } so the model can react instead of the run crashing.
+    #
+    # Results are cached by (tool, args) with a short TTL — repeated
+    # interactions replay the persisted result (tagged cached: true)
+    # instead of re-running the side effect.
     def call(name, **kwargs)
       return { error: "Unknown tool: #{name}" } unless function?(name)
 
-      public_send(FUNCTIONS.fetch(name.to_s), **kwargs)
+      cached_fetch(name, kwargs) do
+        public_send(FUNCTIONS.fetch(name.to_s), **kwargs)
+      end
     rescue ArgumentError => e
       { error: "Invalid arguments for #{name}: #{e.message}" }
     rescue StandardError => e
@@ -139,6 +145,27 @@ class AgentToolbox
     end
 
     private
+
+    CACHE_TTL = 5.minutes
+
+    # Uses SolidAgent::ToolCache when the installed solid_agent provides it
+    # (it carries the canonical key scheme + error-skipping semantics);
+    # falls back to an equivalent Rails.cache fetch on older gem versions.
+    def cached_fetch(name, kwargs, &block)
+      if defined?(SolidAgent::ToolCache)
+        SolidAgent::ToolCache.fetch(tool: name.to_s, args: kwargs, ttl: CACHE_TTL, &block)
+      else
+        key = "solid_agent:tool_cache:#{name}:#{Digest::SHA256.hexdigest(kwargs.sort.to_h.to_json)}"
+        cached = Rails.cache.read(key)
+        return cached.merge(cached: true) unless cached.nil?
+
+        result = block.call
+        unless result.respond_to?(:key?) && (result.key?(:error) || result.key?("error"))
+          Rails.cache.write(key, result, expires_in: CACHE_TTL)
+        end
+        result
+      end
+    end
 
     # SSRF guard for fetch_url: reject hosts that resolve to loopback,
     # private, or link-local addresses.
