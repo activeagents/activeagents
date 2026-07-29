@@ -17,6 +17,9 @@ Rails.application.configure do
   # commercial lander by host; ?site=oss|commercial also forces a variant.
   config.hosts << "activeagent.dev" << "www.activeagent.dev" << "activeagent.pro" << "www.activeagent.pro"
 
+  # OrbStack container domain (docker-compose.dev.yml labels).
+  config.hosts << "activeagents.orb.local"
+
   # Enable server timing.
   config.server_timing = true
 

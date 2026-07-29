@@ -33,6 +33,12 @@ services:
       dockerfile: Dockerfile.dev
     ports:
       - "3000:3000"
+    labels:
+      # OrbStack routes https://activeagents.orb.local straight to the
+      # container (trusted local CA, no published port needed) — avoids
+      # localhost port collisions with other projects. No-op elsewhere.
+      dev.orbstack.domains: activeagents.orb.local
+      dev.orbstack.http-port: "3000"
     depends_on:
       db:
         condition: service_healthy
