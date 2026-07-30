@@ -21,7 +21,10 @@ const timeAgo = (iso) => {
 };
 
 
-export default function InteractionsView() {
+// agentId scopes the view to one agent's conversation streams (per-agent
+// embed: same component, different UX context); embedded hides the page
+// header so it can sit inside another view's chrome.
+export default function InteractionsView({ agentId = null, embedded = false }) {
   const { darkMode } = useTheme();
   const [sessions, setSessions] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -31,7 +34,7 @@ export default function InteractionsView() {
 
   const fetchSessions = useCallback(async () => {
     try {
-      const response = await fetch('/api/interactions');
+      const response = await fetch(`/api/interactions${agentId ? `?agent_id=${agentId}` : ''}`);
       if (!response.ok) throw new Error(`Request failed (${response.status})`);
       const data = await response.json();
       setSessions(data.interactions || []);
@@ -41,7 +44,7 @@ export default function InteractionsView() {
     } finally {
       setIsLoading(false);
     }
-  }, []);
+  }, [agentId]);
 
   useEffect(() => {
     fetchSessions();
@@ -109,12 +112,14 @@ export default function InteractionsView() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div>
-        <h1 className="text-2xl font-bold" style={{ color: colors.textPrimary }}>Interactions</h1>
-        <p className="text-sm mt-1" style={{ color: colors.textSecondary }}>
-          Persisted conversation streams per agent — messages, generations and provenance
-        </p>
-      </div>
+      {!embedded && (
+        <div>
+          <h1 className="text-2xl font-bold" style={{ color: colors.textPrimary }}>Interactions</h1>
+          <p className="text-sm mt-1" style={{ color: colors.textSecondary }}>
+            Persisted conversation streams per agent — messages, generations and provenance
+          </p>
+        </div>
+      )}
 
       {loadError && (
         <div className="p-3 rounded-lg text-sm" style={{ background: darkMode ? 'rgba(239,68,68,0.1)' : '#fef2f2', color: '#ef4444' }}>

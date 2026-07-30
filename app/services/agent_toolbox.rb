@@ -35,7 +35,7 @@ class AgentToolbox
     "playwright" => [
       {
         name: "browse_page",
-        description: "Browse a page on the trusted documentation site (docs.activeagents.ai) and return its readable text. Use to look up Active Agent concepts, APIs, and guides. Pass a full URL or a path like /docs/agents.",
+        description: "Browse a page on the trusted documentation site (docs.activeagents.ai) and return its readable text. Use to look up Active Agent concepts, APIs, and guides. Start with url \"/\" to see the site's sections, then browse the exact paths that appear in the returned text — do not invent paths.",
         parameters: {
           type: "object",
           properties: {
@@ -159,21 +159,32 @@ class AgentToolbox
       { error: "#{name} failed: #{e.message}" }
     end
 
+    MAX_REDIRECTS = 3
+
     def fetch_url(url:)
       uri = URI.parse(url.to_s)
       return { error: "Only http(s) URLs are supported" } unless uri.is_a?(URI::HTTP)
       return { error: "URL host is not allowed" } unless public_host?(uri.host)
 
-      response = Net::HTTP.start(
-        uri.host, uri.port,
-        use_ssl: uri.scheme == "https",
-        open_timeout: FETCH_TIMEOUT_SECONDS,
-        read_timeout: FETCH_TIMEOUT_SECONDS
-      ) { |http| http.get(uri.request_uri.presence || "/", { "User-Agent" => "ActiveAgents-Toolbox/1.0" }) }
+      response = nil
+      (MAX_REDIRECTS + 1).times do
+        response = Net::HTTP.start(
+          uri.host, uri.port,
+          use_ssl: uri.scheme == "https",
+          open_timeout: FETCH_TIMEOUT_SECONDS,
+          read_timeout: FETCH_TIMEOUT_SECONDS
+        ) { |http| http.get(uri.request_uri.presence || "/", { "User-Agent" => "ActiveAgents-Toolbox/1.0" }) }
+
+        break unless response.is_a?(Net::HTTPRedirection) && response["Location"].present?
+
+        uri = URI.join(uri, response["Location"])
+        return { error: "Only http(s) URLs are supported" } unless uri.is_a?(URI::HTTP)
+        return { error: "Redirected to a disallowed host" } unless public_host?(uri.host)
+      end
 
       body = response.body.to_s.byteslice(0, FETCH_LIMIT_BYTES).to_s.scrub
       {
-        url: url,
+        url: uri.to_s,
         status: response.code.to_i,
         content_type: response["Content-Type"],
         body: body,
@@ -219,12 +230,26 @@ class AgentToolbox
       result = fetch_url(url: url)
       return result if result[:error]
 
+      # A redirect may not stay on the trusted host — re-check after fetch.
+      final_host = URI.parse(result[:url].to_s).host
+      unless BROWSE_ALLOWED_HOSTS.include?(final_host)
+        return { error: "Page redirected off the trusted docs host (#{final_host})" }
+      end
+
+      if result[:status] == 404
+        return {
+          url: result[:url], status: 404,
+          error: "Page not found. Don't guess paths — browse '/' first and follow link paths that appear in the returned text."
+        }
+      end
+
       text = result[:body].to_s
         .gsub(%r{<(script|style)[^>]*>.*?</\1>}mi, " ")
         .gsub(/<[^>]+>/, " ")
         .then { |stripped| CGI.unescapeHTML(stripped) }
+        .gsub(/\s*\n\s*/, "\n")
         .gsub(/[ \t]+/, " ")
-        .gsub(/\n{3,}/, "\n\n")
+        .gsub(/\n{2,}/, "\n")
         .strip
 
       { url: result[:url], status: result[:status], text: text.byteslice(0, 20_000).to_s.scrub, truncated: result[:truncated] || text.bytesize > 20_000 }

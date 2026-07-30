@@ -50,7 +50,9 @@ module Api
     private
 
     def interactions_scope
-      AgentContext.for_agents(current_user.agents)
+      agents = current_user.agents
+      agents = agents.where(id: params[:agent_id]) if params[:agent_id].present?
+      AgentContext.for_agents(agents)
     end
 
     def serialize_context(context)

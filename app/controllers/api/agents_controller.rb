@@ -282,7 +282,8 @@ module Api
           mcp_servers: agent.mcp_servers,
           model_config: agent.model_config,
           response_format: agent.response_format,
-          agent_class_name: agent.agent_class_name
+          agent_class_name: agent.agent_class_name,
+          telemetry_agent_class: agent.telemetry_agent_class
         )
       end
 
