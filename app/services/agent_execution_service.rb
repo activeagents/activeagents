@@ -131,6 +131,10 @@ class AgentExecutionService
   # execution) and recorded in @tool_invocations so tool names, arguments
   # and durations reach Traces and the persisted conversation.
   def execute_tool(name, **kwargs)
+    # Record the absolute URL browse_page will actually fetch, not the bare
+    # path the model passed — spans/events/persisted args stay unambiguous.
+    kwargs[:url] = AgentToolbox.resolve_browse_url(kwargs[:url]) if name.to_s == "browse_page" && kwargs[:url]
+
     span = @root_span&.add_span("tool.#{name}", span_type: :tool)
     span&.set_attribute("tool.name", name.to_s)
     span&.set_attribute("tool.args", kwargs.to_json.byteslice(0, 500)) if kwargs.present?
