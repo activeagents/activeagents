@@ -355,6 +355,15 @@ export default function AgentRunner({ agent, onBack }) {
               </dd>
             </div>
           </dl>
+
+          {agent.instructions && (
+            <div className="mt-3 pt-3 border-t border-gray-100">
+              <div className="text-xs text-gray-500 mb-1.5">System Instructions</div>
+              <p className="text-xs text-gray-700 whitespace-pre-wrap max-h-44 overflow-y-auto font-mono leading-relaxed">
+                {agent.instructions}
+              </p>
+            </div>
+          )}
         </div>
 
         {/* Recent Runs */}

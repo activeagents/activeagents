@@ -152,6 +152,10 @@ Rails.application.routes.draw do
     resources :api_keys, only: [ :index, :create, :destroy ]
     resources :provider_keys, only: [ :index, :create, :destroy ], param: :provider
 
+    # Model catalogs for the agent builder/editor (Ollama queried live from
+    # the account's configured host; hosted providers curated server-side).
+    resources :provider_models, only: [ :index ]
+
     # Observability read APIs (dashboard Traces & Metrics views).
     # Backed by the activeagent gem's TelemetryTrace scopes, account-scoped.
     resources :traces, only: [ :index, :show ]
