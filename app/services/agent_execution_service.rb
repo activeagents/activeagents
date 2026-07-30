@@ -41,6 +41,17 @@ class AgentExecutionService
     "#{@run.id}-#{@event_sequence}"
   end
 
+  # Compact human preview of a tool result for the live activity feed:
+  # prefer the long readable field (page text, sub-agent output) over JSON.
+  def event_result_preview(result)
+    return nil unless result.respond_to?(:[])
+
+    readable = %i[text output content body].filter_map { |field| result[field] || result[field.to_s] }
+      .find { |value| value.is_a?(String) && value.strip.present? }
+    preview = readable ? readable.gsub(/\s+/, " ").strip : result.to_json
+    preview.byteslice(0, 200).to_s.scrub
+  end
+
   def call
     root_span = @root_span = build_root_span
     llm_span = root_span.add_span(
@@ -170,7 +181,7 @@ class AgentExecutionService
     emit_event(
       eid: event_id, kind: event_kind, label: event_label,
       status: errored ? "error" : "done", duration_ms: duration_ms,
-      detail: errored ? (result[:error] || result["error"]).to_s : nil
+      detail: errored ? (result[:error] || result["error"]).to_s : event_result_preview(result)
     )
     @tool_invocations << {
       name: name.to_s,

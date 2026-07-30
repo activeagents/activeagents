@@ -281,8 +281,10 @@ export default function AgentRunner({ agent, onBack }) {
                             {event.duration_ms != null && ` ${formatDuration(event.duration_ms)}`}
                           </span>
                         )}
-                        {event.detail && event.status !== 'done' && (
-                          <span className="text-gray-400 truncate max-w-md" title={event.detail}>{event.detail}</span>
+                        {event.detail && (
+                          <span className="text-gray-400 truncate max-w-md" title={event.detail}>
+                            {event.status === 'done' ? `“${event.detail}”` : event.detail}
+                          </span>
                         )}
                       </div>
                     ))}
