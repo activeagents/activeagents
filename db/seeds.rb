@@ -60,7 +60,7 @@ unless Rails.env.production?
       name: "Documentation Writer",
       description: "Generates technical documentation, README files, and API docs.",
       provider: "anthropic",
-      model: "claude-sonnet-4-20250514",
+      model: "claude-sonnet-5",
       preset_type: "writing",
       appearance: { hat: "fedora", hatAccessory: "feather", heldItem: "scroll" },
       instructions: "You are a technical writer specializing in software documentation. Create clear, comprehensive documentation that is:\n- Well-structured\n- Easy to understand\n- Includes examples\n- Follows best practices",

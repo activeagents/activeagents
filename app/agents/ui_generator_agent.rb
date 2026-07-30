@@ -12,7 +12,7 @@
 #   )
 #
 class UIGeneratorAgent < ApplicationAgent
-  generate_with :anthropic, model: "claude-sonnet-4-20250514"
+  generate_with :anthropic, model: "claude-sonnet-5"
 
   CACHE_DIR = Rails.root.join("app/javascript/components/generated")
   VERIFIED_DIR = Rails.root.join("app/javascript/components/dashboard")
