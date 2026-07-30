@@ -8,6 +8,8 @@ export default function ConversationHistory({ agent, onBack }) {
   const [selectedRun, setSelectedRun] = useState(null);
   const [selectedMessages, setSelectedMessages] = useState([]);
   const [detailMode, setDetailMode] = useState('run'); // 'run' | 'all'
+  const [reportSort, setReportSort] = useState('recent'); // 'recent' | 'longest'
+  const [expandedCohorts, setExpandedCohorts] = useState({});
   const [isLoading, setIsLoading] = useState(true);
   const [page, setPage] = useState(1);
   const [hasMore, setHasMore] = useState(true);
@@ -55,26 +57,42 @@ export default function ConversationHistory({ agent, onBack }) {
     }
   };
 
-  // Agent report: history × analytics. Groups the loaded runs by their
-  // initiating action (the prompt that started them) with per-group and
-  // overall stats, shown when no run is selected.
+  // Agent report: history × analytics for evaluating config changes.
+  // Groups the loaded runs into configuration cohorts — each unique
+  // (system instructions, model) combination the agent has run under —
+  // with comparable stats, shown when no run is selected.
   const buildReport = () => {
     const groups = new Map();
     runs.forEach(run => {
-      const key = (run.input_preview || 'No input').trim();
-      if (!groups.has(key)) groups.set(key, { action: key, runs: [] });
+      const key = `${run.model || 'unknown'}|${run.instructions_digest || 'none'}`;
+      if (!groups.has(key)) {
+        groups.set(key, {
+          key,
+          model: run.model,
+          instructionsDigest: run.instructions_digest,
+          instructionsPreview: run.instructions_preview,
+          runs: [],
+        });
+      }
       groups.get(key).runs.push(run);
     });
-    const rows = [...groups.values()].map(group => ({
+    const cohorts = [...groups.values()].map(group => ({
       ...group,
       count: group.runs.length,
       completed: group.runs.filter(r => r.status === 'complete').length,
       failed: group.runs.filter(r => r.status === 'failed').length,
-      models: [...new Set(group.runs.map(r => r.model).filter(Boolean))],
       totalTokens: group.runs.reduce((sum, r) => sum + (r.tokens || 0), 0),
+      avgTokens: group.runs.reduce((sum, r) => sum + (r.tokens || 0), 0) / group.runs.length,
       avgDuration: group.runs.reduce((sum, r) => sum + (r.duration_ms || 0), 0) / group.runs.length,
       latest: group.runs[0],
+      // Runs within a cohort sorted by longest interaction first
+      sortedRuns: [...group.runs].sort((a, b) => (b.duration_ms || 0) - (a.duration_ms || 0)),
     }));
+    cohorts.sort((a, b) =>
+      reportSort === 'longest'
+        ? b.avgDuration - a.avgDuration
+        : new Date(b.latest.created_at) - new Date(a.latest.created_at)
+    );
     const totals = {
       runs: runs.length,
       completed: runs.filter(r => r.status === 'complete').length,
@@ -82,7 +100,7 @@ export default function ConversationHistory({ agent, onBack }) {
       avgDuration: runs.length ? runs.reduce((sum, r) => sum + (r.duration_ms || 0), 0) / runs.length : 0,
       models: [...new Set(runs.map(r => r.model).filter(Boolean))],
     };
-    return { rows, totals };
+    return { cohorts, totals };
   };
 
   const getStatusColor = (status) => {
@@ -308,8 +326,8 @@ export default function ConversationHistory({ agent, onBack }) {
           </>
         ) : (
           (() => {
-            const { rows, totals } = buildReport();
-            if (rows.length === 0) {
+            const { cohorts, totals } = buildReport();
+            if (cohorts.length === 0) {
               return (
                 <div className="flex-1 flex items-center justify-center">
                   <div className="text-center text-gray-400">
@@ -358,32 +376,73 @@ export default function ConversationHistory({ agent, onBack }) {
                   </div>
                 )}
 
-                {/* Interactions grouped by initiating action */}
+                {/* Configuration cohorts — every (instructions, model)
+                    combination this agent has run under, for comparing the
+                    effect of config changes side by side. */}
                 <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
-                  <div className="px-4 py-3 border-b border-gray-100 text-xs uppercase tracking-wide text-gray-400">
-                    Interactions by initiating action
+                  <div className="px-4 py-3 border-b border-gray-100 flex items-center justify-between">
+                    <span className="text-xs uppercase tracking-wide text-gray-400">
+                      Interactions by instructions × model
+                    </span>
+                    <select
+                      value={reportSort}
+                      onChange={(e) => setReportSort(e.target.value)}
+                      className="text-xs border border-gray-200 rounded px-2 py-1 text-gray-600"
+                    >
+                      <option value="recent">Most recent</option>
+                      <option value="longest">Longest interactions</option>
+                    </select>
                   </div>
                   <div className="divide-y divide-gray-100">
-                    {rows.map(row => (
-                      <div
-                        key={row.action}
-                        className="px-4 py-3 hover:bg-gray-50 cursor-pointer"
-                        onClick={() => loadRunDetails(row.latest.id)}
-                        title="Open the most recent run for this action"
-                      >
-                        <p className="text-sm text-gray-800">{row.action}</p>
-                        <div className="flex items-center gap-3 mt-1.5 text-xs text-gray-400 flex-wrap gap-y-1">
-                          <span>{row.count} run{row.count > 1 ? 's' : ''}</span>
-                          <span className={row.failed > 0 ? 'text-red-500' : 'text-green-600'}>
-                            {row.completed}✓{row.failed > 0 ? ` ${row.failed}✗` : ''}
-                          </span>
-                          {row.models.map(model => (
-                            <span key={model} className="px-1.5 py-0.5 rounded bg-indigo-50 text-indigo-700 font-mono">{model}</span>
-                          ))}
-                          <span>avg {formatDuration(Math.round(row.avgDuration))}</span>
-                          <span>{row.totalTokens.toLocaleString()} tokens</span>
-                          <span>{formatDate(row.latest.created_at)}</span>
+                    {cohorts.map(cohort => (
+                      <div key={cohort.key}>
+                        <div
+                          className="px-4 py-3 hover:bg-gray-50 cursor-pointer"
+                          onClick={() => setExpandedCohorts(prev => ({ ...prev, [cohort.key]: !prev[cohort.key] }))}
+                          title="Show this configuration's runs"
+                        >
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span className="px-1.5 py-0.5 rounded bg-indigo-50 text-indigo-700 font-mono text-xs">
+                              {cohort.model || 'unknown model'}
+                            </span>
+                            <span className="text-xs text-gray-400 font-mono">
+                              instructions:{cohort.instructionsDigest || 'n/a'}
+                            </span>
+                          </div>
+                          {cohort.instructionsPreview && (
+                            <p className="text-xs text-gray-500 mt-1 truncate">{cohort.instructionsPreview}</p>
+                          )}
+                          <div className="flex items-center gap-3 mt-1.5 text-xs text-gray-400 flex-wrap gap-y-1">
+                            <span>{cohort.count} run{cohort.count > 1 ? 's' : ''}</span>
+                            <span className={cohort.failed > 0 ? 'text-red-500' : 'text-green-600'}>
+                              {cohort.count ? Math.round((cohort.completed / cohort.count) * 100) : 0}% success
+                            </span>
+                            <span>avg {formatDuration(Math.round(cohort.avgDuration))}</span>
+                            <span>avg {Math.round(cohort.avgTokens).toLocaleString()} tokens</span>
+                            <span>last {formatDate(cohort.latest.created_at)}</span>
+                          </div>
                         </div>
+
+                        {expandedCohorts[cohort.key] && (
+                          <div className="bg-gray-50 divide-y divide-gray-100 border-t border-gray-100">
+                            {cohort.sortedRuns.map(run => (
+                              <div
+                                key={run.id}
+                                className="px-6 py-2 hover:bg-gray-100 cursor-pointer"
+                                onClick={() => loadRunDetails(run.id)}
+                                title="Open this run's interaction"
+                              >
+                                <p className="text-xs text-gray-700 truncate">{run.input_preview || 'No input'}</p>
+                                <div className="flex items-center gap-3 mt-0.5 text-[11px] text-gray-400">
+                                  <span className={run.status === 'failed' ? 'text-red-500' : ''}>{run.status}</span>
+                                  <span>{formatDuration(run.duration_ms)}</span>
+                                  {run.tokens && <span>{run.tokens.toLocaleString()} tokens</span>}
+                                  <span>{formatDate(run.created_at)}</span>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        )}
                       </div>
                     ))}
                   </div>
