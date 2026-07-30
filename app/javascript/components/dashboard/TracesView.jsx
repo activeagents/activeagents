@@ -943,6 +943,15 @@ export default function TracesView({ agentClass = null, embedded = false }) {
                   </span>
                 </div>
                 <div className="trace-meta">
+                  {trace.model && (
+                    <span
+                      className="meta-item"
+                      title="Model that generated this trace"
+                      style={{ fontFamily: TYPOGRAPHY.mono, background: 'rgba(99,102,241,0.2)', color: '#a5b4fc', padding: '2px 8px', borderRadius: '4px' }}
+                    >
+                      {trace.model}
+                    </span>
+                  )}
                   <span className="meta-item"><i className="fa-solid fa-clock"></i> {formatDuration(trace.duration_ms)}</span>
                   <span className="meta-item">{formatTokens(trace.tokens)} tokens</span>
                   {trace.estimated_cost != null && (
@@ -1376,6 +1385,15 @@ export default function TracesView({ agentClass = null, embedded = false }) {
                 </span>
               </div>
               <div className="flex items-center space-x-4">
+                {trace.model && (
+                  <span
+                    className="text-xs px-2 py-0.5 rounded bg-indigo-50 text-indigo-700"
+                    style={{ fontFamily: TYPOGRAPHY.mono }}
+                    title="Model that generated this trace"
+                  >
+                    {trace.model}
+                  </span>
+                )}
                 <span className="text-sm text-gray-500">
                   <i className="fa-solid fa-clock mr-1"></i>
                   {formatDuration(trace.duration_ms)}
