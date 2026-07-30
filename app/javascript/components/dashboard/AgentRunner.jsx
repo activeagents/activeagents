@@ -2,6 +2,21 @@ import React, { useState, useEffect, useRef } from 'react';
 import AgentAvatar from '../AgentAvatar';
 import { TYPOGRAPHY } from '../../utils/designTokens';
 import { startCheckout } from '../../utils/checkout';
+import { roleBubble, streamPreStyle } from './InteractionStream';
+
+// Feed event kinds mapped onto the shared stream chip palette so streamed
+// run output matches the Interactions/Traces visual language.
+const EVENT_BUBBLES = {
+  llm: { role: 'assistant', label: 'LLM' },
+  tool: { role: 'tool', label: 'Tool' },
+  agent: { role: 'developer', label: 'Agent' },
+  mcp: { role: 'system', label: 'MCP' },
+};
+
+const eventBubble = (kind) => {
+  const mapping = EVENT_BUBBLES[kind] || { role: kind, label: kind };
+  return { ...roleBubble(mapping.role, false), label: mapping.label };
+};
 
 export default function AgentRunner({ agent, onBack }) {
   const [prompt, setPrompt] = useState('');
@@ -137,7 +152,6 @@ export default function AgentRunner({ agent, onBack }) {
     }
   };
 
-  const EVENT_ICONS = { llm: '∿', tool: '[]', agent: '@', mcp: '<>', thinking: '~' };
 
   const handleKeyDown = (e) => {
     if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
@@ -282,61 +296,84 @@ export default function AgentRunner({ agent, onBack }) {
           >
             {currentRun ? (
               <>
-                {/* Live activity feed — pending llm/tool/agent calls.
+                {/* Live activity feed — same chip/expansion design as the
+                    Interactions stream, one row per llm/tool/agent call.
                     Click a row to inspect the call's input and output. */}
                 {activityFeed(currentRun).length > 0 && (
-                  <div className="mb-4 space-y-1.5">
+                  <div className="mb-4 space-y-2">
                     {activityFeed(currentRun).map(event => {
                       const isExpanded = !!expandedEvents[event.eid];
                       const expandable = Boolean(event.input || event.output);
+                      const bubble = eventBubble(event.kind);
+                      const preStyle = streamPreStyle(false);
                       return (
                         <div key={event.eid}>
                           <div
-                            className={`flex items-start space-x-2 text-xs ${expandable ? 'cursor-pointer hover:bg-gray-100 rounded px-1 -mx-1' : ''}`}
+                            className={`flex gap-3 items-start rounded-lg -mx-2 px-2 py-1 ${expandable ? 'cursor-pointer hover:bg-black/5' : ''}`}
                             onClick={expandable ? () => setExpandedEvents(prev => ({ ...prev, [event.eid]: !prev[event.eid] })) : undefined}
                             title={expandable ? 'Click to inspect input/output' : undefined}
+                            style={isExpanded ? { background: 'rgba(0,0,0,0.03)' } : {}}
                           >
-                            <span className={`w-8 text-center flex-shrink-0 ${
-                              event.status === 'error' ? 'text-red-500' :
-                              event.status === 'started' ? 'text-blue-500' : 'text-emerald-600'
-                            }`}>
-                              {EVENT_ICONS[event.kind] || '·'}
+                            <span
+                              className="px-2 py-0.5 rounded text-xs font-medium flex-shrink-0 mt-0.5"
+                              style={{ background: bubble.background, color: bubble.color, minWidth: '72px', textAlign: 'center' }}
+                            >
+                              {bubble.label}
                             </span>
-                            <span className={event.status === 'started' ? 'text-gray-700' : 'text-gray-500'}>
-                              {event.label}
-                            </span>
-                            {event.status === 'started' ? (
-                              <span className="text-blue-500 animate-pulse">running…</span>
-                            ) : (
-                              <span className={event.status === 'error' ? 'text-red-500' : 'text-gray-400'}>
-                                {event.status === 'error' ? 'failed' : '✓'}
-                                {event.duration_ms != null && ` ${formatDuration(event.duration_ms)}`}
-                              </span>
-                            )}
-                            {event.output && !isExpanded && (
-                              <span className="text-gray-400 truncate max-w-md">“{event.output}”</span>
-                            )}
+                            <div className="min-w-0 flex-1">
+                              <div className="text-sm break-words text-gray-800">
+                                {event.label}
+                                {event.output && !isExpanded && (
+                                  <span className="text-gray-400"> “{event.output.slice(0, 160)}{event.output.length > 160 ? '…' : ''}”</span>
+                                )}
+                              </div>
+                              <div className="text-xs mt-0.5 font-mono flex items-center gap-2 flex-wrap text-gray-400">
+                                {event.status === 'started' ? (
+                                  <span className="text-blue-500 animate-pulse">running…</span>
+                                ) : (
+                                  <span className={event.status === 'error' ? 'text-red-500' : ''}>
+                                    {event.status === 'error' ? 'failed' : '✓'}
+                                    {event.duration_ms != null && ` ${formatDuration(event.duration_ms)}`}
+                                  </span>
+                                )}
+                                {event.at && <span>{new Date(event.at).toLocaleTimeString()}</span>}
+                              </div>
+                            </div>
                             {expandable && (
-                              <span className="text-gray-300 flex-shrink-0">{isExpanded ? '▾' : '▸'}</span>
+                              <svg
+                                className={`w-3.5 h-3.5 mt-1 flex-shrink-0 transition-transform ${isExpanded ? 'rotate-180' : ''} text-gray-400`}
+                                fill="none" stroke="currentColor" viewBox="0 0 24 24"
+                              >
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                              </svg>
                             )}
                           </div>
 
                           {isExpanded && (
-                            <div className="ml-10 mt-1 mb-2 space-y-2 text-xs border-l-2 border-gray-200 pl-3">
+                            <div
+                              className="ml-3 mt-1 mb-2 pl-4 space-y-2 border-l-2"
+                              style={{ borderColor: bubble.color + '55' }}
+                            >
                               {event.input && (
                                 <div>
-                                  <div className="text-gray-400 uppercase tracking-wide text-[10px] mb-0.5">Input</div>
-                                  <pre className="bg-gray-100 rounded px-2 py-1.5 whitespace-pre-wrap break-words max-h-40 overflow-y-auto">{prettyEventJson(event.input)}</pre>
+                                  <div className="text-xs uppercase tracking-wide mb-1 text-gray-400">Input</div>
+                                  <pre style={{ ...preStyle, whiteSpace: 'pre-wrap', maxHeight: '160px', overflowY: 'auto' }}>{prettyEventJson(event.input)}</pre>
                                 </div>
                               )}
                               {event.output && (
                                 <div>
-                                  <div className="text-gray-400 uppercase tracking-wide text-[10px] mb-0.5">
-                                    {event.status === 'error' ? 'Error' : 'Output'}
+                                  <div className="text-xs uppercase tracking-wide mb-1 text-gray-400">
+                                    {event.status === 'error' ? 'Error' : 'Result'}
                                   </div>
-                                  <pre className={`rounded px-2 py-1.5 whitespace-pre-wrap break-words max-h-56 overflow-y-auto ${
-                                    event.status === 'error' ? 'bg-red-50 text-red-700' : 'bg-gray-100'
-                                  }`}>{prettyEventJson(event.output)}</pre>
+                                  <pre
+                                    style={{
+                                      ...preStyle,
+                                      whiteSpace: 'pre-wrap',
+                                      maxHeight: '224px',
+                                      overflowY: 'auto',
+                                      ...(event.status === 'error' ? { background: '#fef2f2', color: '#b91c1c' } : {})
+                                    }}
+                                  >{prettyEventJson(event.output)}</pre>
                                 </div>
                               )}
                             </div>

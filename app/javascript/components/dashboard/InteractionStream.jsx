@@ -61,7 +61,19 @@ const hasDetails = (message) =>
     message.duration_ms != null || prettyJson(message.content)
   );
 
-const roleBubble = (role, darkMode) => {
+// Shared stream design primitives — also used by the run activity feed so
+// streamed output matches the interaction/trace visual language.
+export const streamPreStyle = (darkMode) => ({
+  background: darkMode ? 'rgba(0,0,0,0.35)' : '#f3f4f6',
+  color: darkMode ? '#ffffff' : '#111827',
+  borderRadius: '6px',
+  padding: '8px 10px',
+  fontSize: '12px',
+  overflowX: 'auto',
+  margin: 0,
+});
+
+export const roleBubble = (role, darkMode) => {
   switch (role) {
     case 'user':
       return darkMode
@@ -112,15 +124,7 @@ export default function InteractionStream({ messages, darkMode }) {
         const resultJson = prettyJson(message.tool_result) || prettyJson(message.content);
         const toolCallsJson = (message.tool_calls || []).length > 0 ? prettyJson(message.tool_calls) : null;
         const resultPreview = message.role === 'tool' ? toolResultPreview(message) : null;
-        const preStyle = {
-          background: darkMode ? 'rgba(0,0,0,0.35)' : '#f3f4f6',
-          color: colors.textPrimary,
-          borderRadius: '6px',
-          padding: '8px 10px',
-          fontSize: '12px',
-          overflowX: 'auto',
-          margin: 0,
-        };
+        const preStyle = streamPreStyle(darkMode);
         return (
           <div key={message.id}>
             <div

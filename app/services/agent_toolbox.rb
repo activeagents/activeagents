@@ -220,8 +220,18 @@ class AgentToolbox
     # Trusted-docs browser: fetch_url restricted to BROWSE_ALLOWED_HOSTS,
     # with HTML reduced to readable text so small models aren't drowned in
     # markup. Accepts bare paths ("/docs/agents") against the docs host.
+    # Resolves a bare path ("/docs/agents") to an absolute URL on the
+    # trusted docs host, so the fetched URL is unambiguous everywhere it is
+    # recorded (spans, run events, persisted tool arguments).
+    def resolve_browse_url(url)
+      url = url.to_s
+      return url if url.match?(%r{\Ahttps?://})
+
+      "https://#{BROWSE_ALLOWED_HOSTS.first}#{url.start_with?('/') ? url : "/#{url}"}"
+    end
+
     def browse_page(url:)
-      url = "https://#{BROWSE_ALLOWED_HOSTS.first}#{url.start_with?('/') ? url : "/#{url}"}" unless url.to_s.match?(%r{\Ahttps?://})
+      url = resolve_browse_url(url)
       host = URI.parse(url.to_s).host
       unless BROWSE_ALLOWED_HOSTS.include?(host)
         return { error: "browse_page is limited to trusted hosts: #{BROWSE_ALLOWED_HOSTS.join(', ')}" }
