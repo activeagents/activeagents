@@ -19,6 +19,25 @@ class AgentToolboxTest < ActiveSupport::TestCase
     assert_match(/limited to trusted hosts/, result[:error])
   end
 
+  test "extract_links keeps same-site paths with text and drops the rest" do
+    html = <<~HTML
+      <a href="/agents">Agents Guide</a>
+      <a href="providers.html"><span>Providers</span></a>
+      <a href="https://docs.activeagents.ai/tools#anchor">Tools</a>
+      <a href="https://github.com/activeagents">GitHub</a>
+      <a href="mailto:hi@example.com">Mail</a>
+      <a href="/agents">Duplicate</a>
+    HTML
+
+    links = AgentToolbox.extract_links(html, "https://docs.activeagents.ai/docs/")
+
+    assert_equal [
+      { path: "/agents", text: "Agents Guide" },
+      { path: "/docs/providers.html", text: "Providers" },
+      { path: "/tools", text: "Tools" }
+    ], links
+  end
+
   test "definitions_for handles nil and empty tool lists" do
     assert_equal [], AgentToolbox.definitions_for(nil)
     assert_equal [], AgentToolbox.definitions_for([])
