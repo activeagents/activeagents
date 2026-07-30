@@ -9,6 +9,7 @@ export default function AgentRunner({ agent, onBack }) {
   const [isRunning, setIsRunning] = useState(false);
   const [currentRun, setCurrentRun] = useState(null);
   const [limitUsage, setLimitUsage] = useState(null);
+  const [expandedEvents, setExpandedEvents] = useState({}); // eid -> bool
   const [isUpgrading, setIsUpgrading] = useState(false);
   const [upgradeError, setUpgradeError] = useState(null);
   const outputRef = useRef(null);
@@ -111,16 +112,29 @@ export default function AgentRunner({ agent, onBack }) {
   };
 
   // Pair started/done progress events by eid for the live activity feed.
+  // The started event's detail is the call's input (tool arguments); the
+  // finishing event's detail is its output (result preview or error).
   const activityFeed = (run) => {
-    const events = (run?.logs || []).filter(entry => entry.eid);
     const byEid = new Map();
-    events.forEach(event => {
-      const existing = byEid.get(event.eid);
-      if (!existing || event.status !== 'started') {
-        byEid.set(event.eid, { ...(existing || {}), ...event });
+    (run?.logs || []).filter(entry => entry.eid).forEach(event => {
+      const entry = byEid.get(event.eid) || { eid: event.eid };
+      if (event.status === 'started') {
+        Object.assign(entry, event, { input: event.detail, output: entry.output });
+      } else {
+        Object.assign(entry, event, { input: entry.input, output: event.detail });
       }
+      byEid.set(event.eid, entry);
     });
     return [...byEid.values()];
+  };
+
+  const prettyEventJson = (value) => {
+    if (!value) return null;
+    try {
+      return JSON.stringify(JSON.parse(value), null, 2);
+    } catch {
+      return value;
+    }
   };
 
   const EVENT_ICONS = { llm: '∿', tool: '[]', agent: '@', mcp: '<>', thinking: '~' };
@@ -249,6 +263,15 @@ export default function AgentRunner({ agent, onBack }) {
                 {currentRun.total_tokens && (
                   <span className="text-gray-400">{currentRun.total_tokens} tokens</span>
                 )}
+                {currentRun.trace_id && (
+                  <a
+                    href="/dashboard/traces"
+                    className="text-gray-400 hover:text-red-500 font-mono text-xs"
+                    title="Open in Traces"
+                  >
+                    trace:{currentRun.trace_id.slice(0, 8)}
+                  </a>
+                )}
               </div>
             )}
           </div>
@@ -259,35 +282,68 @@ export default function AgentRunner({ agent, onBack }) {
           >
             {currentRun ? (
               <>
-                {/* Live activity feed — pending llm/tool/agent calls */}
+                {/* Live activity feed — pending llm/tool/agent calls.
+                    Click a row to inspect the call's input and output. */}
                 {activityFeed(currentRun).length > 0 && (
                   <div className="mb-4 space-y-1.5">
-                    {activityFeed(currentRun).map(event => (
-                      <div key={event.eid} className="flex items-start space-x-2 text-xs">
-                        <span className={`w-8 text-center flex-shrink-0 ${
-                          event.status === 'error' ? 'text-red-500' :
-                          event.status === 'started' ? 'text-blue-500' : 'text-emerald-600'
-                        }`}>
-                          {EVENT_ICONS[event.kind] || '·'}
-                        </span>
-                        <span className={event.status === 'started' ? 'text-gray-700' : 'text-gray-500'}>
-                          {event.label}
-                        </span>
-                        {event.status === 'started' ? (
-                          <span className="text-blue-500 animate-pulse">running…</span>
-                        ) : (
-                          <span className={event.status === 'error' ? 'text-red-500' : 'text-gray-400'}>
-                            {event.status === 'error' ? 'failed' : '✓'}
-                            {event.duration_ms != null && ` ${formatDuration(event.duration_ms)}`}
-                          </span>
-                        )}
-                        {event.detail && (
-                          <span className="text-gray-400 truncate max-w-md" title={event.detail}>
-                            {event.status === 'done' ? `“${event.detail}”` : event.detail}
-                          </span>
-                        )}
-                      </div>
-                    ))}
+                    {activityFeed(currentRun).map(event => {
+                      const isExpanded = !!expandedEvents[event.eid];
+                      const expandable = Boolean(event.input || event.output);
+                      return (
+                        <div key={event.eid}>
+                          <div
+                            className={`flex items-start space-x-2 text-xs ${expandable ? 'cursor-pointer hover:bg-gray-100 rounded px-1 -mx-1' : ''}`}
+                            onClick={expandable ? () => setExpandedEvents(prev => ({ ...prev, [event.eid]: !prev[event.eid] })) : undefined}
+                            title={expandable ? 'Click to inspect input/output' : undefined}
+                          >
+                            <span className={`w-8 text-center flex-shrink-0 ${
+                              event.status === 'error' ? 'text-red-500' :
+                              event.status === 'started' ? 'text-blue-500' : 'text-emerald-600'
+                            }`}>
+                              {EVENT_ICONS[event.kind] || '·'}
+                            </span>
+                            <span className={event.status === 'started' ? 'text-gray-700' : 'text-gray-500'}>
+                              {event.label}
+                            </span>
+                            {event.status === 'started' ? (
+                              <span className="text-blue-500 animate-pulse">running…</span>
+                            ) : (
+                              <span className={event.status === 'error' ? 'text-red-500' : 'text-gray-400'}>
+                                {event.status === 'error' ? 'failed' : '✓'}
+                                {event.duration_ms != null && ` ${formatDuration(event.duration_ms)}`}
+                              </span>
+                            )}
+                            {event.output && !isExpanded && (
+                              <span className="text-gray-400 truncate max-w-md">“{event.output}”</span>
+                            )}
+                            {expandable && (
+                              <span className="text-gray-300 flex-shrink-0">{isExpanded ? '▾' : '▸'}</span>
+                            )}
+                          </div>
+
+                          {isExpanded && (
+                            <div className="ml-10 mt-1 mb-2 space-y-2 text-xs border-l-2 border-gray-200 pl-3">
+                              {event.input && (
+                                <div>
+                                  <div className="text-gray-400 uppercase tracking-wide text-[10px] mb-0.5">Input</div>
+                                  <pre className="bg-gray-100 rounded px-2 py-1.5 whitespace-pre-wrap break-words max-h-40 overflow-y-auto">{prettyEventJson(event.input)}</pre>
+                                </div>
+                              )}
+                              {event.output && (
+                                <div>
+                                  <div className="text-gray-400 uppercase tracking-wide text-[10px] mb-0.5">
+                                    {event.status === 'error' ? 'Error' : 'Output'}
+                                  </div>
+                                  <pre className={`rounded px-2 py-1.5 whitespace-pre-wrap break-words max-h-56 overflow-y-auto ${
+                                    event.status === 'error' ? 'bg-red-50 text-red-700' : 'bg-gray-100'
+                                  }`}>{prettyEventJson(event.output)}</pre>
+                                </div>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
                   </div>
                 )}
 

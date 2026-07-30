@@ -49,7 +49,7 @@ class AgentExecutionService
     readable = %i[text output content body].filter_map { |field| result[field] || result[field.to_s] }
       .find { |value| value.is_a?(String) && value.strip.present? }
     preview = readable ? readable.gsub(/\s+/, " ").strip : result.to_json
-    preview.byteslice(0, 200).to_s.scrub
+    preview.byteslice(0, 1000).to_s.scrub
   end
 
   def call
