@@ -255,10 +255,16 @@ class AgentExecutionService
     mock_fallback? ? "mock-#{@agent_record.model}" : @agent_record.model
   end
 
+  # Newer Anthropic models (Opus 4.7+, Sonnet 5, Fable 5/Mythos 5) reject
+  # sampling parameters with a 400 — they are thinking-first models steered
+  # by prompting/effort instead.
+  SAMPLING_UNSUPPORTED_MODELS = /\Aclaude-(opus-5|opus-4-[78]|sonnet-5|fable-5|mythos-5)/
+
   def generate!
     effective_provider = provider
     provider_model = @agent_record.model
     model_options = @agent_record.model_config.to_h.symbolize_keys.slice(:temperature, :max_tokens, :top_p)
+    model_options.except!(:temperature, :top_p) if provider_model.to_s.match?(SAMPLING_UNSUPPORTED_MODELS)
     if (account_key = account_provider_key(effective_provider))
       # The account's own credential (API key, or host URL for ollama)
       # overrides the platform's config/active_agent.yml settings.
