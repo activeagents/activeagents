@@ -75,7 +75,9 @@ const buildThroughputData = (traces, agents, windowMinutes) => {
   return data;
 };
 
-export default function TracesView() {
+// agentClass scopes the view to one agent's traces (per-agent embed: same
+// component, different UX context); embedded hides the page title.
+export default function TracesView({ agentClass = null, embedded = false }) {
   const { darkMode } = useTheme();
   const [traces, setTraces] = useState([]);
   const [agentsList, setAgentsList] = useState([]);
@@ -89,18 +91,19 @@ export default function TracesView() {
 
   const fetchTraces = useCallback(async () => {
     try {
-      const response = await fetch(`/api/traces?minutes=${WINDOW_MINUTES}`);
+      const scope = agentClass ? `&agent=${encodeURIComponent(agentClass)}` : '';
+      const response = await fetch(`/api/traces?minutes=${WINDOW_MINUTES}${scope}`);
       if (!response.ok) throw new Error(`Request failed (${response.status})`);
       const data = await response.json();
       setTraces(data.traces || []);
-      setAgentsList(data.agents || []);
+      setAgentsList(agentClass ? [agentClass] : (data.agents || []));
       setLoadError(null);
     } catch (error) {
       setLoadError(error.message);
     } finally {
       setIsLoading(false);
     }
-  }, []);
+  }, [agentClass]);
 
   useEffect(() => {
     fetchTraces();
@@ -470,7 +473,7 @@ export default function TracesView() {
         <div style={{ padding: '24px 24px 0 24px', borderBottom: '1px solid rgba(255,255,255,0.1)', marginBottom: '16px', paddingBottom: '16px' }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
             <div>
-              <h1 style={{ fontSize: '24px', fontWeight: 'bold', color: 'white', margin: 0 }}>Traces</h1>
+              {!embedded && <h1 style={{ fontSize: '24px', fontWeight: 'bold', color: 'white', margin: 0 }}>Traces</h1>}
               <p style={{ fontSize: '14px', color: 'rgba(255,255,255,0.6)', marginTop: '4px' }}>
                 {selectedTimeBucket !== null
                   ? `Viewing ${throughputData[selectedTimeBucket]?.time} • ${filteredTraces.length} requests`
@@ -499,6 +502,7 @@ export default function TracesView() {
                   </button>
                 ))}
               </div>
+              {!agentClass && (
               <select
                 value={filter.agent}
                 onChange={(e) => setFilter({ ...filter, agent: e.target.value, action: 'all' })}
@@ -516,6 +520,7 @@ export default function TracesView() {
                   <option key={agent} value={agent}>{agent}</option>
                 ))}
               </select>
+              )}
               <select
                 value={filter.action}
                 onChange={(e) => setFilter({ ...filter, action: e.target.value })}
