@@ -23,6 +23,37 @@ const prettyJson = (value) => {
   }
 };
 
+// Tool results often wrap one long human-readable field (browse_page's
+// page text, call_agent's output, fetch bodies) in JSON. Surface that
+// field as readable content instead of an escaped JSON blob.
+const LONG_RESULT_FIELDS = ['text', 'output', 'body', 'content'];
+
+const parseValue = (value) => {
+  if (value == null) return null;
+  if (typeof value === 'object') return value;
+  try {
+    return JSON.parse(value);
+  } catch {
+    return null;
+  }
+};
+
+const toolResultPreview = (message) => {
+  const parsed = parseValue(message.tool_result) ?? parseValue(message.content);
+  if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return null;
+  const field = LONG_RESULT_FIELDS.find(f => typeof parsed[f] === 'string' && parsed[f].trim().length > 0);
+  if (!field) return null;
+  const meta = [
+    parsed.error && 'error',
+    parsed.status != null && `status ${parsed.status}`,
+    typeof parsed.url === 'string' && parsed.url.replace(/^https?:\/\//, ''),
+    typeof parsed.agent === 'string' && `→ ${parsed.agent}`,
+    parsed.truncated && 'truncated'
+  ].filter(Boolean).join(' · ');
+  const rest = Object.fromEntries(Object.entries(parsed).filter(([k]) => k !== field));
+  return { field, meta, body: parsed[field], rest };
+};
+
 const hasDetails = (message) =>
   Boolean(
     message.tool_name || message.tool_call_id || message.tool_arguments ||
@@ -80,6 +111,7 @@ export default function InteractionStream({ messages, darkMode }) {
         const argsJson = prettyJson(message.tool_arguments);
         const resultJson = prettyJson(message.tool_result) || prettyJson(message.content);
         const toolCallsJson = (message.tool_calls || []).length > 0 ? prettyJson(message.tool_calls) : null;
+        const resultPreview = message.role === 'tool' ? toolResultPreview(message) : null;
         const preStyle = {
           background: darkMode ? 'rgba(0,0,0,0.35)' : '#f3f4f6',
           color: colors.textPrimary,
@@ -105,9 +137,21 @@ export default function InteractionStream({ messages, darkMode }) {
               <div className="min-w-0 flex-1">
                 <div className="text-sm break-words" style={{ color: colors.textPrimary }}>
                   {message.role === 'tool' ? (
-                    <span className="whitespace-pre-wrap">
-                      {message.content || (message.tool_name ? `→ ${message.tool_name}(...)` : '—')}
-                    </span>
+                    resultPreview ? (
+                      <span>
+                        {resultPreview.meta && (
+                          <span className="font-mono text-xs mr-2" style={{ color: colors.textMuted }}>
+                            {resultPreview.meta}
+                          </span>
+                        )}
+                        “{resultPreview.body.replace(/\s+/g, ' ').trim().slice(0, 180)}
+                        {resultPreview.body.length > 180 ? '…' : ''}”
+                      </span>
+                    ) : (
+                      <span className="whitespace-pre-wrap">
+                        {message.content || (message.tool_name ? `→ ${message.tool_name}(...)` : '—')}
+                      </span>
+                    )
                   ) : (
                     <Markdown text={message.content || '—'} />
                   )}
@@ -159,7 +203,21 @@ export default function InteractionStream({ messages, darkMode }) {
                     <pre style={preStyle}>{argsJson}</pre>
                   </div>
                 )}
-                {resultJson && (
+                {resultPreview ? (
+                  <div>
+                    <div className="text-xs uppercase tracking-wide mb-1" style={{ color: colors.textMuted }}>Result</div>
+                    {Object.keys(resultPreview.rest).length > 0 && (
+                      <pre style={preStyle}>{JSON.stringify(resultPreview.rest, null, 2)}</pre>
+                    )}
+                    <div className="text-xs uppercase tracking-wide mt-2 mb-1" style={{ color: colors.textMuted }}>
+                      {resultPreview.field} · {resultPreview.body.length.toLocaleString()} chars
+                    </div>
+                    <pre style={{ ...preStyle, whiteSpace: 'pre-wrap', maxHeight: '320px', overflowY: 'auto' }}>
+                      {resultPreview.body.slice(0, 8000)}
+                      {resultPreview.body.length > 8000 ? '\n…' : ''}
+                    </pre>
+                  </div>
+                ) : resultJson && (
                   <div>
                     <div className="text-xs uppercase tracking-wide mb-1" style={{ color: colors.textMuted }}>
                       {message.role === 'tool' ? 'Result' : 'Content (parsed)'}
