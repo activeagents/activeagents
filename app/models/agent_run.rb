@@ -50,6 +50,16 @@ class AgentRun < ApplicationRecord
     event
   end
 
+  # Stable short fingerprint of the instructions this run executed under —
+  # the grouping key (with model) for configuration cohorts when comparing
+  # instruction/model changes.
+  def instructions_digest
+    instructions = output_metadata&.dig("instructions")
+    return nil if instructions.blank?
+
+    Digest::SHA256.hexdigest(instructions).first(8)
+  end
+
   # Calculate duration if not set
   def calculated_duration_ms
     return duration_ms if duration_ms.present?
@@ -79,6 +89,8 @@ class AgentRun < ApplicationRecord
       tokens: total_tokens,
       provider: output_metadata&.dig("provider"),
       model: output_metadata&.dig("model"),
+      instructions_digest: instructions_digest,
+      instructions_preview: output_metadata&.dig("instructions")&.truncate(120),
       created_at: created_at,
       error: error_message
     }
