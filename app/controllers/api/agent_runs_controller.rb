@@ -58,6 +58,8 @@ module Api
     # InteractionStream UI. User messages carry the run's trace_id in
     # provenance (SolidAgent::HasContext); the slice spans from this run's
     # user message up to the next user message with a different trace_id.
+    # Prepended with the system instructions the run executed under
+    # (captured in output_metadata; falls back to the agent's current ones).
     def interaction_messages(run)
       return [] if run.trace_id.blank?
 
@@ -78,7 +80,17 @@ module Api
         slice << message
       end
 
-      slice.map { |message| AgentMessageSerializer.call(message) }
+      serialized = slice.map { |message| AgentMessageSerializer.call(message) }
+      instructions = run.output_metadata&.dig("instructions").presence || run.agent.instructions
+      if instructions.present?
+        serialized.unshift(
+          id: "run-#{run.id}-system",
+          role: "system",
+          content: instructions,
+          created_at: (run.started_at || run.created_at).iso8601(3)
+        )
+      end
+      serialized
     end
 
     def run_json(run, include_agent: false)

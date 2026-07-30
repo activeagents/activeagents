@@ -86,6 +86,7 @@ export default function TracesView({ agentClass = null, embedded = false }) {
   const [selectedTrace, setSelectedTrace] = useState(null);
   const [expandedSpan, setExpandedSpan] = useState(null); // `${trace.id}:${spanIdx}`
   const [filter, setFilter] = useState({ status: 'all', agent: 'all', action: 'all' });
+  const [sortBy, setSortBy] = useState('time'); // 'time' (chronological) | 'latency' (slowest first)
   const [selectedTimeBucket, setSelectedTimeBucket] = useState(null);
   const [viewMode, setViewMode] = useState('timeline'); // 'timeline', 'agents', 'actions', or 'spans'
 
@@ -148,8 +149,12 @@ export default function TracesView({ agentClass = null, embedded = false }) {
       }
     }
 
+    if (sortBy === 'latency') {
+      result = [...result].sort((a, b) => (b.duration_ms || 0) - (a.duration_ms || 0));
+    }
+
     return result;
-  }, [traces, selectedTimeBucket, throughputData, filter]);
+  }, [traces, selectedTimeBucket, throughputData, filter, sortBy]);
 
   // Aggregate agent stats for selected time range
   const agentStats = useMemo(() => {
@@ -295,11 +300,30 @@ export default function TracesView({ agentClass = null, embedded = false }) {
     return (tokens.input || 0) + (tokens.output || 0) + (tokens.thinking || 0);
   };
 
+  // Attribute values that hold JSON payloads (tool inputs/outputs) get
+  // pretty-printed blocks; everything else renders inline.
+  const prettyAttribute = (value) => {
+    if (typeof value !== 'string') return null;
+    try {
+      return JSON.stringify(JSON.parse(value), null, 2);
+    } catch {
+      return null;
+    }
+  };
+
   // Expanded detail panel for a single span (attributes, tokens, ids).
   const renderSpanDetails = (span, dark) => {
     const attributes = Object.entries(span.attributes || {});
     const textColor = dark ? 'rgba(255,255,255,0.75)' : '#4b5563';
     const mutedColor = dark ? 'rgba(255,255,255,0.45)' : '#9ca3af';
+    const preStyle = {
+      background: dark ? 'rgba(255,255,255,0.06)' : '#eef0f3',
+      borderRadius: '6px',
+      padding: '6px 8px',
+      margin: '2px 0 4px 0',
+      overflowX: 'auto',
+      whiteSpace: 'pre',
+    };
     return (
       <div
         style={{
@@ -326,12 +350,15 @@ export default function TracesView({ agentClass = null, embedded = false }) {
         </div>
         {attributes.length > 0 && (
           <div style={{ marginTop: '6px', display: 'grid', gap: '2px' }}>
-            {attributes.map(([key, value]) => (
-              <div key={key} style={{ wordBreak: 'break-all' }}>
-                <span style={{ color: mutedColor }}>{key}:</span>{' '}
-                {typeof value === 'string' ? value : JSON.stringify(value)}
-              </div>
-            ))}
+            {attributes.map(([key, value]) => {
+              const pretty = key.match(/args|result|input|output/) ? prettyAttribute(value) : null;
+              return (
+                <div key={key} style={{ wordBreak: 'break-all' }}>
+                  <span style={{ color: mutedColor }}>{key}:</span>{' '}
+                  {pretty ? <pre style={preStyle}>{pretty}</pre> : (typeof value === 'string' ? value : JSON.stringify(value))}
+                </div>
+              );
+            })}
           </div>
         )}
       </div>
@@ -553,6 +580,21 @@ export default function TracesView({ agentClass = null, embedded = false }) {
                 <option value="all">All Status</option>
                 <option value="success">Success</option>
                 <option value="error">Error</option>
+              </select>
+              <select
+                value={sortBy}
+                onChange={(e) => setSortBy(e.target.value)}
+                style={{
+                  padding: '8px 12px',
+                  background: 'rgba(255,255,255,0.1)',
+                  border: '1px solid rgba(255,255,255,0.2)',
+                  borderRadius: '8px',
+                  color: 'white',
+                  fontSize: '14px'
+                }}
+              >
+                <option value="time">Newest first</option>
+                <option value="latency">Slowest first</option>
               </select>
               {selectedTimeBucket !== null && (
                 <button
@@ -1065,6 +1107,14 @@ export default function TracesView({ agentClass = null, embedded = false }) {
             <option value="all">All Status</option>
             <option value="success">Success</option>
             <option value="error">Error</option>
+          </select>
+          <select
+            value={sortBy}
+            onChange={(e) => setSortBy(e.target.value)}
+            className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-red-500"
+          >
+            <option value="time">Newest first</option>
+            <option value="latency">Slowest first</option>
           </select>
           {selectedTimeBucket !== null && (
             <button

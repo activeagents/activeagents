@@ -184,7 +184,20 @@ export default function InteractionsView({ agentId = null, embedded = false }) {
                       </div>
                     ) : (
                       <>
-                        <InteractionStream messages={detail.messages} darkMode={darkMode} />
+                        <InteractionStream
+                          darkMode={darkMode}
+                          messages={detail.instructions
+                            ? [
+                                {
+                                  id: `ctx-${session.id}-system`,
+                                  role: 'system',
+                                  content: detail.instructions,
+                                  created_at: session.created_at
+                                },
+                                ...detail.messages
+                              ]
+                            : detail.messages}
+                        />
 
                         {/* Generation metadata */}
                         {detail.generations.length > 0 && (

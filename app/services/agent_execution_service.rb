@@ -70,6 +70,7 @@ class AgentExecutionService
       )
       tool_calls = record_tool_spans(root_span, response)
       persist_tool_messages(response)
+      sync_context_instructions
       root_span.finish
 
       {
@@ -77,6 +78,7 @@ class AgentExecutionService
         metadata: {
           provider: provider.to_s,
           model: model,
+          instructions: @agent_record.instructions,
           requested_provider: @agent_record.provider,
           mock: mock_fallback?,
           trace_id: root_span.trace_id,
@@ -163,6 +165,7 @@ class AgentExecutionService
     duration_ms = ((Process.clock_gettime(Process::CLOCK_MONOTONIC) - started) * 1000).round(2)
     errored = result.respond_to?(:key?) && (result.key?(:error) || result.key?("error"))
     span&.set_attribute("tool.error", true) if errored
+    span&.set_attribute("tool.result", result.to_json.byteslice(0, 600).to_s.scrub)
     span&.finish
     emit_event(
       eid: event_id, kind: event_kind, label: event_label,
@@ -208,6 +211,18 @@ class AgentExecutionService
     ensure
       Thread.current[:agent_call_depth] = depth
     end
+  end
+
+  # Keeps the persisted context's instructions current so the Interactions
+  # view can render the conversation's system message.
+  def sync_context_instructions
+    context = conversation_context
+    return unless context
+    return if context.instructions == @agent_record.instructions
+
+    context.update_column(:instructions, @agent_record.instructions)
+  rescue StandardError => e
+    Rails.logger.warn("[AgentExecutionService] Failed to sync context instructions: #{e.message}")
   end
 
   # Agents callable via call_agent: same workspace as the calling agent's

@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import Markdown from './Markdown';
 
 // Shared conversation stream renderer: role-labeled messages with
 // click-to-expand details (tool name/arguments/results, durations,
@@ -43,6 +44,14 @@ const roleBubble = (role, darkMode) => {
       return darkMode
         ? { background: 'rgba(245,158,11,0.12)', color: '#fcd34d', label: 'Tool' }
         : { background: '#fffbeb', color: '#b45309', label: 'Tool' };
+    case 'system':
+      return darkMode
+        ? { background: 'rgba(139,92,246,0.15)', color: '#c4b5fd', label: 'System' }
+        : { background: '#f5f3ff', color: '#6d28d9', label: 'System' };
+    case 'developer':
+      return darkMode
+        ? { background: 'rgba(20,184,166,0.15)', color: '#5eead4', label: 'Dev' }
+        : { background: '#f0fdfa', color: '#0f766e', label: 'Dev' };
     default:
       return darkMode
         ? { background: 'rgba(255,255,255,0.08)', color: 'rgba(255,255,255,0.7)', label: role }
@@ -94,8 +103,14 @@ export default function InteractionStream({ messages, darkMode }) {
                 {bubble.label}
               </span>
               <div className="min-w-0 flex-1">
-                <div className="text-sm whitespace-pre-wrap break-words" style={{ color: colors.textPrimary }}>
-                  {message.content || (message.tool_name ? `→ ${message.tool_name}(...)` : '—')}
+                <div className="text-sm break-words" style={{ color: colors.textPrimary }}>
+                  {message.role === 'tool' ? (
+                    <span className="whitespace-pre-wrap">
+                      {message.content || (message.tool_name ? `→ ${message.tool_name}(...)` : '—')}
+                    </span>
+                  ) : (
+                    <Markdown text={message.content || '—'} />
+                  )}
                 </div>
                 <div className="text-xs mt-0.5 font-mono flex items-center gap-2 flex-wrap" style={{ color: colors.textMuted }}>
                   <span>{new Date(message.created_at).toLocaleTimeString()}</span>
