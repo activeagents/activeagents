@@ -43,7 +43,7 @@ class AgentRun < ApplicationRecord
       "label" => label.to_s,
       "status" => status.to_s
     }
-    event["detail"] = detail.to_s.byteslice(0, 300).to_s.scrub if detail
+    event["detail"] = detail.to_s.byteslice(0, 1200).to_s.scrub if detail
     event["duration_ms"] = duration_ms if duration_ms
     current = self.class.where(id: id).pick(:logs) || []
     update_column(:logs, current + [ event ])
