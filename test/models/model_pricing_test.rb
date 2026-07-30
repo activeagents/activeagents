@@ -19,6 +19,17 @@ class ModelPricingTest < ActiveSupport::TestCase
     assert_equal ModelPricing::DEFAULT_RATE, ModelPricing.rate_for("totally-unknown-model-xyz")
   end
 
+  test "static table covers current Claude models at their launch rates" do
+    assert_equal [ 3.00, 15.00 ], ModelPricing.static_rate("claude-sonnet-5")
+    assert_equal [ 5.00, 25.00 ], ModelPricing.static_rate("claude-opus-5")
+    assert_equal [ 5.00, 25.00 ], ModelPricing.static_rate("claude-opus-4-5-20251101")
+    assert_equal [ 10.00, 50.00 ], ModelPricing.static_rate("claude-fable-5")
+    assert_equal [ 1.00, 5.00 ], ModelPricing.static_rate("claude-haiku-4-5")
+    # Older generations keep their legacy rates
+    assert_equal [ 0.80, 4.00 ], ModelPricing.static_rate("claude-3-5-haiku-latest")
+    assert_equal [ 15.00, 75.00 ], ModelPricing.static_rate("claude-3-opus-20240229")
+  end
+
   test "estimate prices input and output tokens separately" do
     cost = ModelPricing.estimate(model: "gpt-4o", input_tokens: 1_000_000, output_tokens: 1_000_000)
 

@@ -4,7 +4,7 @@ import { useActionCable } from '../../hooks/useActionCable';
 import { startCheckout } from '../../utils/checkout';
 
 const PROVIDERS = [
-  { id: 'anthropic', name: 'Anthropic', model: 'claude-sonnet-4-20250514', color: 'bg-orange-500' },
+  { id: 'anthropic', name: 'Anthropic', model: 'claude-haiku-4-5', color: 'bg-orange-500' },
   { id: 'openai', name: 'OpenAI', model: 'gpt-4o', color: 'bg-green-500' },
   { id: 'ollama', name: 'Ollama', model: 'llama3.1:8b', color: 'bg-purple-500' },
 ];

@@ -172,6 +172,23 @@ class AgentExecutionServiceTest < ActiveSupport::TestCase
     assert_equal [ @run.trace_id, second_run.trace_id ], context.generations.order(:created_at).pluck(:trace_id)
   end
 
+  test "strips sampling params for Claude 5-family and Opus 4.7+ models" do
+    [ "claude-sonnet-5", "claude-opus-5", "claude-fable-5", "claude-opus-4-8", "claude-opus-4-7" ].each do |model|
+      assert model.match?(AgentExecutionService::SAMPLING_UNSUPPORTED_MODELS), "expected #{model} to match"
+    end
+    [ "claude-haiku-4-5", "claude-sonnet-4-5", "gpt-4o-mini", "qwen3:8b" ].each do |model|
+      assert_not model.match?(AgentExecutionService::SAMPLING_UNSUPPORTED_MODELS), "expected #{model} not to match"
+    end
+
+    # A run configured with sampling params on such a model still succeeds
+    # (params are dropped before reaching the provider).
+    agent = create_agent(user: @user, name: "Sonnet Five Bot", provider: "anthropic", model: "claude-sonnet-5",
+                         model_config: { "temperature" => 0.7, "top_p" => 0.9, "max_tokens" => 512 })
+    run = agent.agent_runs.create!(input_prompt: "Hi", status: :running, started_at: Time.current)
+    result = AgentExecutionService.call(agent, run)
+    assert result[:output].present?
+  end
+
   test "test_execute persists run results from real execution" do
     run = @agent.test_execute("Ping")
 
