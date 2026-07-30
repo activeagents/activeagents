@@ -35,7 +35,7 @@ class AgentToolbox
     "playwright" => [
       {
         name: "browse_page",
-        description: "Browse a page on the trusted documentation site (docs.activeagents.ai) and return its readable text. Use to look up Active Agent concepts, APIs, and guides. Start with url \"/\" to see the site's sections, then browse the exact paths that appear in the returned text — do not invent paths.",
+        description: "Browse a page on the trusted documentation site (docs.activeagents.ai). Returns the page's readable text plus a links list of same-site paths with their link text. To follow (\"click\") a link, call browse_page again with its path. Start at \"/\" and navigate only via paths from the links list — do not invent paths.",
         parameters: {
           type: "object",
           properties: {
@@ -249,9 +249,11 @@ class AgentToolbox
       if result[:status] == 404
         return {
           url: result[:url], status: 404,
-          error: "Page not found. Don't guess paths — browse '/' first and follow link paths that appear in the returned text."
+          error: "Page not found. Don't guess paths — browse '/' and follow the paths in the result's links list."
         }
       end
+
+      links = extract_links(result[:body].to_s, result[:url])
 
       text = result[:body].to_s
         .gsub(%r{<(script|style)[^>]*>.*?</\1>}mi, " ")
@@ -262,9 +264,41 @@ class AgentToolbox
         .gsub(/\n{2,}/, "\n")
         .strip
 
-      { url: result[:url], status: result[:status], text: text.byteslice(0, 20_000).to_s.scrub, truncated: result[:truncated] || text.bytesize > 20_000 }
+      {
+        url: result[:url], status: result[:status],
+        text: text.byteslice(0, 20_000).to_s.scrub,
+        links: links,
+        truncated: result[:truncated] || text.bytesize > 20_000
+      }
     rescue URI::InvalidURIError
       { error: "Invalid URL" }
+    end
+
+    BROWSE_LINK_LIMIT = 40
+
+    # Same-site links from the page HTML, so the model can navigate by
+    # following real paths instead of guessing them. "Clicking" a link is
+    # calling browse_page with its path.
+    def extract_links(html, base_url)
+      base = URI.parse(base_url.to_s)
+      links = html.scan(%r{<a\s[^>]*href=["']([^"'\s]+)["'][^>]*>(.*?)</a>}mi).filter_map do |href, inner|
+        next if href.start_with?("javascript:", "mailto:", "tel:", "data:", "#")
+
+        resolved = begin
+          URI.join(base, href)
+        rescue URI::Error
+          next
+        end
+        next unless resolved.is_a?(URI::HTTP) && BROWSE_ALLOWED_HOSTS.include?(resolved.host)
+
+        text = CGI.unescapeHTML(inner.gsub(/<[^>]+>/, " ")).gsub(/\s+/, " ").strip
+        entry = { path: resolved.request_uri }
+        entry[:text] = text.byteslice(0, 80).to_s.scrub if text.present?
+        entry
+      end
+      links.uniq { |link| link[:path] }.first(BROWSE_LINK_LIMIT)
+    rescue URI::Error
+      []
     end
 
     private
