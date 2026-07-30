@@ -77,6 +77,8 @@ class AgentRun < ApplicationRecord
       output_preview: output&.truncate(200),
       duration_ms: calculated_duration_ms,
       tokens: total_tokens,
+      provider: output_metadata&.dig("provider"),
+      model: output_metadata&.dig("model"),
       created_at: created_at,
       error: error_message
     }

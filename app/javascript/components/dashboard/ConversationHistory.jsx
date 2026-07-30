@@ -55,6 +55,36 @@ export default function ConversationHistory({ agent, onBack }) {
     }
   };
 
+  // Agent report: history × analytics. Groups the loaded runs by their
+  // initiating action (the prompt that started them) with per-group and
+  // overall stats, shown when no run is selected.
+  const buildReport = () => {
+    const groups = new Map();
+    runs.forEach(run => {
+      const key = (run.input_preview || 'No input').trim();
+      if (!groups.has(key)) groups.set(key, { action: key, runs: [] });
+      groups.get(key).runs.push(run);
+    });
+    const rows = [...groups.values()].map(group => ({
+      ...group,
+      count: group.runs.length,
+      completed: group.runs.filter(r => r.status === 'complete').length,
+      failed: group.runs.filter(r => r.status === 'failed').length,
+      models: [...new Set(group.runs.map(r => r.model).filter(Boolean))],
+      totalTokens: group.runs.reduce((sum, r) => sum + (r.tokens || 0), 0),
+      avgDuration: group.runs.reduce((sum, r) => sum + (r.duration_ms || 0), 0) / group.runs.length,
+      latest: group.runs[0],
+    }));
+    const totals = {
+      runs: runs.length,
+      completed: runs.filter(r => r.status === 'complete').length,
+      tokens: runs.reduce((sum, r) => sum + (r.tokens || 0), 0),
+      avgDuration: runs.length ? runs.reduce((sum, r) => sum + (r.duration_ms || 0), 0) / runs.length : 0,
+      models: [...new Set(runs.map(r => r.model).filter(Boolean))],
+    };
+    return { rows, totals };
+  };
+
   const getStatusColor = (status) => {
     switch (status) {
       case 'complete': return 'bg-green-100 text-green-700';
@@ -153,7 +183,10 @@ export default function ConversationHistory({ agent, onBack }) {
                   <p className="text-sm text-gray-700 truncate">
                     {run.input_preview || run.input_prompt?.substring(0, 60) || 'No input'}
                   </p>
-                  <div className="flex items-center space-x-3 mt-2 text-xs text-gray-400">
+                  <div className="flex items-center space-x-3 mt-2 text-xs text-gray-400 flex-wrap gap-y-1">
+                    {run.model && (
+                      <span className="px-1.5 py-0.5 rounded bg-indigo-50 text-indigo-700 font-mono">{run.model}</span>
+                    )}
                     <span>{formatDuration(run.duration_ms)}</span>
                     {run.tokens && <span>{run.tokens} tokens</span>}
                   </div>
@@ -274,12 +307,90 @@ export default function ConversationHistory({ agent, onBack }) {
             </div>
           </>
         ) : (
-          <div className="flex-1 flex items-center justify-center">
-            <div className="text-center text-gray-400">
-              <AgentAvatar size={100} />
-              <p className="mt-4">Select a conversation to view details</p>
-            </div>
-          </div>
+          (() => {
+            const { rows, totals } = buildReport();
+            if (rows.length === 0) {
+              return (
+                <div className="flex-1 flex items-center justify-center">
+                  <div className="text-center text-gray-400">
+                    <AgentAvatar size={100} />
+                    <p className="mt-4">No runs yet — run the agent to build its report</p>
+                  </div>
+                </div>
+              );
+            }
+            return (
+              <div className="flex-1 overflow-auto p-6 space-y-5">
+                <div className="flex items-center gap-3">
+                  <AgentAvatar size={40} />
+                  <div>
+                    <h3 className="font-semibold text-gray-900">Agent Report</h3>
+                    <p className="text-xs text-gray-500">Recent activity for {agent.name} — select a run for its full interaction</p>
+                  </div>
+                </div>
+
+                {/* Overview stats */}
+                <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+                  <div className="bg-white rounded-xl border border-gray-200 p-3">
+                    <p className="text-xs text-gray-500">Runs</p>
+                    <p className="text-xl font-bold text-gray-900">{totals.runs}</p>
+                  </div>
+                  <div className="bg-white rounded-xl border border-gray-200 p-3">
+                    <p className="text-xs text-gray-500">Success</p>
+                    <p className="text-xl font-bold text-gray-900">{totals.runs ? Math.round((totals.completed / totals.runs) * 100) : 0}%</p>
+                  </div>
+                  <div className="bg-white rounded-xl border border-gray-200 p-3">
+                    <p className="text-xs text-gray-500">Avg Duration</p>
+                    <p className="text-xl font-bold text-gray-900">{formatDuration(Math.round(totals.avgDuration))}</p>
+                  </div>
+                  <div className="bg-white rounded-xl border border-gray-200 p-3">
+                    <p className="text-xs text-gray-500">Tokens</p>
+                    <p className="text-xl font-bold text-gray-900">{totals.tokens.toLocaleString()}</p>
+                  </div>
+                </div>
+
+                {totals.models.length > 0 && (
+                  <div className="flex items-center gap-2 flex-wrap text-xs">
+                    <span className="text-gray-500">Models used:</span>
+                    {totals.models.map(model => (
+                      <span key={model} className="px-1.5 py-0.5 rounded bg-indigo-50 text-indigo-700 font-mono">{model}</span>
+                    ))}
+                  </div>
+                )}
+
+                {/* Interactions grouped by initiating action */}
+                <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+                  <div className="px-4 py-3 border-b border-gray-100 text-xs uppercase tracking-wide text-gray-400">
+                    Interactions by initiating action
+                  </div>
+                  <div className="divide-y divide-gray-100">
+                    {rows.map(row => (
+                      <div
+                        key={row.action}
+                        className="px-4 py-3 hover:bg-gray-50 cursor-pointer"
+                        onClick={() => loadRunDetails(row.latest.id)}
+                        title="Open the most recent run for this action"
+                      >
+                        <p className="text-sm text-gray-800">{row.action}</p>
+                        <div className="flex items-center gap-3 mt-1.5 text-xs text-gray-400 flex-wrap gap-y-1">
+                          <span>{row.count} run{row.count > 1 ? 's' : ''}</span>
+                          <span className={row.failed > 0 ? 'text-red-500' : 'text-green-600'}>
+                            {row.completed}✓{row.failed > 0 ? ` ${row.failed}✗` : ''}
+                          </span>
+                          {row.models.map(model => (
+                            <span key={model} className="px-1.5 py-0.5 rounded bg-indigo-50 text-indigo-700 font-mono">{model}</span>
+                          ))}
+                          <span>avg {formatDuration(Math.round(row.avgDuration))}</span>
+                          <span>{row.totalTokens.toLocaleString()} tokens</span>
+                          <span>{formatDate(row.latest.created_at)}</span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            );
+          })()
         )}
       </div>
     </div>

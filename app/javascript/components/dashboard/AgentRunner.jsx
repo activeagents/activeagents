@@ -271,6 +271,11 @@ export default function AgentRunner({ agent, onBack }) {
                 <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${getStatusColor(currentRun.status)}`}>
                   {currentRun.status}
                 </span>
+                {currentRun.output_metadata?.model && (
+                  <span className="px-2 py-0.5 rounded bg-indigo-50 text-indigo-700 text-xs font-mono" title="Model that generated this run">
+                    {currentRun.output_metadata.provider}/{currentRun.output_metadata.model}
+                  </span>
+                )}
                 {currentRun.duration_ms && (
                   <span className="text-gray-400">{formatDuration(currentRun.duration_ms)}</span>
                 )}
@@ -485,8 +490,11 @@ export default function AgentRunner({ agent, onBack }) {
                     <p className="text-sm text-gray-600 truncate">
                       {run.input_preview || run.input_prompt?.substring(0, 50)}
                     </p>
-                    <p className="text-xs text-gray-400 mt-1">
-                      {new Date(run.created_at).toLocaleString()}
+                    <p className="text-xs text-gray-400 mt-1 flex items-center gap-2 flex-wrap">
+                      {run.model && (
+                        <span className="px-1.5 py-0.5 rounded bg-indigo-50 text-indigo-700 font-mono">{run.model}</span>
+                      )}
+                      <span>{new Date(run.created_at).toLocaleString()}</span>
                     </p>
                   </div>
                 ))}
