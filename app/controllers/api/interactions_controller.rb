@@ -63,11 +63,13 @@ module Api
     private
 
     # Agents executing outside the platform never write solid_agent contexts —
-    # they only report traces. Surface those with a captured conversation so
-    # the view shows the same prompt → tool → result → response stream.
+    # they only report traces. Every reported trace is an interaction: one run
+    # of one agent. Traces without captured content still show their tool calls,
+    # timings, and generation metadata, so filtering on the presence of a
+    # prompt would hide most runs (locally: 9 of 11) and make the per-agent
+    # counts disagree with Traces for the same window.
     def reported_traces(limit)
-      scope = current_account.telemetry_traces
-        .where("spans::text LIKE ?", "%llm.prompt%")
+      scope = current_account.telemetry_traces.where.not(agent_class: nil)
       scope = scope.where(timestamp: window_minutes.minutes.ago..) if window_minutes
       scope.order(timestamp: :desc).limit(limit)
     end
