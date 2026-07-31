@@ -12,6 +12,19 @@ const AGENT_PALETTE = ['#6366f1', '#10b981', '#f59e0b', '#ec4899', '#3b82f6', '#
 
 const REFRESH_INTERVAL_MS = 30000;
 
+// Bar width on a log scale, for comparing durations that span orders of
+// magnitude. A 5ms tool beside a 13.58s generation is a 2700x range; linearly
+// every tool collapses to the same minimum-width stub. Floors at 4% so the
+// shortest span is still visibly a bar.
+const logWidthPercent = (duration, longest) => {
+  const value = Math.max(duration || 0, 1);
+  const max = Math.max(longest || 1, 1);
+  if (max <= 1) return 100;
+
+  const ratio = Math.log(value) / Math.log(max);
+  return Math.min(100, Math.max(4, ratio * 100));
+};
+
 const buildAgentColors = (agents) => {
   const colors = {};
   agents.forEach((agent, idx) => {
@@ -1243,15 +1256,24 @@ export default function TracesView() {
                     ))}
                   </div>
                 </div>
-                <div className="flex justify-between text-xs text-gray-400 mb-2">
-                  <span>0ms</span>
-                  <span>{Math.round((trace.duration_ms || 0) * 0.33)}ms</span>
-                  <span>{Math.round((trace.duration_ms || 0) * 0.66)}ms</span>
-                  <span>{formatDuration(trace.duration_ms)}</span>
-                </div>
+                {/* The axis describes a timeline, which only holds while the
+                    spans are in chronological order. */}
+                {spanSort === 'time' ? (
+                  <div className="flex justify-between text-xs text-gray-400 mb-2">
+                    <span>0ms</span>
+                    <span>{Math.round((trace.duration_ms || 0) * 0.33)}ms</span>
+                    <span>{Math.round((trace.duration_ms || 0) * 0.66)}ms</span>
+                    <span>{formatDuration(trace.duration_ms)}</span>
+                  </div>
+                ) : (
+                  <div className="text-xs text-gray-400 mb-2">
+                    Bar length compares duration on a log scale
+                  </div>
+                )}
 
                 <div className="space-y-2">
-                  {sortSpans(trace.spans).map((span, idx) => {
+                  {sortSpans(trace.spans).map((span, idx, sortedSpans) => {
+                    const longestSpan = Math.max(...sortedSpans.map((s) => s.duration || 0), 1);
                     // Key on span_id, not index — indices shift when sorted,
                     // which would move an open detail panel to another row.
                     const spanKey = `${trace.id}:${span.span_id || idx}`;
@@ -1294,8 +1316,22 @@ export default function TracesView() {
                                 span.type === 'response' ? 'bg-teal-400' : 'bg-gray-300'
                               } ${span.error ? 'bg-red-400' : ''}`}
                               style={{
-                                left: `${trace.duration_ms ? (span.start / trace.duration_ms) * 100 : 0}%`,
-                                width: `${trace.duration_ms ? Math.max((span.duration / trace.duration_ms) * 100, 1) : 1}%`
+                                // Chronological order earns wall-clock offsets:
+                                // the bar's position is when it ran. Any other
+                                // order breaks that link, so bars left-align and
+                                // become a pure length comparison — otherwise
+                                // "slowest first" shows short bars scattered
+                                // across the track and reads as neither.
+                                left: spanSort === 'time'
+                                  ? `${trace.duration_ms ? (span.start / trace.duration_ms) * 100 : 0}%`
+                                  : 0,
+                                width: spanSort === 'time'
+                                  ? `${trace.duration_ms ? Math.max((span.duration / trace.duration_ms) * 100, 1) : 1}%`
+                                  // Log scale: span durations here span three
+                                  // orders of magnitude (5ms tool, 13.58s llm),
+                                  // so a linear bar renders every tool as the
+                                  // same 1px minimum and compares nothing.
+                                  : `${logWidthPercent(span.duration, longestSpan)}%`
                               }}
                             />
                           </div>
