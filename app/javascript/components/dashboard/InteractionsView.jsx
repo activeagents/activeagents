@@ -75,6 +75,18 @@ export default function InteractionsView() {
     textMuted: darkMode ? 'rgba(255,255,255,0.4)' : '#9ca3af',
   };
 
+  // Tool arguments/results arrive as JSON — objects from platform runs, encoded
+  // strings from reported traces. Indent either so the stream stays readable.
+  const formatPayload = (value) => {
+    if (value == null) return '—';
+    if (typeof value !== 'string') return JSON.stringify(value, null, 2);
+    try {
+      return JSON.stringify(JSON.parse(value), null, 2);
+    } catch {
+      return value;
+    }
+  };
+
   const roleBubble = (role) => {
     switch (role) {
       case 'user':
@@ -145,13 +157,28 @@ export default function InteractionsView() {
                   onClick={() => toggleSession(session.id)}
                 >
                   <div className="flex items-center gap-3 min-w-0">
-                    <span className="px-2 py-1 text-xs font-medium bg-blue-100 text-blue-700 rounded flex-shrink-0">SESSION</span>
+                    {session.source === 'telemetry' ? (
+                      <span
+                        className="px-2 py-1 text-xs font-medium rounded flex-shrink-0"
+                        style={{ background: darkMode ? 'rgba(168,85,247,0.15)' : '#faf5ff', color: darkMode ? '#d8b4fe' : '#7e22ce' }}
+                        title="Reported by an app running this agent outside the platform"
+                      >
+                        REPORTED
+                      </span>
+                    ) : (
+                      <span className="px-2 py-1 text-xs font-medium bg-blue-100 text-blue-700 rounded flex-shrink-0">SESSION</span>
+                    )}
                     <span className="font-mono text-sm truncate" style={{ color: colors.textPrimary }}>
                       {session.display_name}
                     </span>
                     {session.agent && (
                       <span className="text-sm truncate" style={{ color: colors.textSecondary }}>
                         {session.agent.name}
+                      </span>
+                    )}
+                    {session.service_name && (
+                      <span className="text-sm truncate font-mono" style={{ color: colors.textMuted }}>
+                        {session.service_name}
                       </span>
                     )}
                   </div>
@@ -179,6 +206,7 @@ export default function InteractionsView() {
                       <>
                         {detail.messages.map((message) => {
                           const bubble = roleBubble(message.role);
+                          const isToolResult = message.role === 'tool' && message.content;
                           return (
                             <div key={message.id} className="flex gap-3 items-start">
                               <span
@@ -188,9 +216,23 @@ export default function InteractionsView() {
                                 {bubble.label}
                               </span>
                               <div className="min-w-0 flex-1">
-                                <div className="text-sm whitespace-pre-wrap break-words" style={{ color: colors.textPrimary }}>
-                                  {message.content || (message.tool_name ? `→ ${message.tool_name}(${JSON.stringify(message.tool_calls || {})})` : '—')}
-                                </div>
+                                {isToolResult ? (
+                                  // Tool results are large JSON blobs — keep them
+                                  // folded so the conversation stays readable.
+                                  <details>
+                                    <summary className="text-sm cursor-pointer" style={{ color: colors.textSecondary }}>
+                                      {message.tool_name} returned
+                                    </summary>
+                                    <pre
+                                      className="text-xs mt-1 p-2 rounded overflow-x-auto"
+                                      style={{ background: colors.cardBg, color: colors.textPrimary, whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}
+                                    >{formatPayload(message.content)}</pre>
+                                  </details>
+                                ) : (
+                                  <div className="text-sm whitespace-pre-wrap break-words" style={{ color: colors.textPrimary }}>
+                                    {message.content || (message.tool_name ? `→ ${message.tool_name}(${formatPayload(message.tool_calls)})` : '—')}
+                                  </div>
+                                )}
                                 <div className="text-xs mt-0.5 font-mono" style={{ color: colors.textMuted }}>
                                   {new Date(message.created_at).toLocaleTimeString()}
                                   {message.content_checksum && (

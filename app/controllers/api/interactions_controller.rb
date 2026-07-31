@@ -24,22 +24,33 @@ module Api
       message_counts = AgentMessage.where(agent_context_id: contexts.map(&:id)).group(:agent_context_id).count
       generation_counts = AgentGeneration.where(agent_context_id: contexts.map(&:id)).group(:agent_context_id).count
 
+      persisted = contexts.map do |context|
+        serialize_context(context).merge(
+          source: "platform",
+          message_count: message_counts[context.id] || 0,
+          generation_count: generation_counts[context.id] || 0
+        )
+      end
+
+      reported = reported_traces(limit).map { |trace| TraceInteractionSerializer.summary(trace) }
+
       render json: {
-        interactions: contexts.map do |context|
-          serialize_context(context).merge(
-            message_count: message_counts[context.id] || 0,
-            generation_count: generation_counts[context.id] || 0
-          )
-        end
+        interactions: (persisted + reported).sort_by { |row| row[:last_activity_at].to_s }.reverse.first(limit)
       }
     end
 
     # GET /api/interactions/:id
     def show
+      if (trace_id = params[:id].to_s[/\Atrace-(\d+)\z/, 1])
+        trace = current_account.telemetry_traces.find(trace_id)
+        return render json: { interaction: TraceInteractionSerializer.detail(trace) }
+      end
+
       context = interactions_scope.find(params[:id])
 
       render json: {
         interaction: serialize_context(context).merge(
+          source: "platform",
           instructions: context.instructions,
           messages: context.messages.chronological.map { |message| serialize_message(message) },
           generations: context.generations.order(created_at: :asc).map { |generation| serialize_generation(generation) }
@@ -48,6 +59,16 @@ module Api
     end
 
     private
+
+    # Agents executing outside the platform never write solid_agent contexts —
+    # they only report traces. Surface those with a captured conversation so
+    # the view shows the same prompt → tool → result → response stream.
+    def reported_traces(limit)
+      current_account.telemetry_traces
+        .where("spans::text LIKE ?", "%llm.prompt%")
+        .order(timestamp: :desc)
+        .limit(limit)
+    end
 
     def interactions_scope
       AgentContext.for_agents(current_user.agents)
