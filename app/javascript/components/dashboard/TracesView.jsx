@@ -8,7 +8,6 @@ import { ICONS, TYPOGRAPHY } from '../../utils/designTokens';
 // Deterministic color assignment for agent classes
 const AGENT_PALETTE = ['#6366f1', '#10b981', '#f59e0b', '#ec4899', '#3b82f6', '#8b5cf6', '#14b8a6', '#f97316'];
 
-const WINDOW_MINUTES = 30;
 const REFRESH_INTERVAL_MS = 30000;
 
 const buildAgentColors = (agents) => {
@@ -19,14 +18,35 @@ const buildAgentColors = (agents) => {
   return colors;
 };
 
-// Bucket traces into 1-minute intervals for the throughput chart
-const buildThroughputData = (traces, agents, windowMinutes) => {
+// Selectable spans for the throughput chart. `bucketSeconds` keeps the bar
+// count roughly constant (~30-60 buckets) as the window grows, so a 7-day view
+// doesn't try to draw 10,080 one-minute bars.
+const TIME_WINDOWS = [
+  { label: '5m', minutes: 5, bucketSeconds: 10 },
+  { label: '10m', minutes: 10, bucketSeconds: 20 },
+  { label: '15m', minutes: 15, bucketSeconds: 30 },
+  { label: '30m', minutes: 30, bucketSeconds: 60 },
+  { label: '45m', minutes: 45, bucketSeconds: 60 },
+  { label: '1h', minutes: 60, bucketSeconds: 120 },
+  { label: '2h', minutes: 120, bucketSeconds: 240 },
+  { label: '3h', minutes: 180, bucketSeconds: 300 },
+  { label: '6h', minutes: 360, bucketSeconds: 600 },
+  { label: '12h', minutes: 720, bucketSeconds: 1200 },
+  { label: '1d', minutes: 1440, bucketSeconds: 1800 },
+];
+const DEFAULT_WINDOW_INDEX = 3; // 30m — the previous fixed window
+
+// Bucket traces for the throughput chart. Bucket width scales with the window
+// so the chart stays readable at every zoom level.
+const buildThroughputData = (traces, agents, windowMinutes, bucketSeconds = 60) => {
   const now = Date.now();
   const data = [];
+  const bucketMs = bucketSeconds * 1000;
+  const bucketCount = Math.max(1, Math.round((windowMinutes * 60) / bucketSeconds));
 
-  for (let i = windowMinutes - 1; i >= 0; i--) {
-    const bucketStart = now - (i + 1) * 60000;
-    const bucketEnd = now - i * 60000;
+  for (let i = bucketCount - 1; i >= 0; i--) {
+    const bucketStart = now - (i + 1) * bucketMs;
+    const bucketEnd = now - i * bucketMs;
     const bucketTraces = traces.filter(
       (t) => t.timestamp_ms >= bucketStart && t.timestamp_ms < bucketEnd
     );
@@ -37,7 +57,10 @@ const buildThroughputData = (traces, agents, windowMinutes) => {
     });
 
     data.push({
-      time: new Date(bucketEnd).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+      // Past a day, the clock alone is ambiguous — show the date too.
+      time: windowMinutes > 1440
+        ? new Date(bucketEnd).toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit' })
+        : new Date(bucketEnd).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
       timestamp: bucketEnd,
       requests: bucketTraces.length,
       errors: bucketTraces.filter((t) => t.status === 'ERROR').length,
@@ -62,10 +85,12 @@ export default function TracesView() {
   const [filter, setFilter] = useState({ status: 'all', agent: 'all', action: 'all' });
   const [selectedTimeBucket, setSelectedTimeBucket] = useState(null);
   const [viewMode, setViewMode] = useState('timeline'); // 'timeline', 'agents', or 'actions'
+  const [windowIndex, setWindowIndex] = useState(DEFAULT_WINDOW_INDEX);
+  const timeWindow = TIME_WINDOWS[windowIndex];
 
   const fetchTraces = useCallback(async () => {
     try {
-      const response = await fetch(`/api/traces?minutes=${WINDOW_MINUTES}`);
+      const response = await fetch(`/api/traces?minutes=${timeWindow.minutes}`);
       if (!response.ok) throw new Error(`Request failed (${response.status})`);
       const data = await response.json();
       setTraces(data.traces || []);
@@ -76,7 +101,7 @@ export default function TracesView() {
     } finally {
       setIsLoading(false);
     }
-  }, []);
+  }, [timeWindow.minutes]);
 
   useEffect(() => {
     fetchTraces();
@@ -86,10 +111,21 @@ export default function TracesView() {
 
   const agentColors = useMemo(() => buildAgentColors(agentsList), [agentsList]);
 
+  // A bucket index refers to a position in the old bucketing; it means
+  // something different after a zoom, so drop the drill-down on change.
+  const zoomTo = useCallback((index) => {
+    setWindowIndex(index);
+    setSelectedTimeBucket(null);
+    setIsLoading(true);
+  }, []);
+
   const throughputData = useMemo(
-    () => buildThroughputData(traces, agentsList, WINDOW_MINUTES),
-    [traces, agentsList]
+    () => buildThroughputData(traces, agentsList, timeWindow.minutes, timeWindow.bucketSeconds),
+    [traces, agentsList, timeWindow]
   );
+
+  // Keep roughly six labels on the axis whatever the bucket count.
+  const tickInterval = Math.max(0, Math.ceil(throughputData.length / 6) - 1);
 
   // Filter traces based on selected time bucket and filters
   const filteredTraces = useMemo(() => {
@@ -285,7 +321,7 @@ export default function TracesView() {
       if (withTraffic.length === 0) return 0;
       return Math.round(withTraffic.reduce((sum, b) => sum + b.avgLatency, 0) / withTraffic.length);
     })(),
-    throughput: (throughputData.reduce((sum, b) => sum + b.requests, 0) / WINDOW_MINUTES).toFixed(1),
+    throughput: (throughputData.reduce((sum, b) => sum + b.requests, 0) / timeWindow.minutes).toFixed(1),
   };
 
   const emptyState = traces.length === 0;
@@ -302,7 +338,7 @@ export default function TracesView() {
               <p style={{ fontSize: '14px', color: 'rgba(255,255,255,0.6)', marginTop: '4px' }}>
                 {selectedTimeBucket !== null
                   ? `Viewing ${throughputData[selectedTimeBucket]?.time} • ${filteredTraces.length} requests`
-                  : `Last ${WINDOW_MINUTES} minutes • Click timeline to drill down`}
+                  : `Last ${timeWindow.label} • Click timeline to drill down`}
               </p>
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
@@ -448,7 +484,7 @@ export default function TracesView() {
                     stroke="rgba(255,255,255,0.5)"
                     tick={{ fontSize: 10, fill: 'rgba(255,255,255,0.5)' }}
                     tickLine={false}
-                    interval={4}
+                    interval={tickInterval}
                   />
                   <YAxis
                     stroke="rgba(255,255,255,0.5)"
@@ -853,10 +889,42 @@ export default function TracesView() {
           <p className="text-sm text-gray-500">
             {selectedTimeBucket !== null
               ? `Viewing ${throughputData[selectedTimeBucket]?.time} • ${filteredTraces.length} requests`
-              : `Last ${WINDOW_MINUTES} minutes • Click timeline to drill down`}
+              : `Last ${timeWindow.label} • Click timeline to drill down`}
           </p>
         </div>
         <div className="flex items-center space-x-3">
+          {/* Time window zoom */}
+          <div className="flex items-center bg-gray-100 rounded-lg p-1">
+            <button
+              onClick={() => zoomTo(windowIndex - 1)}
+              disabled={windowIndex === 0}
+              title="Zoom in (shorter window)"
+              aria-label="Zoom in"
+              className="px-2 py-1 text-sm rounded-md text-gray-600 disabled:opacity-30 disabled:cursor-not-allowed hover:bg-white"
+            >
+              −
+            </button>
+            <select
+              value={windowIndex}
+              onChange={(e) => zoomTo(Number(e.target.value))}
+              aria-label="Time window"
+              className="px-2 py-1 mx-1 text-sm bg-white rounded-md shadow text-gray-900 focus:ring-2 focus:ring-red-500"
+            >
+              {TIME_WINDOWS.map((option, index) => (
+                <option key={option.label} value={index}>{option.label}</option>
+              ))}
+            </select>
+            <button
+              onClick={() => zoomTo(windowIndex + 1)}
+              disabled={windowIndex === TIME_WINDOWS.length - 1}
+              title="Zoom out (longer window)"
+              aria-label="Zoom out"
+              className="px-2 py-1 text-sm rounded-md text-gray-600 disabled:opacity-30 disabled:cursor-not-allowed hover:bg-white"
+            >
+              +
+            </button>
+          </div>
+
           {/* View Mode Toggle */}
           <div className="flex bg-gray-100 rounded-lg p-1">
             {['timeline', 'agents', 'actions'].map((mode) => (
@@ -949,7 +1017,7 @@ export default function TracesView() {
                 stroke="#9ca3af"
                 tick={{ fontSize: 10, fill: '#6b7280' }}
                 tickLine={false}
-                interval={4}
+                interval={tickInterval}
               />
               <YAxis
                 stroke="#9ca3af"
