@@ -3,9 +3,11 @@ import AgentAvatar from '../AgentAvatar';
 import InteractionStream from './InteractionStream';
 import InteractionsView from './InteractionsView';
 
-export default function ConversationHistory({ agent, onBack }) {
+export default function AgentInteractions({ agent, onBack }) {
   const [runs, setRuns] = useState([]);
+  const [sessions, setSessions] = useState([]);
   const [selectedRun, setSelectedRun] = useState(null);
+  const [selectedSession, setSelectedSession] = useState(null); // {id, name}
   const [selectedMessages, setSelectedMessages] = useState([]);
   const [detailMode, setDetailMode] = useState('run'); // 'run' | 'all'
   const [reportSort, setReportSort] = useState('recent'); // 'recent' | 'longest'
@@ -16,9 +18,56 @@ export default function ConversationHistory({ agent, onBack }) {
   const [filterStatus, setFilterStatus] = useState('');
   const conversationRef = useRef(null);
 
+  const basePath = `/dashboard/agents/${agent.id}/interactions`;
+
   useEffect(() => {
     loadRuns();
   }, [agent.id, page, filterStatus]);
+
+  // Sessions are solid_agent conversation contexts — one persisted stream
+  // per agent action (e.g. DocsNavigatorAgent#ask) that every run appends
+  // to. Loaded up front so the report lists them as a drill-down entry.
+  useEffect(() => {
+    fetch(`/api/interactions?agent_id=${agent.id}`)
+      .then((response) => response.json())
+      .then((data) => setSessions(data.interactions || []))
+      .catch(() => {});
+  }, [agent.id]);
+
+  // Sync drill-down state with the URL: deep links like
+  // /interactions/runs/:id or /interactions/sessions/:id restore the
+  // drilled-in level on mount, and back/forward navigation re-applies
+  // whatever level the URL points at.
+  useEffect(() => {
+    const applyLocation = () => {
+      const path = window.location.pathname;
+      const runMatch = path.match(/\/interactions\/runs\/(\d+)/);
+      const sessionMatch = path.match(/\/interactions\/sessions\/(\d+)/);
+      if (runMatch) {
+        setDetailMode('run');
+        setSelectedSession(null);
+        loadRunDetails(parseInt(runMatch[1], 10), { updateUrl: false });
+      } else if (sessionMatch) {
+        setDetailMode('all');
+        setSelectedSession({ id: parseInt(sessionMatch[1], 10) });
+      } else if (path.endsWith('/interactions/sessions') || path.endsWith('/interactions/all')) {
+        // /all is the legacy spelling of the sessions list
+        if (path.endsWith('/all')) {
+          window.history.replaceState({}, '', path.replace(/\/all$/, '/sessions'));
+        }
+        setDetailMode('all');
+        setSelectedSession(null);
+      } else {
+        setDetailMode('run');
+        setSelectedRun(null);
+        setSelectedSession(null);
+        setSelectedMessages([]);
+      }
+    };
+    applyLocation();
+    window.addEventListener('popstate', applyLocation);
+    return () => window.removeEventListener('popstate', applyLocation);
+  }, [agent.id]);
 
   const loadRuns = async () => {
     setIsLoading(true);
@@ -46,16 +95,58 @@ export default function ConversationHistory({ agent, onBack }) {
     }
   };
 
-  const loadRunDetails = async (runId) => {
+  const pushPath = (path) => {
+    if (window.location.pathname !== path) window.history.pushState({}, '', path);
+  };
+
+  const loadRunDetails = async (runId, { updateUrl = true } = {}) => {
     try {
       const response = await fetch(`/api/runs/${runId}`);
       const data = await response.json();
       setSelectedRun(data.run);
       setSelectedMessages(data.messages || []);
+      setDetailMode('run');
+      setSelectedSession(null);
+      if (updateUrl) pushPath(`${basePath}/runs/${runId}`);
     } catch (error) {
       console.error('Failed to load run details:', error);
     }
   };
+
+  const clearRunSelection = () => {
+    setSelectedRun(null);
+    setSelectedSession(null);
+    setSelectedMessages([]);
+    setDetailMode('run');
+    pushPath(basePath);
+  };
+
+  // Drill into one session (or back to the sessions list with null)
+  const selectSession = (session) => {
+    setDetailMode('all');
+    if (session) {
+      setSelectedSession({ id: session.id, name: session.display_name });
+      pushPath(`${basePath}/sessions/${session.id}`);
+    } else {
+      setSelectedSession(null);
+      pushPath(`${basePath}/sessions`);
+    }
+  };
+
+  const switchMode = (mode) => {
+    setDetailMode(mode);
+    if (mode === 'all') {
+      pushPath(selectedSession ? `${basePath}/sessions/${selectedSession.id}` : `${basePath}/sessions`);
+    } else {
+      pushPath(selectedRun ? `${basePath}/runs/${selectedRun.id}` : basePath);
+    }
+  };
+
+  const selectedSessionName = selectedSession
+    ? selectedSession.name
+      || sessions.find((session) => session.id === selectedSession.id)?.display_name
+      || `Session #${selectedSession.id}`
+    : null;
 
   // Agent report: history × analytics for evaluating config changes.
   // Groups the loaded runs into configuration cohorts — each unique
@@ -70,6 +161,8 @@ export default function ConversationHistory({ agent, onBack }) {
           key,
           model: run.model,
           instructionsDigest: run.instructions_digest,
+          instructionsVersion: run.instructions_version,
+          instructionsCodename: run.instructions_codename,
           instructionsPreview: run.instructions_preview,
           runs: [],
         });
@@ -152,7 +245,7 @@ export default function ConversationHistory({ agent, onBack }) {
               </svg>
             </button>
             <div>
-              <h2 className="font-semibold text-gray-900">Conversation History</h2>
+              <h2 className="font-semibold text-gray-900">Agent Interactions</h2>
               <p className="text-sm text-gray-500">{agent.name}</p>
             </div>
           </div>
@@ -234,12 +327,47 @@ export default function ConversationHistory({ agent, onBack }) {
 
       {/* Conversation Detail */}
       <div className="flex-1 flex flex-col bg-gray-50">
+        {/* Breadcrumbs — each level links back up, mirroring the URL
+            (/interactions, /interactions/runs/:id, /interactions/sessions,
+            /interactions/sessions/:id). */}
+        <div className="px-4 py-2 bg-white border-b border-gray-100 flex items-center gap-1.5 text-xs text-gray-500">
+          <button onClick={onBack} className="hover:text-gray-900 hover:underline transition-colors">
+            {agent.name}
+          </button>
+          <span className="text-gray-300">/</span>
+          {detailMode === 'all' || selectedRun ? (
+            <>
+              <button onClick={clearRunSelection} className="hover:text-gray-900 hover:underline transition-colors">
+                Interactions
+              </button>
+              <span className="text-gray-300">/</span>
+              {detailMode === 'all' ? (
+                selectedSession ? (
+                  <>
+                    <button onClick={() => selectSession(null)} className="hover:text-gray-900 hover:underline transition-colors">
+                      Sessions
+                    </button>
+                    <span className="text-gray-300">/</span>
+                    <span className="text-gray-900 font-medium">{selectedSessionName}</span>
+                  </>
+                ) : (
+                  <span className="text-gray-900 font-medium">Sessions</span>
+                )
+              ) : (
+                <span className="text-gray-900 font-medium">Run #{selectedRun.id}</span>
+              )}
+            </>
+          ) : (
+            <span className="text-gray-900 font-medium">Interactions</span>
+          )}
+        </div>
+
         {/* Mode toggle: one run's stream, or every session for this agent —
             both rendered by the same shared interactions components. */}
         <div className="p-3 bg-white border-b border-gray-200 flex items-center justify-between">
           <div className="flex bg-gray-100 rounded-lg p-1">
             <button
-              onClick={() => setDetailMode('run')}
+              onClick={() => switchMode('run')}
               className={`px-3 py-1 text-sm rounded-md transition-colors ${
                 detailMode === 'run' ? 'bg-white shadow text-gray-900' : 'text-gray-600'
               }`}
@@ -247,12 +375,12 @@ export default function ConversationHistory({ agent, onBack }) {
               Selected run
             </button>
             <button
-              onClick={() => setDetailMode('all')}
+              onClick={() => switchMode('all')}
               className={`px-3 py-1 text-sm rounded-md transition-colors ${
                 detailMode === 'all' ? 'bg-white shadow text-gray-900' : 'text-gray-600'
               }`}
             >
-              All interactions
+              Sessions
             </button>
           </div>
           {detailMode === 'run' && selectedRun && (
@@ -263,8 +391,51 @@ export default function ConversationHistory({ agent, onBack }) {
         </div>
 
         {detailMode === 'all' ? (
-          <div className="flex-1 overflow-auto p-4">
-            <InteractionsView agentId={agent.id} embedded />
+          <div className="flex-1 overflow-auto p-4 space-y-4">
+            {/* Agent scorecard — sessions are a subset of this agent's
+                interactions, so keep its identity and stats in view. */}
+            {(() => {
+              const { totals } = buildReport();
+              return (
+                <div className="bg-white rounded-xl border border-gray-200 p-4 space-y-3">
+                  <div className="flex items-center gap-3">
+                    <AgentAvatar size={40} />
+                    <div>
+                      <h3 className="font-semibold text-gray-900">{agent.name}</h3>
+                      <p className="text-xs text-gray-500">
+                        {selectedSession
+                          ? `${selectedSessionName} — one persisted interaction stream`
+                          : 'Sessions group this agent’s runs into persisted interaction streams'}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+                    <div className="bg-gray-50 rounded-lg p-3">
+                      <p className="text-xs text-gray-500">Runs</p>
+                      <p className="text-lg font-bold text-gray-900">{totals.runs}</p>
+                    </div>
+                    <div className="bg-gray-50 rounded-lg p-3">
+                      <p className="text-xs text-gray-500">Success</p>
+                      <p className="text-lg font-bold text-gray-900">{totals.runs ? Math.round((totals.completed / totals.runs) * 100) : 0}%</p>
+                    </div>
+                    <div className="bg-gray-50 rounded-lg p-3">
+                      <p className="text-xs text-gray-500">Avg Duration</p>
+                      <p className="text-lg font-bold text-gray-900">{formatDuration(Math.round(totals.avgDuration))}</p>
+                    </div>
+                    <div className="bg-gray-50 rounded-lg p-3">
+                      <p className="text-xs text-gray-500">Tokens</p>
+                      <p className="text-lg font-bold text-gray-900">{totals.tokens.toLocaleString()}</p>
+                    </div>
+                  </div>
+                </div>
+              );
+            })()}
+            <InteractionsView
+              agentId={agent.id}
+              embedded
+              selectedSessionId={selectedSession?.id ?? null}
+              onSelectSession={selectSession}
+            />
           </div>
         ) : selectedRun ? (
           <>
@@ -273,7 +444,7 @@ export default function ConversationHistory({ agent, onBack }) {
               <div className="flex items-center space-x-3">
                 <AgentAvatar size={40} />
                 <div>
-                  <h3 className="font-medium text-gray-900">Run #{selectedRun.id}</h3>
+                  <h3 className="font-medium text-gray-900">{agent.name} — Run #{selectedRun.id}</h3>
                   <p className="text-xs text-gray-500">
                     {new Date(selectedRun.created_at).toLocaleString()}
                   </p>
@@ -376,6 +547,44 @@ export default function ConversationHistory({ agent, onBack }) {
                   </div>
                 )}
 
+                {/* Sessions — persisted conversation contexts (one stream
+                    per agent action, appended to by every run). Top-level
+                    drill-down into /interactions/sessions/:id. */}
+                {sessions.length > 0 && (
+                  <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+                    <div className="px-4 py-3 border-b border-gray-100">
+                      <span className="text-xs uppercase tracking-wide text-gray-400">
+                        Sessions — grouped interaction streams
+                      </span>
+                    </div>
+                    <div className="divide-y divide-gray-100">
+                      {sessions.map(session => (
+                        <div
+                          key={session.id}
+                          className="px-4 py-3 hover:bg-gray-50 cursor-pointer flex items-center justify-between gap-3"
+                          onClick={() => selectSession(session)}
+                          title="Open this session's interaction stream"
+                        >
+                          <div className="flex items-center gap-2 min-w-0" title={session.display_name}>
+                            <span className="px-2 py-0.5 text-xs font-medium bg-blue-100 text-blue-700 rounded flex-shrink-0">SESSION</span>
+                            <span className="text-sm text-gray-900 truncate">{session.agent?.name || session.agent_name}</span>
+                            {session.action_name && (
+                              <span className="px-1.5 py-0.5 rounded bg-purple-50 text-purple-700 font-mono text-xs flex-shrink-0">
+                                #{session.action_name}
+                              </span>
+                            )}
+                          </div>
+                          <div className="flex items-center gap-3 text-xs text-gray-400 flex-shrink-0">
+                            <span>{session.message_count} messages</span>
+                            <span>{(session.tokens?.total || 0).toLocaleString()} tokens</span>
+                            <span>{formatDate(session.last_activity_at)}</span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
                 {/* Configuration cohorts — every (instructions, model)
                     combination this agent has run under, for comparing the
                     effect of config changes side by side. */}
@@ -405,8 +614,16 @@ export default function ConversationHistory({ agent, onBack }) {
                             <span className="px-1.5 py-0.5 rounded bg-indigo-50 text-indigo-700 font-mono text-xs">
                               {cohort.model || 'unknown model'}
                             </span>
-                            <span className="text-xs text-gray-400 font-mono">
-                              instructions:{cohort.instructionsDigest || 'n/a'}
+                            <span
+                              className="text-xs text-gray-400 font-mono"
+                              title={cohort.instructionsDigest ? `sha:${cohort.instructionsDigest}` : undefined}
+                            >
+                              instructions{' '}
+                              {cohort.instructionsDigest
+                                ? [cohort.instructionsVersion, cohort.instructionsCodename || cohort.instructionsDigest]
+                                    .filter(Boolean)
+                                    .join(' · ')
+                                : 'n/a'}
                             </span>
                           </div>
                           {cohort.instructionsPreview && (

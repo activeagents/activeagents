@@ -96,35 +96,50 @@ module Api
       }
     end
 
+    MESSAGE_INPUT_SCHEMA = {
+      type: "object",
+      properties: {
+        message: { type: "string", description: "The prompt/message for the agent" }
+      },
+      required: [ "message" ]
+    }.freeze
+
     def tools_list
-      {
-        tools: account_agents.map do |agent|
-          {
-            name: "run_#{agent.slug}",
-            description: agent.description.presence || "Run the #{agent.name} agent",
-            inputSchema: {
-              type: "object",
-              properties: {
-                message: { type: "string", description: "The prompt/message for the agent" }
-              },
-              required: [ "message" ]
-            }
+      tools = account_agents.flat_map do |agent|
+        agent_tools = [ {
+          name: "run_#{agent.slug}",
+          description: agent.description.presence || "Run the #{agent.name} agent",
+          inputSchema: MESSAGE_INPUT_SCHEMA
+        } ]
+        # Named actions marked expose_as_tool are individually callable —
+        # the activeagent "actions as tools" pattern over MCP.
+        Array(agent.action_prompts).select { |ap| ap["expose_as_tool"] }.each do |action|
+          agent_tools << {
+            name: "run_#{agent.slug}__#{action['name']}",
+            description: "Run the #{agent.name} agent's #{action['name']} action",
+            inputSchema: MESSAGE_INPUT_SCHEMA
           }
         end
-      }
+        agent_tools
+      end
+
+      { tools: tools }
     end
 
     def tools_call
       name = params.dig(:params, :name).to_s
-      slug = name.delete_prefix("run_")
+      slug, action = name.delete_prefix("run_").split("__", 2)
       agent = account_agents.find_by(slug: slug)
       raise McpError.new("Unknown tool: #{name}", JSONRPC_INVALID_PARAMS) unless agent
+      if action.present? && agent.action_prompt_for(action)&.dig("expose_as_tool") != true
+        raise McpError.new("Unknown tool: #{name}", JSONRPC_INVALID_PARAMS)
+      end
 
       message = params.dig(:params, :arguments, :message).to_s
       raise McpError.new("Missing required argument: message", JSONRPC_INVALID_PARAMS) if message.blank?
       raise McpError.new("Agent run quota exceeded for the current plan") unless @account.can_run_agent?
 
-      run = agent.test_execute(message)
+      run = agent.test_execute(message, action: action)
       @account.increment_agent_runs!
 
       if run.failed?

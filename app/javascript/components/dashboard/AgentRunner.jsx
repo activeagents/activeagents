@@ -20,6 +20,10 @@ const eventBubble = (kind) => {
 
 export default function AgentRunner({ agent, onBack }) {
   const [prompt, setPrompt] = useState('');
+  // Named action to invoke; agents always have the default #ask, plus any
+  // configured action prompts (Instructions tab).
+  const actionNames = ['ask', ...(agent.action_prompts || []).map(ap => ap.name).filter(Boolean)];
+  const [actionName, setActionName] = useState('ask');
   const [runs, setRuns] = useState([]);
   const [isRunning, setIsRunning] = useState(false);
   const [currentRun, setCurrentRun] = useState(null);
@@ -71,7 +75,7 @@ export default function AgentRunner({ agent, onBack }) {
       const response = await fetch(`/api/agents/${agent.id}/execute`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ prompt: prompt })
+        body: JSON.stringify({ prompt: prompt, action_name: actionName })
       });
 
       const data = await response.json();
@@ -233,9 +237,24 @@ export default function AgentRunner({ agent, onBack }) {
                 className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent resize-none"
               />
               <div className="flex items-center justify-between mt-3">
-                <span className="text-xs text-gray-400">
-                  Press <kbd className="px-1.5 py-0.5 bg-gray-100 rounded text-gray-600">⌘</kbd> + <kbd className="px-1.5 py-0.5 bg-gray-100 rounded text-gray-600">Enter</kbd> to run
-                </span>
+                <div className="flex items-center gap-3">
+                  {actionNames.length > 1 && (
+                    <select
+                      value={actionName}
+                      onChange={(e) => setActionName(e.target.value)}
+                      disabled={isRunning}
+                      className="px-2 py-1 border border-gray-300 rounded-lg text-sm font-mono text-gray-700 focus:ring-2 focus:ring-red-500"
+                      title="Agent action to invoke"
+                    >
+                      {actionNames.map(name => (
+                        <option key={name} value={name}>#{name}</option>
+                      ))}
+                    </select>
+                  )}
+                  <span className="text-xs text-gray-400">
+                    Press <kbd className="px-1.5 py-0.5 bg-gray-100 rounded text-gray-600">⌘</kbd> + <kbd className="px-1.5 py-0.5 bg-gray-100 rounded text-gray-600">Enter</kbd> to run
+                  </span>
+                </div>
                 <button
                   onClick={handleRun}
                   disabled={!prompt.trim() || isRunning}

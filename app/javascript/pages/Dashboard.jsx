@@ -5,7 +5,7 @@ import AgentEditor from '../components/dashboard/AgentEditor';
 import AgentRunner from '../components/dashboard/AgentRunner';
 import AgentAnalytics from '../components/dashboard/AgentAnalytics';
 import DashboardAnalytics from '../components/dashboard/DashboardAnalytics';
-import ConversationHistory from '../components/dashboard/ConversationHistory';
+import AgentInteractions from '../components/dashboard/AgentInteractions';
 import TemplateLibrary from '../components/dashboard/TemplateLibrary';
 import Sidebar from '../components/dashboard/Sidebar';
 import Header from '../components/dashboard/Header';
@@ -42,7 +42,7 @@ function DashboardContent({ user, initialAgents = [], meta = {}, account = null,
       setCurrentView('traces');
     } else if (path.includes('/metrics')) {
       setCurrentView('metrics');
-    } else if (path.includes('/interactions')) {
+    } else if (path.includes('/interactions') && !path.includes('/agents/')) {
       setCurrentView('interactions');
     } else if (path.includes('/evaluations')) {
       setCurrentView('evaluations');
@@ -50,8 +50,13 @@ function DashboardContent({ user, initialAgents = [], meta = {}, account = null,
       setCurrentView('analytics');
     } else if (path.includes('/agents/new')) {
       setCurrentView('builder');
-    } else if (path.match(/\/agents\/\d+\/history/)) {
+    } else if (path.match(/\/agents\/\d+\/(interactions|history)/)) {
       const id = path.match(/\/agents\/(\d+)/)?.[1];
+      // Legacy /history URLs normalize to /interactions before the view
+      // mounts, so nested-path parsing sees the canonical form.
+      if (path.includes('/history')) {
+        window.history.replaceState({}, '', path.replace('/history', '/interactions'));
+      }
       if (id) loadAgent(id, 'history');
     } else if (path.match(/\/agents\/\d+\/analytics/)) {
       const id = path.match(/\/agents\/(\d+)/)?.[1];
@@ -226,7 +231,7 @@ function DashboardContent({ user, initialAgents = [], meta = {}, account = null,
     else if (view === 'editor' && agent) path = `/dashboard/agents/${agent.id}/edit`;
     else if (view === 'runner' && agent) path = `/dashboard/agents/${agent.id}/run`;
     else if (view === 'agent-analytics' && agent) path = `/dashboard/agents/${agent.id}/analytics`;
-    else if (view === 'history' && agent) path = `/dashboard/agents/${agent.id}/history`;
+    else if (view === 'history' && agent) path = `/dashboard/agents/${agent.id}/interactions`;
     else if (view === 'analytics') path = '/dashboard/analytics';
     else if (view === 'traces') path = '/dashboard/traces';
     else if (view === 'metrics') path = '/dashboard/metrics';
@@ -282,7 +287,7 @@ function DashboardContent({ user, initialAgents = [], meta = {}, account = null,
         ) : null;
       case 'history':
         return selectedAgent ? (
-          <ConversationHistory
+          <AgentInteractions
             agent={selectedAgent}
             onBack={() => navigateTo('editor', selectedAgent)}
           />
