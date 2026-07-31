@@ -237,7 +237,11 @@ export default function InteractionsView() {
                     )}
                   </div>
                   <div className="flex items-center gap-4 flex-shrink-0 text-sm" style={{ color: colors.textSecondary }}>
-                    <span>{session.message_count} messages</span>
+                    <span>
+                      {session.message_count > 0
+                        ? `${session.message_count} messages`
+                        : `${session.tool_count || 0} tool ${session.tool_count === 1 ? 'call' : 'calls'}`}
+                    </span>
                     <span>{formatNumber(session.tokens?.total)} tokens</span>
                     <span style={{ color: colors.textMuted }}>{timeAgo(session.last_activity_at)}</span>
                     <svg
@@ -258,6 +262,14 @@ export default function InteractionsView() {
                       </div>
                     ) : (
                       <>
+                        {detail.messages.length === 0 && (
+                          // A run reported without content capture: we know it
+                          // happened and what it cost, not what was said.
+                          <div className="text-sm" style={{ color: colors.textMuted }}>
+                            No conversation content captured for this run. Enable content capture in
+                            the reporting app to record prompts, tool arguments, and responses.
+                          </div>
+                        )}
                         {detail.messages.map((message) => {
                           const bubble = roleBubble(message.role);
                           const isToolResult = message.role === 'tool' && message.content;

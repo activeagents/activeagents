@@ -43,6 +43,10 @@ class TraceInteractionSerializer
         total: @trace.total_input_tokens.to_i + @trace.total_output_tokens.to_i
       },
       message_count: messages.size,
+      # Tool activity is known even when content capture is off, so a run
+      # reported without prompts still shows what it did.
+      tool_count: tool_spans.size,
+      duration_ms: @trace.total_duration_ms&.to_f,
       generation_count: llm_spans.size,
       created_at: @trace.timestamp.iso8601,
       last_activity_at: @trace.timestamp.iso8601
@@ -59,8 +63,14 @@ class TraceInteractionSerializer
 
   private
 
+  # The generation span. Older traces wrapped a separate `llm` span inside a
+  # root; newer ones merge them, since the provider loop *is* the interaction.
+  # Accept both, and never count the same generation twice.
   def llm_spans
-    @llm_spans ||= @spans.select { |span| span["type"] == "llm" }
+    @llm_spans ||= begin
+      nested = @spans.select { |span| span["type"] == "llm" }
+      nested.presence || @spans.select { |span| span["parent_span_id"].nil? && span.dig("attributes", "llm.model") }
+    end
   end
 
   def tool_spans
