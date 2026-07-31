@@ -11,6 +11,7 @@ module Api
     before_action :require_account!
 
     DEFAULT_LIMIT = 50
+    MAX_WINDOW_MINUTES = 60 * 24 * 90
 
     # GET /api/interactions
     def index
@@ -18,6 +19,7 @@ module Api
 
       contexts = interactions_scope
         .includes(:contextable)
+        .then { |scope| window_minutes ? scope.where(updated_at: window_minutes.minutes.ago..) : scope }
         .recent
         .limit(limit)
 
@@ -64,10 +66,18 @@ module Api
     # they only report traces. Surface those with a captured conversation so
     # the view shows the same prompt → tool → result → response stream.
     def reported_traces(limit)
-      current_account.telemetry_traces
+      scope = current_account.telemetry_traces
         .where("spans::text LIKE ?", "%llm.prompt%")
-        .order(timestamp: :desc)
-        .limit(limit)
+      scope = scope.where(timestamp: window_minutes.minutes.ago..) if window_minutes
+      scope.order(timestamp: :desc).limit(limit)
+    end
+
+    # The dashboard-wide time window, shared with Traces. Absent means "all".
+    def window_minutes
+      return @window_minutes if defined?(@window_minutes)
+
+      raw = params[:minutes].presence
+      @window_minutes = raw ? raw.to_i.clamp(1, MAX_WINDOW_MINUTES) : nil
     end
 
     def interactions_scope
