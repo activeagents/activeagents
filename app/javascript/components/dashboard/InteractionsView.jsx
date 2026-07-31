@@ -1,5 +1,7 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useTheme } from '../../contexts/ThemeContext';
+import { useTimeWindow } from '../../contexts/TimeWindowContext';
+import TimeWindowSelector from './TimeWindowSelector';
 
 const REFRESH_INTERVAL_MS = 30000;
 
@@ -27,9 +29,11 @@ export default function InteractionsView() {
   const [expandedSession, setExpandedSession] = useState(null);
   const [details, setDetails] = useState({}); // interaction id -> detail payload
 
+  const { timeWindow } = useTimeWindow();
+
   const fetchSessions = useCallback(async () => {
     try {
-      const response = await fetch('/api/interactions');
+      const response = await fetch(`/api/interactions?minutes=${timeWindow.minutes}`);
       if (!response.ok) throw new Error(`Request failed (${response.status})`);
       const data = await response.json();
       setSessions(data.interactions || []);
@@ -39,7 +43,7 @@ export default function InteractionsView() {
     } finally {
       setIsLoading(false);
     }
-  }, []);
+  }, [timeWindow.minutes]);
 
   useEffect(() => {
     fetchSessions();
@@ -152,11 +156,14 @@ export default function InteractionsView() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div>
-        <h1 className="text-2xl font-bold" style={{ color: colors.textPrimary }}>Interactions</h1>
-        <p className="text-sm mt-1" style={{ color: colors.textSecondary }}>
-          Persisted conversation streams per agent — messages, generations and provenance
-        </p>
+      <div className="flex items-start justify-between">
+        <div>
+          <h1 className="text-2xl font-bold" style={{ color: colors.textPrimary }}>Interactions</h1>
+          <p className="text-sm mt-1" style={{ color: colors.textSecondary }}>
+            Conversation streams per agent — messages, generations and provenance
+          </p>
+        </div>
+        <TimeWindowSelector />
       </div>
 
       {loadError && (

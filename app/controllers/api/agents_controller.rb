@@ -87,6 +87,12 @@ module Api
     def runs
       @runs = @agent.agent_runs.recent
 
+      # Dashboard-wide time window, shared with Traces and Interactions
+      if params[:minutes].present?
+        minutes = params[:minutes].to_i.clamp(1, 60 * 24 * 90)
+        @runs = @runs.where(created_at: minutes.minutes.ago..)
+      end
+
       # Filter by status
       @runs = @runs.where(status: params[:status]) if params[:status].present?
 

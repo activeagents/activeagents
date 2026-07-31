@@ -1,7 +1,10 @@
 import React, { useState, useEffect, useRef } from 'react';
 import AgentAvatar from '../AgentAvatar';
+import { useTimeWindow } from '../../contexts/TimeWindowContext';
+import TimeWindowSelector from './TimeWindowSelector';
 
 export default function ConversationHistory({ agent, onBack }) {
+  const { timeWindow } = useTimeWindow();
   const [runs, setRuns] = useState([]);
   const [selectedRun, setSelectedRun] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -12,14 +15,20 @@ export default function ConversationHistory({ agent, onBack }) {
 
   useEffect(() => {
     loadRuns();
-  }, [agent.id, page, filterStatus]);
+  }, [agent.id, page, filterStatus, timeWindow.minutes]);
+
+  // The shared window is a different result set, not more of the same one.
+  useEffect(() => {
+    setPage(1);
+  }, [timeWindow.minutes]);
 
   const loadRuns = async () => {
     setIsLoading(true);
     try {
       const params = new URLSearchParams({
         page: page.toString(),
-        per_page: '20'
+        per_page: '20',
+        minutes: String(timeWindow.minutes)
       });
       if (filterStatus) params.append('status', filterStatus);
 
@@ -99,9 +108,14 @@ export default function ConversationHistory({ agent, onBack }) {
               </svg>
             </button>
             <div>
-              <h2 className="font-semibold text-gray-900">Conversation History</h2>
+              <h2 className="font-semibold text-gray-900">Agent Interactions</h2>
               <p className="text-sm text-gray-500">{agent.name}</p>
             </div>
+          </div>
+
+          {/* Shared dashboard time window */}
+          <div className="mb-2">
+            <TimeWindowSelector compact />
           </div>
 
           {/* Filter */}
