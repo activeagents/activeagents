@@ -1,6 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import AgentAvatar, { AGENT_PRESETS, INSTRUCTIONS, TOOLS } from '../AgentAvatar';
 import { ICONS } from '../../utils/designTokens';
+import { FALLBACK_PROVIDER_MODELS, fetchProviderModels } from '../../utils/providerModels';
 
 const STEPS = [
   { id: 'basics', label: 'Basics', icon: '1' },
@@ -8,20 +9,14 @@ const STEPS = [
   { id: 'review', label: 'Review', icon: '3' }
 ];
 
-const PROVIDER_MODELS = {
-  openai: ['gpt-4o', 'gpt-4o-mini', 'gpt-4-turbo', 'gpt-3.5-turbo'],
-  anthropic: ['claude-sonnet-4-20250514', 'claude-3-5-haiku-20241022', 'claude-3-opus-20240229'],
-  ollama: ['llama3', 'mistral', 'codellama', 'mixtral'],
-  openrouter: ['openai/gpt-4o', 'anthropic/claude-sonnet-4-20250514', 'meta-llama/llama-3-70b-instruct']
-};
-
 export default function AgentBuilder({ meta, onSave, onCancel, isLoading }) {
   const [currentStep, setCurrentStep] = useState(0);
+  const [providerModels, setProviderModels] = useState(FALLBACK_PROVIDER_MODELS);
   const [formData, setFormData] = useState({
     name: '',
     description: '',
     provider: 'openai',
-    model: 'gpt-4o-mini',
+    model: FALLBACK_PROVIDER_MODELS.openai[0],
     instructions: '',
     preset_type: 'terminal',
     instruction_sets: ['github'],
@@ -30,6 +25,18 @@ export default function AgentBuilder({ meta, onSave, onCancel, isLoading }) {
       temperature: 0.7
     }
   });
+
+  // Load the provider's current model catalog (Ollama/OpenRouter live,
+  // hosted providers curated server-side); keep the selection valid.
+  useEffect(() => {
+    let cancelled = false;
+    fetchProviderModels(formData.provider).then(models => {
+      if (cancelled || models.length === 0) return;
+      setProviderModels(prev => ({ ...prev, [formData.provider]: models }));
+      setFormData(prev => models.includes(prev.model) ? prev : { ...prev, model: models[0] });
+    });
+    return () => { cancelled = true; };
+  }, [formData.provider]);
 
   const updateField = (field, value) => {
     setFormData(prev => ({ ...prev, [field]: value }));
@@ -103,7 +110,7 @@ export default function AgentBuilder({ meta, onSave, onCancel, isLoading }) {
       {/* Step Content */}
       <div className="bg-white rounded-xl border border-gray-200 p-8">
         {currentStep === 0 && (
-          <BasicsStep formData={formData} updateField={updateField} providerModels={PROVIDER_MODELS} />
+          <BasicsStep formData={formData} updateField={updateField} providerModels={providerModels} />
         )}
         {currentStep === 1 && (
           <ConfigureStep

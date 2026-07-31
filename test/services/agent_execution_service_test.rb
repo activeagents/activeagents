@@ -10,6 +10,86 @@ class AgentExecutionServiceTest < ActiveSupport::TestCase
     @run = @agent.agent_runs.create!(input_prompt: "Hello there", status: :running, started_at: Time.current)
   end
 
+  test "execute_tool routes memory tools to the agent's AgentMemory" do
+    service = AgentExecutionService.new(@agent, @run)
+
+    saved = service.execute_tool("save_memory", content: "User is on the pro plan", category: "fact")
+    assert saved[:saved]
+
+    recalled = service.execute_tool("recall_memory")
+    assert_equal 1, recalled[:count]
+    assert_equal "User is on the pro plan", recalled[:entries].first[:content]
+    assert_equal "SupportBotAgent", recalled[:entries].first[:source_agent]
+
+    # Persisted on the shared AgentMemory, so another agent run on the same
+    # record picks it up (handoff).
+    assert_equal [ "User is on the pro plan" ], @agent.memory.summary_list
+  end
+
+  test "execute_tool routes non-memory tools to AgentToolbox" do
+    service = AgentExecutionService.new(@agent, @run)
+
+    result = service.execute_tool("calculate", expression: "6*7")
+    assert_equal 42, result[:result]
+  end
+
+  test "memory tool schemas are exposed when the agent enables the memory tool" do
+    agent = create_agent(user: @user, name: "Rememberer", tools: %w[memory])
+    run = agent.agent_runs.create!(input_prompt: "Hi", status: :running, started_at: Time.current)
+    # Account provider key makes openai "available" so tool schemas are built.
+    @account.provider_keys.create!(provider: "openai", credential: "sk-test")
+
+    service = AgentExecutionService.new(agent, run)
+    names = service.send(:tool_schemas).map { |d| d[:name] }
+    assert_equal %w[save_memory recall_memory], names
+  end
+
+  test "runs with tools configured still succeed on the mock fallback" do
+    agent = create_agent(user: @user, name: "Tool Bot", tools: %w[fetch code])
+    run = agent.agent_runs.create!(input_prompt: "What is 2+2?", status: :running, started_at: Time.current)
+
+    result = AgentExecutionService.call(agent, run)
+
+    assert result[:output].present?
+    assert_equal [], result[:metadata][:tool_calls]
+  end
+
+  test "records tool spans from the response's tool messages" do
+    fake_message = Struct.new(:role, :name, :tool_call_id)
+    fake_response = Struct.new(:messages)
+    response = fake_response.new([
+      fake_message.new("assistant", nil, nil),
+      fake_message.new("tool", "calculate", "call_1"),
+      fake_message.new("tool", "fetch_url", "call_2")
+    ])
+
+    service = AgentExecutionService.new(@agent, @run)
+    root_span = service.send(:build_root_span)
+    names = service.send(:record_tool_spans, root_span, response)
+
+    assert_equal %w[calculate fetch_url], names
+    tool_spans = root_span.children.select { |span| span.span_type.to_s == "tool" }
+    assert_equal 2, tool_spans.length
+    assert_equal "tool.calculate", tool_spans.first.name
+  end
+
+  test "treats the requested provider as available when the account stores a key for it" do
+    @account.provider_keys.create!(provider: "openai", credential: "sk-users-own-key")
+
+    service = AgentExecutionService.new(@agent, @run)
+    assert_equal :openai, service.provider
+    assert_not service.mock_fallback?
+  end
+
+  test "treats ollama as available when the account stores a host for it" do
+    agent = create_agent(user: @user, name: "Local Bot", provider: "ollama", model: "llama3")
+    run = agent.agent_runs.create!(input_prompt: "Hi", status: :running, started_at: Time.current)
+    @account.provider_keys.create!(provider: "ollama", credential: "http://localhost:11434/v1")
+
+    service = AgentExecutionService.new(agent, run)
+    assert_equal :ollama, service.provider
+  end
+
   test "falls back to the gem's mock provider when the requested provider is not configured" do
     result = AgentExecutionService.call(@agent, @run)
 
@@ -90,6 +170,23 @@ class AgentExecutionServiceTest < ActiveSupport::TestCase
     assert_equal 4, context.messages.count
     assert_equal 2, context.generations.count
     assert_equal [ @run.trace_id, second_run.trace_id ], context.generations.order(:created_at).pluck(:trace_id)
+  end
+
+  test "strips sampling params for Claude 5-family and Opus 4.7+ models" do
+    [ "claude-sonnet-5", "claude-opus-5", "claude-fable-5", "claude-opus-4-8", "claude-opus-4-7" ].each do |model|
+      assert model.match?(AgentExecutionService::SAMPLING_UNSUPPORTED_MODELS), "expected #{model} to match"
+    end
+    [ "claude-haiku-4-5", "claude-sonnet-4-5", "gpt-4o-mini", "qwen3:8b" ].each do |model|
+      assert_not model.match?(AgentExecutionService::SAMPLING_UNSUPPORTED_MODELS), "expected #{model} not to match"
+    end
+
+    # A run configured with sampling params on such a model still succeeds
+    # (params are dropped before reaching the provider).
+    agent = create_agent(user: @user, name: "Sonnet Five Bot", provider: "anthropic", model: "claude-sonnet-5",
+                         model_config: { "temperature" => 0.7, "top_p" => 0.9, "max_tokens" => 512 })
+    run = agent.agent_runs.create!(input_prompt: "Hi", status: :running, started_at: Time.current)
+    result = AgentExecutionService.call(agent, run)
+    assert result[:output].present?
   end
 
   test "test_execute persists run results from real execution" do

@@ -28,7 +28,10 @@ class DashboardController < ApplicationController
   def agents_data
     return [] unless current_user
 
-    current_user.agents.order(updated_at: :desc).limit(20).map do |agent|
+    agents = current_user.agents.order(updated_at: :desc).limit(20).to_a
+    scorecards = AgentScorecard.for_agents(agents)
+
+    agents.map do |agent|
       {
         id: agent.id,
         name: agent.name,
@@ -41,7 +44,8 @@ class DashboardController < ApplicationController
         appearance: agent.appearance,
         versionCount: agent.version_count,
         createdAt: agent.created_at,
-        updatedAt: agent.updated_at
+        updatedAt: agent.updated_at,
+        stats: scorecards[agent.id]
       }
     end
   rescue ActiveRecord::StatementInvalid

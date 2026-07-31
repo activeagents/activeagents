@@ -19,6 +19,30 @@ const buildAgentColors = (agents) => {
   return colors;
 };
 
+// Aggregate span durations by operation name across traces, so the Spans
+// view can rank which agent/llm/tool steps take the longest. Root spans are
+// skipped — they equal the whole trace and would dominate every ranking.
+const buildSpanStats = (traces) => {
+  const stats = {};
+  traces.forEach((trace) => {
+    (trace.spans || []).forEach((span) => {
+      if ((span.nested || 0) === 0) return;
+      const key = span.name || span.type || 'unknown';
+      if (!stats[key]) {
+        stats[key] = { name: key, type: span.type, count: 0, total: 0, max: 0, errors: 0 };
+      }
+      const entry = stats[key];
+      entry.count += 1;
+      entry.total += span.duration || 0;
+      entry.max = Math.max(entry.max, span.duration || 0);
+      if (span.error) entry.errors += 1;
+    });
+  });
+  return Object.values(stats)
+    .map((entry) => ({ ...entry, avg: entry.total / entry.count }))
+    .sort((a, b) => b.total - a.total);
+};
+
 // Bucket traces into 1-minute intervals for the throughput chart
 const buildThroughputData = (traces, agents, windowMinutes) => {
   const now = Date.now();
@@ -51,31 +75,36 @@ const buildThroughputData = (traces, agents, windowMinutes) => {
   return data;
 };
 
-export default function TracesView() {
+// agentClass scopes the view to one agent's traces (per-agent embed: same
+// component, different UX context); embedded hides the page title.
+export default function TracesView({ agentClass = null, embedded = false }) {
   const { darkMode } = useTheme();
   const [traces, setTraces] = useState([]);
   const [agentsList, setAgentsList] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState(null);
   const [selectedTrace, setSelectedTrace] = useState(null);
+  const [expandedSpan, setExpandedSpan] = useState(null); // `${trace.id}:${spanIdx}`
   const [filter, setFilter] = useState({ status: 'all', agent: 'all', action: 'all' });
+  const [sortBy, setSortBy] = useState('time'); // 'time' (chronological) | 'latency' (slowest first)
   const [selectedTimeBucket, setSelectedTimeBucket] = useState(null);
-  const [viewMode, setViewMode] = useState('timeline'); // 'timeline', 'agents', or 'actions'
+  const [viewMode, setViewMode] = useState('timeline'); // 'timeline', 'agents', 'actions', or 'spans'
 
   const fetchTraces = useCallback(async () => {
     try {
-      const response = await fetch(`/api/traces?minutes=${WINDOW_MINUTES}`);
+      const scope = agentClass ? `&agent=${encodeURIComponent(agentClass)}` : '';
+      const response = await fetch(`/api/traces?minutes=${WINDOW_MINUTES}${scope}`);
       if (!response.ok) throw new Error(`Request failed (${response.status})`);
       const data = await response.json();
       setTraces(data.traces || []);
-      setAgentsList(data.agents || []);
+      setAgentsList(agentClass ? [agentClass] : (data.agents || []));
       setLoadError(null);
     } catch (error) {
       setLoadError(error.message);
     } finally {
       setIsLoading(false);
     }
-  }, []);
+  }, [agentClass]);
 
   useEffect(() => {
     fetchTraces();
@@ -120,8 +149,12 @@ export default function TracesView() {
       }
     }
 
+    if (sortBy === 'latency') {
+      result = [...result].sort((a, b) => (b.duration_ms || 0) - (a.duration_ms || 0));
+    }
+
     return result;
-  }, [traces, selectedTimeBucket, throughputData, filter]);
+  }, [traces, selectedTimeBucket, throughputData, filter, sortBy]);
 
   // Aggregate agent stats for selected time range
   const agentStats = useMemo(() => {
@@ -208,6 +241,9 @@ export default function TracesView() {
     return actionStats.filter((s) => s.agent === filter.agent).map((s) => s.key);
   }, [filter.agent, actionStats]);
 
+  // Span duration ranking for the Spans view (respects filters/time bucket)
+  const spanStats = useMemo(() => buildSpanStats(filteredTraces), [filteredTraces]);
+
   // Chart click handler
   const handleChartClick = (data) => {
     if (data && data.activeTooltipIndex !== undefined) {
@@ -253,6 +289,188 @@ export default function TracesView() {
 
   const isSuccess = (trace) => trace.status !== 'ERROR';
 
+  const spanShareLabel = (span, trace) => {
+    if (!trace.duration_ms) return formatDuration(span.duration);
+    const share = ((span.duration || 0) / trace.duration_ms) * 100;
+    return `${formatDuration(span.duration)} · ${share < 1 ? share.toFixed(2) : share.toFixed(1)}%`;
+  };
+
+  const spanTokens = (span) => {
+    const tokens = span.tokens || {};
+    return (tokens.input || 0) + (tokens.output || 0) + (tokens.thinking || 0);
+  };
+
+  // Attribute values that hold JSON payloads (tool inputs/outputs) get
+  // pretty-printed blocks; everything else renders inline.
+  const prettyAttribute = (value) => {
+    if (typeof value !== 'string') return null;
+    try {
+      return JSON.stringify(JSON.parse(value), null, 2);
+    } catch {
+      return null;
+    }
+  };
+
+  // Expanded detail panel for a single span (attributes, tokens, ids).
+  const renderSpanDetails = (span, dark) => {
+    const attributes = Object.entries(span.attributes || {});
+    const textColor = dark ? 'rgba(255,255,255,0.75)' : '#4b5563';
+    const mutedColor = dark ? 'rgba(255,255,255,0.45)' : '#9ca3af';
+    const preStyle = {
+      background: dark ? 'rgba(255,255,255,0.06)' : '#eef0f3',
+      borderRadius: '6px',
+      padding: '6px 8px',
+      margin: '2px 0 4px 0',
+      overflowX: 'auto',
+      whiteSpace: 'pre',
+    };
+    return (
+      <div
+        style={{
+          margin: '4px 0 8px 176px',
+          padding: '10px 12px',
+          borderRadius: '8px',
+          background: dark ? 'rgba(0,0,0,0.35)' : '#f9fafb',
+          border: `1px solid ${dark ? 'rgba(255,255,255,0.1)' : '#e5e7eb'}`,
+          fontFamily: TYPOGRAPHY.mono,
+          fontSize: '12px',
+          color: textColor,
+        }}
+      >
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px 20px' }}>
+          <span>duration: {formatDuration(span.duration)}</span>
+          <span>status: {span.status || 'OK'}</span>
+          {spanTokens(span) > 0 && (
+            <span>
+              tokens in:{span.tokens.input || 0} out:{span.tokens.output || 0}
+              {span.tokens.thinking > 0 ? ` thinking:${span.tokens.thinking}` : ''}
+            </span>
+          )}
+          <span style={{ color: mutedColor }}>span: {span.span_id}</span>
+        </div>
+        {attributes.length > 0 && (
+          <div style={{ marginTop: '6px', display: 'grid', gap: '2px' }}>
+            {attributes.map(([key, value]) => {
+              const pretty = key.match(/args|result|input|output/) ? prettyAttribute(value) : null;
+              return (
+                <div key={key} style={{ wordBreak: 'break-all' }}>
+                  <span style={{ color: mutedColor }}>{key}:</span>{' '}
+                  {pretty ? <pre style={preStyle}>{pretty}</pre> : (typeof value === 'string' ? value : JSON.stringify(value))}
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
+    );
+  };
+
+  // Generation vs tool time for one trace: how much of the wall clock went
+  // to the LLM, to each tool, and to unattributed overhead. Tool calls run
+  // inside the provider's generate loop, so their time is subtracted from
+  // the llm span to get pure generation time — the segments sum to ~100%.
+  const traceTimeBreakdown = (trace) => {
+    let generation = 0;
+    const tools = [];
+    (trace.spans || []).forEach((span) => {
+      if ((span.nested || 0) === 0) return;
+      if (span.type === 'tool') {
+        tools.push(span);
+      } else if (span.type === 'llm' || span.type === 'generate') {
+        generation = Math.max(generation, span.duration || 0);
+      }
+    });
+    const toolTotal = tools.reduce((sum, span) => sum + (span.duration || 0), 0);
+    generation = Math.max(generation - toolTotal, 0);
+    const total = trace.duration_ms || generation + toolTotal || 1;
+    return { generation, tools, toolTotal, total, overhead: Math.max(total - generation - toolTotal, 0) };
+  };
+
+  const renderTraceBreakdown = (trace, dark) => {
+    const { generation, tools, toolTotal, total, overhead } = traceTimeBreakdown(trace);
+    if (generation === 0 && toolTotal === 0) return null;
+    const muted = dark ? 'rgba(255,255,255,0.5)' : '#6b7280';
+    const text = dark ? 'rgba(255,255,255,0.85)' : '#374151';
+    const pct = (ms) => `${((ms / total) * 100).toFixed(ms / total < 0.01 ? 2 : 1)}%`;
+    const segment = (ms, color) => (
+      <div style={{ width: `${Math.max((ms / total) * 100, 0.4)}%`, background: color, height: '100%' }} />
+    );
+    return (
+      <div style={{ marginTop: '14px', paddingTop: '12px', borderTop: `1px solid ${dark ? 'rgba(255,255,255,0.1)' : '#e5e7eb'}` }}>
+        <div style={{ fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.05em', color: muted, marginBottom: '6px' }}>
+          Time breakdown — generation vs tools
+        </div>
+        <div style={{ display: 'flex', height: '10px', borderRadius: '5px', overflow: 'hidden', background: dark ? 'rgba(255,255,255,0.08)' : '#f3f4f6' }}>
+          {segment(generation, '#ef4444')}
+          {segment(toolTotal, '#10b981')}
+          {overhead > 0 && segment(overhead, dark ? 'rgba(255,255,255,0.2)' : '#d1d5db')}
+        </div>
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px 18px', marginTop: '8px', fontSize: '12px', fontFamily: TYPOGRAPHY.mono, color: text }}>
+          <span><span style={{ color: '#ef4444' }}>■</span> generation {formatDuration(generation)} ({pct(generation)})</span>
+          <span><span style={{ color: '#10b981' }}>■</span> tools {formatDuration(toolTotal)} ({pct(toolTotal)})</span>
+          {overhead > 0 && <span><span style={{ color: muted }}>■</span> overhead {formatDuration(overhead)} ({pct(overhead)})</span>}
+        </div>
+        {tools.length > 0 && (
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px 18px', marginTop: '4px', fontSize: '12px', fontFamily: TYPOGRAPHY.mono, color: muted }}>
+            {tools.map((span, idx) => (
+              <span key={idx}>{span.name} {formatDuration(span.duration)} ({pct(span.duration || 0)})</span>
+            ))}
+          </div>
+        )}
+      </div>
+    );
+  };
+
+  // "Slowest operations" ranking across the filtered traces.
+  const renderSpansBreakdown = (dark) => {
+    const maxTotal = spanStats[0]?.total || 1;
+    const cardBg = dark ? 'rgba(0,0,0,0.3)' : 'white';
+    const border = dark ? '1px solid rgba(255,255,255,0.1)' : '1px solid #e5e7eb';
+    const text = dark ? 'white' : '#111827';
+    const muted = dark ? 'rgba(255,255,255,0.5)' : '#6b7280';
+    const barColorByType = { llm: '#ef4444', tool: '#10b981', generate: '#8b5cf6', prompt: '#3b82f6' };
+    return (
+      <div style={{ padding: dark ? '0 24px 24px 24px' : 0 }}>
+        <div style={{ background: cardBg, border, borderRadius: '12px', padding: '16px' }}>
+          <div style={{ fontSize: '14px', fontWeight: 600, color: text, marginBottom: '4px' }}>
+            Slowest operations
+          </div>
+          <div style={{ fontSize: '12px', color: muted, marginBottom: '14px' }}>
+            Span durations aggregated across {filteredTraces.length} trace{filteredTraces.length === 1 ? '' : 's'} — ranked by total time
+          </div>
+          {spanStats.length === 0 ? (
+            <div style={{ fontSize: '13px', color: muted, padding: '12px 0' }}>No spans in the current selection</div>
+          ) : (
+            <div style={{ display: 'grid', gap: '10px' }}>
+              {spanStats.map((stat) => (
+                <div key={stat.name} style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                  <div style={{ width: '220px', flexShrink: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <span style={{ color: muted }}>{getSpanIcon(stat.type)}</span>
+                    <span style={{ fontSize: '13px', color: stat.errors > 0 ? '#ef4444' : text, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      {stat.name}
+                    </span>
+                  </div>
+                  <div style={{ flex: 1, height: '18px', background: dark ? 'rgba(255,255,255,0.06)' : '#f3f4f6', borderRadius: '4px', position: 'relative' }}>
+                    <div
+                      style={{
+                        position: 'absolute', top: '3px', left: 0, height: '12px', borderRadius: '3px',
+                        width: `${Math.max((stat.total / maxTotal) * 100, 0.5)}%`,
+                        background: barColorByType[stat.type] || '#6366f1',
+                      }}
+                    />
+                  </div>
+                  <div style={{ width: '260px', flexShrink: 0, fontSize: '12px', color: muted, fontFamily: TYPOGRAPHY.mono, textAlign: 'right' }}>
+                    {stat.count}× · avg {formatDuration(stat.avg)} · max {formatDuration(stat.max)} · Σ {formatDuration(stat.total)}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  };
+
   if (isLoading) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -282,7 +500,7 @@ export default function TracesView() {
         <div style={{ padding: '24px 24px 0 24px', borderBottom: '1px solid rgba(255,255,255,0.1)', marginBottom: '16px', paddingBottom: '16px' }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
             <div>
-              <h1 style={{ fontSize: '24px', fontWeight: 'bold', color: 'white', margin: 0 }}>Traces</h1>
+              {!embedded && <h1 style={{ fontSize: '24px', fontWeight: 'bold', color: 'white', margin: 0 }}>Traces</h1>}
               <p style={{ fontSize: '14px', color: 'rgba(255,255,255,0.6)', marginTop: '4px' }}>
                 {selectedTimeBucket !== null
                   ? `Viewing ${throughputData[selectedTimeBucket]?.time} • ${filteredTraces.length} requests`
@@ -292,7 +510,7 @@ export default function TracesView() {
             <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
               {/* View Mode Toggle */}
               <div style={{ display: 'flex', background: 'rgba(255,255,255,0.1)', borderRadius: '8px', padding: '2px' }}>
-                {['timeline', 'agents', 'actions'].map((mode) => (
+                {['timeline', 'agents', 'actions', 'spans'].map((mode) => (
                   <button
                     key={mode}
                     onClick={() => setViewMode(mode)}
@@ -311,6 +529,7 @@ export default function TracesView() {
                   </button>
                 ))}
               </div>
+              {!agentClass && (
               <select
                 value={filter.agent}
                 onChange={(e) => setFilter({ ...filter, agent: e.target.value, action: 'all' })}
@@ -328,6 +547,7 @@ export default function TracesView() {
                   <option key={agent} value={agent}>{agent}</option>
                 ))}
               </select>
+              )}
               <select
                 value={filter.action}
                 onChange={(e) => setFilter({ ...filter, action: e.target.value })}
@@ -360,6 +580,21 @@ export default function TracesView() {
                 <option value="all">All Status</option>
                 <option value="success">Success</option>
                 <option value="error">Error</option>
+              </select>
+              <select
+                value={sortBy}
+                onChange={(e) => setSortBy(e.target.value)}
+                style={{
+                  padding: '8px 12px',
+                  background: 'rgba(255,255,255,0.1)',
+                  border: '1px solid rgba(255,255,255,0.2)',
+                  borderRadius: '8px',
+                  color: 'white',
+                  fontSize: '14px'
+                }}
+              >
+                <option value="time">Newest first</option>
+                <option value="latency">Slowest first</option>
               </select>
               {selectedTimeBucket !== null && (
                 <button
@@ -681,6 +916,9 @@ export default function TracesView() {
           </div>
         )}
 
+        {/* Span Duration Breakdown View */}
+        {viewMode === 'spans' && renderSpansBreakdown(true)}
+
         {/* Trace List */}
         {viewMode === 'timeline' && !emptyState && (
         <div className="preview-traces">
@@ -705,6 +943,15 @@ export default function TracesView() {
                   </span>
                 </div>
                 <div className="trace-meta">
+                  {trace.model && (
+                    <span
+                      className="meta-item"
+                      title="Model that generated this trace"
+                      style={{ fontFamily: TYPOGRAPHY.mono, background: 'rgba(99,102,241,0.2)', color: '#a5b4fc', padding: '2px 8px', borderRadius: '4px' }}
+                    >
+                      {trace.model}
+                    </span>
+                  )}
                   <span className="meta-item"><i className="fa-solid fa-clock"></i> {formatDuration(trace.duration_ms)}</span>
                   <span className="meta-item">{formatTokens(trace.tokens)} tokens</span>
                   {trace.estimated_cost != null && (
@@ -725,23 +972,45 @@ export default function TracesView() {
                     <span>{formatDuration(trace.duration_ms)}</span>
                   </div>
 
-                  {(trace.spans || []).map((span, idx) => (
-                    <div key={idx} className={`span-row ${span.nested ? `nested-${Math.min(span.nested, 3)}` : ''}`}>
-                      <div className="span-label">
-                        <span className={`span-icon ${span.type}`}>{getSpanIcon(span.type)}</span>
-                        <span className={`span-name ${span.error ? 'error' : ''}`}>{span.name}</span>
-                      </div>
-                      <div className="span-bar-container">
+                  {(trace.spans || []).map((span, idx) => {
+                    const spanKey = `${trace.id}:${idx}`;
+                    const isSpanExpanded = expandedSpan === spanKey;
+                    return (
+                      <React.Fragment key={idx}>
                         <div
-                          className={`span-bar ${span.type} ${span.error ? 'error' : ''}`}
-                          style={{
-                            left: `${trace.duration_ms ? (span.start / trace.duration_ms) * 100 : 0}%`,
-                            width: `${trace.duration_ms ? Math.max((span.duration / trace.duration_ms) * 100, 2) : 2}%`
-                          }}
-                        ></div>
-                      </div>
-                    </div>
-                  ))}
+                          className={`span-row ${span.nested ? `nested-${Math.min(span.nested, 3)}` : ''}`}
+                          onClick={() => setExpandedSpan(isSpanExpanded ? null : spanKey)}
+                          style={{ cursor: 'pointer' }}
+                          title="Click for span details"
+                        >
+                          <div className="span-label">
+                            <span className={`span-icon ${span.type}`}>{getSpanIcon(span.type)}</span>
+                            <span className={`span-name ${span.error ? 'error' : ''}`}>{span.name}</span>
+                          </div>
+                          <div className="span-bar-container">
+                            <div
+                              className={`span-bar ${span.type} ${span.error ? 'error' : ''}`}
+                              style={{
+                                left: `${trace.duration_ms ? (span.start / trace.duration_ms) * 100 : 0}%`,
+                                width: `${trace.duration_ms ? Math.max((span.duration / trace.duration_ms) * 100, 2) : 2}%`
+                              }}
+                            ></div>
+                          </div>
+                          <span
+                            style={{
+                              flexShrink: 0, width: '130px', textAlign: 'right', fontSize: '11px',
+                              fontFamily: TYPOGRAPHY.mono, color: 'rgba(255,255,255,0.55)', paddingLeft: '8px'
+                            }}
+                          >
+                            {spanShareLabel(span, trace)}
+                          </span>
+                        </div>
+                        {isSpanExpanded && renderSpanDetails(span, true)}
+                      </React.Fragment>
+                    );
+                  })}
+
+                  {renderTraceBreakdown(trace, true)}
 
                   {/* Token Breakdown Row */}
                   <div className="span-row nested-3">
@@ -805,7 +1074,7 @@ export default function TracesView() {
         <div className="flex items-center space-x-3">
           {/* View Mode Toggle */}
           <div className="flex bg-gray-100 rounded-lg p-1">
-            {['timeline', 'agents', 'actions'].map((mode) => (
+            {['timeline', 'agents', 'actions', 'spans'].map((mode) => (
               <button
                 key={mode}
                 onClick={() => setViewMode(mode)}
@@ -847,6 +1116,14 @@ export default function TracesView() {
             <option value="all">All Status</option>
             <option value="success">Success</option>
             <option value="error">Error</option>
+          </select>
+          <select
+            value={sortBy}
+            onChange={(e) => setSortBy(e.target.value)}
+            className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-red-500"
+          >
+            <option value="time">Newest first</option>
+            <option value="latency">Slowest first</option>
           </select>
           {selectedTimeBucket !== null && (
             <button
@@ -1080,6 +1357,9 @@ export default function TracesView() {
         </div>
       )}
 
+      {/* Span Duration Breakdown View */}
+      {viewMode === 'spans' && renderSpansBreakdown(false)}
+
       {/* Trace List */}
       {viewMode === 'timeline' && !emptyState && (
       <div className="space-y-4">
@@ -1105,6 +1385,15 @@ export default function TracesView() {
                 </span>
               </div>
               <div className="flex items-center space-x-4">
+                {trace.model && (
+                  <span
+                    className="text-xs px-2 py-0.5 rounded bg-indigo-50 text-indigo-700"
+                    style={{ fontFamily: TYPOGRAPHY.mono }}
+                    title="Model that generated this trace"
+                  >
+                    {trace.model}
+                  </span>
+                )}
                 <span className="text-sm text-gray-500">
                   <i className="fa-solid fa-clock mr-1"></i>
                   {formatDuration(trace.duration_ms)}
@@ -1136,40 +1425,56 @@ export default function TracesView() {
                 </div>
 
                 <div className="space-y-2">
-                  {(trace.spans || []).map((span, idx) => (
-                    <div
-                      key={idx}
-                      className="flex items-center group"
-                      style={{ paddingLeft: `${(span.nested || 0) * 16}px` }}
-                    >
-                      <div className="w-40 flex items-center space-x-2 flex-shrink-0">
-                        <span className={span.type === 'thinking' ? '' : 'text-gray-400'}>
-                          {getSpanIcon(span.type)}
-                        </span>
-                        <span className={`text-sm truncate ${span.error ? 'text-red-600' : 'text-gray-700'}`}>
-                          {span.name}
-                        </span>
-                      </div>
-                      <div className="flex-1 h-6 relative bg-gray-100 rounded">
+                  {(trace.spans || []).map((span, idx) => {
+                    const spanKey = `${trace.id}:${idx}`;
+                    const isSpanExpanded = expandedSpan === spanKey;
+                    return (
+                      <React.Fragment key={idx}>
                         <div
-                          className={`absolute h-4 top-1 rounded transition-opacity ${
-                            span.type === 'root' ? 'bg-gray-400' :
-                            span.type === 'prompt' ? 'bg-blue-400' :
-                            span.type === 'generate' ? 'bg-purple-500' :
-                            span.type === 'llm' ? 'bg-red-500' :
-                            span.type === 'thinking' ? 'bg-amber-400' :
-                            span.type === 'tool' ? 'bg-green-500' :
-                            span.type === 'response' ? 'bg-teal-400' : 'bg-gray-300'
-                          } ${span.error ? 'bg-red-400' : ''}`}
-                          style={{
-                            left: `${trace.duration_ms ? (span.start / trace.duration_ms) * 100 : 0}%`,
-                            width: `${trace.duration_ms ? Math.max((span.duration / trace.duration_ms) * 100, 1) : 1}%`
-                          }}
-                        />
-                      </div>
-                    </div>
-                  ))}
+                          className="flex items-center group cursor-pointer hover:bg-gray-100 rounded"
+                          style={{ paddingLeft: `${(span.nested || 0) * 16}px` }}
+                          onClick={() => setExpandedSpan(isSpanExpanded ? null : spanKey)}
+                          title="Click for span details"
+                        >
+                          <div className="w-40 flex items-center space-x-2 flex-shrink-0">
+                            <span className={span.type === 'thinking' ? '' : 'text-gray-400'}>
+                              {getSpanIcon(span.type)}
+                            </span>
+                            <span className={`text-sm truncate ${span.error ? 'text-red-600' : 'text-gray-700'}`}>
+                              {span.name}
+                            </span>
+                          </div>
+                          <div className="flex-1 h-6 relative bg-gray-100 rounded">
+                            <div
+                              className={`absolute h-4 top-1 rounded transition-opacity ${
+                                span.type === 'root' ? 'bg-gray-400' :
+                                span.type === 'prompt' ? 'bg-blue-400' :
+                                span.type === 'generate' ? 'bg-purple-500' :
+                                span.type === 'llm' ? 'bg-red-500' :
+                                span.type === 'thinking' ? 'bg-amber-400' :
+                                span.type === 'tool' ? 'bg-green-500' :
+                                span.type === 'response' ? 'bg-teal-400' : 'bg-gray-300'
+                              } ${span.error ? 'bg-red-400' : ''}`}
+                              style={{
+                                left: `${trace.duration_ms ? (span.start / trace.duration_ms) * 100 : 0}%`,
+                                width: `${trace.duration_ms ? Math.max((span.duration / trace.duration_ms) * 100, 1) : 1}%`
+                              }}
+                            />
+                          </div>
+                          <span
+                            className="flex-shrink-0 text-right text-xs text-gray-400 pl-2"
+                            style={{ width: '130px', fontFamily: TYPOGRAPHY.mono }}
+                          >
+                            {spanShareLabel(span, trace)}
+                          </span>
+                        </div>
+                        {isSpanExpanded && renderSpanDetails(span, false)}
+                      </React.Fragment>
+                    );
+                  })}
                 </div>
+
+                {renderTraceBreakdown(trace, false)}
 
                 <div className="mt-4 pt-4 border-t border-gray-200 flex items-center space-x-6">
                   <span className="text-sm text-gray-500">Tokens:</span>

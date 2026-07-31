@@ -153,7 +153,7 @@ module Api
         end
 
         ActiveAgent::Agent.new(
-          model: "claude-sonnet-4-20250514",
+          model: "claude-haiku-4-5",
           tools: tools,
           max_tokens: [ sandbox_limits[:max_tokens], 10_000 ].min,
           system_prompt: sandbox_system_prompt

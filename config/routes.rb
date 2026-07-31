@@ -55,6 +55,11 @@ Rails.application.routes.draw do
     root to: "spaces#index"
   end
 
+  # MCP service — the account's agents presented as an authenticated MCP
+  # server (tools + agent:// resources) over Streamable HTTP JSON-RPC.
+  # Authenticated with a platform API key (Settings -> API Keys).
+  post "mcp", to: "api/mcp#create"
+
   # Telemetry ingestion — the activeagent gem's telemetry reporter POSTs
   # batched traces here (Configuration::DEFAULT_ENDPOINT is
   # https://api.activeagents.ai/v1/traces). Authenticated with the
@@ -141,6 +146,15 @@ Rails.application.routes.draw do
     end
 
     resource :analytics, only: [ :show ], controller: "analytics", action: :index
+
+    # Settings -> API Keys: platform keys (token shown once on create) and
+    # per-account LLM provider credentials, both encrypted at rest.
+    resources :api_keys, only: [ :index, :create, :destroy ]
+    resources :provider_keys, only: [ :index, :create, :destroy ], param: :provider
+
+    # Model catalogs for the agent builder/editor (Ollama queried live from
+    # the account's configured host; hosted providers curated server-side).
+    resources :provider_models, only: [ :index ]
 
     # Observability read APIs (dashboard Traces & Metrics views).
     # Backed by the activeagent gem's TelemetryTrace scopes, account-scoped.

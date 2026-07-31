@@ -63,6 +63,31 @@ class Api::V1::TracesControllerTest < ActionDispatch::IntegrationTest
     assert_equal 100, trace.total_input_tokens
   end
 
+  test "accepts traces authenticated with a generated API key" do
+    api_key = @account.api_keys.create!(name: "monitoring")
+    trace_id = SecureRandom.hex(16)
+
+    perform_enqueued_jobs do
+      post "/v1/traces", params: ingest_payload(trace_id: trace_id), as: :json,
+        headers: { "Authorization" => "Bearer #{api_key.token}" }
+    end
+
+    assert_response :accepted
+    assert_equal @account, TelemetryTrace.find_by(trace_id: trace_id).account
+    assert api_key.reload.last_used_at.present?, "expected ingest to record key usage"
+  end
+
+  test "rejects a revoked API key" do
+    api_key = @account.api_keys.create!(name: "monitoring")
+    token = api_key.token
+    api_key.destroy!
+
+    post "/v1/traces", params: ingest_payload, as: :json,
+      headers: { "Authorization" => "Bearer #{token}" }
+
+    assert_response :unauthorized
+  end
+
   test "ingestion is idempotent per trace_id" do
     trace_id = SecureRandom.hex(16)
 

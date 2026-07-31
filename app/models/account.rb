@@ -7,9 +7,12 @@ class Account < ApplicationRecord
   has_many :account_memberships, dependent: :destroy
   has_many :members, through: :account_memberships, source: :user
   has_many :telemetry_traces, dependent: :delete_all
+  has_many :api_keys, dependent: :destroy
+  has_many :provider_keys, dependent: :destroy
 
-  # Bearer token used by the activeagent gem's telemetry reporter to push
-  # traces to POST /v1/traces (ActiveAgent::Dashboard::Api::TracesController).
+  # Legacy bearer token used by the activeagent gem's telemetry reporter to
+  # push traces to POST /v1/traces. New keys are generated per-account as
+  # ApiKey records (Settings -> API Keys); both authenticate ingest.
   has_secure_token :telemetry_api_key, length: 36
 
   validates :name, presence: true
@@ -133,5 +136,12 @@ class Account < ApplicationRecord
   # authenticated ingest request (rate-limit hook).
   def increment_telemetry_usage!
     reset_usage_period_if_needed!
+  end
+
+  # The account's stored credential record for an LLM provider, or nil when
+  # the user hasn't configured one. Generation runs prefer this over the
+  # platform's ENV keys.
+  def provider_key_for(provider)
+    provider_keys.find_by(provider: provider.to_s)
   end
 end

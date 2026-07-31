@@ -1,0 +1,65 @@
+# Local development on macOS: the app + Postgres in containers, with the
+# LLM running natively on the host (Ollama uses Apple-silicon Metal
+# acceleration only when run outside a VM/container).
+#
+#   ollama serve &                       # native, on the Mac
+#   ollama pull qwen3:8b                 # small model with solid tool calling
+#   docker compose -f docker-compose.dev.yml up
+#
+# Then open http://localhost:3000, sign up, and in Settings -> Provider API
+# Keys set Ollama's host to http://host.docker.internal:11434/v1 (that's the
+# host-side Ollama as seen from inside the container).
+#
+# Works with Docker Desktop and OrbStack. For Apple's `container` CLI, see
+# docs/local-mac-llm.md (it has no compose; the equivalent `container run`
+# commands are listed there).
+services:
+  db:
+    image: postgres:16
+    environment:
+      POSTGRES_USER: activeagents
+      POSTGRES_PASSWORD: activeagents
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U activeagents"]
+      interval: 2s
+      timeout: 3s
+      retries: 15
+
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile.dev
+    ports:
+      - "3000:3000"
+    labels:
+      # OrbStack routes https://activeagents.orb.local straight to the
+      # container (trusted local CA, no published port needed) — avoids
+      # localhost port collisions with other projects. No-op elsewhere.
+      dev.orbstack.domains: activeagents.orb.local
+      dev.orbstack.http-port: "3000"
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgres://activeagents:activeagents@db/activeagents_temp_development
+      # Platform-wide default Ollama endpoint (config/active_agent.yml).
+      # Per-account overrides via Settings -> Provider API Keys still win.
+      OLLAMA_HOST: http://host.docker.internal:11434/v1
+      # Optional: hosted-model keys for testing (e.g. Claude Haiku 4.5).
+      # ANTHROPIC_API_KEY: sk-ant-...
+      # OPENAI_API_KEY: sk-...
+    extra_hosts:
+      # No-op on Docker Desktop/OrbStack (built in); makes host.docker.internal
+      # resolve on Linux engines too.
+      - "host.docker.internal:host-gateway"
+    volumes:
+      - .:/app
+      - bundle:/bundle
+      - node_modules:/app/node_modules
+
+volumes:
+  pgdata:
+  bundle:
+  node_modules:
