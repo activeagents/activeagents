@@ -127,6 +127,23 @@ export default function TracesView() {
   // Keep roughly six labels on the axis whatever the bucket count.
   const tickInterval = Math.max(0, Math.ceil(throughputData.length / 6) - 1);
 
+  // Waterfall ordering. 'time' preserves the parent/child reading order a
+  // waterfall depends on; the others flatten it deliberately to answer
+  // "what was slowest?" or "which tool ran most?".
+  const [spanSort, setSpanSort] = useState('time');
+
+  const sortSpans = useCallback((spans) => {
+    const list = [...(spans || [])];
+    switch (spanSort) {
+      case 'duration':
+        return list.sort((a, b) => (b.duration || 0) - (a.duration || 0));
+      case 'name':
+        return list.sort((a, b) => (a.name || '').localeCompare(b.name || ''));
+      default:
+        return list.sort((a, b) => (a.start || 0) - (b.start || 0));
+    }
+  }, [spanSort]);
+
   // Filter traces based on selected time bucket and filters
   const filteredTraces = useMemo(() => {
     let result = traces;
@@ -1250,7 +1267,31 @@ export default function TracesView() {
             {/* Expanded Timeline */}
             {selectedTrace === trace.id && (
               <div className="border-t border-gray-100 p-4 bg-gray-50">
-                <div className="flex justify-between text-xs text-gray-400 mb-2 px-32">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-xs text-gray-500">
+                    {(trace.spans || []).length} spans
+                  </span>
+                  <div className="flex items-center gap-1">
+                    <span className="text-xs text-gray-400 mr-1">Sort</span>
+                    {[
+                      { id: 'time', label: 'Time', hint: 'Chronological — reads as a waterfall' },
+                      { id: 'duration', label: 'Slowest', hint: 'Longest-running first' },
+                      { id: 'name', label: 'Name', hint: 'Group repeated tool calls together' },
+                    ].map((option) => (
+                      <button
+                        key={option.id}
+                        onClick={(e) => { e.stopPropagation(); setSpanSort(option.id); }}
+                        title={option.hint}
+                        className={`px-2 py-0.5 text-xs rounded transition-colors ${
+                          spanSort === option.id ? 'bg-white shadow text-gray-900' : 'text-gray-500 hover:bg-white'
+                        }`}
+                      >
+                        {option.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                <div className="flex justify-between text-xs text-gray-400 mb-2">
                   <span>0ms</span>
                   <span>{Math.round((trace.duration_ms || 0) * 0.33)}ms</span>
                   <span>{Math.round((trace.duration_ms || 0) * 0.66)}ms</span>
@@ -1258,30 +1299,40 @@ export default function TracesView() {
                 </div>
 
                 <div className="space-y-2">
-                  {(trace.spans || []).map((span, idx) => {
-                    const spanKey = `${trace.id}:${idx}`;
+                  {sortSpans(trace.spans).map((span, idx) => {
+                    // Key on span_id, not index — indices shift when sorted,
+                    // which would move an open detail panel to another row.
+                    const spanKey = `${trace.id}:${span.span_id || idx}`;
                     const spanAttrs = span.attributes || {};
                     const hasDetails = Object.keys(spanAttrs).length > 0;
                     const isExpanded = selectedSpan === spanKey;
                     return (
-                      <React.Fragment key={idx}>
+                      <React.Fragment key={spanKey}>
                         <div
-                          className={`flex items-center group ${hasDetails ? 'cursor-pointer hover:bg-gray-100 rounded' : ''}`}
-                          style={{ paddingLeft: `${(span.nested || 0) * 16}px` }}
+                          className={`group py-0.5 ${hasDetails ? 'cursor-pointer hover:bg-gray-100 rounded' : ''}`}
+                          // Indentation encodes parent/child nesting, which no
+                          // longer holds once the list is reordered.
+                          style={{ paddingLeft: spanSort === 'time' ? `${(span.nested || 0) * 16}px` : 0 }}
                           onClick={hasDetails ? () => setSelectedSpan(isExpanded ? null : spanKey) : undefined}
-                          title={hasDetails ? 'Click for span details' : undefined}
+                          title={hasDetails ? `${span.name} — click for span details` : span.name}
                         >
-                          <div className="w-40 flex items-center space-x-2 flex-shrink-0">
-                            <span className={span.type === 'thinking' ? '' : 'text-gray-400'}>
+                          {/* Name above the track, not beside it: a fixed label
+                              column truncated every tool.* span to the same
+                              unreadable prefix. */}
+                          <div className="flex items-baseline gap-2 min-w-0">
+                            <span className={`flex-shrink-0 ${span.type === 'thinking' ? '' : 'text-gray-400'}`}>
                               {getSpanIcon(span.type)}
                             </span>
-                            <span className={`text-sm truncate ${span.error ? 'text-red-600' : 'text-gray-700'}`}>
+                            <span className={`text-sm font-medium ${span.error ? 'text-red-600' : 'text-gray-800'}`}>
                               {span.name}
                             </span>
+                            <span className="text-xs text-gray-400 ml-auto flex-shrink-0" style={{ fontFamily: TYPOGRAPHY.mono }}>
+                              {formatDuration(span.duration)}
+                            </span>
                           </div>
-                          <div className="flex-1 h-6 relative bg-gray-100 rounded">
+                          <div className="h-3 relative bg-gray-100 rounded mt-0.5">
                             <div
-                              className={`absolute h-4 top-1 rounded transition-opacity ${
+                              className={`absolute h-3 rounded transition-opacity ${
                                 span.type === 'root' ? 'bg-gray-400' :
                                 span.type === 'prompt' ? 'bg-blue-400' :
                                 span.type === 'generate' ? 'bg-purple-500' :
