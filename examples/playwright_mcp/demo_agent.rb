@@ -18,7 +18,7 @@ require "active_agent"
 
 class PlaywrightMCPDemoAgent < ApplicationAgent
   generate_with :anthropic,
-    model: "claude-sonnet-4-20250514",
+    model: "claude-sonnet-5",
     mcp_servers: {
       playwright: {
         command: "npx",

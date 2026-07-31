@@ -202,14 +202,14 @@ module ActiveAgents
         tool_spans = turn.tool_spans.map { |span| span.merge('trace_id' => trace_id, 'parent_span_id' => root_id) }
 
         post_traces(
-          'traces' => [{
+          'traces' => [ {
             'trace_id' => trace_id,
             'service_name' => service_name,
             'environment' => environment,
             'timestamp' => finished_at.utc.iso8601(6),
             'resource_attributes' => {},
-            'spans' => [root_span] + tool_spans
-          }],
+            'spans' => [ root_span ] + tool_spans
+          } ],
           'sdk' => { 'name' => 'active_agents-ruby_llm_telemetry', 'version' => VERSION, 'language' => 'ruby', 'runtime_version' => RUBY_VERSION }
         )
       end

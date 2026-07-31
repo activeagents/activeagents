@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import AgentAvatar, { AGENT_PRESETS } from '../AgentAvatar';
 import { TYPOGRAPHY } from '../../utils/designTokens';
+import { FALLBACK_PROVIDER_MODELS, fetchProviderModels } from '../../utils/providerModels';
 
 const TABS = [
   { id: 'config', label: 'Configuration', icon: '*' },
@@ -9,13 +10,6 @@ const TABS = [
   { id: 'versions', label: 'Versions', icon: '#' },
   { id: 'code', label: 'Code', icon: '<>' }
 ];
-
-const PROVIDER_MODELS = {
-  openai: ['gpt-4o', 'gpt-4o-mini', 'gpt-4-turbo', 'gpt-3.5-turbo'],
-  anthropic: ['claude-sonnet-4-20250514', 'claude-3-5-haiku-20241022', 'claude-3-opus-20240229'],
-  ollama: ['llama3', 'mistral', 'codellama', 'mixtral'],
-  openrouter: ['openai/gpt-4o', 'anthropic/claude-sonnet-4-20250514', 'meta-llama/llama-3-70b-instruct']
-};
 
 export default function AgentEditor({ agent, meta, onSave, onDelete, onRun, onAnalytics, onHistory, onBack, isLoading }) {
   const [activeTab, setActiveTab] = useState('config');
@@ -36,6 +30,19 @@ export default function AgentEditor({ agent, meta, onSave, onDelete, onRun, onAn
   const [versions, setVersions] = useState([]);
   const [hasChanges, setHasChanges] = useState(false);
   const [codePreview, setCodePreview] = useState('');
+  const [providerModels, setProviderModels] = useState(FALLBACK_PROVIDER_MODELS);
+
+  // Load the provider's current model catalog. The agent's saved model is
+  // always kept selectable even when not in the list (e.g. a locally pulled
+  // Ollama model on another machine) so opening the editor can't clobber it.
+  useEffect(() => {
+    let cancelled = false;
+    fetchProviderModels(formData.provider).then(models => {
+      if (cancelled || models.length === 0) return;
+      setProviderModels(prev => ({ ...prev, [formData.provider]: models }));
+    });
+    return () => { cancelled = true; };
+  }, [formData.provider]);
 
   useEffect(() => {
     // Check for unsaved changes
@@ -127,7 +134,7 @@ export default function AgentEditor({ agent, meta, onSave, onDelete, onRun, onAn
 
           <div className="p-6">
             {activeTab === 'config' && (
-              <ConfigTab formData={formData} updateField={updateField} providerModels={PROVIDER_MODELS} />
+              <ConfigTab formData={formData} updateField={updateField} providerModels={providerModels} />
             )}
             {activeTab === 'instructions' && (
               <InstructionsTab formData={formData} updateField={updateField} meta={meta} toggleArrayItem={toggleArrayItem} />
@@ -311,7 +318,10 @@ function ConfigTab({ formData, updateField, providerModels }) {
             onChange={(e) => updateField('model', e.target.value)}
             className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500"
           >
-            {providerModels[formData.provider]?.map(m => (
+            {(providerModels[formData.provider]?.includes(formData.model)
+              ? providerModels[formData.provider]
+              : [formData.model, ...(providerModels[formData.provider] || [])]
+            ).filter(Boolean).map(m => (
               <option key={m} value={m}>{m}</option>
             ))}
           </select>

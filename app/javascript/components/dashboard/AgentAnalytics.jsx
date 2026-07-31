@@ -1,6 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import { useTimeWindow } from '../../contexts/TimeWindowContext';
 import TimeWindowSelector from './TimeWindowSelector';
+import TracesView from './TracesView';
+import InteractionsView from './InteractionsView';
+
+const TABS = [
+  { id: 'overview', label: 'Overview' },
+  { id: 'traces', label: 'Traces' },
+  { id: 'interactions', label: 'Interactions' }
+];
 
 export default function AgentAnalytics({ agent, onBack }) {
   const [analytics, setAnalytics] = useState(null);
@@ -8,6 +16,16 @@ export default function AgentAnalytics({ agent, onBack }) {
   // This endpoint takes whole days; the shared window rounds up so a
   // sub-day selection still returns the current day rather than nothing.
   const { timeWindow, days: period } = useTimeWindow();
+  const [activeTab, setActiveTab] = useState('overview');
+
+  // Correlation key between this Agent record and its telemetry traces
+  // (mirrors Agent#telemetry_agent_class for shallow agent objects).
+  const telemetryAgentClass = agent.telemetry_agent_class ||
+    (() => {
+      const base = agent.agent_class_name ||
+        `${(agent.name || '').replace(/[^a-zA-Z0-9]+(.)/g, (_, c) => c.toUpperCase()).replace(/^./, c => c.toUpperCase()).replace(/[^a-zA-Z0-9]/g, '')}`;
+      return base.endsWith('Agent') ? base : `${base}Agent`;
+    })();
 
   useEffect(() => {
     loadAnalytics();
@@ -93,6 +111,31 @@ export default function AgentAnalytics({ agent, onBack }) {
         </div>
       </div>
 
+      {/* Shared-view tabs: Traces and Interactions are the same components
+          as the global observability views, scoped to this agent. */}
+      <div className="flex bg-gray-100 rounded-lg p-1 w-fit">
+        {TABS.map(tab => (
+          <button
+            key={tab.id}
+            onClick={() => setActiveTab(tab.id)}
+            className={`px-4 py-1.5 text-sm rounded-md transition-colors ${
+              activeTab === tab.id ? 'bg-white shadow text-gray-900' : 'text-gray-600'
+            }`}
+          >
+            {tab.label}
+          </button>
+        ))}
+      </div>
+
+      {activeTab === 'traces' && (
+        <TracesView agentClass={telemetryAgentClass} embedded />
+      )}
+
+      {activeTab === 'interactions' && (
+        <InteractionsView agentId={agent.id} embedded />
+      )}
+
+      {activeTab === 'overview' && (<>
       {/* Stats Cards */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         <StatCard
@@ -247,6 +290,7 @@ export default function AgentAnalytics({ agent, onBack }) {
           <p className="text-2xl font-bold text-gray-900">{analytics?.period_days || 30} days</p>
         </div>
       </div>
+      </>)}
     </div>
   );
 }

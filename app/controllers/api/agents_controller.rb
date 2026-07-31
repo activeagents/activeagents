@@ -19,8 +19,10 @@ module Api
       # Search by name
       @agents = @agents.where("name ILIKE ?", "%#{params[:q]}%") if params[:q].present?
 
+      scorecards = AgentScorecard.for_agents(@agents)
+
       render json: {
-        agents: @agents.map { |agent| agent_json(agent) },
+        agents: @agents.map { |agent| agent_json(agent).merge(stats: scorecards[agent.id]) },
         meta: {
           total: @agents.count,
           providers: Agent::PROVIDERS,
@@ -286,7 +288,8 @@ module Api
           mcp_servers: agent.mcp_servers,
           model_config: agent.model_config,
           response_format: agent.response_format,
-          agent_class_name: agent.agent_class_name
+          agent_class_name: agent.agent_class_name,
+          telemetry_agent_class: agent.telemetry_agent_class
         )
       end
 

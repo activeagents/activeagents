@@ -5,6 +5,7 @@ import {
 import { useTheme } from '../../contexts/ThemeContext';
 import { useTimeWindow } from '../../contexts/TimeWindowContext';
 import TimeWindowSelector from './TimeWindowSelector';
+import InteractionStream from './InteractionStream';
 
 // Same categorical order as Traces, so an agent keeps its colour across views.
 // Validated (light surface): worst adjacent pair ΔE 27.1 deutan / 31.8 normal.
@@ -36,7 +37,11 @@ const timeAgo = (iso) => {
   return `${Math.floor(seconds / 86400)}d ago`;
 };
 
-export default function InteractionsView() {
+
+// agentId scopes the view to one agent's conversation streams (per-agent
+// embed: same component, different UX context); embedded hides the page
+// header so it can sit inside another view's chrome.
+export default function InteractionsView({ agentId = null, embedded = false }) {
   const { darkMode } = useTheme();
   const [sessions, setSessions] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -48,7 +53,11 @@ export default function InteractionsView() {
 
   const fetchSessions = useCallback(async () => {
     try {
-      const response = await fetch(`/api/interactions?minutes=${timeWindow.minutes}`);
+      // Both filters apply: the shared window bounds the range, and an
+      // embedded view scopes to its agent.
+      const response = await fetch(
+        `/api/interactions?minutes=${timeWindow.minutes}${agentId ? `&agent_id=${agentId}` : ''}`
+      );
       if (!response.ok) throw new Error(`Request failed (${response.status})`);
       const data = await response.json();
       setSessions(data.interactions || []);
@@ -58,7 +67,7 @@ export default function InteractionsView() {
     } finally {
       setIsLoading(false);
     }
-  }, [timeWindow.minutes]);
+  }, [timeWindow.minutes, agentId]);
 
   useEffect(() => {
     fetchSessions();
@@ -243,12 +252,14 @@ export default function InteractionsView() {
     <div className="space-y-6">
       {/* Header */}
       <div className="flex items-start justify-between">
-        <div>
-          <h1 className="text-2xl font-bold" style={{ color: colors.textPrimary }}>Interactions</h1>
-          <p className="text-sm mt-1" style={{ color: colors.textSecondary }}>
-            Conversation streams per agent — messages, generations and provenance
-          </p>
-        </div>
+        {!embedded && (
+          <div>
+            <h1 className="text-2xl font-bold" style={{ color: colors.textPrimary }}>Interactions</h1>
+            <p className="text-sm mt-1" style={{ color: colors.textSecondary }}>
+              Persisted conversation streams per agent — messages, generations and provenance
+            </p>
+          </div>
+        )}
         <div className="flex items-center gap-3">
           <div
             className="flex items-center rounded-lg p-1"
@@ -464,45 +475,20 @@ export default function InteractionsView() {
                             the reporting app to record prompts, tool arguments, and responses.
                           </div>
                         )}
-                        {detail.messages.map((message) => {
-                          const bubble = roleBubble(message.role);
-                          const isToolResult = message.role === 'tool' && message.content;
-                          return (
-                            <div key={message.id} className="flex gap-3 items-start">
-                              <span
-                                className="px-2 py-0.5 rounded text-xs font-medium flex-shrink-0 mt-0.5"
-                                style={{ background: bubble.background, color: bubble.color, minWidth: '72px', textAlign: 'center' }}
-                              >
-                                {bubble.label}
-                              </span>
-                              <div className="min-w-0 flex-1">
-                                {isToolResult ? (
-                                  // Tool results are large JSON blobs — keep them
-                                  // folded so the conversation stays readable.
-                                  <details>
-                                    <summary className="text-sm cursor-pointer" style={{ color: colors.textSecondary }}>
-                                      {message.tool_name} returned
-                                    </summary>
-                                    <pre
-                                      className="text-xs mt-1 p-2 rounded overflow-x-auto"
-                                      style={{ background: colors.cardBg, color: colors.textPrimary, whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}
-                                    >{formatPayload(message.content)}</pre>
-                                  </details>
-                                ) : (
-                                  <div className="text-sm whitespace-pre-wrap break-words" style={{ color: colors.textPrimary }}>
-                                    {message.content || (message.tool_name ? `→ ${message.tool_name}(${formatPayload(message.tool_calls)})` : '—')}
-                                  </div>
-                                )}
-                                <div className="text-xs mt-0.5 font-mono" style={{ color: colors.textMuted }}>
-                                  {new Date(message.created_at).toLocaleTimeString()}
-                                  {message.content_checksum && (
-                                    <span title="Content fingerprint"> · 🔒 {message.content_checksum.slice(0, 8)}</span>
-                                  )}
-                                </div>
-                              </div>
-                            </div>
-                          );
-                        })}
+                        <InteractionStream
+                          darkMode={darkMode}
+                          messages={detail.instructions
+                            ? [
+                                {
+                                  id: `ctx-${session.id}-system`,
+                                  role: 'system',
+                                  content: detail.instructions,
+                                  created_at: session.created_at
+                                },
+                                ...detail.messages
+                              ]
+                            : detail.messages}
+                        />
 
                         {/* Generation metadata */}
                         {detail.generations.length > 0 && (

@@ -20,7 +20,7 @@ shared:
   anthropic: &anthropic
     service: "Anthropic"
     access_token: <%= ENV["ANTHROPIC_API_KEY"] %>
-    model: "claude-sonnet-4-5"
+    model: "claude-sonnet-5"
 
   ollama: &ollama
     service: "Ollama"
