@@ -11,6 +11,12 @@ export default defineConfig({
     baseURL: process.env.BASE_URL || 'http://localhost:3000',
     trace: 'on-first-retry',
     screenshot: 'only-on-failure',
+    // Use a system-provided Chromium instead of the downloaded build
+    // (e.g. PLAYWRIGHT_CHROMIUM_PATH=/opt/pw-browsers/chromium in sandboxes
+    // that pre-install browsers).
+    launchOptions: process.env.PLAYWRIGHT_CHROMIUM_PATH
+      ? { executablePath: process.env.PLAYWRIGHT_CHROMIUM_PATH }
+      : {},
   },
   projects: [
     {

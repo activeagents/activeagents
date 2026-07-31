@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useTheme } from '../../contexts/ThemeContext';
+import InteractionStream from './InteractionStream';
 
 const REFRESH_INTERVAL_MS = 30000;
 
@@ -19,7 +20,11 @@ const timeAgo = (iso) => {
   return `${Math.floor(seconds / 86400)}d ago`;
 };
 
-export default function InteractionsView() {
+
+// agentId scopes the view to one agent's conversation streams (per-agent
+// embed: same component, different UX context); embedded hides the page
+// header so it can sit inside another view's chrome.
+export default function InteractionsView({ agentId = null, embedded = false }) {
   const { darkMode } = useTheme();
   const [sessions, setSessions] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -29,7 +34,7 @@ export default function InteractionsView() {
 
   const fetchSessions = useCallback(async () => {
     try {
-      const response = await fetch('/api/interactions');
+      const response = await fetch(`/api/interactions${agentId ? `?agent_id=${agentId}` : ''}`);
       if (!response.ok) throw new Error(`Request failed (${response.status})`);
       const data = await response.json();
       setSessions(data.interactions || []);
@@ -39,7 +44,7 @@ export default function InteractionsView() {
     } finally {
       setIsLoading(false);
     }
-  }, []);
+  }, [agentId]);
 
   useEffect(() => {
     fetchSessions();
@@ -107,12 +112,14 @@ export default function InteractionsView() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div>
-        <h1 className="text-2xl font-bold" style={{ color: colors.textPrimary }}>Interactions</h1>
-        <p className="text-sm mt-1" style={{ color: colors.textSecondary }}>
-          Persisted conversation streams per agent — messages, generations and provenance
-        </p>
-      </div>
+      {!embedded && (
+        <div>
+          <h1 className="text-2xl font-bold" style={{ color: colors.textPrimary }}>Interactions</h1>
+          <p className="text-sm mt-1" style={{ color: colors.textSecondary }}>
+            Persisted conversation streams per agent — messages, generations and provenance
+          </p>
+        </div>
+      )}
 
       {loadError && (
         <div className="p-3 rounded-lg text-sm" style={{ background: darkMode ? 'rgba(239,68,68,0.1)' : '#fef2f2', color: '#ef4444' }}>
@@ -177,30 +184,20 @@ export default function InteractionsView() {
                       </div>
                     ) : (
                       <>
-                        {detail.messages.map((message) => {
-                          const bubble = roleBubble(message.role);
-                          return (
-                            <div key={message.id} className="flex gap-3 items-start">
-                              <span
-                                className="px-2 py-0.5 rounded text-xs font-medium flex-shrink-0 mt-0.5"
-                                style={{ background: bubble.background, color: bubble.color, minWidth: '72px', textAlign: 'center' }}
-                              >
-                                {bubble.label}
-                              </span>
-                              <div className="min-w-0 flex-1">
-                                <div className="text-sm whitespace-pre-wrap break-words" style={{ color: colors.textPrimary }}>
-                                  {message.content || (message.tool_name ? `→ ${message.tool_name}(${JSON.stringify(message.tool_calls || {})})` : '—')}
-                                </div>
-                                <div className="text-xs mt-0.5 font-mono" style={{ color: colors.textMuted }}>
-                                  {new Date(message.created_at).toLocaleTimeString()}
-                                  {message.content_checksum && (
-                                    <span title="Content fingerprint"> · 🔒 {message.content_checksum.slice(0, 8)}</span>
-                                  )}
-                                </div>
-                              </div>
-                            </div>
-                          );
-                        })}
+                        <InteractionStream
+                          darkMode={darkMode}
+                          messages={detail.instructions
+                            ? [
+                                {
+                                  id: `ctx-${session.id}-system`,
+                                  role: 'system',
+                                  content: detail.instructions,
+                                  created_at: session.created_at
+                                },
+                                ...detail.messages
+                              ]
+                            : detail.messages}
+                        />
 
                         {/* Generation metadata */}
                         {detail.generations.length > 0 && (

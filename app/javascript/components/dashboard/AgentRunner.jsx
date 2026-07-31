@@ -2,6 +2,21 @@ import React, { useState, useEffect, useRef } from 'react';
 import AgentAvatar from '../AgentAvatar';
 import { TYPOGRAPHY } from '../../utils/designTokens';
 import { startCheckout } from '../../utils/checkout';
+import { roleBubble, streamPreStyle } from './InteractionStream';
+
+// Feed event kinds mapped onto the shared stream chip palette so streamed
+// run output matches the Interactions/Traces visual language.
+const EVENT_BUBBLES = {
+  llm: { role: 'assistant', label: 'LLM' },
+  tool: { role: 'tool', label: 'Tool' },
+  agent: { role: 'developer', label: 'Agent' },
+  mcp: { role: 'system', label: 'MCP' },
+};
+
+const eventBubble = (kind) => {
+  const mapping = EVENT_BUBBLES[kind] || { role: kind, label: kind };
+  return { ...roleBubble(mapping.role, false), label: mapping.label };
+};
 
 export default function AgentRunner({ agent, onBack }) {
   const [prompt, setPrompt] = useState('');
@@ -9,6 +24,7 @@ export default function AgentRunner({ agent, onBack }) {
   const [isRunning, setIsRunning] = useState(false);
   const [currentRun, setCurrentRun] = useState(null);
   const [limitUsage, setLimitUsage] = useState(null);
+  const [expandedEvents, setExpandedEvents] = useState({}); // eid -> bool
   const [isUpgrading, setIsUpgrading] = useState(false);
   const [upgradeError, setUpgradeError] = useState(null);
   const outputRef = useRef(null);
@@ -34,19 +50,25 @@ export default function AgentRunner({ agent, onBack }) {
     }
   };
 
+  // Kick off an async run, then poll the run endpoint so the activity feed
+  // streams pending llm/tool/agent events while the run executes.
+  const POLL_INTERVAL_MS = 1200;
+  const POLL_TIMEOUT_MS = 10 * 60 * 1000;
+
   const handleRun = async () => {
     if (!prompt.trim() || isRunning) return;
 
     setIsRunning(true);
     setCurrentRun({
-      status: 'running',
+      status: 'pending',
       input_prompt: prompt,
       output: '',
+      logs: [],
       started_at: new Date().toISOString()
     });
 
     try {
-      const response = await fetch(`/api/agents/${agent.id}/test`, {
+      const response = await fetch(`/api/agents/${agent.id}/execute`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ prompt: prompt })
@@ -69,23 +91,67 @@ export default function AgentRunner({ agent, onBack }) {
         throw new Error(data.error || 'Run failed');
       }
 
-      setCurrentRun({
-        ...data.run,
-        output: data.output
-      });
+      const runId = data.run.id;
+      const startedPolling = Date.now();
 
-      // Refresh runs list
-      loadRuns();
+      const poll = async () => {
+        try {
+          const runResponse = await fetch(`/api/runs/${runId}`);
+          if (runResponse.ok) {
+            const runData = await runResponse.json();
+            setCurrentRun(runData.run);
+            if (!['pending', 'running'].includes(runData.run.status)) {
+              setIsRunning(false);
+              loadRuns();
+              return;
+            }
+          }
+        } catch {
+          // transient poll failure — keep trying until timeout
+        }
+        if (Date.now() - startedPolling < POLL_TIMEOUT_MS) {
+          setTimeout(poll, POLL_INTERVAL_MS);
+        } else {
+          setIsRunning(false);
+        }
+      };
+      poll();
     } catch (error) {
       setCurrentRun(prev => ({
         ...prev,
         status: 'failed',
         error_message: error.message
       }));
-    } finally {
       setIsRunning(false);
     }
   };
+
+  // Pair started/done progress events by eid for the live activity feed.
+  // The started event's detail is the call's input (tool arguments); the
+  // finishing event's detail is its output (result preview or error).
+  const activityFeed = (run) => {
+    const byEid = new Map();
+    (run?.logs || []).filter(entry => entry.eid).forEach(event => {
+      const entry = byEid.get(event.eid) || { eid: event.eid };
+      if (event.status === 'started') {
+        Object.assign(entry, event, { input: event.detail, output: entry.output });
+      } else {
+        Object.assign(entry, event, { input: entry.input, output: event.detail });
+      }
+      byEid.set(event.eid, entry);
+    });
+    return [...byEid.values()];
+  };
+
+  const prettyEventJson = (value) => {
+    if (!value) return null;
+    try {
+      return JSON.stringify(JSON.parse(value), null, 2);
+    } catch {
+      return value;
+    }
+  };
+
 
   const handleKeyDown = (e) => {
     if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
@@ -205,11 +271,25 @@ export default function AgentRunner({ agent, onBack }) {
                 <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${getStatusColor(currentRun.status)}`}>
                   {currentRun.status}
                 </span>
+                {currentRun.output_metadata?.model && (
+                  <span className="px-2 py-0.5 rounded bg-indigo-50 text-indigo-700 text-xs font-mono" title="Model that generated this run">
+                    {currentRun.output_metadata.provider}/{currentRun.output_metadata.model}
+                  </span>
+                )}
                 {currentRun.duration_ms && (
                   <span className="text-gray-400">{formatDuration(currentRun.duration_ms)}</span>
                 )}
                 {currentRun.total_tokens && (
                   <span className="text-gray-400">{currentRun.total_tokens} tokens</span>
+                )}
+                {currentRun.trace_id && (
+                  <a
+                    href="/dashboard/traces"
+                    className="text-gray-400 hover:text-red-500 font-mono text-xs"
+                    title="Open in Traces"
+                  >
+                    trace:{currentRun.trace_id.slice(0, 8)}
+                  </a>
                 )}
               </div>
             )}
@@ -220,19 +300,109 @@ export default function AgentRunner({ agent, onBack }) {
             className="flex-1 p-4 overflow-auto bg-gray-50 font-mono text-sm"
           >
             {currentRun ? (
-              currentRun.status === 'running' ? (
-                <div className="flex items-center space-x-2 text-gray-500">
-                  <span className="animate-pulse">●</span>
-                  <span>Generating response...</span>
-                </div>
-              ) : currentRun.error_message ? (
-                <div className="text-red-600">
-                  <div className="font-semibold mb-2">Error:</div>
-                  <pre className="whitespace-pre-wrap">{currentRun.error_message}</pre>
-                </div>
-              ) : (
-                <pre className="whitespace-pre-wrap text-gray-800">{currentRun.output || 'No output'}</pre>
-              )
+              <>
+                {/* Live activity feed — same chip/expansion design as the
+                    Interactions stream, one row per llm/tool/agent call.
+                    Click a row to inspect the call's input and output. */}
+                {activityFeed(currentRun).length > 0 && (
+                  <div className="mb-4 space-y-2">
+                    {activityFeed(currentRun).map(event => {
+                      const isExpanded = !!expandedEvents[event.eid];
+                      const expandable = Boolean(event.input || event.output);
+                      const bubble = eventBubble(event.kind);
+                      const preStyle = streamPreStyle(false);
+                      return (
+                        <div key={event.eid}>
+                          <div
+                            className={`flex gap-3 items-start rounded-lg -mx-2 px-2 py-1 ${expandable ? 'cursor-pointer hover:bg-black/5' : ''}`}
+                            onClick={expandable ? () => setExpandedEvents(prev => ({ ...prev, [event.eid]: !prev[event.eid] })) : undefined}
+                            title={expandable ? 'Click to inspect input/output' : undefined}
+                            style={isExpanded ? { background: 'rgba(0,0,0,0.03)' } : {}}
+                          >
+                            <span
+                              className="px-2 py-0.5 rounded text-xs font-medium flex-shrink-0 mt-0.5"
+                              style={{ background: bubble.background, color: bubble.color, minWidth: '72px', textAlign: 'center' }}
+                            >
+                              {bubble.label}
+                            </span>
+                            <div className="min-w-0 flex-1">
+                              <div className="text-sm break-words text-gray-800">
+                                {event.label}
+                                {event.output && !isExpanded && (
+                                  <span className="text-gray-400"> “{event.output.slice(0, 160)}{event.output.length > 160 ? '…' : ''}”</span>
+                                )}
+                              </div>
+                              <div className="text-xs mt-0.5 font-mono flex items-center gap-2 flex-wrap text-gray-400">
+                                {event.status === 'started' ? (
+                                  <span className="text-blue-500 animate-pulse">running…</span>
+                                ) : (
+                                  <span className={event.status === 'error' ? 'text-red-500' : ''}>
+                                    {event.status === 'error' ? 'failed' : '✓'}
+                                    {event.duration_ms != null && ` ${formatDuration(event.duration_ms)}`}
+                                  </span>
+                                )}
+                                {event.at && <span>{new Date(event.at).toLocaleTimeString()}</span>}
+                              </div>
+                            </div>
+                            {expandable && (
+                              <svg
+                                className={`w-3.5 h-3.5 mt-1 flex-shrink-0 transition-transform ${isExpanded ? 'rotate-180' : ''} text-gray-400`}
+                                fill="none" stroke="currentColor" viewBox="0 0 24 24"
+                              >
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                              </svg>
+                            )}
+                          </div>
+
+                          {isExpanded && (
+                            <div
+                              className="ml-3 mt-1 mb-2 pl-4 space-y-2 border-l-2"
+                              style={{ borderColor: bubble.color + '55' }}
+                            >
+                              {event.input && (
+                                <div>
+                                  <div className="text-xs uppercase tracking-wide mb-1 text-gray-400">Input</div>
+                                  <pre style={{ ...preStyle, whiteSpace: 'pre-wrap', maxHeight: '160px', overflowY: 'auto' }}>{prettyEventJson(event.input)}</pre>
+                                </div>
+                              )}
+                              {event.output && (
+                                <div>
+                                  <div className="text-xs uppercase tracking-wide mb-1 text-gray-400">
+                                    {event.status === 'error' ? 'Error' : 'Result'}
+                                  </div>
+                                  <pre
+                                    style={{
+                                      ...preStyle,
+                                      whiteSpace: 'pre-wrap',
+                                      maxHeight: '224px',
+                                      overflowY: 'auto',
+                                      ...(event.status === 'error' ? { background: '#fef2f2', color: '#b91c1c' } : {})
+                                    }}
+                                  >{prettyEventJson(event.output)}</pre>
+                                </div>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+
+                {['pending', 'running'].includes(currentRun.status) ? (
+                  <div className="flex items-center space-x-2 text-gray-500">
+                    <span className="animate-pulse">●</span>
+                    <span>{activityFeed(currentRun).length > 0 ? 'Working…' : 'Starting run…'}</span>
+                  </div>
+                ) : currentRun.error_message ? (
+                  <div className="text-red-600">
+                    <div className="font-semibold mb-2">Error:</div>
+                    <pre className="whitespace-pre-wrap">{currentRun.error_message}</pre>
+                  </div>
+                ) : (
+                  <pre className="whitespace-pre-wrap text-gray-800">{currentRun.output || 'No output'}</pre>
+                )}
+              </>
             ) : (
               <div className="text-gray-400 text-center py-12">
                 Enter a prompt and click Run to test your agent
@@ -283,6 +453,15 @@ export default function AgentRunner({ agent, onBack }) {
               </dd>
             </div>
           </dl>
+
+          {agent.instructions && (
+            <div className="mt-3 pt-3 border-t border-gray-100">
+              <div className="text-xs text-gray-500 mb-1.5">System Instructions</div>
+              <p className="text-xs text-gray-700 whitespace-pre-wrap max-h-44 overflow-y-auto font-mono leading-relaxed">
+                {agent.instructions}
+              </p>
+            </div>
+          )}
         </div>
 
         {/* Recent Runs */}
@@ -311,8 +490,11 @@ export default function AgentRunner({ agent, onBack }) {
                     <p className="text-sm text-gray-600 truncate">
                       {run.input_preview || run.input_prompt?.substring(0, 50)}
                     </p>
-                    <p className="text-xs text-gray-400 mt-1">
-                      {new Date(run.created_at).toLocaleString()}
+                    <p className="text-xs text-gray-400 mt-1 flex items-center gap-2 flex-wrap">
+                      {run.model && (
+                        <span className="px-1.5 py-0.5 rounded bg-indigo-50 text-indigo-700 font-mono">{run.model}</span>
+                      )}
+                      <span>{new Date(run.created_at).toLocaleString()}</span>
                     </p>
                   </div>
                 ))}

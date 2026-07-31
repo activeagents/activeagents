@@ -4,7 +4,7 @@ class SandboxRunJob < ApplicationJob
   queue_as :sandboxes
 
   PROVIDER_MODELS = {
-    "anthropic" => "claude-sonnet-4-20250514",
+    "anthropic" => "claude-haiku-4-5",
     "openai" => "gpt-4o",
     "ollama" => "llama3.1:8b"
   }.freeze

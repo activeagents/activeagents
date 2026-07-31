@@ -3,10 +3,12 @@
 # Executes a dashboard-configured Agent through the activeagent gem and
 # records a telemetry trace for the run.
 #
-# The requested provider is used when its credentials are configured in
-# config/active_agent.yml; otherwise execution falls back to the gem's mock
-# provider so the full prompt -> provider -> response pipeline (including
-# usage accounting) still runs without external API keys.
+# The requested provider is used when credentials are available — the
+# account's own provider key (Settings -> Provider API Keys) when configured,
+# else the platform keys in config/active_agent.yml; otherwise execution
+# falls back to the gem's mock provider so the full prompt -> provider ->
+# response pipeline (including usage accounting) still runs without external
+# API keys.
 #
 # Traces are built with the gem's ActiveAgent::Telemetry::Span and persisted
 # through TelemetryTrace.create_from_payload — the same normalizer used by
@@ -22,16 +24,46 @@ class AgentExecutionService
   def initialize(agent_record, run)
     @agent_record = agent_record
     @run = run
+    @tool_invocations = []
+    @event_sequence = 0
+  end
+
+  # Emits a progress event on the run (streamed to the UI by pollers).
+  # Never lets telemetry break execution.
+  def emit_event(**kwargs)
+    @run.append_event(**kwargs)
+  rescue StandardError => e
+    Rails.logger.warn("[AgentExecutionService] event emit failed: #{e.message}")
+  end
+
+  def next_event_id
+    @event_sequence += 1
+    "#{@run.id}-#{@event_sequence}"
+  end
+
+  # Compact human preview of a tool result for the live activity feed:
+  # prefer the long readable field (page text, sub-agent output) over JSON.
+  def event_result_preview(result)
+    return nil unless result.respond_to?(:[])
+
+    readable = %i[text output content body].filter_map { |field| result[field] || result[field.to_s] }
+      .find { |value| value.is_a?(String) && value.strip.present? }
+    preview = readable ? readable.gsub(/\s+/, " ").strip : result.to_json
+    preview.byteslice(0, 1000).to_s.scrub
   end
 
   def call
-    root_span = build_root_span
+    root_span = @root_span = build_root_span
     llm_span = root_span.add_span(
       "llm.generate",
       span_type: :llm,
       "llm.provider" => provider.to_s,
       "llm.model" => model
     )
+
+    llm_eid = next_event_id
+    llm_started = Process.clock_gettime(Process::CLOCK_MONOTONIC)
+    emit_event(eid: llm_eid, kind: "llm", label: "#{provider}/#{model} generating", status: "started")
 
     begin
       response = generate!
@@ -42,6 +74,14 @@ class AgentExecutionService
 
       llm_span.set_tokens(input: input, output: output, thinking: thinking)
       llm_span.finish
+      emit_event(
+        eid: llm_eid, kind: "llm", label: "#{provider}/#{model} generating", status: "done",
+        duration_ms: ((Process.clock_gettime(Process::CLOCK_MONOTONIC) - llm_started) * 1000).round,
+        detail: "#{input} in / #{output} out tokens#{thinking.positive? ? " / #{thinking} thinking" : ""}"
+      )
+      tool_calls = record_tool_spans(root_span, response)
+      persist_tool_messages(response)
+      sync_context_instructions
       root_span.finish
 
       {
@@ -49,10 +89,12 @@ class AgentExecutionService
         metadata: {
           provider: provider.to_s,
           model: model,
+          instructions: @agent_record.instructions,
           requested_provider: @agent_record.provider,
           mock: mock_fallback?,
           trace_id: root_span.trace_id,
-          context_id: conversation_context&.id
+          context_id: conversation_context&.id,
+          tool_calls: tool_calls
         },
         usage: {
           input_tokens: input,
@@ -65,6 +107,7 @@ class AgentExecutionService
       llm_span.finish
       root_span.record_error(e)
       root_span.finish
+      emit_event(eid: llm_eid, kind: "llm", label: "#{provider}/#{model} generating", status: "error", detail: e.message)
       raise
     ensure
       record_trace(root_span)
@@ -80,21 +123,164 @@ class AgentExecutionService
     provider == :mock && @agent_record.provider != "mock"
   end
 
+  # Routes a provider tool call to its implementation: memory tools bind to
+  # the agent record's AgentMemory (the solid_agent HasMemory contract);
+  # everything else is stateless and lives in AgentToolbox.
+  #
+  # Each call is wrapped in a live :tool span (real start/end around the
+  # execution) and recorded in @tool_invocations so tool names, arguments
+  # and durations reach Traces and the persisted conversation.
+  def execute_tool(name, **kwargs)
+    # Record the absolute URL browse_page will actually fetch, not the bare
+    # path the model passed — spans/events/persisted args stay unambiguous.
+    kwargs[:url] = AgentToolbox.resolve_browse_url(kwargs[:url]) if name.to_s == "browse_page" && kwargs[:url]
+
+    span = @root_span&.add_span("tool.#{name}", span_type: :tool)
+    span&.set_attribute("tool.name", name.to_s)
+    span&.set_attribute("tool.args", kwargs.to_json.byteslice(0, 500)) if kwargs.present?
+    started = Process.clock_gettime(Process::CLOCK_MONOTONIC)
+
+    event_kind = name.to_s == "call_agent" ? "agent" : "tool"
+    event_label = name.to_s == "call_agent" ? "call_agent → #{kwargs[:slug]}" : name.to_s
+    event_id = next_event_id
+    emit_event(eid: event_id, kind: event_kind, label: event_label, status: "started", detail: kwargs.to_json)
+
+    result = begin
+      case name.to_s
+      when "save_memory"
+        entry = agent_memory.remember(
+          kwargs[:content].to_s,
+          source_agent: agent_class_name,
+          category: kwargs[:category]
+        )
+        { saved: true, id: entry.id, content: entry.content }
+      when "recall_memory"
+        entries = agent_memory.recall(limit: kwargs[:limit], category: kwargs[:category])
+        {
+          count: entries.size,
+          entries: entries.map do |entry|
+            {
+              content: entry.content,
+              category: entry.category,
+              source_agent: entry.source_agent,
+              created_at: entry.created_at&.iso8601
+            }.compact
+          end
+        }
+      when "call_agent"
+        call_agent(slug: kwargs[:slug], message: kwargs[:message])
+      else
+        AgentToolbox.call(name, **kwargs)
+      end
+    rescue StandardError => e
+      Rails.logger.warn("[AgentExecutionService] Tool #{name} failed: #{e.class} - #{e.message}")
+      { error: "#{name} failed: #{e.message}" }
+    end
+
+    duration_ms = ((Process.clock_gettime(Process::CLOCK_MONOTONIC) - started) * 1000).round(2)
+    errored = result.respond_to?(:key?) && (result.key?(:error) || result.key?("error"))
+    span&.set_attribute("tool.error", true) if errored
+    span&.set_attribute("tool.result", result.to_json.byteslice(0, 600).to_s.scrub)
+    span&.finish
+    emit_event(
+      eid: event_id, kind: event_kind, label: event_label,
+      status: errored ? "error" : "done", duration_ms: duration_ms,
+      detail: errored ? (result[:error] || result["error"]).to_s : event_result_preview(result)
+    )
+    @tool_invocations << {
+      name: name.to_s,
+      arguments: kwargs,
+      duration_ms: duration_ms,
+      error: errored
+    }
+
+    result
+  end
+
   private
+
+  # Maximum agent-to-agent delegation depth for the call_agent tool. A
+  # thread-local counter guards it because the sub-agent runs synchronously
+  # on the same thread via Agent#test_execute.
+  MAX_CALL_DEPTH = 2
+
+  # Executes another agent of the same account synchronously and returns
+  # its reply, so agents can delegate to each other as a tool call. The
+  # sub-run is a real AgentRun with its own trace.
+  def call_agent(slug:, message:)
+    depth = Thread.current[:agent_call_depth].to_i
+    return { error: "call_agent depth limit (#{MAX_CALL_DEPTH}) reached" } if depth >= MAX_CALL_DEPTH
+
+    target = workspace_agents.where.not(id: @agent_record.id).find_by(slug: slug.to_s)
+    return { error: "No agent with slug '#{slug}' in this workspace" } unless target
+
+    Thread.current[:agent_call_depth] = depth + 1
+    begin
+      sub_run = target.test_execute(message.to_s)
+      {
+        agent: target.slug,
+        run_id: sub_run.id,
+        status: sub_run.status,
+        output: sub_run.output.presence || sub_run.error_message
+      }
+    ensure
+      Thread.current[:agent_call_depth] = depth
+    end
+  end
+
+  # Keeps the persisted context's instructions current so the Interactions
+  # view can render the conversation's system message.
+  def sync_context_instructions
+    context = conversation_context
+    return unless context
+    return if context.instructions == @agent_record.instructions
+
+    context.update_column(:instructions, @agent_record.instructions)
+  rescue StandardError => e
+    Rails.logger.warn("[AgentExecutionService] Failed to sync context instructions: #{e.message}")
+  end
+
+  # Agents callable via call_agent: same workspace as the calling agent's
+  # owner (mirrors Api::McpController#account_agents scoping).
+  def workspace_agents
+    owner = @agent_record.user
+    return Agent.none unless owner
+
+    account = owner.primary_account
+    user_ids = account ? ([ account.owner_id ] | account.members.pluck(:id)) : [ owner.id ]
+    Agent.where(user_id: user_ids).where.not(status: :archived)
+  end
+
+  def agent_memory
+    @agent_memory ||= AgentMemory.for(@agent_record)
+  end
 
   def model
     mock_fallback? ? "mock-#{@agent_record.model}" : @agent_record.model
   end
 
+  # Newer Anthropic models (Opus 4.7+, Sonnet 5, Fable 5/Mythos 5) reject
+  # sampling parameters with a 400 — they are thinking-first models steered
+  # by prompting/effort instead.
+  SAMPLING_UNSUPPORTED_MODELS = /\Aclaude-(opus-5|opus-4-[78]|sonnet-5|fable-5|mythos-5)/
+
   def generate!
     effective_provider = provider
     provider_model = @agent_record.model
     model_options = @agent_record.model_config.to_h.symbolize_keys.slice(:temperature, :max_tokens, :top_p)
+    model_options.except!(:temperature, :top_p) if provider_model.to_s.match?(SAMPLING_UNSUPPORTED_MODELS)
+    if (account_key = account_provider_key(effective_provider))
+      # The account's own credential (API key, or host URL for ollama)
+      # overrides the platform's config/active_agent.yml settings.
+      model_options.merge!(account_key.generation_options)
+    end
     klass_name = agent_class_name
     agent_record = @agent_record
     input = @run.input_prompt
     instructions = @agent_record.instructions
     run_trace_id = trace_id
+    tool_definitions = tool_schemas
+    service = self
 
     agent_class = Class.new(ActiveAgent::Base) do
       # SolidAgent persists contexts under self.class.name; anonymous
@@ -113,6 +299,16 @@ class AgentExecutionService
         generate_with effective_provider, model: provider_model, **model_options
       end
 
+      # Expose the agent's server-executable tools as public methods so the
+      # gem's tools_function can route provider tool calls to them. The
+      # service routes each call to AgentToolbox or, for memory tools, to
+      # the run's AgentMemory.
+      tool_definitions.each do |definition|
+        define_method(definition[:name]) do |**kwargs|
+          service.execute_tool(definition[:name], **kwargs)
+        end
+      end
+
       define_method :ask do
         # Thread the run's telemetry trace_id through prompt_options so
         # SolidAgent's provenance (and AgentContext#record_generation_with_
@@ -122,6 +318,7 @@ class AgentExecutionService
 
         options = { message: input }
         options[:instructions] = instructions if instructions.present?
+        options[:tools] = tool_definitions if tool_definitions.present?
         prompt(**options)
       end
     end
@@ -129,8 +326,73 @@ class AgentExecutionService
     agent_class.ask.generate_now
   end
 
+  # Function-calling schemas for the agent's enabled tools that have
+  # server-side implementations (none for mock runs — the mock provider
+  # doesn't do tool calling).
+  def tool_schemas
+    return [] if provider == :mock
+
+    AgentToolbox.definitions_for(@agent_record.tools)
+  end
+
+  # Persists the tool interaction stream to the solid_agent conversation
+  # context so the Interactions view shows the full agent <-> tool
+  # exchange. Deduped by tool_call_id — newer solid_agent versions persist
+  # these from HasContext already, in which case this is a no-op.
+  def persist_tool_messages(response)
+    context = conversation_context
+    return unless context
+    return unless response.respond_to?(:messages)
+
+    tool_messages = Array(response.messages).select do |message|
+      message.respond_to?(:role) && message.role.to_s == "tool"
+    end
+
+    tool_messages.each_with_index do |message, index|
+      tool_call_id = message.respond_to?(:tool_call_id) ? message.tool_call_id : nil
+      next if tool_call_id.present? && context.messages.exists?(role: "tool", tool_call_id: tool_call_id)
+
+      # Provider tool messages often carry no name (Ollama's don't); fall
+      # back to the service's own invocation record, matched by order.
+      invocation = @tool_invocations[index]
+      name = (message.name if message.respond_to?(:name)).presence || invocation&.dig(:name)
+
+      context.add_tool_message(
+        tool_call_id: tool_call_id,
+        tool_name: name,
+        result: (message.content if message.respond_to?(:content)),
+        arguments: invocation&.dig(:arguments),
+        duration_ms: invocation&.dig(:duration_ms)
+      )
+    end
+  rescue StandardError => e
+    Rails.logger.error("[AgentExecutionService] Failed to persist tool messages: #{e.message}")
+  end
+
+  # Tool names for run metadata. Spans are recorded live in execute_tool;
+  # the response-message scan only covers calls the provider executed
+  # without routing through the service (none today, but cheap insurance).
+  def record_tool_spans(root_span, response)
+    return @tool_invocations.map { |invocation| invocation[:name] } if @tool_invocations.any?
+
+    messages = response.respond_to?(:messages) ? Array(response.messages) : []
+    tool_messages = messages.select { |message| message.respond_to?(:role) && message.role.to_s == "tool" }
+
+    tool_messages.map do |message|
+      name = message.respond_to?(:name) && message.name.presence || "unknown"
+      tool_span = root_span.add_span("tool.#{name}", span_type: :tool)
+      tool_span.set_attribute("tool.name", name)
+      if message.respond_to?(:tool_call_id) && message.tool_call_id.present?
+        tool_span.set_attribute("tool.id", message.tool_call_id)
+      end
+      tool_span.finish
+      name
+    end
+  end
+
   def provider_available?(name)
     return true if name.to_s == "mock"
+    return true if account_provider_key(name).present?
 
     config = ActiveAgent.configuration[name.to_sym]
     return false unless config.respond_to?(:[])
@@ -142,6 +404,10 @@ class AgentExecutionService
     end
   rescue StandardError
     false
+  end
+
+  def account_provider_key(name)
+    account&.provider_key_for(name)
   end
 
   def build_root_span
@@ -161,8 +427,7 @@ class AgentExecutionService
   end
 
   def agent_class_name
-    base = @agent_record.agent_class_name.presence || @agent_record.name.parameterize(separator: "_").camelize
-    base.end_with?("Agent") ? base : "#{base}Agent"
+    @agent_record.telemetry_agent_class
   end
 
   # Reuse the run's trace_id so AgentRun and TelemetryTrace correlate.

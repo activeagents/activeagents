@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.2].define(version: 2026_07_15_000002) do
+ActiveRecord::Schema[8.2].define(version: 2026_07_29_000002) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
 
@@ -137,6 +137,28 @@ ActiveRecord::Schema[8.2].define(version: 2026_07_15_000002) do
     t.index ["trace_id"], name: "index_agent_generations_on_trace_id"
   end
 
+  create_table "agent_memories", force: :cascade do |t|
+    t.datetime "created_at", null: false
+    t.bigint "memorable_id"
+    t.string "memorable_type"
+    t.string "scope", default: "default", null: false
+    t.datetime "updated_at", null: false
+    t.index ["memorable_type", "memorable_id", "scope"], name: "idx_on_memorable_type_memorable_id_scope_4cc0762a41", unique: true
+    t.index ["memorable_type", "memorable_id"], name: "index_agent_memories_on_memorable"
+  end
+
+  create_table "agent_memory_entries", force: :cascade do |t|
+    t.bigint "agent_memory_id", null: false
+    t.string "category"
+    t.text "content", null: false
+    t.datetime "created_at", null: false
+    t.string "source_agent"
+    t.datetime "updated_at", null: false
+    t.index ["agent_memory_id", "created_at"], name: "index_agent_memory_entries_on_agent_memory_id_and_created_at"
+    t.index ["agent_memory_id"], name: "index_agent_memory_entries_on_agent_memory_id"
+    t.index ["category"], name: "index_agent_memory_entries_on_category"
+  end
+
   create_table "agent_messages", force: :cascade do |t|
     t.bigint "agent_context_id", null: false
     t.jsonb "attachments", default: []
@@ -246,6 +268,18 @@ ActiveRecord::Schema[8.2].define(version: 2026_07_15_000002) do
     t.index ["status"], name: "index_agents_on_status"
     t.index ["user_id", "slug"], name: "index_agents_on_user_id_and_slug", unique: true
     t.index ["user_id"], name: "index_agents_on_user_id"
+  end
+
+  create_table "api_keys", force: :cascade do |t|
+    t.bigint "account_id", null: false
+    t.datetime "created_at", null: false
+    t.datetime "last_used_at"
+    t.string "name", null: false
+    t.string "token", null: false
+    t.string "token_prefix", null: false
+    t.datetime "updated_at", null: false
+    t.index ["account_id"], name: "index_api_keys_on_account_id"
+    t.index ["token"], name: "index_api_keys_on_token", unique: true
   end
 
   create_table "cap_table_entries", force: :cascade do |t|
@@ -485,6 +519,16 @@ ActiveRecord::Schema[8.2].define(version: 2026_07_15_000002) do
     t.index ["slug"], name: "index_plans_on_slug", unique: true
   end
 
+  create_table "provider_keys", force: :cascade do |t|
+    t.bigint "account_id", null: false
+    t.datetime "created_at", null: false
+    t.string "credential", null: false
+    t.string "provider", null: false
+    t.datetime "updated_at", null: false
+    t.index ["account_id", "provider"], name: "index_provider_keys_on_account_id_and_provider", unique: true
+    t.index ["account_id"], name: "index_provider_keys_on_account_id"
+  end
+
   create_table "recording_actions", force: :cascade do |t|
     t.string "action_type", null: false
     t.datetime "created_at", null: false
@@ -691,10 +735,12 @@ ActiveRecord::Schema[8.2].define(version: 2026_07_15_000002) do
   add_foreign_key "active_storage_attachments", "active_storage_blobs", column: "blob_id"
   add_foreign_key "active_storage_variant_records", "active_storage_blobs", column: "blob_id"
   add_foreign_key "agent_generations", "agent_contexts"
+  add_foreign_key "agent_memory_entries", "agent_memories"
   add_foreign_key "agent_messages", "agent_contexts"
   add_foreign_key "agent_runs", "agents"
   add_foreign_key "agent_versions", "agents"
   add_foreign_key "agents", "users"
+  add_foreign_key "api_keys", "accounts"
   add_foreign_key "cap_table_entries", "accounts"
   add_foreign_key "cap_table_entries", "investors"
   add_foreign_key "cap_table_entries", "safe_agreements"
@@ -712,6 +758,7 @@ ActiveRecord::Schema[8.2].define(version: 2026_07_15_000002) do
   add_foreign_key "pay_charges", "pay_subscriptions", column: "subscription_id"
   add_foreign_key "pay_payment_methods", "pay_customers", column: "customer_id"
   add_foreign_key "pay_subscriptions", "pay_customers", column: "customer_id"
+  add_foreign_key "provider_keys", "accounts"
   add_foreign_key "recording_actions", "session_recordings"
   add_foreign_key "recording_snapshots", "recording_actions"
   add_foreign_key "recording_snapshots", "session_recordings"

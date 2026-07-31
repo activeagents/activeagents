@@ -50,7 +50,9 @@ module Api
     private
 
     def interactions_scope
-      AgentContext.for_agents(current_user.agents)
+      agents = current_user.agents
+      agents = agents.where(id: params[:agent_id]) if params[:agent_id].present?
+      AgentContext.for_agents(agents)
     end
 
     def serialize_context(context)
@@ -72,16 +74,7 @@ module Api
     end
 
     def serialize_message(message)
-      {
-        id: message.id,
-        role: message.role,
-        content: message.content,
-        tool_name: message.tool_name,
-        tool_call_id: message.tool_call_id,
-        tool_calls: message.tool_calls_data,
-        content_checksum: message.content_checksum,
-        created_at: message.created_at.iso8601(3)
-      }
+      AgentMessageSerializer.call(message)
     end
 
     def serialize_generation(generation)
