@@ -4,7 +4,7 @@ require "minitest/autorun"
 require "active_agents/ruby_llm_telemetry"
 
 module TelemetryTestHelpers
-  Msg = Struct.new(:role, :input_tokens, :output_tokens, :thinking_tokens)
+  Msg = Struct.new(:role, :input_tokens, :output_tokens, :thinking_tokens, :content)
 
   def setup
     @posted = []
@@ -33,8 +33,16 @@ module TelemetryTestHelpers
     ActiveSupport::Notifications.instrument(name, payload, &block)
   end
 
-  def assistant(input:, output:, thinking: 0)
-    Msg.new("assistant", input, output, thinking)
+  def assistant(input:, output:, thinking: 0, content: nil)
+    Msg.new("assistant", input, output, thinking, content)
+  end
+
+  def user(content)
+    Msg.new("user", nil, nil, nil, content)
+  end
+
+  def system_message(content)
+    Msg.new("system", nil, nil, nil, content)
   end
 
   def chat_payload(input_messages: [ Msg.new("user") ], chat: default_chat, **extra)
