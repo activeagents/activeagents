@@ -13,7 +13,13 @@ class Agent < ApplicationRecord
   validates :model, presence: true
 
   # Status enum
-  enum :status, { draft: 0, active: 1, archived: 2 }
+  # `observed` agents were discovered from reported telemetry rather than
+  # authored here. They can't be executed by the platform — we can't push
+  # instructions into someone else's app — so they're read-only until forked.
+  enum :status, { draft: 0, active: 1, archived: 2, observed: 3 }
+
+  scope :observed_agents, -> { where(status: :observed) }
+  scope :authored, -> { where.not(status: :observed) }
 
   # Callbacks
   before_validation :generate_slug, on: :create
