@@ -133,12 +133,32 @@ class AgentRegistrar
     @spans ||= Array(@trace.spans)
   end
 
+  # Config is learned progressively. An agent first seen before content
+  # capture was enabled registers with no instructions; the trace that finally
+  # carries them should fill that in rather than leave the record permanently
+  # blank. Only fills gaps — an operator's edits are never overwritten.
   def touch_observation(agent)
-    return if agent.last_observed_at.present? && agent.last_observed_at >= @trace.timestamp
+    updates = {}
 
-    agent.update_columns(
-      last_observed_at: @trace.timestamp,
-      updated_at: Time.current
-    )
+    if agent.last_observed_at.blank? || agent.last_observed_at < @trace.timestamp
+      updates[:last_observed_at] = @trace.timestamp
+    end
+
+    if agent.instructions.blank? && (instructions = llm_attribute("llm.instructions")).present?
+      updates[:instructions] = instructions
+    end
+
+    if agent.tools.blank? && observed_tools.any?
+      updates[:tools] = observed_tools
+    end
+
+    if agent.model.blank? || agent.model == "unknown"
+      model = llm_attribute("llm.model")
+      updates[:model] = model if model.present?
+    end
+
+    return if updates.empty?
+
+    agent.update_columns(updates.merge(updated_at: Time.current))
   end
 end

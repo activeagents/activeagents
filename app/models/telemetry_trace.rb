@@ -14,6 +14,9 @@
 # association and token-total dedup.
 class TelemetryTrace < ActiveAgent::TelemetryTrace
   belongs_to :account
+  # Set by AgentRegistrar on ingest; nullable because a trace must still
+  # ingest when its agent can't be resolved.
+  belongs_to :agent, optional: true
 
   validates :trace_id, uniqueness: { scope: :account_id }
 
