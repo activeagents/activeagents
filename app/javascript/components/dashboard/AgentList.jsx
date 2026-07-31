@@ -48,6 +48,34 @@ export default function AgentList({
     }
   };
 
+  const formatDuration = (ms) => {
+    if (ms == null) return '—';
+    if (ms < 1000) return `${Math.round(ms)}ms`;
+    return `${(ms / 1000).toFixed(1)}s`;
+  };
+
+  const formatTokens = (tokens) => {
+    if (tokens == null) return '—';
+    if (tokens >= 1_000_000) return `${(tokens / 1_000_000).toFixed(1)}M`;
+    if (tokens >= 1_000) return `${(tokens / 1_000).toFixed(1)}k`;
+    return `${tokens}`;
+  };
+
+  // Green/yellow/red thresholds matching the Evaluations view.
+  const rateColor = (fraction) => {
+    if (fraction == null) return 'text-gray-400';
+    if (fraction >= 0.85) return 'text-green-600';
+    if (fraction >= 0.7) return 'text-yellow-600';
+    return 'text-red-600';
+  };
+
+  const StatCell = ({ label, value, valueClass = 'text-gray-900' }) => (
+    <div className="rounded-lg bg-gray-50 px-2 py-1.5">
+      <div className={`text-sm font-semibold leading-tight ${valueClass}`}>{value}</div>
+      <div className="text-[10px] uppercase tracking-wide text-gray-400">{label}</div>
+    </div>
+  );
+
   return (
     <div className="space-y-6">
       {/* Header Actions */}
@@ -126,6 +154,7 @@ export default function AgentList({
       {filteredAgents.length > 0 ? (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
           {filteredAgents.map((agent) => {
+            const stats = agent.stats || {};
             return (
               <div
                 key={agent.id}
@@ -133,9 +162,9 @@ export default function AgentList({
                 onClick={() => onSelect(agent)}
               >
                 {/* Avatar Preview */}
-                <div className="h-40 bg-gradient-to-br from-gray-50 to-gray-100 flex items-center justify-center relative overflow-hidden">
+                <div className="h-32 bg-gradient-to-br from-gray-50 to-gray-100 flex items-center justify-center relative overflow-hidden">
                   <div className="transform group-hover:scale-110 transition-transform">
-                    <AgentAvatar size={120} />
+                    <AgentAvatar size={96} />
                   </div>
                   <span className={`absolute top-3 right-3 px-2 py-1 text-xs font-medium rounded-full ${getStatusColor(agent.status)}`}>
                     {agent.status}
@@ -151,12 +180,30 @@ export default function AgentList({
                     {agent.description || 'No description'}
                   </p>
 
-                  <div className="mt-4 flex items-center justify-between text-xs text-gray-400">
+                  {/* Scorecard */}
+                  <div className="mt-3 grid grid-cols-4 gap-1.5 text-center">
+                    <StatCell label={`Runs ${stats.window_days || 30}d`} value={stats.runs ?? 0} />
+                    <StatCell
+                      label="Success"
+                      value={stats.success_rate != null ? `${Math.round(stats.success_rate)}%` : '—'}
+                      valueClass={rateColor(stats.success_rate != null ? stats.success_rate / 100 : null)}
+                    />
+                    <StatCell label="Avg time" value={formatDuration(stats.avg_duration_ms)} />
+                    <StatCell
+                      label="Eval"
+                      value={stats.eval_score != null ? `${Math.round(stats.eval_score * 100)}%` : '—'}
+                      valueClass={rateColor(stats.eval_score)}
+                    />
+                  </div>
+
+                  <div className="mt-3 flex items-center justify-between text-xs text-gray-400">
                     <div className="flex items-center space-x-2">
                       <span className="px-2 py-1 bg-gray-100 rounded">{agent.provider}</span>
                       <span>{agent.model}</span>
                     </div>
-                    <span>{formatDate(agent.updatedAt || agent.updated_at)}</span>
+                    <span title={stats.last_run_at ? `Last run ${formatDate(stats.last_run_at)}` : undefined}>
+                      {stats.tokens ? `${formatTokens(stats.tokens)} tok · ` : ''}{formatDate(agent.updatedAt || agent.updated_at)}
+                    </span>
                   </div>
                 </div>
 

@@ -2,11 +2,17 @@ import React, { useState, useEffect, useRef } from 'react';
 import AgentAvatar from '../AgentAvatar';
 import { useTimeWindow } from '../../contexts/TimeWindowContext';
 import TimeWindowSelector from './TimeWindowSelector';
+import InteractionStream from './InteractionStream';
+import InteractionsView from './InteractionsView';
 
 export default function ConversationHistory({ agent, onBack }) {
   const { timeWindow } = useTimeWindow();
   const [runs, setRuns] = useState([]);
   const [selectedRun, setSelectedRun] = useState(null);
+  const [selectedMessages, setSelectedMessages] = useState([]);
+  const [detailMode, setDetailMode] = useState('run'); // 'run' | 'all'
+  const [reportSort, setReportSort] = useState('recent'); // 'recent' | 'longest'
+  const [expandedCohorts, setExpandedCohorts] = useState({});
   const [isLoading, setIsLoading] = useState(true);
   const [page, setPage] = useState(1);
   const [hasMore, setHasMore] = useState(true);
@@ -54,9 +60,56 @@ export default function ConversationHistory({ agent, onBack }) {
       const response = await fetch(`/api/runs/${runId}`);
       const data = await response.json();
       setSelectedRun(data.run);
+      setSelectedMessages(data.messages || []);
     } catch (error) {
       console.error('Failed to load run details:', error);
     }
+  };
+
+  // Agent report: history × analytics for evaluating config changes.
+  // Groups the loaded runs into configuration cohorts — each unique
+  // (system instructions, model) combination the agent has run under —
+  // with comparable stats, shown when no run is selected.
+  const buildReport = () => {
+    const groups = new Map();
+    runs.forEach(run => {
+      const key = `${run.model || 'unknown'}|${run.instructions_digest || 'none'}`;
+      if (!groups.has(key)) {
+        groups.set(key, {
+          key,
+          model: run.model,
+          instructionsDigest: run.instructions_digest,
+          instructionsPreview: run.instructions_preview,
+          runs: [],
+        });
+      }
+      groups.get(key).runs.push(run);
+    });
+    const cohorts = [...groups.values()].map(group => ({
+      ...group,
+      count: group.runs.length,
+      completed: group.runs.filter(r => r.status === 'complete').length,
+      failed: group.runs.filter(r => r.status === 'failed').length,
+      totalTokens: group.runs.reduce((sum, r) => sum + (r.tokens || 0), 0),
+      avgTokens: group.runs.reduce((sum, r) => sum + (r.tokens || 0), 0) / group.runs.length,
+      avgDuration: group.runs.reduce((sum, r) => sum + (r.duration_ms || 0), 0) / group.runs.length,
+      latest: group.runs[0],
+      // Runs within a cohort sorted by longest interaction first
+      sortedRuns: [...group.runs].sort((a, b) => (b.duration_ms || 0) - (a.duration_ms || 0)),
+    }));
+    cohorts.sort((a, b) =>
+      reportSort === 'longest'
+        ? b.avgDuration - a.avgDuration
+        : new Date(b.latest.created_at) - new Date(a.latest.created_at)
+    );
+    const totals = {
+      runs: runs.length,
+      completed: runs.filter(r => r.status === 'complete').length,
+      tokens: runs.reduce((sum, r) => sum + (r.tokens || 0), 0),
+      avgDuration: runs.length ? runs.reduce((sum, r) => sum + (r.duration_ms || 0), 0) / runs.length : 0,
+      models: [...new Set(runs.map(r => r.model).filter(Boolean))],
+    };
+    return { cohorts, totals };
   };
 
   const getStatusColor = (status) => {
@@ -162,7 +215,10 @@ export default function ConversationHistory({ agent, onBack }) {
                   <p className="text-sm text-gray-700 truncate">
                     {run.input_preview || run.input_prompt?.substring(0, 60) || 'No input'}
                   </p>
-                  <div className="flex items-center space-x-3 mt-2 text-xs text-gray-400">
+                  <div className="flex items-center space-x-3 mt-2 text-xs text-gray-400 flex-wrap gap-y-1">
+                    {run.model && (
+                      <span className="px-1.5 py-0.5 rounded bg-indigo-50 text-indigo-700 font-mono">{run.model}</span>
+                    )}
                     <span>{formatDuration(run.duration_ms)}</span>
                     {run.tokens && <span>{run.tokens} tokens</span>}
                   </div>
@@ -192,112 +248,222 @@ export default function ConversationHistory({ agent, onBack }) {
 
       {/* Conversation Detail */}
       <div className="flex-1 flex flex-col bg-gray-50">
-        {selectedRun ? (
+        {/* Mode toggle: one run's stream, or every session for this agent —
+            both rendered by the same shared interactions components. */}
+        <div className="p-3 bg-white border-b border-gray-200 flex items-center justify-between">
+          <div className="flex bg-gray-100 rounded-lg p-1">
+            <button
+              onClick={() => setDetailMode('run')}
+              className={`px-3 py-1 text-sm rounded-md transition-colors ${
+                detailMode === 'run' ? 'bg-white shadow text-gray-900' : 'text-gray-600'
+              }`}
+            >
+              Selected run
+            </button>
+            <button
+              onClick={() => setDetailMode('all')}
+              className={`px-3 py-1 text-sm rounded-md transition-colors ${
+                detailMode === 'all' ? 'bg-white shadow text-gray-900' : 'text-gray-600'
+              }`}
+            >
+              All interactions
+            </button>
+          </div>
+          {detailMode === 'run' && selectedRun && (
+            <span className={`px-3 py-1 rounded-full text-sm font-medium ${getStatusColor(selectedRun.status)}`}>
+              {selectedRun.status}
+            </span>
+          )}
+        </div>
+
+        {detailMode === 'all' ? (
+          <div className="flex-1 overflow-auto p-4">
+            <InteractionsView agentId={agent.id} embedded />
+          </div>
+        ) : selectedRun ? (
           <>
-            {/* Conversation Header */}
+            {/* Run Header */}
             <div className="p-4 bg-white border-b border-gray-200">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center space-x-3">
-                  <AgentAvatar size={40} />
-                  <div>
-                    <h3 className="font-medium text-gray-900">Run #{selectedRun.id}</h3>
-                    <p className="text-xs text-gray-500">
-                      {new Date(selectedRun.created_at).toLocaleString()}
-                    </p>
-                  </div>
-                </div>
-                <div className="flex items-center space-x-4">
-                  <span className={`px-3 py-1 rounded-full text-sm font-medium ${getStatusColor(selectedRun.status)}`}>
-                    {selectedRun.status}
-                  </span>
+              <div className="flex items-center space-x-3">
+                <AgentAvatar size={40} />
+                <div>
+                  <h3 className="font-medium text-gray-900">Run #{selectedRun.id}</h3>
+                  <p className="text-xs text-gray-500">
+                    {new Date(selectedRun.created_at).toLocaleString()}
+                  </p>
                 </div>
               </div>
             </div>
 
-            {/* Messages */}
-            <div ref={conversationRef} className="flex-1 overflow-auto p-6 space-y-6">
-              {/* User Message */}
-              <div className="flex justify-end">
-                <div className="max-w-2xl">
-                  <div className="flex items-center justify-end space-x-2 mb-2">
-                    <span className="text-sm font-medium text-gray-700">You</span>
-                    <div className="w-8 h-8 rounded-full bg-gray-200 flex items-center justify-center">
-                      <svg className="w-5 h-5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-                      </svg>
-                    </div>
-                  </div>
-                  <div className="bg-red-500 text-white rounded-2xl rounded-tr-sm px-4 py-3">
-                    <p className="whitespace-pre-wrap">{selectedRun.input_prompt || selectedRun.input_preview}</p>
-                  </div>
-                </div>
-              </div>
-
-              {/* Agent Response */}
-              <div className="flex justify-start">
-                <div className="max-w-2xl">
-                  <div className="flex items-center space-x-2 mb-2">
-                    <AgentAvatar size={32} />
-                    <span className="text-sm font-medium text-gray-700">{agent.name}</span>
-                  </div>
-                  <div className="bg-white rounded-2xl rounded-tl-sm px-4 py-3 shadow-sm border border-gray-200">
-                    {selectedRun.status === 'running' ? (
-                      <div className="flex items-center space-x-2 text-gray-500">
-                        <span className="animate-pulse">...</span>
-                        <span>Thinking</span>
-                      </div>
-                    ) : selectedRun.error_message ? (
-                      <div className="text-red-600">
-                        <div className="flex items-center space-x-2 mb-2">
-                          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                          </svg>
-                          <span className="font-medium">Error</span>
-                        </div>
-                        <p className="text-sm">{selectedRun.error_message}</p>
-                      </div>
-                    ) : (
-                      <p className="whitespace-pre-wrap text-gray-800">
-                        {selectedRun.output || selectedRun.output_preview || 'No response'}
-                      </p>
-                    )}
-                  </div>
-                </div>
+            {/* Run interaction stream — same design as the Interactions view */}
+            <div ref={conversationRef} className="flex-1 overflow-auto p-6">
+              <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-4">
+                {selectedMessages.length > 0 ? (
+                  <InteractionStream messages={selectedMessages} darkMode={false} />
+                ) : (
+                  <InteractionStream
+                    darkMode={false}
+                    messages={[
+                      {
+                        id: `run-${selectedRun.id}-input`,
+                        role: 'user',
+                        content: selectedRun.input_prompt || selectedRun.input_preview,
+                        created_at: selectedRun.created_at
+                      },
+                      {
+                        id: `run-${selectedRun.id}-output`,
+                        role: 'assistant',
+                        content: selectedRun.error_message || selectedRun.output || selectedRun.output_preview || 'No response',
+                        created_at: selectedRun.completed_at || selectedRun.created_at
+                      }
+                    ]}
+                  />
+                )}
               </div>
             </div>
 
             {/* Run Stats */}
             <div className="p-4 bg-white border-t border-gray-200">
               <div className="flex items-center justify-center space-x-8 text-sm text-gray-500">
-                <div className="flex items-center space-x-2">
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                  </svg>
-                  <span>Duration: {formatDuration(selectedRun.duration_ms)}</span>
-                </div>
-                {selectedRun.total_tokens && (
-                  <div className="flex items-center space-x-2">
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 21a4 4 0 01-4-4V5a2 2 0 012-2h4a2 2 0 012 2v12a4 4 0 01-4 4zm0 0h12a2 2 0 002-2v-4a2 2 0 00-2-2h-2.343M11 7.343l1.657-1.657a2 2 0 012.828 0l2.829 2.829a2 2 0 010 2.828l-8.486 8.485M7 17h.01" />
-                    </svg>
-                    <span>Tokens: {selectedRun.total_tokens}</span>
-                  </div>
-                )}
+                <span>Duration: {formatDuration(selectedRun.duration_ms)}</span>
+                {selectedRun.total_tokens && <span>Tokens: {selectedRun.total_tokens}</span>}
                 {selectedRun.input_tokens && selectedRun.output_tokens && (
-                  <div className="flex items-center space-x-2">
-                    <span>Input: {selectedRun.input_tokens} / Output: {selectedRun.output_tokens}</span>
-                  </div>
+                  <span>Input: {selectedRun.input_tokens} / Output: {selectedRun.output_tokens}</span>
+                )}
+                {selectedRun.trace_id && (
+                  <span className="font-mono text-xs text-gray-400" title={selectedRun.trace_id}>
+                    trace:{selectedRun.trace_id.slice(0, 8)}
+                  </span>
                 )}
               </div>
             </div>
           </>
         ) : (
-          <div className="flex-1 flex items-center justify-center">
-            <div className="text-center text-gray-400">
-              <AgentAvatar size={100} />
-              <p className="mt-4">Select a conversation to view details</p>
-            </div>
-          </div>
+          (() => {
+            const { cohorts, totals } = buildReport();
+            if (cohorts.length === 0) {
+              return (
+                <div className="flex-1 flex items-center justify-center">
+                  <div className="text-center text-gray-400">
+                    <AgentAvatar size={100} />
+                    <p className="mt-4">No runs yet — run the agent to build its report</p>
+                  </div>
+                </div>
+              );
+            }
+            return (
+              <div className="flex-1 overflow-auto p-6 space-y-5">
+                <div className="flex items-center gap-3">
+                  <AgentAvatar size={40} />
+                  <div>
+                    <h3 className="font-semibold text-gray-900">Agent Report</h3>
+                    <p className="text-xs text-gray-500">Recent activity for {agent.name} — select a run for its full interaction</p>
+                  </div>
+                </div>
+
+                {/* Overview stats */}
+                <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+                  <div className="bg-white rounded-xl border border-gray-200 p-3">
+                    <p className="text-xs text-gray-500">Runs</p>
+                    <p className="text-xl font-bold text-gray-900">{totals.runs}</p>
+                  </div>
+                  <div className="bg-white rounded-xl border border-gray-200 p-3">
+                    <p className="text-xs text-gray-500">Success</p>
+                    <p className="text-xl font-bold text-gray-900">{totals.runs ? Math.round((totals.completed / totals.runs) * 100) : 0}%</p>
+                  </div>
+                  <div className="bg-white rounded-xl border border-gray-200 p-3">
+                    <p className="text-xs text-gray-500">Avg Duration</p>
+                    <p className="text-xl font-bold text-gray-900">{formatDuration(Math.round(totals.avgDuration))}</p>
+                  </div>
+                  <div className="bg-white rounded-xl border border-gray-200 p-3">
+                    <p className="text-xs text-gray-500">Tokens</p>
+                    <p className="text-xl font-bold text-gray-900">{totals.tokens.toLocaleString()}</p>
+                  </div>
+                </div>
+
+                {totals.models.length > 0 && (
+                  <div className="flex items-center gap-2 flex-wrap text-xs">
+                    <span className="text-gray-500">Models used:</span>
+                    {totals.models.map(model => (
+                      <span key={model} className="px-1.5 py-0.5 rounded bg-indigo-50 text-indigo-700 font-mono">{model}</span>
+                    ))}
+                  </div>
+                )}
+
+                {/* Configuration cohorts — every (instructions, model)
+                    combination this agent has run under, for comparing the
+                    effect of config changes side by side. */}
+                <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+                  <div className="px-4 py-3 border-b border-gray-100 flex items-center justify-between">
+                    <span className="text-xs uppercase tracking-wide text-gray-400">
+                      Interactions by instructions × model
+                    </span>
+                    <select
+                      value={reportSort}
+                      onChange={(e) => setReportSort(e.target.value)}
+                      className="text-xs border border-gray-200 rounded px-2 py-1 text-gray-600"
+                    >
+                      <option value="recent">Most recent</option>
+                      <option value="longest">Longest interactions</option>
+                    </select>
+                  </div>
+                  <div className="divide-y divide-gray-100">
+                    {cohorts.map(cohort => (
+                      <div key={cohort.key}>
+                        <div
+                          className="px-4 py-3 hover:bg-gray-50 cursor-pointer"
+                          onClick={() => setExpandedCohorts(prev => ({ ...prev, [cohort.key]: !prev[cohort.key] }))}
+                          title="Show this configuration's runs"
+                        >
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span className="px-1.5 py-0.5 rounded bg-indigo-50 text-indigo-700 font-mono text-xs">
+                              {cohort.model || 'unknown model'}
+                            </span>
+                            <span className="text-xs text-gray-400 font-mono">
+                              instructions:{cohort.instructionsDigest || 'n/a'}
+                            </span>
+                          </div>
+                          {cohort.instructionsPreview && (
+                            <p className="text-xs text-gray-500 mt-1 truncate">{cohort.instructionsPreview}</p>
+                          )}
+                          <div className="flex items-center gap-3 mt-1.5 text-xs text-gray-400 flex-wrap gap-y-1">
+                            <span>{cohort.count} run{cohort.count > 1 ? 's' : ''}</span>
+                            <span className={cohort.failed > 0 ? 'text-red-500' : 'text-green-600'}>
+                              {cohort.count ? Math.round((cohort.completed / cohort.count) * 100) : 0}% success
+                            </span>
+                            <span>avg {formatDuration(Math.round(cohort.avgDuration))}</span>
+                            <span>avg {Math.round(cohort.avgTokens).toLocaleString()} tokens</span>
+                            <span>last {formatDate(cohort.latest.created_at)}</span>
+                          </div>
+                        </div>
+
+                        {expandedCohorts[cohort.key] && (
+                          <div className="bg-gray-50 divide-y divide-gray-100 border-t border-gray-100">
+                            {cohort.sortedRuns.map(run => (
+                              <div
+                                key={run.id}
+                                className="px-6 py-2 hover:bg-gray-100 cursor-pointer"
+                                onClick={() => loadRunDetails(run.id)}
+                                title="Open this run's interaction"
+                              >
+                                <p className="text-xs text-gray-700 truncate">{run.input_preview || 'No input'}</p>
+                                <div className="flex items-center gap-3 mt-0.5 text-[11px] text-gray-400">
+                                  <span className={run.status === 'failed' ? 'text-red-500' : ''}>{run.status}</span>
+                                  <span>{formatDuration(run.duration_ms)}</span>
+                                  {run.tokens && <span>{run.tokens.toLocaleString()} tokens</span>}
+                                  <span>{formatDate(run.created_at)}</span>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            );
+          })()
         )}
       </div>
     </div>

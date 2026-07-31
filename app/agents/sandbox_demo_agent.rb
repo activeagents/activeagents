@@ -16,7 +16,7 @@
 class SandboxDemoAgent < ApplicationAgent
   # Provider-specific configurations
   PROVIDER_CONFIGS = {
-    "anthropic" => { provider: :anthropic, model: "claude-sonnet-4-20250514" },
+    "anthropic" => { provider: :anthropic, model: "claude-haiku-4-5" },
     "openai" => { provider: :open_ai, model: "gpt-4o" },
     "ollama" => { provider: :ollama, model: "llama3.1:8b" }
   }.freeze

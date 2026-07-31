@@ -2,6 +2,90 @@
 
 require "test_helper"
 
+class EvaluationRunnerTelemetryTest < ActiveSupport::TestCase
+  setup do
+    @user = create_user
+    @account = create_account(owner: @user)
+    @agent = create_agent(user: @user, name: "Traced Bot")
+  end
+
+  def ingest_trace(status: "OK", duration_ms: 1000)
+    TelemetryTrace.create!(
+      account: @account,
+      trace_id: SecureRandom.hex(16),
+      agent_class: @agent.telemetry_agent_class,
+      status: status,
+      timestamp: Time.current,
+      total_duration_ms: duration_ms
+    )
+  end
+
+  test "trace_error_rate scores from the agent's telemetry traces" do
+    3.times { ingest_trace }
+    ingest_trace(status: "ERROR")
+
+    evaluation = @agent.evaluations.create!(
+      name: "telemetry health",
+      criteria: [ { "key" => "errors", "type" => "trace_error_rate", "config" => { "max_error_rate" => 30 } } ]
+    )
+    run = EvaluationRunnerService.call(evaluation)
+
+    assert run.complete?
+    entry = run.scores["errors"]
+    assert_equal 1.0, entry["score"]
+    assert_equal "telemetry", entry["source"]
+    assert_equal 4, entry["traces"]
+    assert_in_delta 25.0, entry.dig("observed", "error_rate"), 0.01
+    # Telemetry-only evaluations don't need sampled generations.
+    assert_equal 0, run.samples_evaluated
+  end
+
+  test "trace_error_rate penalizes rates above the budget" do
+    ingest_trace
+    ingest_trace(status: "ERROR")
+
+    evaluation = @agent.evaluations.create!(
+      name: "strict errors",
+      criteria: [ { "key" => "errors", "type" => "trace_error_rate", "config" => { "max_error_rate" => 5 } } ]
+    )
+    run = EvaluationRunnerService.call(evaluation)
+
+    assert_in_delta 0.1, run.scores.dig("errors", "score"), 0.001
+  end
+
+  test "trace_latency scores the average trace duration" do
+    ingest_trace(duration_ms: 2000)
+    ingest_trace(duration_ms: 6000)
+
+    evaluation = @agent.evaluations.create!(
+      name: "latency",
+      criteria: [ { "key" => "latency", "type" => "trace_latency", "config" => { "max_avg_ms" => 4000 } } ]
+    )
+    run = EvaluationRunnerService.call(evaluation)
+
+    assert_equal 1.0, run.scores.dig("latency", "score")
+
+    strict = @agent.evaluations.create!(
+      name: "strict latency",
+      criteria: [ { "key" => "latency", "type" => "trace_latency", "config" => { "max_avg_ms" => 2000 } } ]
+    )
+    strict_run = EvaluationRunnerService.call(strict)
+    assert_in_delta 0.5, strict_run.scores.dig("latency", "score"), 0.001
+  end
+
+  test "telemetry criteria are skipped when no traces exist" do
+    evaluation = @agent.evaluations.create!(
+      name: "no data",
+      criteria: [ { "key" => "errors", "type" => "trace_error_rate" } ]
+    )
+    run = EvaluationRunnerService.call(evaluation)
+
+    assert run.complete?
+    assert run.scores.dig("errors", "skipped")
+    assert_match(/No telemetry traces/, run.scores.dig("errors", "reason"))
+  end
+end
+
 class EvaluationRunnerServiceTest < ActiveSupport::TestCase
   setup do
     @user = create_user

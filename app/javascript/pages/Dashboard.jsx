@@ -207,9 +207,19 @@ function DashboardContent({ user, initialAgents = [], meta = {}, account = null,
     window.history.pushState({}, '', `/dashboard/agents/${agent.id}/edit`);
   };
 
+  // Views that edit or run an agent need its detail fields (instructions,
+  // tools, ...). List-serialized agents lack them — initializing the editor
+  // from one wipes those fields on the next save, so refetch the full
+  // record whenever the shallow object is all we have.
+  const AGENT_DETAIL_VIEWS = ['editor', 'runner', 'agent-analytics', 'history'];
+
   const navigateTo = (view, agent = null) => {
-    setSelectedAgent(agent);
-    setCurrentView(view);
+    if (agent?.id && AGENT_DETAIL_VIEWS.includes(view) && agent.instructions === undefined) {
+      loadAgent(agent.id, view);
+    } else {
+      setSelectedAgent(agent);
+      setCurrentView(view);
+    }
 
     // Update URL
     let path = '/dashboard';

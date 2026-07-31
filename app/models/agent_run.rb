@@ -30,6 +30,36 @@ class AgentRun < ApplicationRecord
     update!(logs: new_logs)
   end
 
+  # Appends a progress event to logs mid-run so pollers can stream what the
+  # agent is doing (pending llm/tool/agent calls). Events pair up by eid:
+  # a "started" event is pending until a "done"/"error" with the same eid
+  # lands. update_column: no validations/callbacks, safe from the run's own
+  # execution thread; reads current DB state so add_log interleaves safely.
+  def append_event(eid:, kind:, label:, status: "done", detail: nil, duration_ms: nil)
+    event = {
+      "at" => Time.current.iso8601(3),
+      "eid" => eid,
+      "kind" => kind.to_s,
+      "label" => label.to_s,
+      "status" => status.to_s
+    }
+    event["detail"] = detail.to_s.byteslice(0, 1200).to_s.scrub if detail
+    event["duration_ms"] = duration_ms if duration_ms
+    current = self.class.where(id: id).pick(:logs) || []
+    update_column(:logs, current + [ event ])
+    event
+  end
+
+  # Stable short fingerprint of the instructions this run executed under —
+  # the grouping key (with model) for configuration cohorts when comparing
+  # instruction/model changes.
+  def instructions_digest
+    instructions = output_metadata&.dig("instructions")
+    return nil if instructions.blank?
+
+    Digest::SHA256.hexdigest(instructions).first(8)
+  end
+
   # Calculate duration if not set
   def calculated_duration_ms
     return duration_ms if duration_ms.present?
@@ -57,6 +87,10 @@ class AgentRun < ApplicationRecord
       output_preview: output&.truncate(200),
       duration_ms: calculated_duration_ms,
       tokens: total_tokens,
+      provider: output_metadata&.dig("provider"),
+      model: output_metadata&.dig("model"),
+      instructions_digest: instructions_digest,
+      instructions_preview: output_metadata&.dig("instructions")&.truncate(120),
       created_at: created_at,
       error: error_message
     }

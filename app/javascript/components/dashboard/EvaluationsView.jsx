@@ -8,6 +8,13 @@ const RULE_CRITERIA = [
   { type: 'token_budget', key: 'token_budget', label: 'Output ≤ 1000 tokens', config: { output_tokens: 1000 } },
 ];
 
+// Scored from the agent's telemetry traces (aggregates over the last 7
+// days), not from sampled generations.
+const TELEMETRY_CRITERIA = [
+  { type: 'trace_error_rate', key: 'trace_error_rate', label: 'Trace error rate ≤ 5% (telemetry, 7d)', config: { max_error_rate: 5, window_hours: 168 } },
+  { type: 'trace_latency', key: 'trace_latency', label: 'Avg trace latency ≤ 5s (telemetry, 7d)', config: { max_avg_ms: 5000, window_hours: 168 } },
+];
+
 const csrfToken = () => document.querySelector('meta[name="csrf-token"]')?.content;
 
 const timeAgo = (iso) => {
@@ -65,7 +72,7 @@ export default function EvaluationsView() {
   }, [fetchEvaluations]);
 
   const buildCriteria = () => {
-    const criteria = RULE_CRITERIA
+    const criteria = [...RULE_CRITERIA, ...TELEMETRY_CRITERIA]
       .filter((c) => form.criteria.includes(c.key))
       .map(({ key, type, config }) => ({ key, type, config }));
     if (form.containsPattern.trim()) {
@@ -223,9 +230,30 @@ export default function EvaluationsView() {
           </div>
 
           <div>
-            <label className="block text-xs uppercase tracking-wide mb-2" style={{ color: colors.textMuted }}>Rule-based criteria</label>
+            <label className="block text-xs uppercase tracking-wide mb-2" style={{ color: colors.textMuted }}>Rule-based criteria (sampled generations)</label>
             <div className="flex flex-wrap gap-3">
               {RULE_CRITERIA.map((criterion) => (
+                <label key={criterion.key} className="flex items-center gap-2 text-sm" style={{ color: colors.textPrimary }}>
+                  <input
+                    type="checkbox"
+                    checked={form.criteria.includes(criterion.key)}
+                    onChange={(e) => setForm({
+                      ...form,
+                      criteria: e.target.checked
+                        ? [...form.criteria, criterion.key]
+                        : form.criteria.filter((k) => k !== criterion.key),
+                    })}
+                  />
+                  {criterion.label}
+                </label>
+              ))}
+            </div>
+          </div>
+
+          <div>
+            <label className="block text-xs uppercase tracking-wide mb-2" style={{ color: colors.textMuted }}>Telemetry criteria (trace aggregates)</label>
+            <div className="flex flex-wrap gap-3">
+              {TELEMETRY_CRITERIA.map((criterion) => (
                 <label key={criterion.key} className="flex items-center gap-2 text-sm" style={{ color: colors.textPrimary }}>
                   <input
                     type="checkbox"
@@ -339,7 +367,14 @@ export default function EvaluationsView() {
                     <div className="p-4 space-y-3">
                       {Object.entries(run.scores).map(([label, score]) => (
                         <div key={label} className="flex items-center gap-4">
-                          <div className="w-32 text-sm truncate" style={{ color: colors.textSecondary }}>{label.replace(/_/g, ' ')}</div>
+                          <div className="w-32 text-sm truncate" style={{ color: colors.textSecondary }}>
+                            {label.replace(/_/g, ' ')}
+                            {score.source === 'telemetry' && (
+                              <span className="ml-1 text-[10px] uppercase tracking-wide" style={{ color: colors.textMuted }} title={`Aggregate over ${score.traces} traces in the last ${score.window_hours}h`}>
+                                telemetry
+                              </span>
+                            )}
+                          </div>
                           {score.skipped ? (
                             <div className="flex-1 text-xs italic" style={{ color: colors.textMuted }} title={score.reason}>
                               skipped — {score.reason}
