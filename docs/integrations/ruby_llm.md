@@ -36,7 +36,7 @@ telemetry:
 
 RubyLLM emits `chat.ruby_llm` and `tool_call.ruby_llm` events through a
 configurable instrumenter. Point it at `ActiveSupport::Notifications` and
-subscribe with the adapter below — a single vendorable file with no
+subscribe with this repo's `active_agents-ruby_llm_telemetry` gem — no
 dependencies beyond ActiveSupport and stdlib.
 
 ```ruby
@@ -61,136 +61,128 @@ ActiveAgents::RubyLLMTelemetry.with_agent("SupportBot", action: "respond") do
 end
 ```
 
-### The adapter
+### How events map to spans
+
+RubyLLM emits a `chat.ruby_llm` event per provider round, and the two
+generations of the gem arrange those rounds differently:
+
+- **1.x** recurses through `Chat#complete` for each tool round, so the rounds
+  **nest** inside the enclosing event and `tool_call.ruby_llm` fires within it.
+- **2.x** drives a flat `step until complete?` loop, so the rounds are
+  **siblings** and tool calls fire *between* them.
+
+The adapter accumulates rounds and flushes on the round that ends the turn —
+the one that errors, or answers without requesting tools (`payload[:tool_call]`)
+— which produces the same trace under both arrangements:
+
+- a `root` span named `Agent.action`,
+- one `llm` span covering the whole provider loop, carrying `llm.rounds` and
+  token totals summed **per round** from the assistant messages that round
+  added (the event-level token fields repeat the last round's counts, so they
+  are not used), and
+- a `tool` span per `tool_call.ruby_llm` event, with real start/end times and
+  `tool.name` / `tool.call_id`, parented under the llm span.
+
+Tool arguments and results are deliberately never sent, and error messages are
+truncated — safe defaults for apps whose tool traffic may contain sensitive
+data.
+
+### Attributing traffic
+
+RubyLLM carries no application identity on the payload: neither the
+`RubyLLM::Agent` class nor an `acts_as_chat` record reaches the instrumenter,
+so unattributed traffic reports as `RubyLLM::Chat`. Three ways to name it:
 
 ```ruby
-# lib/active_agents/ruby_llm_telemetry.rb
-# frozen_string_literal: true
+# 1. Per call site.
+ActiveAgents::RubyLLMTelemetry.with_agent("SupportBot", action: "respond") { chat.ask(...) }
 
-require "net/http"
-require "json"
-require "securerandom"
+# 2. From the initializer, derived from the event payload.
+ActiveAgents::RubyLLMTelemetry.subscribe!(
+  api_key: ENV["ACTIVEAGENTS_API_KEY"],
+  agent_resolver: ->(payload) { { name: "SupportBot", action: payload[:tools].present? ? "respond" : "summarize" } }
+)
 
-module ActiveAgents
-  # Reports RubyLLM chat completions to an ActiveAgents-compatible trace
-  # endpoint (the same wire format ActiveAgent::Telemetry uses).
-  #
-  # Subscribes to RubyLLM's instrumentation events; requires
-  # RubyLLM.config.instrumenter = ActiveSupport::Notifications.
-  module RubyLLMTelemetry
-    DEFAULT_ENDPOINT = "https://api.activeagents.ai/v1/traces"
-    AGENT_KEY = :active_agents_ruby_llm_agent
-
-    class << self
-      attr_reader :endpoint, :api_key, :service_name, :environment
-
-      def subscribe!(api_key:, endpoint: DEFAULT_ENDPOINT, service_name: nil, environment: nil)
-        @api_key = api_key
-        @endpoint = endpoint
-        @service_name = service_name || (defined?(Rails) ? Rails.application.class.module_parent_name.underscore : "ruby_llm")
-        @environment = environment || (defined?(Rails) ? Rails.env : ENV.fetch("RACK_ENV", "production"))
-
-        ActiveSupport::Notifications.subscribe("chat.ruby_llm") do |event|
-          report_chat_event(event)
-        rescue StandardError => e
-          warn "[ActiveAgents::RubyLLMTelemetry] #{e.class}: #{e.message}"
-        end
-      end
-
-      # Attributes traces inside the block to a named agent/action.
-      def with_agent(name, action: "chat")
-        previous = Thread.current[AGENT_KEY]
-        Thread.current[AGENT_KEY] = { name: name, action: action }
-        yield
-      ensure
-        Thread.current[AGENT_KEY] = previous
-      end
-
-      private
-
-      def report_chat_event(event)
-        payload = event.payload
-        response = payload[:response]
-        return unless response # streaming interrupted or provider error
-
-        agent = Thread.current[AGENT_KEY] || { name: "RubyLLM::Chat", action: "chat" }
-        trace_id = SecureRandom.hex(16)
-        root_id = SecureRandom.hex(8)
-        started_at = Time.now - (event.duration / 1000.0)
-        finished_at = Time.now
-        error = payload[:exception_object]
-
-        tokens = {
-          "input" => response.respond_to?(:input_tokens) ? response.input_tokens.to_i : 0,
-          "output" => response.respond_to?(:output_tokens) ? response.output_tokens.to_i : 0,
-          "thinking" => 0
-        }
-        tokens["total"] = tokens.values.sum
-
-        root_span = {
-          "span_id" => root_id, "trace_id" => trace_id, "parent_span_id" => nil,
-          "name" => "#{agent[:name]}.#{agent[:action]}", "type" => "root",
-          "start_time" => started_at.utc.iso8601(6), "end_time" => finished_at.utc.iso8601(6),
-          "duration_ms" => event.duration.round(2),
-          "status" => error ? "ERROR" : "OK",
-          "attributes" => {
-            "agent.class" => agent[:name], "agent.action" => agent[:action],
-            "agent.provider" => payload[:provider].to_s, "agent.model" => payload[:model].to_s
-          }.merge(error ? { "error.type" => error.class.name, "error.message" => error.message } : {}),
-          "tokens" => { "input" => 0, "output" => 0, "thinking" => 0, "total" => 0 },
-          "events" => []
-        }
-
-        llm_span = root_span.merge(
-          "span_id" => SecureRandom.hex(8), "parent_span_id" => root_id,
-          "name" => "llm.generate", "type" => "llm",
-          "attributes" => { "llm.provider" => payload[:provider].to_s, "llm.model" => payload[:model].to_s },
-          "tokens" => tokens
-        )
-
-        post_traces(
-          "traces" => [ {
-            "trace_id" => trace_id,
-            "service_name" => service_name,
-            "environment" => environment,
-            "timestamp" => finished_at.utc.iso8601(6),
-            "resource_attributes" => {},
-            "spans" => [ root_span, llm_span ]
-          } ],
-          "sdk" => { "name" => "active_agents-ruby_llm", "version" => "1.0", "language" => "ruby", "runtime_version" => RUBY_VERSION }
-        )
-      end
-
-      def post_traces(body)
-        uri = URI.parse(endpoint)
-        http = Net::HTTP.new(uri.host, uri.port)
-        http.use_ssl = uri.scheme == "https"
-        http.open_timeout = http.read_timeout = 10
-
-        request = Net::HTTP::Post.new(uri.request_uri)
-        request["Content-Type"] = "application/json"
-        request["Authorization"] = "Bearer #{api_key}"
-        request.body = JSON.generate(body)
-
-        Thread.new { http.request(request) }
-      end
-    end
+# 3. Every RubyLLM::Agent subclass, by class name.
+module AgentTelemetryAttribution
+  def ask(...)
+    ActiveAgents::RubyLLMTelemetry.with_agent(self.class.name) { super }
   end
 end
+RubyLLM::Agent.prepend(AgentTelemetryAttribution)
 ```
+
+Option 3 covers `SupportAgent.new.ask(...)` and Rails-backed
+`Agent.create!/find` instances. It does **not** cover `SupportAgent.chat`,
+which hands back a bare `RubyLLM::Chat` — wrap those call sites, or resolve
+from the payload.
+
+### The adapter
+
+It ships as a gem in this repo (`ruby_llm_telemetry/`), so nothing is
+vendored into the consuming app:
+
+```ruby
+# Gemfile
+gem "active_agents-ruby_llm_telemetry",
+    github: "activeagents/activeagents", glob: "ruby_llm_telemetry/*.gemspec"
+```
+
+Bundler requires it as `active_agents/ruby_llm_telemetry`, so the initializer
+above is the whole integration. Implementation, tests, and the full option
+list live in `ruby_llm_telemetry/README.md`.
 
 Notes:
 
-- **Tokens** come straight from RubyLLM's response message
-  (`input_tokens`/`output_tokens`); durations from the notification event.
-- **Tool calls**: `tool_call.ruby_llm` events fire outside the chat event;
-  a future version can correlate them into tool spans via the same
-  thread-local. For now tool rounds appear as separate completions.
-- **Failures** surface as `status: "ERROR"` traces with the exception
-  attached, matching what the gem's own instrumentation emits.
-- Requests are fire-and-forget on a background thread; batch buffering
-  (like `ActiveAgent::Telemetry::Reporter`) is a natural upgrade if volume
+- **Scope is chat and tool calls.** RubyLLM also emits `request.ruby_llm`,
+  `embedding.ruby_llm`, `image.ruby_llm`, `moderation.ruby_llm`,
+  `speech.ruby_llm`, `transcription.ruby_llm`, and
+  `models.refresh.ruby_llm`. An app whose RubyLLM usage is embeddings or
+  transcription reports nothing today; those events carry their own token
+  counts and are a natural extension of the same subscriber.
+- **Tool spans** carry real start/end times, so the dashboard's waterfall,
+  generation-vs-tools breakdown, and slowest-operations views work for
+  RubyLLM apps the same as for platform-executed agents. Concurrent tool
+  execution runs tools off the instrumented thread and is not captured —
+  sequential execution (the default) is fully covered.
+- **Fallbacks** (`with_fallbacks`) retry a failed round against the next
+  model in a loop, so each failed attempt closes its own `ERROR` trace and
+  the successful attempt closes an `OK` one. That reads as one trace per
+  provider attempt, which is what the latency and error-rate metrics want.
+- **A turn that never reaches a final round** — a halted tool call, or an app
+  driving 2.x's `step`/`run_tools` by hand — is flushed when the next chat
+  reports, when `MAX_TURN_SECONDS` elapses, or on an explicit `flush!`.
+- **Failures** surface as `status: "ERROR"` traces with the exception class
+  and a truncated message attached. Delivery failures (ingest down, bad key)
+  are warned and swallowed, never raised into the app.
+- Requests are fire-and-forget on a background thread; pass `async: false`
+  for deterministic delivery in tests, and stub `post_traces` to assert on
+  the built payload. Batch buffering (like
+  `ActiveAgent::Telemetry::Reporter`) is a natural upgrade if volume
   warrants it.
+
+## Local / self-hosted dashboards
+
+The endpoint is just a parameter — point it at any deployment of this app or
+of the gem's dashboard:
+
+```ruby
+ActiveAgents::RubyLLMTelemetry.subscribe!(
+  api_key: ENV["ACTIVEAGENTS_API_KEY"],
+  endpoint: ENV.fetch("ACTIVEAGENTS_TELEMETRY_ENDPOINT", ActiveAgents::RubyLLMTelemetry::DEFAULT_ENDPOINT),
+  service_name: "my-app",
+  environment: Rails.env
+)
+```
+
+For a dashboard running locally (e.g. via `docker-compose.dev.yml` under
+OrbStack/Docker Desktop — see `docs/local-mac-llm.md`), set
+`ACTIVEAGENTS_TELEMETRY_ENDPOINT=http://localhost:3000/v1/traces` (or the
+container's `*.orb.local` hostname) in the reporting app. The Bearer token
+is either a platform API key generated from Settings → API Keys (`aa_…`
+keys, once PR
+[#96](https://github.com/activeagents/activeagents/pull/96) lands) or the
+account's legacy `telemetry_api_key` from the Organization page.
 
 ## Wire format reference
 
@@ -204,7 +196,8 @@ dashboard.
 
 ## Roadmap note
 
-The right long-term home for this adapter is the activeagent gem itself
-(e.g. `ActiveAgent::Telemetry::Adapters::RubyLLM`, loadable without the
-rest of the framework) so RubyLLM users get a supported, versioned client
-instead of a vendored file.
+`ruby_llm_telemetry/` is a self-contained gem so it can be broken out into
+its own repository, or folded into the activeagent gem itself (e.g.
+`ActiveAgent::Telemetry::Adapters::RubyLLM`, loadable without the rest of the
+framework), without changing the consuming app beyond its Gemfile line.
+First production consumer: Sparkle's Clara admin chat (`combinaut/sparkle`).
