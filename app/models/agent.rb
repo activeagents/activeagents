@@ -12,6 +12,7 @@ class Agent < ApplicationRecord
   validates :slug, presence: true, uniqueness: { scope: :user_id }, format: { with: /\A[a-z0-9\-_]+\z/ }
   validates :provider, presence: true
   validates :model, presence: true
+  validate :validate_action_prompts
 
   # Status enum
   enum :status, { draft: 0, active: 1, archived: 2 }
@@ -59,6 +60,26 @@ class Agent < ApplicationRecord
     AgentMemory.for(self)
   end
 
+  # The default action every agent has; uses the base instructions alone.
+  DEFAULT_ACTION = "ask"
+
+  # All invokable action names: the default plus each named action prompt.
+  def available_actions
+    [ DEFAULT_ACTION ] + Array(action_prompts).filter_map { |ap| ap["name"].presence }
+  end
+
+  def action_prompt_for(action_name)
+    Array(action_prompts).find { |ap| ap["name"] == action_name.to_s }
+  end
+
+  # The system instructions an action executes under: named actions stack
+  # their prompt below the agent's base instructions; the default action
+  # uses the base instructions alone.
+  def composed_instructions_for(action_name)
+    action = action_prompt_for(action_name)
+    [ instructions, action&.dig("prompt") ].map(&:presence).compact.join("\n\n").presence
+  end
+
   # Returns the configuration as a hash for versioning
   def configuration_snapshot
     {
@@ -67,6 +88,7 @@ class Agent < ApplicationRecord
       provider: provider,
       model: model,
       instructions: instructions,
+      action_prompts: action_prompts,
       preset_type: preset_type,
       appearance: appearance,
       instruction_sets: instruction_sets,
@@ -82,6 +104,7 @@ class Agent < ApplicationRecord
     config = version.configuration_snapshot
     update!(
       instructions: config["instructions"],
+      action_prompts: config["action_prompts"] || [],
       preset_type: config["preset_type"],
       appearance: config["appearance"],
       instruction_sets: config["instruction_sets"],
@@ -95,6 +118,30 @@ class Agent < ApplicationRecord
   # Get the latest version
   def latest_version
     agent_versions.order(version_number: :desc).first
+  end
+
+  # Maps each historical instructions digest to the first version that
+  # introduced it ("v3"), so run cohorts can label instruction changes with
+  # real agent versions instead of raw hashes.
+  def instructions_digest_versions
+    agent_versions.order(:version_number).each_with_object({}) do |version, map|
+      snapshot = version.configuration_snapshot
+      base = snapshot["instructions"]
+      label = "v#{version.version_number}"
+
+      if base.present?
+        map[Digest::SHA256.hexdigest(base).first(8)] ||= label
+      end
+
+      # Named actions run under composed instructions (base + action
+      # prompt), so their runs carry a different digest per action.
+      Array(snapshot["action_prompts"]).each do |action|
+        composed = [ base, action["prompt"] ].map(&:presence).compact.join("\n\n")
+        next if composed.blank?
+
+        map[Digest::SHA256.hexdigest(composed).first(8)] ||= label
+      end
+    end
   end
 
   # Get version count
@@ -116,9 +163,10 @@ class Agent < ApplicationRecord
   end
 
   # Execute a run with this agent
-  def execute(input_prompt, **params)
+  def execute(input_prompt, action: nil, **params)
     run = agent_runs.create!(
       input_prompt: input_prompt,
+      action_name: normalized_action(action),
       input_params: params,
       status: :pending,
       trace_id: SecureRandom.uuid
@@ -131,9 +179,10 @@ class Agent < ApplicationRecord
   end
 
   # Quick test execution (synchronous)
-  def test_execute(input_prompt, **params)
+  def test_execute(input_prompt, action: nil, **params)
     run = agent_runs.create!(
       input_prompt: input_prompt,
+      action_name: normalized_action(action),
       input_params: params,
       status: :running,
       trace_id: SecureRandom.uuid,
@@ -190,23 +239,51 @@ class Agent < ApplicationRecord
     )
   end
 
+  VERSIONED_FIELDS = %w[
+    instructions action_prompts preset_type appearance instruction_sets
+    tools mcp_servers model_config response_format
+  ].freeze
+
   def configuration_changed?
-    saved_changes.keys.any? do |key|
-      %w[instructions preset_type appearance instruction_sets tools mcp_servers model_config response_format].include?(key)
-    end
+    saved_changes.keys.any? { |key| VERSIONED_FIELDS.include?(key) }
   end
 
   def create_version_on_config_change
     next_version = (latest_version&.version_number || 0) + 1
-    changed_fields = saved_changes.keys.select do |key|
-      %w[instructions preset_type appearance instruction_sets tools mcp_servers model_config response_format].include?(key)
-    end
+    changed_fields = saved_changes.keys.select { |key| VERSIONED_FIELDS.include?(key) }
 
     agent_versions.create!(
       version_number: next_version,
       change_summary: "Updated: #{changed_fields.join(', ')}",
       configuration_snapshot: configuration_snapshot
     )
+  end
+
+  # Unknown action names fall back to the default rather than failing the
+  # run — an action can be renamed between enqueue and execution.
+  def normalized_action(action)
+    action = action.to_s.presence
+    action && available_actions.include?(action) ? action : nil
+  end
+
+  def validate_action_prompts
+    return if action_prompts.blank?
+
+    unless action_prompts.is_a?(Array) && action_prompts.all? { |ap| ap.is_a?(Hash) }
+      errors.add(:action_prompts, "must be a list of action definitions")
+      return
+    end
+
+    names = action_prompts.map { |ap| ap["name"].to_s }
+    names.each do |action_name|
+      unless action_name.match?(/\A[a-z][a-z0-9_]*\z/)
+        errors.add(:action_prompts, "action name '#{action_name}' must be snake_case")
+      end
+      if action_name == DEFAULT_ACTION
+        errors.add(:action_prompts, "'#{DEFAULT_ACTION}' is the built-in default action")
+      end
+    end
+    errors.add(:action_prompts, "action names must be unique") if names.uniq.size != names.size
   end
 
   def model_config_code

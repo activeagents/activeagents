@@ -97,8 +97,12 @@ module Api
       per_page = (params[:per_page] || 20).to_i
       @runs = @runs.offset((page - 1) * per_page).limit(per_page)
 
+      # One digest->version map for the page; labels each run's instructions
+      # with the agent version that introduced them where one matches.
+      digest_versions = @agent.instructions_digest_versions
+
       render json: {
-        runs: @runs.map(&:summary),
+        runs: @runs.map { |run| run.summary.merge(instructions_version: digest_versions[run.instructions_digest]) },
         meta: {
           page: page,
           per_page: per_page,
@@ -111,6 +115,7 @@ module Api
     def execute
       run = @agent.execute(
         params[:prompt],
+        action: params[:action_name],
         **params.fetch(:params, {}).to_unsafe_h.symbolize_keys
       )
       current_account.increment_agent_runs!
@@ -122,6 +127,7 @@ module Api
     def test
       run = @agent.test_execute(
         params[:prompt],
+        action: params[:action_name],
         **params.fetch(:params, {}).to_unsafe_h.symbolize_keys
       )
       current_account.increment_agent_runs!
@@ -250,6 +256,7 @@ module Api
         :name, :description, :provider, :model, :instructions,
         :preset_type, :agent_class_name, :status,
         appearance: {},
+        action_prompts: [ :name, :prompt, :expose_as_tool ],
         instruction_sets: [],
         tools: [],
         mcp_servers: [],
@@ -277,6 +284,7 @@ module Api
       if include_details
         json.merge!(
           instructions: agent.instructions,
+          action_prompts: agent.action_prompts,
           instruction_sets: agent.instruction_sets,
           tools: agent.tools,
           mcp_servers: agent.mcp_servers,

@@ -13,7 +13,11 @@ class Evaluation < ApplicationRecord
   belongs_to :agent
   has_many :evaluation_runs, dependent: :destroy
 
-  JUDGE_KINDS = %w[rules llm].freeze
+  # judge_defined: the judge model authors the KPI criteria itself from the
+  # agent's instructions + sample interactions on the first run, then scores
+  # against them (criteria stay persisted/editable so scores are comparable
+  # across runs and models).
+  JUDGE_KINDS = %w[rules llm judge_defined].freeze
 
   RULE_CRITERION_TYPES = %w[
     response_present min_length max_latency_ms token_budget contains not_contains
@@ -33,6 +37,15 @@ class Evaluation < ApplicationRecord
     evaluation_runs.order(created_at: :desc).first
   end
 
+  def judge_defined?
+    judge_kind == "judge_defined"
+  end
+
+  # Candidate models for per-cohort comparison scoring (config, optional).
+  def compare_models
+    Array(config["compare_models"]).map(&:to_s).reject(&:blank?)
+  end
+
   def run!
     EvaluationRunnerService.call(self)
   end
@@ -45,7 +58,9 @@ class Evaluation < ApplicationRecord
 
   def validate_criteria
     if criteria.blank?
-      errors.add(:criteria, "must include at least one criterion")
+      # judge_defined evaluations start empty — the judge authors the KPIs
+      # on the first run.
+      errors.add(:criteria, "must include at least one criterion") unless judge_defined?
       return
     end
 

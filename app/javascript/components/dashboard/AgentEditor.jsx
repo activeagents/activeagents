@@ -19,6 +19,7 @@ export default function AgentEditor({ agent, meta, onSave, onDelete, onRun, onAn
     provider: agent.provider || 'openai',
     model: agent.model || 'gpt-4o-mini',
     instructions: agent.instructions || '',
+    action_prompts: agent.actionPrompts || agent.action_prompts || [],
     preset_type: agent.presetType || agent.preset_type || 'terminal',
     appearance: agent.appearance || {},
     instruction_sets: agent.instructionSets || agent.instruction_sets || [],
@@ -52,6 +53,7 @@ export default function AgentEditor({ agent, meta, onSave, onDelete, onRun, onAn
       provider: agent.provider || 'openai',
       model: agent.model || 'gpt-4o-mini',
       instructions: agent.instructions || '',
+      action_prompts: agent.actionPrompts || agent.action_prompts || [],
       preset_type: agent.presetType || agent.preset_type || 'terminal',
       appearance: agent.appearance || {},
       instruction_sets: agent.instructionSets || agent.instruction_sets || [],
@@ -192,7 +194,7 @@ export default function AgentEditor({ agent, meta, onSave, onDelete, onRun, onAn
               className="flex items-center justify-center space-x-2 px-3 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors"
             >
               <span style={{ fontFamily: TYPOGRAPHY.mono }}>{'[<>]'}</span>
-              <span>History</span>
+              <span>Interactions</span>
             </button>
           </div>
 
@@ -347,6 +349,20 @@ function ConfigTab({ formData, updateField, providerModels }) {
 }
 
 function InstructionsTab({ formData, updateField, meta, toggleArrayItem }) {
+  const actionPrompts = formData.action_prompts || [];
+
+  const updateActionPrompt = (index, patch) => {
+    updateField('action_prompts', actionPrompts.map((ap, i) => (i === index ? { ...ap, ...patch } : ap)));
+  };
+
+  const addActionPrompt = () => {
+    updateField('action_prompts', [...actionPrompts, { name: '', prompt: '', expose_as_tool: false }]);
+  };
+
+  const removeActionPrompt = (index) => {
+    updateField('action_prompts', actionPrompts.filter((_, i) => i !== index));
+  };
+
   return (
     <div className="space-y-6">
       <div>
@@ -358,6 +374,68 @@ function InstructionsTab({ formData, updateField, meta, toggleArrayItem }) {
           rows={12}
           className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 font-mono text-sm"
         />
+      </div>
+
+      {/* Named action prompts — each becomes an invokable agent action whose
+          system prompt stacks on top of the base instructions (activeagent's
+          actions-as-prompts model). The default #ask action always exists. */}
+      <div>
+        <div className="flex items-center justify-between mb-2">
+          <label className="block text-sm font-medium text-gray-700">Action Prompts</label>
+          <button
+            onClick={addActionPrompt}
+            className="px-3 py-1 text-sm rounded-lg bg-gray-100 text-gray-700 hover:bg-gray-200 transition-colors"
+          >
+            + Add action
+          </button>
+        </div>
+        <p className="text-xs text-gray-500 mb-3">
+          Named actions run with their prompt stacked below the system instructions.
+          The default <span className="font-mono">#ask</span> action uses the system instructions alone.
+        </p>
+        {actionPrompts.length > 0 && (
+          <div className="space-y-3">
+            {actionPrompts.map((action, index) => (
+              <div key={index} className="border border-gray-200 rounded-lg p-3 space-y-2">
+                <div className="flex items-center gap-2">
+                  <span className="text-gray-400 font-mono text-sm">#</span>
+                  <input
+                    type="text"
+                    value={action.name}
+                    onChange={(e) => updateActionPrompt(index, { name: e.target.value.toLowerCase().replace(/[^a-z0-9_]/g, '_') })}
+                    placeholder="action_name"
+                    className="flex-1 px-3 py-1.5 border border-gray-300 rounded-lg text-sm font-mono focus:ring-2 focus:ring-red-500"
+                  />
+                  <label className="flex items-center gap-1.5 text-xs text-gray-600 whitespace-nowrap">
+                    <input
+                      type="checkbox"
+                      checked={!!action.expose_as_tool}
+                      onChange={(e) => updateActionPrompt(index, { expose_as_tool: e.target.checked })}
+                      className="rounded text-red-500 focus:ring-red-500"
+                    />
+                    Expose as tool
+                  </label>
+                  <button
+                    onClick={() => removeActionPrompt(index)}
+                    className="p-1 text-gray-400 hover:text-red-500 transition-colors"
+                    title="Remove action"
+                  >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                  </button>
+                </div>
+                <textarea
+                  value={action.prompt}
+                  onChange={(e) => updateActionPrompt(index, { prompt: e.target.value })}
+                  placeholder="This action's system prompt, applied on top of the base instructions..."
+                  rows={4}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg font-mono text-sm focus:ring-2 focus:ring-red-500"
+                />
+              </div>
+            ))}
+          </div>
+        )}
       </div>
 
       <div>

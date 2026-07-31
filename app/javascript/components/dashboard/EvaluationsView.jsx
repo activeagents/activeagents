@@ -45,6 +45,7 @@ export default function EvaluationsView() {
     agent_id: '', name: '', sample_size: 20,
     criteria: RULE_CRITERIA.map((c) => c.key),
     containsPattern: '', llmJudgePrompt: '',
+    judgeKind: 'manual', judgeModel: '', compareModels: '',
   });
   const [formError, setFormError] = useState(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -97,8 +98,12 @@ export default function EvaluationsView() {
             agent_id: form.agent_id,
             name: form.name,
             sample_size: form.sample_size,
-            judge_kind: form.llmJudgePrompt.trim() ? 'llm' : 'rules',
-            criteria: buildCriteria(),
+            judge_kind: form.judgeKind === 'judge_defined'
+              ? 'judge_defined'
+              : (form.llmJudgePrompt.trim() ? 'llm' : 'rules'),
+            judge_model: form.judgeModel.trim() || undefined,
+            compare_models: form.compareModels.split(',').map((m) => m.trim()).filter(Boolean),
+            criteria: form.judgeKind === 'judge_defined' ? [] : buildCriteria(),
           },
         }),
       });
@@ -160,6 +165,49 @@ export default function EvaluationsView() {
     padding: '8px 12px', borderRadius: '8px', fontSize: '14px',
     background: colors.inputBg, border: `1px solid ${colors.inputBorder}`, color: colors.textPrimary,
   };
+
+  // A comparison run stores each sample criterion as {model: stats} instead
+  // of flat stats — detect by the absence of score/skipped keys.
+  const isCohortMap = (score) =>
+    score && typeof score === 'object' && !('score' in score) && !('skipped' in score);
+
+  const renderScoreRow = (label, score, { indent = false, mono = false } = {}) => (
+    <div key={label} className="flex items-center gap-4" style={indent ? { paddingLeft: '16px' } : undefined}>
+      <div
+        className={`w-32 text-sm truncate ${mono ? 'font-mono text-xs' : ''}`}
+        style={{ color: colors.textSecondary }}
+        title={label}
+      >
+        {mono ? label : label.replace(/_/g, ' ')}
+        {score.source === 'telemetry' && (
+          <span className="ml-1 text-[10px] uppercase tracking-wide" style={{ color: colors.textMuted }} title={`Aggregate over ${score.traces} traces in the last ${score.window_hours}h`}>
+            telemetry
+          </span>
+        )}
+      </div>
+      {score.skipped ? (
+        <div className="flex-1 text-xs italic" style={{ color: colors.textMuted }} title={score.reason}>
+          skipped — {score.reason}
+        </div>
+      ) : (
+        <>
+          <div className="flex-1 h-2 rounded-full overflow-hidden" style={{ background: colors.trackBg }}>
+            <div
+              className="h-full rounded-full transition-all"
+              style={{ width: `${score.score * 100}%`, background: statusColor[scoreStatus(score.score)] }}
+            />
+          </div>
+          <div
+            className="w-12 text-sm font-medium text-right"
+            style={{ color: statusColor[scoreStatus(score.score)] }}
+            title={`min ${score.min} · max ${score.max} · ${score.passed}/${score.total} passed`}
+          >
+            {score.score.toFixed(2)}
+          </div>
+        </>
+      )}
+    </div>
+  );
 
   return (
     <div className="space-y-6">
@@ -229,6 +277,49 @@ export default function EvaluationsView() {
             </div>
           </div>
 
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div>
+              <label className="block text-xs uppercase tracking-wide mb-1" style={{ color: colors.textMuted }}>KPI definition</label>
+              <select
+                value={form.judgeKind}
+                onChange={(e) => setForm({ ...form, judgeKind: e.target.value })}
+                style={{ ...inputStyle, width: '100%' }}
+              >
+                <option value="manual">Manual criteria</option>
+                <option value="judge_defined">Judge defines KPIs from agent goals</option>
+              </select>
+            </div>
+            <div>
+              <label className="block text-xs uppercase tracking-wide mb-1" style={{ color: colors.textMuted }}>Judge model (optional)</label>
+              <input
+                type="text"
+                value={form.judgeModel}
+                onChange={(e) => setForm({ ...form, judgeModel: e.target.value })}
+                placeholder="e.g. claude-opus-5"
+                style={{ ...inputStyle, width: '100%' }}
+              />
+            </div>
+            <div>
+              <label className="block text-xs uppercase tracking-wide mb-1" style={{ color: colors.textMuted }}>Compare models (optional, comma-separated)</label>
+              <input
+                type="text"
+                value={form.compareModels}
+                onChange={(e) => setForm({ ...form, compareModels: e.target.value })}
+                placeholder="e.g. claude-haiku-4-5, qwen3:8b"
+                style={{ ...inputStyle, width: '100%' }}
+              />
+            </div>
+          </div>
+
+          {form.judgeKind === 'judge_defined' && (
+            <p className="text-xs" style={{ color: colors.textSecondary }}>
+              On the first run the judge reads the agent's instructions and recent interactions,
+              defines 3–6 KPIs, then scores samples against them. KPIs persist so later runs
+              (and model cohorts) stay comparable.
+            </p>
+          )}
+
+          {form.judgeKind !== 'judge_defined' && (<>
           <div>
             <label className="block text-xs uppercase tracking-wide mb-2" style={{ color: colors.textMuted }}>Rule-based criteria (sampled generations)</label>
             <div className="flex flex-wrap gap-3">
@@ -297,6 +388,7 @@ export default function EvaluationsView() {
               />
             </div>
           </div>
+          </>)}
 
           {formError && <div className="text-sm text-red-500">{formError}</div>}
 
@@ -365,39 +457,29 @@ export default function EvaluationsView() {
                     <div className="p-4 text-sm text-red-500">{run.error_message}</div>
                   ) : run?.scores ? (
                     <div className="p-4 space-y-3">
-                      {Object.entries(run.scores).map(([label, score]) => (
-                        <div key={label} className="flex items-center gap-4">
-                          <div className="w-32 text-sm truncate" style={{ color: colors.textSecondary }}>
-                            {label.replace(/_/g, ' ')}
-                            {score.source === 'telemetry' && (
-                              <span className="ml-1 text-[10px] uppercase tracking-wide" style={{ color: colors.textMuted }} title={`Aggregate over ${score.traces} traces in the last ${score.window_hours}h`}>
-                                telemetry
-                              </span>
-                            )}
-                          </div>
-                          {score.skipped ? (
-                            <div className="flex-1 text-xs italic" style={{ color: colors.textMuted }} title={score.reason}>
-                              skipped — {score.reason}
-                            </div>
-                          ) : (
-                            <>
-                              <div className="flex-1 h-2 rounded-full overflow-hidden" style={{ background: colors.trackBg }}>
-                                <div
-                                  className="h-full rounded-full transition-all"
-                                  style={{ width: `${score.score * 100}%`, background: statusColor[scoreStatus(score.score)] }}
-                                />
-                              </div>
-                              <div
-                                className="w-12 text-sm font-medium text-right"
-                                style={{ color: statusColor[scoreStatus(score.score)] }}
-                                title={`min ${score.min} · max ${score.max} · ${score.passed}/${score.total} passed`}
-                              >
-                                {score.score.toFixed(2)}
-                              </div>
-                            </>
-                          )}
+                      {/* Comparative verdict (model-vs-model runs) */}
+                      {run.scores._verdict && (
+                        <div className="p-3 rounded-lg text-sm" style={{ background: darkMode ? 'rgba(34,197,94,0.1)' : '#f0fdf4' }}>
+                          <span className="font-semibold" style={{ color: '#16a34a' }}>
+                            Winner: {run.scores._verdict.winner}
+                          </span>
+                          <span className="ml-2" style={{ color: colors.textSecondary }}>{run.scores._verdict.rationale}</span>
+                          <span className="ml-2 text-xs" style={{ color: colors.textMuted }}>judged by {run.scores._verdict.judge}</span>
                         </div>
-                      ))}
+                      )}
+                      {run.scores._missing_models && (
+                        <div className="text-xs italic" style={{ color: colors.textMuted }}>
+                          No recorded generations for: {run.scores._missing_models.join(', ')} — run the agent under those models first
+                        </div>
+                      )}
+                      {Object.entries(run.scores).filter(([label]) => !label.startsWith('_')).map(([label, score]) =>
+                        isCohortMap(score) ? (
+                          <div key={label} className="space-y-1">
+                            <div className="text-sm" style={{ color: colors.textSecondary }}>{label.replace(/_/g, ' ')}</div>
+                            {Object.entries(score).map(([model, stats]) => renderScoreRow(model, stats, { indent: true, mono: true }))}
+                          </div>
+                        ) : renderScoreRow(label, score)
+                      )}
                     </div>
                   ) : (
                     <div className="p-4 text-sm" style={{ color: colors.textMuted }}>No runs yet</div>
@@ -408,7 +490,9 @@ export default function EvaluationsView() {
                     <div>
                       <div style={{ color: colors.textMuted }}>Judge</div>
                       <div className="font-medium" style={{ color: colors.textPrimary }}>
-                        {evaluation.judge_kind === 'llm' ? (evaluation.judge_model || 'LLM judge') : 'Rule-based'}
+                        {evaluation.judge_kind === 'judge_defined'
+                          ? `Judge-defined KPIs${evaluation.judge_model ? ` (${evaluation.judge_model})` : ''}`
+                          : evaluation.judge_kind === 'llm' ? (evaluation.judge_model || 'LLM judge') : 'Rule-based'}
                       </div>
                     </div>
                     <div className="col-span-2">

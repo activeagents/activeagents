@@ -37,12 +37,19 @@ module Api
     def create
       agent = current_user.agents.find(params.require(:evaluation)[:agent_id])
 
+      judge_kind = evaluation_params[:judge_kind].presence || "rules"
+      config = {}
+      config["compare_models"] = compare_models_param if compare_models_param.any?
+
       evaluation = agent.evaluations.new(
         name: evaluation_params[:name],
-        judge_kind: evaluation_params[:judge_kind].presence || "rules",
+        judge_kind: judge_kind,
         judge_model: evaluation_params[:judge_model],
         sample_size: evaluation_params[:sample_size].presence || 20,
-        criteria: normalized_criteria
+        # judge_defined starts with no criteria — the judge authors the
+        # KPIs on the first run.
+        criteria: judge_kind == "judge_defined" ? explicit_criteria : normalized_criteria,
+        config: config
       )
 
       if evaluation.save
@@ -78,8 +85,12 @@ module Api
     end
 
     def normalized_criteria
+      explicit_criteria.presence || DEFAULT_CRITERIA.deep_dup
+    end
+
+    def explicit_criteria
       raw = params[:evaluation][:criteria]
-      return DEFAULT_CRITERIA.deep_dup if raw.blank?
+      return [] if raw.blank?
 
       raw.map do |criterion|
         criterion.permit(:key, :type, config: {}).to_h.tap do |c|
@@ -87,6 +98,10 @@ module Api
           c["config"] ||= {}
         end
       end
+    end
+
+    def compare_models_param
+      Array(params[:evaluation][:compare_models]).map(&:to_s).reject(&:blank?)
     end
 
     def serialize(evaluation)
@@ -99,6 +114,8 @@ module Api
         judge_kind: evaluation.judge_kind,
         judge_model: evaluation.judge_model,
         criteria: evaluation.criteria,
+        compare_models: evaluation.compare_models,
+        config: evaluation.config,
         sample_size: evaluation.sample_size,
         created_at: evaluation.created_at.iso8601,
         latest_run: latest ? serialize_run(latest) : nil

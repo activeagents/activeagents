@@ -89,7 +89,8 @@ class AgentExecutionService
         metadata: {
           provider: provider.to_s,
           model: model,
-          instructions: @agent_record.instructions,
+          action: action_name,
+          instructions: composed_instructions,
           requested_provider: @agent_record.provider,
           mock: mock_fallback?,
           trace_id: root_span.trace_id,
@@ -114,13 +115,41 @@ class AgentExecutionService
     end
   end
 
+  # Per-run provider/model overrides (input_params) let callers replay the
+  # same agent under a different model — the basis of evaluation comparison
+  # runs. Absent overrides, the agent's own configuration applies.
+  def run_params
+    @run_params ||= (@run.input_params || {}).with_indifferent_access
+  end
+
+  def requested_provider
+    @requested_provider ||= (run_params[:provider_override].presence || @agent_record.provider).to_s
+  end
+
+  def requested_model
+    @requested_model ||= run_params[:model_override].presence || @agent_record.model
+  end
+
   # Returns the provider actually used for this execution.
   def provider
-    @provider ||= provider_available?(@agent_record.provider) ? @agent_record.provider.to_sym : :mock
+    @provider ||= provider_available?(requested_provider) ? requested_provider.to_sym : :mock
+  end
+
+  # The named action this run invokes (falls back to the default). Named
+  # actions execute under composed instructions: base + the action's prompt.
+  def action_name
+    @action_name ||= begin
+      requested = @run.action_name.presence || Agent::DEFAULT_ACTION
+      @agent_record.available_actions.include?(requested) ? requested : Agent::DEFAULT_ACTION
+    end
+  end
+
+  def composed_instructions
+    @composed_instructions ||= @agent_record.composed_instructions_for(action_name)
   end
 
   def mock_fallback?
-    provider == :mock && @agent_record.provider != "mock"
+    provider == :mock && requested_provider != "mock"
   end
 
   # Routes a provider tool call to its implementation: memory tools bind to
@@ -233,9 +262,9 @@ class AgentExecutionService
   def sync_context_instructions
     context = conversation_context
     return unless context
-    return if context.instructions == @agent_record.instructions
+    return if context.instructions == composed_instructions
 
-    context.update_column(:instructions, @agent_record.instructions)
+    context.update_column(:instructions, composed_instructions)
   rescue StandardError => e
     Rails.logger.warn("[AgentExecutionService] Failed to sync context instructions: #{e.message}")
   end
@@ -256,7 +285,7 @@ class AgentExecutionService
   end
 
   def model
-    mock_fallback? ? "mock-#{@agent_record.model}" : @agent_record.model
+    mock_fallback? ? "mock-#{requested_model}" : requested_model
   end
 
   # Newer Anthropic models (Opus 4.7+, Sonnet 5, Fable 5/Mythos 5) reject
@@ -266,7 +295,7 @@ class AgentExecutionService
 
   def generate!
     effective_provider = provider
-    provider_model = @agent_record.model
+    provider_model = requested_model
     model_options = @agent_record.model_config.to_h.symbolize_keys.slice(:temperature, :max_tokens, :top_p)
     model_options.except!(:temperature, :top_p) if provider_model.to_s.match?(SAMPLING_UNSUPPORTED_MODELS)
     if (account_key = account_provider_key(effective_provider))
@@ -277,7 +306,8 @@ class AgentExecutionService
     klass_name = agent_class_name
     agent_record = @agent_record
     input = @run.input_prompt
-    instructions = @agent_record.instructions
+    instructions = composed_instructions
+    action = action_name
     run_trace_id = trace_id
     tool_definitions = tool_schemas
     service = self
@@ -309,7 +339,10 @@ class AgentExecutionService
         end
       end
 
-      define_method :ask do
+      # One method per invokable action (the default plus each named action
+      # prompt) — solid_agent keys the persisted context by action_name, so
+      # each action gets its own interaction stream.
+      define_method action do
         # Thread the run's telemetry trace_id through prompt_options so
         # SolidAgent's provenance (and AgentContext#record_generation_with_
         # provenance!) can correlate the persisted generation with its trace.
@@ -323,7 +356,7 @@ class AgentExecutionService
       end
     end
 
-    agent_class.ask.generate_now
+    agent_class.public_send(action).generate_now
   end
 
   # Function-calling schemas for the agent's enabled tools that have
@@ -416,7 +449,7 @@ class AgentExecutionService
       trace_id: trace_id,
       span_type: :root,
       "agent.class" => agent_class_name,
-      "agent.action" => "prompt",
+      "agent.action" => action_name,
       "agent.provider" => provider.to_s,
       "agent.model" => model,
       "service.name" => SERVICE_NAME,
@@ -438,7 +471,7 @@ class AgentExecutionService
   # The solid_agent conversation context this execution persisted into
   # (one per agent + action on this platform).
   def conversation_context
-    AgentContext.find_by(contextable: @agent_record, agent_name: agent_class_name, action_name: "ask")
+    AgentContext.find_by(contextable: @agent_record, agent_name: agent_class_name, action_name: action_name)
   end
 
   def account

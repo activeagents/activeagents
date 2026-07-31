@@ -60,6 +60,30 @@ class AgentRun < ApplicationRecord
     Digest::SHA256.hexdigest(instructions).first(8)
   end
 
+  # Deterministic memorable name for the digest ("calm-heron") — reads far
+  # better than hex when comparing cohorts, and is stable across runs and
+  # deployments because it's derived from the digest alone.
+  CODENAME_ADJECTIVES = %w[
+    calm brisk quiet bold amber coral dusky fresh golden keen
+    lively mellow nimble pale rustic silver tidal vivid wry zesty
+    arid breezy crisp dapper eager foggy hazy icy jolly lunar
+    misty polar
+  ].freeze
+  CODENAME_NOUNS = %w[
+    heron otter falcon cedar willow harbor mesa ridge grove delta
+    prairie summit canyon reef atoll fjord tundra oasis lagoon dune
+    glacier meadow bluff cove marsh basin knoll strait quarry vale
+    hollow crag
+  ].freeze
+
+  def instructions_codename
+    digest = instructions_digest
+    return nil unless digest
+
+    value = digest.to_i(16)
+    "#{CODENAME_ADJECTIVES[value % 32]}-#{CODENAME_NOUNS[(value / 32) % 32]}"
+  end
+
   # Calculate duration if not set
   def calculated_duration_ms
     return duration_ms if duration_ms.present?
@@ -89,7 +113,9 @@ class AgentRun < ApplicationRecord
       tokens: total_tokens,
       provider: output_metadata&.dig("provider"),
       model: output_metadata&.dig("model"),
+      action_name: action_name || output_metadata&.dig("action") || "ask",
       instructions_digest: instructions_digest,
+      instructions_codename: instructions_codename,
       instructions_preview: output_metadata&.dig("instructions")&.truncate(120),
       created_at: created_at,
       error: error_message
