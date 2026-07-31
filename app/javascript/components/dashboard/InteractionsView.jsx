@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useTheme } from '../../contexts/ThemeContext';
 
 const REFRESH_INTERVAL_MS = 30000;
@@ -46,6 +46,39 @@ export default function InteractionsView() {
     const interval = setInterval(fetchSessions, REFRESH_INTERVAL_MS);
     return () => clearInterval(interval);
   }, [fetchSessions]);
+
+  // Group by Agent.action, not by agent class. Clara.respond (admin assistant,
+  // full tool access, ~$0.03/run) and Clara.title (no tools, temperature 0.2,
+  // ~$0.0004/run) are different agents that share a class name because one app
+  // method spawns both; interleaving their streams hides that.
+  const agentGroups = useMemo(() => {
+    const groups = new Map();
+
+    sessions.forEach((session) => {
+      const agentName = session.agent_name || session.agent?.name || 'Unattributed';
+      const actionName = session.action_name;
+      const key = `${agentName}#${actionName || ''}`;
+
+      if (!groups.has(key)) {
+        groups.set(key, {
+          key,
+          title: actionName
+            ? `${agentName} ${actionName.charAt(0).toUpperCase()}${actionName.slice(1)} Agent Interactions`
+            : `${agentName} Interactions`,
+          sessions: [],
+          tokens: 0,
+          lastActivity: session.last_activity_at,
+        });
+      }
+
+      const group = groups.get(key);
+      group.sessions.push(session);
+      group.tokens += session.tokens?.total || 0;
+      if (session.last_activity_at > group.lastActivity) group.lastActivity = session.last_activity_at;
+    });
+
+    return [...groups.values()].sort((a, b) => String(b.lastActivity).localeCompare(String(a.lastActivity)));
+  }, [sessions]);
 
   const toggleSession = async (id) => {
     if (expandedSession === id) {
@@ -141,8 +174,22 @@ export default function InteractionsView() {
           </p>
         </div>
       ) : (
-        <div className="space-y-4">
-          {sessions.map((session) => {
+        <div className="space-y-8">
+          {agentGroups.map((group) => (
+          <div key={group.key} className="space-y-4">
+            {/* Agent header — Clara.respond and Clara.title are different
+                agents (different instructions, tools, cost), so their streams
+                are grouped rather than interleaved. */}
+            <div className="flex items-baseline justify-between">
+              <h2 className="text-sm font-semibold" style={{ color: colors.textPrimary }}>
+                {group.title}
+              </h2>
+              <span className="text-xs" style={{ color: colors.textMuted }}>
+                {group.sessions.length} {group.sessions.length === 1 ? 'interaction' : 'interactions'}
+                {group.tokens > 0 && ` · ${formatNumber(group.tokens)} tokens`}
+              </span>
+            </div>
+          {group.sessions.map((session) => {
             const detail = details[session.id];
             const isExpanded = expandedSession === session.id;
             return (
@@ -288,6 +335,8 @@ export default function InteractionsView() {
               </div>
             );
           })}
+          </div>
+          ))}
         </div>
       )}
     </div>
