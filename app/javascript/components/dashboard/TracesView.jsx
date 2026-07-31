@@ -249,6 +249,44 @@ export default function TracesView() {
     return Object.values(stats).sort((a, b) => b.count - a.count);
   }, [traces, throughputData, selectedTimeBucket]);
 
+  // Which tools actually get called, and what they cost in aggregate. A tool
+  // called 40 times for 20ms each can matter more than one 3s call, and
+  // neither shows up when you're looking at a single trace's waterfall.
+  const toolStats = useMemo(() => {
+    const targetTraces = selectedTimeBucket !== null
+      ? (throughputData[selectedTimeBucket]?.traces || [])
+      : traces;
+
+    const stats = {};
+    targetTraces.forEach((trace) => {
+      (trace.spans || []).forEach((span) => {
+        if (span.type !== 'tool') return;
+        const name = span.attributes?.['tool.name'] || span.name?.replace(/^tool\./, '') || 'unknown';
+
+        if (!stats[name]) {
+          stats[name] = {
+            name,
+            count: 0,
+            totalDuration: 0,
+            maxDuration: 0,
+            errors: 0,
+            agents: new Set(),
+          };
+        }
+
+        stats[name].count++;
+        stats[name].totalDuration += span.duration || 0;
+        stats[name].maxDuration = Math.max(stats[name].maxDuration, span.duration || 0);
+        if (span.error) stats[name].errors++;
+        if (trace.agent) stats[name].agents.add(`${trace.agent}#${trace.action || 'unknown'}`);
+      });
+    });
+
+    return Object.values(stats)
+      .map((s) => ({ ...s, agents: [...s.agents], avgDuration: s.count ? s.totalDuration / s.count : 0 }))
+      .sort((a, b) => b.totalDuration - a.totalDuration);
+  }, [traces, throughputData, selectedTimeBucket]);
+
   // Get available actions for the selected agent (for filter dropdown)
   const availableActions = useMemo(() => {
     if (filter.agent === 'all') {
@@ -356,7 +394,7 @@ export default function TracesView() {
             <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
               {/* View Mode Toggle */}
               <div style={{ display: 'flex', background: 'rgba(255,255,255,0.1)', borderRadius: '8px', padding: '2px' }}>
-                {['timeline', 'agents', 'actions'].map((mode) => (
+                {['timeline', 'agents', 'actions', 'tools'].map((mode) => (
                   <button
                     key={mode}
                     onClick={() => setViewMode(mode)}
@@ -909,7 +947,7 @@ export default function TracesView() {
 
           {/* View Mode Toggle */}
           <div className="flex bg-gray-100 rounded-lg p-1">
-            {['timeline', 'agents', 'actions'].map((mode) => (
+            {['timeline', 'agents', 'actions', 'tools'].map((mode) => (
               <button
                 key={mode}
                 onClick={() => setViewMode(mode)}
@@ -1182,6 +1220,69 @@ export default function TracesView() {
             );
           })}
         </div>
+      )}
+
+      {/* Tool usage — which tools get called and what they cost in aggregate.
+          A 20ms tool called 40 times can dominate a 3s one called once, and
+          neither is visible from a single trace's waterfall. */}
+      {viewMode === 'tools' && (
+        toolStats.length === 0 ? (
+          <div className="text-center py-8 text-gray-500 text-sm">
+            No tool calls in this window
+          </div>
+        ) : (
+          <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+            {/* Flexbox rather than a 12-col grid: grid-cols-12 / col-span-*
+                aren't in the compiled Tailwind build. */}
+            <div className="flex items-center gap-4 px-4 py-2 text-xs font-medium text-gray-500 border-b border-gray-100">
+              <div className="flex-1">Tool</div>
+              <div className="w-20 text-right">Calls</div>
+              <div className="w-24 text-right">Total time</div>
+              <div className="w-20 text-right">Avg</div>
+              <div className="w-20 text-right">Slowest</div>
+            </div>
+            {toolStats.map((stat) => {
+              const share = toolStats[0].totalDuration
+                ? (stat.totalDuration / toolStats[0].totalDuration) * 100
+                : 0;
+              return (
+                <div key={stat.name} className="px-4 py-2 border-b border-gray-50 last:border-0">
+                  <div className="flex items-center gap-4 text-sm">
+                    <div className="flex-1 min-w-0">
+                      <div className="font-medium text-gray-900 truncate" title={stat.name}>{stat.name}</div>
+                      {stat.agents.length > 0 && (
+                        <div className="text-xs text-gray-400 truncate" title={stat.agents.join(', ')}>
+                          {stat.agents.join(', ')}
+                        </div>
+                      )}
+                    </div>
+                    <div className="w-20 text-right text-gray-700" style={{ fontFamily: TYPOGRAPHY.mono }}>
+                      {stat.count.toLocaleString()}
+                      {stat.errors > 0 && (
+                        <span className="text-red-600 ml-1" title={`${stat.errors} failed`}>
+                          ({stat.errors})
+                        </span>
+                      )}
+                    </div>
+                    <div className="w-24 text-right text-gray-900 font-medium" style={{ fontFamily: TYPOGRAPHY.mono }}>
+                      {formatDuration(stat.totalDuration)}
+                    </div>
+                    <div className="w-20 text-right text-gray-500" style={{ fontFamily: TYPOGRAPHY.mono }}>
+                      {formatDuration(stat.avgDuration)}
+                    </div>
+                    <div className="w-20 text-right text-gray-500" style={{ fontFamily: TYPOGRAPHY.mono }}>
+                      {formatDuration(stat.maxDuration)}
+                    </div>
+                  </div>
+                  {/* Share of the heaviest tool's total time */}
+                  <div className="h-1 bg-gray-100 rounded mt-1.5">
+                    <div className="h-1 bg-green-500 rounded" style={{ width: `${Math.max(share, 1)}%` }} />
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )
       )}
 
       {/* Trace List */}
