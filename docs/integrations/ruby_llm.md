@@ -63,22 +63,59 @@ end
 
 ### How events map to spans
 
-A chat that runs tools emits **nested** `chat.ruby_llm` events — each tool
-round recurses through `RubyLLM::Chat#complete`, and the outer event's token
-fields repeat the final round's counts. The adapter therefore builds **one
-trace per outermost event**:
+RubyLLM emits a `chat.ruby_llm` event per provider round, and the two
+generations of the gem arrange those rounds differently:
+
+- **1.x** recurses through `Chat#complete` for each tool round, so the rounds
+  **nest** inside the enclosing event and `tool_call.ruby_llm` fires within it.
+- **2.x** drives a flat `step until complete?` loop, so the rounds are
+  **siblings** and tool calls fire *between* them.
+
+The adapter accumulates rounds and flushes on the round that ends the turn —
+the one that errors, or answers without requesting tools (`payload[:tool_call]`)
+— which produces the same trace under both arrangements:
 
 - a `root` span named `Agent.action`,
-- a single `llm` span covering the whole provider loop (tools execute inside
-  it — the same shape the dashboard's generation-vs-tools time breakdown
-  expects), with token totals summed from the assistant messages the ask
-  added, so nested rounds are not double counted, and
-- a `tool` span per `tool_call.ruby_llm` event, with real start/end times
-  and `tool.name` / `tool.call_id` attributes, parented under the llm span.
+- one `llm` span covering the whole provider loop, carrying `llm.rounds` and
+  token totals summed **per round** from the assistant messages that round
+  added (the event-level token fields repeat the last round's counts, so they
+  are not used), and
+- a `tool` span per `tool_call.ruby_llm` event, with real start/end times and
+  `tool.name` / `tool.call_id`, parented under the llm span.
 
-Tool arguments and results are deliberately never sent, and error messages
-are truncated — safe defaults for apps whose tool traffic may contain
-sensitive data.
+Tool arguments and results are deliberately never sent, and error messages are
+truncated — safe defaults for apps whose tool traffic may contain sensitive
+data.
+
+### Attributing traffic
+
+RubyLLM carries no application identity on the payload: neither the
+`RubyLLM::Agent` class nor an `acts_as_chat` record reaches the instrumenter,
+so unattributed traffic reports as `RubyLLM::Chat`. Three ways to name it:
+
+```ruby
+# 1. Per call site.
+ActiveAgents::RubyLLMTelemetry.with_agent("SupportBot", action: "respond") { chat.ask(...) }
+
+# 2. From the initializer, derived from the event payload.
+ActiveAgents::RubyLLMTelemetry.subscribe!(
+  api_key: ENV["ACTIVEAGENTS_API_KEY"],
+  agent_resolver: ->(payload) { { name: "SupportBot", action: payload[:tools].present? ? "respond" : "summarize" } }
+)
+
+# 3. Every RubyLLM::Agent subclass, by class name.
+module AgentTelemetryAttribution
+  def ask(...)
+    ActiveAgents::RubyLLMTelemetry.with_agent(self.class.name) { super }
+  end
+end
+RubyLLM::Agent.prepend(AgentTelemetryAttribution)
+```
+
+Option 3 covers `SupportAgent.new.ask(...)` and Rails-backed
+`Agent.create!/find` instances. It does **not** cover `SupportAgent.chat`,
+which hands back a bare `RubyLLM::Chat` — wrap those call sites, or resolve
+from the payload.
 
 ### The adapter
 
@@ -89,27 +126,52 @@ require "json"
 require "securerandom"
 
 module ActiveAgents
-  # Reports RubyLLM chat completions to an ActiveAgents-compatible trace
-  # endpoint (POST /v1/traces — the wire format ActiveAgent::Telemetry uses).
+  # Reports RubyLLM chats to an ActiveAgents-compatible trace endpoint
+  # (POST /v1/traces — the wire format ActiveAgent::Telemetry uses).
   #
   # Requires RubyLLM.config.instrumenter = ActiveSupport::Notifications.
+  #
+  # One trace per conversation turn: a root span, an llm span covering the
+  # whole provider loop, and a tool span per tool_call.ruby_llm event.
+  #
+  # RubyLLM emits a chat.ruby_llm event per provider round, and the two
+  # generations of the gem arrange those rounds differently: through 1.x a
+  # tool round recurses inside the enclosing event, while 2.x drives a flat
+  # `step until complete?` loop whose rounds are siblings with tool calls
+  # firing between them. Rounds are therefore accumulated and flushed on the
+  # round that ends the turn — the one that errors or answers without
+  # requesting tools — which yields the same trace under both arrangements.
+  # Tokens are summed per round from the assistant messages that round added,
+  # so a repeated event-level count is never double counted.
+  #
+  # Tool arguments and results are never sent; error messages are truncated.
   module RubyLLMTelemetry
-    DEFAULT_ENDPOINT = "https://api.activeagents.ai/v1/traces"
+    DEFAULT_ENDPOINT = "https://api.activeagents.ai/v1/traces".freeze
     AGENT_KEY = :active_agents_ruby_llm_agent
     STATE_KEY = :active_agents_ruby_llm_state
     TOOL_STARTED_AT_KEY = :_active_agents_started_at
     ERROR_MESSAGE_LIMIT = 200
+    # A turn that never reaches a final round (a halted tool call, or an app
+    # driving RubyLLM 2.x's `step` by hand) would otherwise accumulate forever.
+    MAX_TURN_SECONDS = 600
 
-    State = Struct.new(:depth, :started_at, :tool_spans, :rounds)
+    State = Struct.new(:depth, :started_at, :tool_spans, :rounds, :tokens, :chat_key)
 
     class << self
       attr_reader :endpoint, :api_key, :service_name, :environment
 
-      def subscribe!(api_key:, endpoint: DEFAULT_ENDPOINT, service_name: nil, environment: nil, async: true)
+      # agent_resolver: optional callable receiving the chat event payload and
+      # returning { name:, action: }, so traffic can be attributed from an
+      # initializer alone; an enclosing with_agent block still wins. RubyLLM
+      # carries no application identity on the payload — neither RubyLLM::Agent
+      # nor an acts_as_chat record reaches the instrumenter — so unattributed
+      # traffic reports as RubyLLM::Chat.
+      def subscribe!(api_key:, endpoint: DEFAULT_ENDPOINT, service_name: nil, environment: nil, agent_resolver: nil, async: true)
         @api_key = api_key
         @endpoint = endpoint
         @service_name = service_name || default_service_name
         @environment = environment || default_environment
+        @agent_resolver = agent_resolver
         @async = async
 
         @subscriptions ||= [
@@ -123,8 +185,7 @@ module ActiveAgents
         @subscriptions = nil
       end
 
-      # Attributes traces inside the block to a named agent/action; otherwise
-      # traffic reports as RubyLLM::Chat. Safe to call when not subscribed.
+      # Attributes traces inside the block to a named agent/action.
       def with_agent(name, action: "chat")
         previous = Thread.current[AGENT_KEY]
         Thread.current[AGENT_KEY] = { name: name, action: action }
@@ -134,18 +195,74 @@ module ActiveAgents
       end
 
       def state
-        Thread.current[STATE_KEY] ||= State.new(0, nil, [], 0)
+        Thread.current[STATE_KEY] ||= State.new(0, nil, [], 0, zero_tokens, nil)
       end
 
       def clear_state
         Thread.current[STATE_KEY] = nil
       end
 
-      def report_chat(payload, started_at, finished_at, tool_spans:, rounds:)
-        agent = Thread.current[AGENT_KEY] || { name: "RubyLLM::Chat", action: "chat" }
+      # Reports whatever the current turn has accumulated. Apps that drive
+      # RubyLLM 2.x's `step`/`run_tools` themselves can call this to close a
+      # turn that ends while tool calls are still pending.
+      def flush!(payload = {})
+        turn = Thread.current[STATE_KEY]
+        return if turn.nil? || turn.rounds.zero?
+
+        clear_state
+        report_turn(payload, turn)
+      end
+
+      def begin_round(payload)
+        turn = state
+        if turn.depth.zero?
+          chat_key = payload[:chat].object_id
+          flush! if turn.rounds.positive? && (turn.chat_key != chat_key || turn_expired?(turn))
+          turn = state
+          turn.chat_key = chat_key
+          turn.started_at ||= Time.current
+        end
+        turn.depth += 1
+      end
+
+      def finish_round(payload)
+        turn = state
+        turn.depth -= 1
+        return unless turn.depth.zero?
+
+        turn.rounds += 1
+        accumulate_tokens(turn, payload)
+        flush!(payload) if payload[:exception_object] || !payload[:tool_call]
+      end
+
+      def build_tool_span(payload, started_at, finished_at)
+        error = payload[:exception_object]
+        attributes = { "tool.name" => payload[:tool_name].to_s, "tool.call_id" => payload[:tool_call_id].to_s }
+        attributes.merge!(error_attributes(error)) if error
+
+        {
+          "span_id" => SecureRandom.hex(8),
+          "name" => "tool.#{payload[:tool_name]}",
+          "type" => "tool",
+          "start_time" => started_at.utc.iso8601(6),
+          "end_time" => finished_at.utc.iso8601(6),
+          "duration_ms" => duration_ms(started_at, finished_at),
+          "status" => error ? "ERROR" : "OK",
+          "attributes" => attributes,
+          "tokens" => zero_tokens,
+          "events" => []
+        }
+      end
+
+      private
+
+      def report_turn(payload, turn)
+        agent = Thread.current[AGENT_KEY] || resolve_agent(payload) || { name: "RubyLLM::Chat", action: "chat" }
         trace_id = SecureRandom.hex(16)
         root_id = SecureRandom.hex(8)
         llm_id = SecureRandom.hex(8)
+        started_at = turn.started_at || Time.current
+        finished_at = Time.current
         error = payload[:exception_object]
 
         base = {
@@ -178,50 +295,45 @@ module ActiveAgents
           "attributes" => {
             "llm.provider" => payload[:provider].to_s,
             "llm.model" => payload[:model].to_s,
-            "llm.rounds" => rounds,
+            "llm.rounds" => turn.rounds,
             "llm.streaming" => payload[:streaming] || false
           },
-          "tokens" => token_totals(payload)
+          "tokens" => turn.tokens
         )
 
-        child_tool_spans = tool_spans.map { |tool_span| tool_span.merge("trace_id" => trace_id, "parent_span_id" => llm_id) }
+        tool_spans = turn.tool_spans.map { |span| span.merge("trace_id" => trace_id, "parent_span_id" => llm_id) }
 
         post_traces(
-          "traces" => [ {
+          "traces" => [{
             "trace_id" => trace_id,
             "service_name" => service_name,
             "environment" => environment,
             "timestamp" => finished_at.utc.iso8601(6),
             "resource_attributes" => {},
-            "spans" => [ root_span, llm_span ] + child_tool_spans
-          } ],
-          "sdk" => { "name" => "active_agents-ruby_llm", "version" => "1.1", "language" => "ruby", "runtime_version" => RUBY_VERSION }
+            "spans" => [root_span, llm_span] + tool_spans
+          }],
+          "sdk" => { "name" => "active_agents-ruby_llm", "version" => "1.2", "language" => "ruby", "runtime_version" => RUBY_VERSION }
         )
       end
 
-      def build_tool_span(payload, started_at, finished_at)
-        error = payload[:exception_object]
-        attributes = {
-          "tool.name" => payload[:tool_name].to_s,
-          "tool.call_id" => payload[:tool_call_id].to_s
-        }
-        attributes.merge!(error_attributes(error)) if error
-
-        {
-          "span_id" => SecureRandom.hex(8),
-          "name" => "tool.#{payload[:tool_name]}",
-          "type" => "tool",
-          "start_time" => started_at.utc.iso8601(6),
-          "end_time" => finished_at.utc.iso8601(6),
-          "duration_ms" => duration_ms(started_at, finished_at),
-          "status" => error ? "ERROR" : "OK",
-          "attributes" => attributes,
-          "tokens" => zero_tokens,
-          "events" => []
-        }
+      def turn_expired?(turn)
+        turn.started_at.nil? || (Time.current - turn.started_at) > MAX_TURN_SECONDS
       end
 
-      private
+      def accumulate_tokens(turn, payload)
+        round_tokens = token_totals(payload)
+        turn.tokens = turn.tokens.merge(round_tokens) { |_key, carried, added| carried + added }
+      end
+
+      def resolve_agent(payload)
+        agent = @agent_resolver&.call(payload)
+        return unless agent.is_a?(Hash) && agent[:name].present?
+
+        { name: agent[:name], action: agent[:action] || "chat" }
+      rescue StandardError => e
+        warn "[ActiveAgents::RubyLLMTelemetry] agent_resolver failed: #{e.class}: #{e.message}"
+        nil
+      end
 
       def default_service_name
         defined?(Rails) ? Rails.application.class.module_parent_name.underscore : "ruby_llm"
@@ -286,25 +398,17 @@ module ActiveAgents
     # Evented ActiveSupport::Notifications subscriber; finish fires even when
     # the instrumented block raises, with the exception on the payload.
     class ChatSubscriber
-      def start(_name, _id, _payload)
-        state = RubyLLMTelemetry.state
-        state.started_at = Time.current if state.depth.zero?
-        state.depth += 1
+      def start(_name, _id, payload)
+        RubyLLMTelemetry.begin_round(payload)
+      rescue StandardError => e
+        warn "[ActiveAgents::RubyLLMTelemetry] #{e.class}: #{e.message}"
       end
 
       def finish(_name, _id, payload)
-        state = RubyLLMTelemetry.state
-        state.rounds += 1
-        state.depth -= 1
-        return unless state.depth.zero?
-
-        begin
-          RubyLLMTelemetry.report_chat(payload, state.started_at, Time.current, tool_spans: state.tool_spans, rounds: state.rounds)
-        rescue StandardError => e
-          warn "[ActiveAgents::RubyLLMTelemetry] #{e.class}: #{e.message}"
-        ensure
-          RubyLLMTelemetry.clear_state
-        end
+        RubyLLMTelemetry.finish_round(payload)
+      rescue StandardError => e
+        warn "[ActiveAgents::RubyLLMTelemetry] #{e.class}: #{e.message}"
+        RubyLLMTelemetry.clear_state
       end
     end
 
@@ -326,17 +430,27 @@ end
 
 Notes:
 
-- **Tokens** are summed from the assistant messages added during the ask
-  (`input_tokens`/`output_tokens`/`thinking_tokens` per message), which is
-  the accurate per-round accounting; the event-level token fields on nested
-  events double-report the final round.
+- **Scope is chat and tool calls.** RubyLLM also emits `request.ruby_llm`,
+  `embedding.ruby_llm`, `image.ruby_llm`, `moderation.ruby_llm`,
+  `speech.ruby_llm`, `transcription.ruby_llm`, and
+  `models.refresh.ruby_llm`. An app whose RubyLLM usage is embeddings or
+  transcription reports nothing today; those events carry their own token
+  counts and are a natural extension of the same subscriber.
 - **Tool spans** carry real start/end times, so the dashboard's waterfall,
   generation-vs-tools breakdown, and slowest-operations views work for
   RubyLLM apps the same as for platform-executed agents. Concurrent tool
-  execution (when enabled on the chat) runs tools off-thread and is not
-  captured — sequential execution (the default) is fully covered.
+  execution runs tools off the instrumented thread and is not captured —
+  sequential execution (the default) is fully covered.
+- **Fallbacks** (`with_fallbacks`) retry a failed round against the next
+  model in a loop, so each failed attempt closes its own `ERROR` trace and
+  the successful attempt closes an `OK` one. That reads as one trace per
+  provider attempt, which is what the latency and error-rate metrics want.
+- **A turn that never reaches a final round** — a halted tool call, or an app
+  driving 2.x's `step`/`run_tools` by hand — is flushed when the next chat
+  reports, when `MAX_TURN_SECONDS` elapses, or on an explicit `flush!`.
 - **Failures** surface as `status: "ERROR"` traces with the exception class
-  and a truncated message attached.
+  and a truncated message attached. Delivery failures (ingest down, bad key)
+  are warned and swallowed, never raised into the app.
 - Requests are fire-and-forget on a background thread; pass `async: false`
   for deterministic delivery in tests, and stub `post_traces` to assert on
   the built payload. Batch buffering (like
