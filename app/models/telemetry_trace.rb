@@ -26,6 +26,9 @@ class TelemetryTrace < ActiveAgent::TelemetryTrace
   def self.create_from_payload(trace, sdk_info = {}, account: nil)
     record = super
     record.send(:dedupe_token_totals!)
+    # Give the agent behind this trace a persistent identity. Never raises —
+    # see AgentRegistrar.
+    AgentRegistrar.call(record)
     record
   end
 
