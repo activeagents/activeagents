@@ -58,6 +58,7 @@ export default function TracesView() {
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState(null);
   const [selectedTrace, setSelectedTrace] = useState(null);
+  const [selectedSpan, setSelectedSpan] = useState(null);
   const [filter, setFilter] = useState({ status: 'all', agent: 'all', action: 'all' });
   const [selectedTimeBucket, setSelectedTimeBucket] = useState(null);
   const [viewMode, setViewMode] = useState('timeline'); // 'timeline', 'agents', or 'actions'
@@ -232,6 +233,21 @@ export default function TracesView() {
 
   const totalTokensOf = (tokens) =>
     (tokens?.input || 0) + (tokens?.output || 0) + (tokens?.thinking || 0);
+
+  // Span attribute values: pretty-print embedded JSON (tool.arguments,
+  // tool.result), pass everything else through as text.
+  const formatAttrValue = (value) => {
+    if (value == null) return '—';
+    const text = typeof value === 'string' ? value : JSON.stringify(value, null, 2);
+    if (typeof value === 'string' && /^[\[{]/.test(value.trim())) {
+      try {
+        return JSON.stringify(JSON.parse(value), null, 2);
+      } catch {
+        return text;
+      }
+    }
+    return text;
+  };
 
   const formatCost = (cost) => {
     if (cost == null) return null;
@@ -725,23 +741,61 @@ export default function TracesView() {
                     <span>{formatDuration(trace.duration_ms)}</span>
                   </div>
 
-                  {(trace.spans || []).map((span, idx) => (
-                    <div key={idx} className={`span-row ${span.nested ? `nested-${Math.min(span.nested, 3)}` : ''}`}>
-                      <div className="span-label">
-                        <span className={`span-icon ${span.type}`}>{getSpanIcon(span.type)}</span>
-                        <span className={`span-name ${span.error ? 'error' : ''}`}>{span.name}</span>
-                      </div>
-                      <div className="span-bar-container">
+                  {(trace.spans || []).map((span, idx) => {
+                    const spanKey = `${trace.id}:${idx}`;
+                    const spanAttrs = span.attributes || {};
+                    const hasDetails = Object.keys(spanAttrs).length > 0;
+                    const isExpanded = selectedSpan === spanKey;
+                    return (
+                      <React.Fragment key={idx}>
                         <div
-                          className={`span-bar ${span.type} ${span.error ? 'error' : ''}`}
-                          style={{
-                            left: `${trace.duration_ms ? (span.start / trace.duration_ms) * 100 : 0}%`,
-                            width: `${trace.duration_ms ? Math.max((span.duration / trace.duration_ms) * 100, 2) : 2}%`
-                          }}
-                        ></div>
-                      </div>
-                    </div>
-                  ))}
+                          className={`span-row ${span.nested ? `nested-${Math.min(span.nested, 3)}` : ''}`}
+                          onClick={hasDetails ? () => setSelectedSpan(isExpanded ? null : spanKey) : undefined}
+                          style={hasDetails ? { cursor: 'pointer' } : undefined}
+                          title={hasDetails ? 'Click for span details' : undefined}
+                        >
+                          <div className="span-label">
+                            <span className={`span-icon ${span.type}`}>{getSpanIcon(span.type)}</span>
+                            <span className={`span-name ${span.error ? 'error' : ''}`}>{span.name}</span>
+                          </div>
+                          <div className="span-bar-container">
+                            <div
+                              className={`span-bar ${span.type} ${span.error ? 'error' : ''}`}
+                              style={{
+                                left: `${trace.duration_ms ? (span.start / trace.duration_ms) * 100 : 0}%`,
+                                width: `${trace.duration_ms ? Math.max((span.duration / trace.duration_ms) * 100, 2) : 2}%`
+                              }}
+                            ></div>
+                          </div>
+                        </div>
+                        {isExpanded && (
+                          <div
+                            style={{
+                              margin: '4px 12px 8px 32px', padding: '10px 14px', borderRadius: '6px',
+                              background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)'
+                            }}
+                          >
+                            <div style={{ display: 'flex', gap: '16px', marginBottom: Object.keys(spanAttrs).length ? '8px' : 0, fontSize: '12px', color: 'rgba(255,255,255,0.6)', fontFamily: TYPOGRAPHY.mono }}>
+                              <span>{formatDuration(span.duration)}</span>
+                              <span className={span.error ? 'error' : 'success'}>{span.status || (span.error ? 'ERROR' : 'OK')}</span>
+                            </div>
+                            {Object.entries(spanAttrs).map(([key, value]) => (
+                              <div key={key} style={{ marginBottom: '6px' }}>
+                                <div style={{ fontSize: '11px', color: 'rgba(255,255,255,0.45)', fontFamily: TYPOGRAPHY.mono }}>{key}</div>
+                                <pre
+                                  style={{
+                                    margin: '2px 0 0', padding: '6px 8px', borderRadius: '4px', fontSize: '12px',
+                                    background: 'rgba(0,0,0,0.25)', color: 'rgba(255,255,255,0.85)',
+                                    whiteSpace: 'pre-wrap', wordBreak: 'break-word', fontFamily: TYPOGRAPHY.mono
+                                  }}
+                                >{formatAttrValue(value)}</pre>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </React.Fragment>
+                    );
+                  })}
 
                   {/* Token Breakdown Row */}
                   <div className="span-row nested-3">
@@ -1136,39 +1190,67 @@ export default function TracesView() {
                 </div>
 
                 <div className="space-y-2">
-                  {(trace.spans || []).map((span, idx) => (
-                    <div
-                      key={idx}
-                      className="flex items-center group"
-                      style={{ paddingLeft: `${(span.nested || 0) * 16}px` }}
-                    >
-                      <div className="w-40 flex items-center space-x-2 flex-shrink-0">
-                        <span className={span.type === 'thinking' ? '' : 'text-gray-400'}>
-                          {getSpanIcon(span.type)}
-                        </span>
-                        <span className={`text-sm truncate ${span.error ? 'text-red-600' : 'text-gray-700'}`}>
-                          {span.name}
-                        </span>
-                      </div>
-                      <div className="flex-1 h-6 relative bg-gray-100 rounded">
+                  {(trace.spans || []).map((span, idx) => {
+                    const spanKey = `${trace.id}:${idx}`;
+                    const spanAttrs = span.attributes || {};
+                    const hasDetails = Object.keys(spanAttrs).length > 0;
+                    const isExpanded = selectedSpan === spanKey;
+                    return (
+                      <React.Fragment key={idx}>
                         <div
-                          className={`absolute h-4 top-1 rounded transition-opacity ${
-                            span.type === 'root' ? 'bg-gray-400' :
-                            span.type === 'prompt' ? 'bg-blue-400' :
-                            span.type === 'generate' ? 'bg-purple-500' :
-                            span.type === 'llm' ? 'bg-red-500' :
-                            span.type === 'thinking' ? 'bg-amber-400' :
-                            span.type === 'tool' ? 'bg-green-500' :
-                            span.type === 'response' ? 'bg-teal-400' : 'bg-gray-300'
-                          } ${span.error ? 'bg-red-400' : ''}`}
-                          style={{
-                            left: `${trace.duration_ms ? (span.start / trace.duration_ms) * 100 : 0}%`,
-                            width: `${trace.duration_ms ? Math.max((span.duration / trace.duration_ms) * 100, 1) : 1}%`
-                          }}
-                        />
-                      </div>
-                    </div>
-                  ))}
+                          className={`flex items-center group ${hasDetails ? 'cursor-pointer hover:bg-gray-100 rounded' : ''}`}
+                          style={{ paddingLeft: `${(span.nested || 0) * 16}px` }}
+                          onClick={hasDetails ? () => setSelectedSpan(isExpanded ? null : spanKey) : undefined}
+                          title={hasDetails ? 'Click for span details' : undefined}
+                        >
+                          <div className="w-40 flex items-center space-x-2 flex-shrink-0">
+                            <span className={span.type === 'thinking' ? '' : 'text-gray-400'}>
+                              {getSpanIcon(span.type)}
+                            </span>
+                            <span className={`text-sm truncate ${span.error ? 'text-red-600' : 'text-gray-700'}`}>
+                              {span.name}
+                            </span>
+                          </div>
+                          <div className="flex-1 h-6 relative bg-gray-100 rounded">
+                            <div
+                              className={`absolute h-4 top-1 rounded transition-opacity ${
+                                span.type === 'root' ? 'bg-gray-400' :
+                                span.type === 'prompt' ? 'bg-blue-400' :
+                                span.type === 'generate' ? 'bg-purple-500' :
+                                span.type === 'llm' ? 'bg-red-500' :
+                                span.type === 'thinking' ? 'bg-amber-400' :
+                                span.type === 'tool' ? 'bg-green-500' :
+                                span.type === 'response' ? 'bg-teal-400' : 'bg-gray-300'
+                              } ${span.error ? 'bg-red-400' : ''}`}
+                              style={{
+                                left: `${trace.duration_ms ? (span.start / trace.duration_ms) * 100 : 0}%`,
+                                width: `${trace.duration_ms ? Math.max((span.duration / trace.duration_ms) * 100, 1) : 1}%`
+                              }}
+                            />
+                          </div>
+                        </div>
+                        {isExpanded && (
+                          <div className="ml-8 mr-2 mb-2 p-3 bg-white border border-gray-200 rounded-lg">
+                            <div className="flex items-center space-x-4 mb-2 text-xs text-gray-500" style={{ fontFamily: TYPOGRAPHY.mono }}>
+                              <span>{formatDuration(span.duration)}</span>
+                              <span className={span.error ? 'text-red-600' : 'text-green-600'}>
+                                {span.status || (span.error ? 'ERROR' : 'OK')}
+                              </span>
+                            </div>
+                            {Object.entries(spanAttrs).map(([key, value]) => (
+                              <div key={key} className="mb-2">
+                                <div className="text-xs text-gray-400" style={{ fontFamily: TYPOGRAPHY.mono }}>{key}</div>
+                                <pre
+                                  className="mt-0.5 p-2 bg-gray-50 border border-gray-100 rounded text-xs text-gray-800"
+                                  style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word', fontFamily: TYPOGRAPHY.mono }}
+                                >{formatAttrValue(value)}</pre>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </React.Fragment>
+                    );
+                  })}
                 </div>
 
                 <div className="mt-4 pt-4 border-t border-gray-200 flex items-center space-x-6">
