@@ -311,9 +311,21 @@ export default function TracesView({ agentClass = null, embedded = false }) {
     }
   };
 
+  // Display order for span attributes: system message first, then the tool
+  // roster, then everything else, with the (long) message history last.
+  // jsonb storage normalizes key order, so sorting has to happen here.
+  const attributeRank = (key) => {
+    if (key.endsWith('.instructions')) return 0;
+    if (key.endsWith('.tools')) return 1;
+    if (key.endsWith('.messages')) return 3;
+    return 2;
+  };
+
   // Expanded detail panel for a single span (attributes, tokens, ids).
   const renderSpanDetails = (span, dark) => {
-    const attributes = Object.entries(span.attributes || {});
+    const attributes = Object.entries(span.attributes || {}).sort(
+      (a, b) => attributeRank(a[0]) - attributeRank(b[0])
+    );
     const textColor = dark ? 'rgba(255,255,255,0.75)' : '#4b5563';
     const mutedColor = dark ? 'rgba(255,255,255,0.45)' : '#9ca3af';
     const preStyle = {
@@ -352,10 +364,16 @@ export default function TracesView({ agentClass = null, embedded = false }) {
           <div style={{ marginTop: '6px', display: 'grid', gap: '2px' }}>
             {attributes.map(([key, value]) => {
               const pretty = key.match(/args|result|input|output/) ? prettyAttribute(value) : null;
+              // Plain-text prose (rendered instructions) gets a wrapped block
+              // rather than one inline run-on line.
+              const prose = !pretty && key.endsWith('.instructions') && typeof value === 'string' ? value : null;
+              const block = pretty || prose;
               return (
                 <div key={key} style={{ wordBreak: 'break-all' }}>
                   <span style={{ color: mutedColor }}>{key}:</span>{' '}
-                  {pretty ? <pre style={preStyle}>{pretty}</pre> : (typeof value === 'string' ? value : JSON.stringify(value))}
+                  {block
+                    ? <pre style={prose ? { ...preStyle, whiteSpace: 'pre-wrap' } : preStyle}>{block}</pre>
+                    : (typeof value === 'string' ? value : JSON.stringify(value))}
                 </div>
               );
             })}
