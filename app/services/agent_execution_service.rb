@@ -21,13 +21,6 @@ class AgentExecutionService
     new(agent_record, run).call
   end
 
-  # Whether the installed solid_agent persists tool details (arguments,
-  # timing) itself via the HasContext tool_invocations hook. When it does,
-  # the service's own persistence pass must not run — it would duplicate
-  # rows for providers whose tool messages carry no tool_call_id (Ollama).
-  GEM_PERSISTS_TOOL_DETAILS =
-    Gem::Version.new(SolidAgent::VERSION) >= Gem::Version.new("0.2.0")
-
   def initialize(agent_record, run)
     @agent_record = agent_record
     @run = run
@@ -92,7 +85,6 @@ class AgentExecutionService
         detail: "#{input} in / #{output} out tokens#{thinking.positive? ? " / #{thinking} thinking" : ""}"
       )
       tool_calls = record_tool_spans(root_span, response)
-      persist_tool_messages(response)
       sync_context_instructions
       root_span.finish
 
@@ -383,44 +375,6 @@ class AgentExecutionService
     return [] if provider == :mock
 
     AgentToolbox.definitions_for(@agent_record.tools)
-  end
-
-  # Persists the tool interaction stream to the solid_agent conversation
-  # context so the Interactions view shows the full agent <-> tool
-  # exchange. Only for solid_agent < 0.2 — newer gems persist the stream
-  # (with arguments/timing, via the tool_invocations hook) from HasContext
-  # during generation, and this pass would duplicate rows whose
-  # tool_call_id is nil. Delete once the Gemfile.lock is on >= 0.2.
-  def persist_tool_messages(response)
-    return if GEM_PERSISTS_TOOL_DETAILS
-
-    context = conversation_context
-    return unless context
-    return unless response.respond_to?(:messages)
-
-    tool_messages = Array(response.messages).select do |message|
-      message.respond_to?(:role) && message.role.to_s == "tool"
-    end
-
-    tool_messages.each_with_index do |message, index|
-      tool_call_id = message.respond_to?(:tool_call_id) ? message.tool_call_id : nil
-      next if tool_call_id.present? && context.messages.exists?(role: "tool", tool_call_id: tool_call_id)
-
-      # Provider tool messages often carry no name (Ollama's don't); fall
-      # back to the service's own invocation record, matched by order.
-      invocation = @tool_invocations[index]
-      name = (message.name if message.respond_to?(:name)).presence || invocation&.dig(:name)
-
-      context.add_tool_message(
-        tool_call_id: tool_call_id,
-        tool_name: name,
-        result: (message.content if message.respond_to?(:content)),
-        arguments: invocation&.dig(:arguments),
-        duration_ms: invocation&.dig(:duration_ms)
-      )
-    end
-  rescue StandardError => e
-    Rails.logger.error("[AgentExecutionService] Failed to persist tool messages: #{e.message}")
   end
 
   # Tool names for run metadata. Spans are recorded live in execute_tool;
