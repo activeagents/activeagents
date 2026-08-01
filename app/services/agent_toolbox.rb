@@ -87,35 +87,42 @@ class AgentToolbox
         }
       }
     ],
-    # Memory tools mirror solid_agent's HasMemory contract. They are NOT in
+    # Memory tools follow solid_agent's HasMemory contract. They are NOT in
     # FUNCTIONS below — execution is subject-bound, so AgentExecutionService
-    # routes them to the run's AgentMemory instead of this module.
-    "memory" => [
-      {
-        name: "save_memory",
-        description: "Persist a short summary note to long-term memory. Use for facts, decisions, task outcomes, or anything a future agent or session should know. Keep each note self-contained.",
-        parameters: {
-          type: "object",
-          properties: {
-            content: { type: "string", description: "The summary note to remember" },
-            category: { type: "string", description: "Optional label, e.g. fact, task, handoff" }
+    # routes them to the run's AgentMemory instead of this module. The
+    # schemas come straight from the gem when it ships them (>= 0.2) so the
+    # contract can't drift; the literal serves older gem versions.
+    "memory" =>
+      if defined?(SolidAgent::HasMemory) && SolidAgent::HasMemory.respond_to?(:tool_definitions)
+        SolidAgent::HasMemory.tool_definitions
+      else
+        [
+          {
+            name: "save_memory",
+            description: "Persist a short summary note to long-term memory. Use for facts, decisions, task outcomes, or anything a future agent or session should know. Keep each note self-contained.",
+            parameters: {
+              type: "object",
+              properties: {
+                content: { type: "string", description: "The summary note to remember" },
+                category: { type: "string", description: "Optional label, e.g. fact, task, handoff" }
+              },
+              required: [ "content" ]
+            }
           },
-          required: [ "content" ]
-        }
-      },
-      {
-        name: "recall_memory",
-        description: "Read back previously saved memory notes for the current subject, most recent first. Use before starting work to pick up prior context or another agent's handoff.",
-        parameters: {
-          type: "object",
-          properties: {
-            category: { type: "string", description: "Only return notes with this label" },
-            limit: { type: "integer", description: "Maximum notes to return (default 20)" }
-          },
-          required: []
-        }
-      }
-    ]
+          {
+            name: "recall_memory",
+            description: "Read back previously saved memory notes for the current subject, most recent first. Use before starting work to pick up prior context or another agent's handoff.",
+            parameters: {
+              type: "object",
+              properties: {
+                category: { type: "string", description: "Only return notes with this label" },
+                limit: { type: "integer", description: "Maximum notes to return (default 20)" }
+              },
+              required: []
+            }
+          }
+        ]
+      end
   }.freeze
 
   # Function name => implementation method, for routing tool calls.
@@ -312,7 +319,7 @@ class AgentToolbox
       if defined?(SolidAgent::ToolCache)
         SolidAgent::ToolCache.fetch(tool: name.to_s, args: kwargs, ttl: CACHE_TTL, &block)
       else
-        key = "solid_agent:tool_cache:#{name}:#{Digest::SHA256.hexdigest(kwargs.sort.to_h.to_json)}"
+        key = "solid_agent:tool_cache:#{name}:#{Digest::SHA256.hexdigest(normalize_cache_args(kwargs).to_json)}"
         cached = Rails.cache.read(key)
         return cached.merge(cached: true) unless cached.nil?
 
@@ -321,6 +328,20 @@ class AgentToolbox
           Rails.cache.write(key, result, expires_in: CACHE_TTL)
         end
         result
+      end
+    end
+
+    # Mirrors SolidAgent::ToolCache's key normalization exactly, so keys
+    # stay stable across a gem upgrade (and across symbol/string keys and
+    # nested-argument ordering, which a flat kwargs.sort misses).
+    def normalize_cache_args(args)
+      case args
+      when Hash
+        args.map { |k, v| [ k.to_s, normalize_cache_args(v) ] }.sort_by(&:first)
+      when Array
+        args.map { |v| normalize_cache_args(v) }
+      else
+        args
       end
     end
 

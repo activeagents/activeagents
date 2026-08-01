@@ -21,12 +21,24 @@ class AgentExecutionService
     new(agent_record, run).call
   end
 
+  # Whether the installed solid_agent persists tool details (arguments,
+  # timing) itself via the HasContext tool_invocations hook. When it does,
+  # the service's own persistence pass must not run — it would duplicate
+  # rows for providers whose tool messages carry no tool_call_id (Ollama).
+  GEM_PERSISTS_TOOL_DETAILS =
+    Gem::Version.new(SolidAgent::VERSION) >= Gem::Version.new("0.2.0")
+
   def initialize(agent_record, run)
     @agent_record = agent_record
     @run = run
     @tool_invocations = []
     @event_sequence = 0
   end
+
+  # The run's tool invocation records ({name:, arguments:, duration_ms:,
+  # error:}), in execution order — solid_agent's persistence enrichment
+  # hook and the trace recorder both read them.
+  attr_reader :tool_invocations
 
   # Emits a progress event on the run (streamed to the UI by pollers).
   # Never lets telemetry break execution.
@@ -339,6 +351,11 @@ class AgentExecutionService
         end
       end
 
+      # solid_agent >= 0.2 enrichment hook: HasContext matches these
+      # records to the response's tool messages (by tool_call_id, else by
+      # position) and persists arguments + timing alongside each result.
+      define_method(:tool_invocations) { service.tool_invocations }
+
       # One method per invokable action (the default plus each named action
       # prompt) — solid_agent keys the persisted context by action_name, so
       # each action gets its own interaction stream.
@@ -370,9 +387,13 @@ class AgentExecutionService
 
   # Persists the tool interaction stream to the solid_agent conversation
   # context so the Interactions view shows the full agent <-> tool
-  # exchange. Deduped by tool_call_id — newer solid_agent versions persist
-  # these from HasContext already, in which case this is a no-op.
+  # exchange. Only for solid_agent < 0.2 — newer gems persist the stream
+  # (with arguments/timing, via the tool_invocations hook) from HasContext
+  # during generation, and this pass would duplicate rows whose
+  # tool_call_id is nil. Delete once the Gemfile.lock is on >= 0.2.
   def persist_tool_messages(response)
+    return if GEM_PERSISTS_TOOL_DETAILS
+
     context = conversation_context
     return unless context
     return unless response.respond_to?(:messages)
