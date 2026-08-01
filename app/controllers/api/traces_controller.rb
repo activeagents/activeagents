@@ -25,9 +25,10 @@ module Api
 
       limit = params.fetch(:limit, DEFAULT_LIMIT).to_i.clamp(1, 1000)
       traces = scope.recent.limit(limit)
+      generations = generations_by_trace_id(traces)
 
       render json: {
-        traces: traces.map { |trace| TelemetryTraceSerializer.summary(trace) },
+        traces: traces.map { |trace| TelemetryTraceSerializer.summary(trace, generation: generations[trace.trace_id]) },
         agents: window_scope.distinct.pluck(:agent_class).compact.sort,
         window_minutes: window
       }
@@ -43,6 +44,16 @@ module Api
 
     def traces_scope
       TelemetryTrace.for_account(current_account)
+    end
+
+    # One query for the whole page so each row can show the context window
+    # it ran against. Later generations win when a trace recorded several,
+    # matching "context at the end of the call".
+    def generations_by_trace_id(traces)
+      trace_ids = traces.map(&:trace_id).compact
+      return {} if trace_ids.empty?
+
+      AgentGeneration.where(trace_id: trace_ids).order(:created_at, :id).index_by(&:trace_id)
     end
   end
 end

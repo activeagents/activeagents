@@ -23,12 +23,16 @@ module Api
 
       message_counts = AgentMessage.where(agent_context_id: contexts.map(&:id)).group(:agent_context_id).count
       generation_counts = AgentGeneration.where(agent_context_id: contexts.map(&:id)).group(:agent_context_id).count
+      # Batched so the list can show per-interaction context pressure
+      # without a query per row.
+      context_summaries = ContextUtilization.summaries_for(contexts)
 
       render json: {
         interactions: contexts.map do |context|
           serialize_context(context).merge(
             message_count: message_counts[context.id] || 0,
-            generation_count: generation_counts[context.id] || 0
+            generation_count: generation_counts[context.id] || 0,
+            context: context_summaries[context.id]
           )
         end
       }
@@ -42,7 +46,10 @@ module Api
         interaction: serialize_context(context).merge(
           instructions: context.instructions,
           messages: context.messages.chronological.map { |message| serialize_message(message) },
-          generations: context.generations.order(created_at: :asc).map { |generation| serialize_generation(generation) }
+          generations: context.generations.order(created_at: :asc).map { |generation| serialize_generation(generation) },
+          # Window occupancy, per-source attribution, per-turn growth and
+          # headroom — everything the context visualizations render.
+          context: ContextUtilization.for_context(context)
         )
       }
     end

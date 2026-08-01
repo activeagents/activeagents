@@ -1,6 +1,8 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useTheme } from '../../contexts/ThemeContext';
 import InteractionStream from './InteractionStream';
+import ContextMeter from './ContextMeter';
+import ContextUtilizationPanel from './ContextUtilizationPanel';
 
 const REFRESH_INTERVAL_MS = 30000;
 
@@ -192,6 +194,16 @@ export default function InteractionsView({ agentId = null, embedded = false, sel
                     )}
                   </div>
                   <div className="flex items-center gap-4 flex-shrink-0 text-sm" style={{ color: colors.textSecondary }}>
+                    {/* Context pressure at a glance — the row scan is where
+                        an operator spots the stream that is about to run out
+                        of window. */}
+                    {session.context && (
+                      <ContextMeter
+                        context={session.context}
+                        compact
+                        style={{ width: 132 }}
+                      />
+                    )}
                     <span>{session.message_count} messages</span>
                     <span>{formatNumber(session.tokens?.total)} tokens</span>
                     <span style={{ color: colors.textMuted }}>{timeAgo(session.last_activity_at)}</span>
@@ -213,6 +225,13 @@ export default function InteractionsView({ agentId = null, embedded = false, sel
                       </div>
                     ) : (
                       <>
+                        {detail.context && (
+                          <ContextUtilizationPanel
+                            context={detail.context}
+                            label={`Context · ${session.display_name}`}
+                          />
+                        )}
+
                         <InteractionStream
                           darkMode={darkMode}
                           messages={detail.instructions
