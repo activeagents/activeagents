@@ -182,6 +182,7 @@ ActiveRecord::Schema[8.2].define(version: 2026_07_31_000001) do
   end
 
   create_table "agent_runs", force: :cascade do |t|
+    t.string "action_name"
     t.bigint "agent_id", null: false
     t.datetime "completed_at"
     t.datetime "created_at", null: false
@@ -248,6 +249,7 @@ ActiveRecord::Schema[8.2].define(version: 2026_07_31_000001) do
 
   create_table "agents", force: :cascade do |t|
     t.string "action_name"
+    t.jsonb "action_prompts", default: [], null: false
     t.string "agent_class_name"
     t.jsonb "appearance", default: {}
     t.datetime "created_at", null: false
@@ -360,6 +362,7 @@ ActiveRecord::Schema[8.2].define(version: 2026_07_31_000001) do
 
   create_table "evaluations", force: :cascade do |t|
     t.bigint "agent_id", null: false
+    t.jsonb "config", default: {}, null: false
     t.datetime "created_at", null: false
     t.jsonb "criteria", default: [], null: false
     t.string "judge_kind", default: "rules", null: false
