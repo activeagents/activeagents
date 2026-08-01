@@ -40,11 +40,8 @@ const timeAgo = (iso) => {
 
 // agentId scopes the view to one agent's conversation streams (per-agent
 // embed: same component, different UX context); embedded hides the page
-// header so it can sit inside another view's chrome. When onSelectSession
-// is given, session expansion is controlled by the parent (which mirrors
-// it into the URL): selectedSessionId is the drilled-in session and the
-// list narrows to just that session.
-export default function InteractionsView({ agentId = null, embedded = false, selectedSessionId = null, onSelectSession = null }) {
+// header so it can sit inside another view's chrome.
+export default function InteractionsView({ agentId = null, embedded = false }) {
   const { darkMode } = useTheme();
   const [sessions, setSessions] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -78,38 +75,6 @@ export default function InteractionsView({ agentId = null, embedded = false, sel
     return () => clearInterval(interval);
   }, [fetchSessions]);
 
-<<<<<<< HEAD
-  const loadDetail = useCallback(async (id) => {
-    try {
-      const response = await fetch(`/api/interactions/${id}`);
-      if (response.ok) {
-        const data = await response.json();
-        setDetails((prev) => ({ ...prev, [id]: data.interaction }));
-      }
-    } catch {
-      // leave detail empty; the card shows a loading state
-    }
-  }, []);
-
-  // Controlled mode: expansion arrives from the parent/URL rather than a
-  // click, so fetch the drilled-in session's detail whenever it changes.
-  useEffect(() => {
-    if (selectedSessionId == null) return;
-    const id = Number(selectedSessionId);
-    if (!details[id]) loadDetail(id);
-  }, [selectedSessionId, loadDetail]);
-
-  const toggleSession = (session) => {
-    const id = session.id;
-    const isOpen = onSelectSession
-      ? Number(selectedSessionId) === id
-      : expandedSession === id;
-    if (onSelectSession) {
-      onSelectSession(isOpen ? null : session);
-      return;
-    }
-    if (isOpen) {
-=======
   const [sortBy, setSortBy] = useState('recent');
 
   // Stable colour per agent action, assigned in fixed order — never cycled by
@@ -216,17 +181,22 @@ export default function InteractionsView({ agentId = null, embedded = false, sel
 
   const toggleSession = async (id) => {
     if (expandedSession === id) {
->>>>>>> claude/rubyllm-telemetry-recording-rogzp9
       setExpandedSession(null);
       return;
     }
     setExpandedSession(id);
-    if (!details[id]) loadDetail(id);
+    if (!details[id]) {
+      try {
+        const response = await fetch(`/api/interactions/${id}`);
+        if (response.ok) {
+          const data = await response.json();
+          setDetails((prev) => ({ ...prev, [id]: data.interaction }));
+        }
+      } catch {
+        // leave detail empty; the card shows a loading state
+      }
+    }
   };
-
-  const visibleSessions = selectedSessionId != null
-    ? sessions.filter((session) => session.id === Number(selectedSessionId))
-    : sessions;
 
   const colors = {
     cardBg: darkMode ? '#1f1f1f' : '#ffffff',
@@ -408,7 +378,7 @@ export default function InteractionsView({ agentId = null, embedded = false, sel
       )}
 
       {/* Sessions List */}
-      {visibleSessions.length === 0 ? (
+      {sessions.length === 0 ? (
         <div className="text-center py-12">
           <div className="text-lg" style={{ color: colors.textMuted }}>No interactions yet</div>
           <p className="text-sm mt-2" style={{ color: colors.textSecondary }}>
@@ -416,10 +386,6 @@ export default function InteractionsView({ agentId = null, embedded = false, sel
           </p>
         </div>
       ) : (
-<<<<<<< HEAD
-        <div className="space-y-4">
-          {visibleSessions.map((session) => {
-=======
         <div className="space-y-8">
           {agentGroups.map((group) => (
           <div key={group.key} className="space-y-4">
@@ -436,11 +402,8 @@ export default function InteractionsView({ agentId = null, embedded = false, sel
               </span>
             </div>
           {group.sessions.map((session) => {
->>>>>>> claude/rubyllm-telemetry-recording-rogzp9
             const detail = details[session.id];
-            const isExpanded = onSelectSession
-              ? Number(selectedSessionId) === session.id
-              : expandedSession === session.id;
+            const isExpanded = expandedSession === session.id;
             return (
               <div
                 key={session.id}
@@ -450,14 +413,8 @@ export default function InteractionsView({ agentId = null, embedded = false, sel
                 {/* Session header */}
                 <div
                   className="flex items-center justify-between p-4 cursor-pointer"
-                  onClick={() => toggleSession(session)}
+                  onClick={() => toggleSession(session.id)}
                 >
-<<<<<<< HEAD
-                  <div className="flex items-center gap-3 min-w-0" title={session.display_name}>
-                    <span className="px-2 py-1 text-xs font-medium bg-blue-100 text-blue-700 rounded flex-shrink-0">SESSION</span>
-                    <span className="text-sm font-medium truncate" style={{ color: colors.textPrimary }}>
-                      {session.agent?.name || session.agent_name}
-=======
                   <div className="flex items-center gap-3 min-w-0">
                     {session.source === 'telemetry' ? (
                       <span
@@ -472,13 +429,10 @@ export default function InteractionsView({ agentId = null, embedded = false, sel
                     )}
                     <span className="font-mono text-sm truncate" style={{ color: colors.textPrimary }}>
                       {session.display_name}
->>>>>>> claude/rubyllm-telemetry-recording-rogzp9
                     </span>
-                    {/* Agents can define many actions as prompts/tools — each
-                        action gets its own stream, so name it distinctly. */}
-                    {session.action_name && (
-                      <span className="px-1.5 py-0.5 rounded bg-purple-50 text-purple-700 font-mono text-xs flex-shrink-0">
-                        #{session.action_name}
+                    {session.agent && (
+                      <span className="text-sm truncate" style={{ color: colors.textSecondary }}>
+                        {session.agent.name}
                       </span>
                     )}
                     {session.service_name && (

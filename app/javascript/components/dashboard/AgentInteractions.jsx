@@ -5,12 +5,8 @@ import TimeWindowSelector from './TimeWindowSelector';
 import InteractionStream from './InteractionStream';
 import InteractionsView from './InteractionsView';
 
-<<<<<<< HEAD:app/javascript/components/dashboard/AgentInteractions.jsx
 export default function AgentInteractions({ agent, onBack }) {
-=======
-export default function ConversationHistory({ agent, onBack }) {
   const { timeWindow } = useTimeWindow();
->>>>>>> claude/rubyllm-telemetry-recording-rogzp9:app/javascript/components/dashboard/ConversationHistory.jsx
   const [runs, setRuns] = useState([]);
   const [sessions, setSessions] = useState([]);
   const [selectedRun, setSelectedRun] = useState(null);
