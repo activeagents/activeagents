@@ -44,6 +44,8 @@ services:
         condition: service_healthy
     environment:
       DATABASE_URL: postgres://activeagents:activeagents@db/activeagents_temp_development
+      # Allow the OrbStack dev domain through Rails HostAuthorization.
+      RAILS_DEVELOPMENT_HOSTS: .orb.local
       # Platform-wide default Ollama endpoint (config/active_agent.yml).
       # Per-account overrides via Settings -> Provider API Keys still win.
       OLLAMA_HOST: http://host.docker.internal:11434/v1

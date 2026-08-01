@@ -11,6 +11,7 @@ module Api
     before_action :require_account!
 
     DEFAULT_LIMIT = 50
+    MAX_WINDOW_MINUTES = 60 * 24 * 90
 
     # GET /api/interactions
     def index
@@ -18,28 +19,40 @@ module Api
 
       contexts = interactions_scope
         .includes(:contextable)
+        .then { |scope| window_minutes ? scope.where(updated_at: window_minutes.minutes.ago..) : scope }
         .recent
         .limit(limit)
 
       message_counts = AgentMessage.where(agent_context_id: contexts.map(&:id)).group(:agent_context_id).count
       generation_counts = AgentGeneration.where(agent_context_id: contexts.map(&:id)).group(:agent_context_id).count
 
+      persisted = contexts.map do |context|
+        serialize_context(context).merge(
+          source: "platform",
+          message_count: message_counts[context.id] || 0,
+          generation_count: generation_counts[context.id] || 0
+        )
+      end
+
+      reported = reported_traces(limit).map { |trace| TraceInteractionSerializer.summary(trace) }
+
       render json: {
-        interactions: contexts.map do |context|
-          serialize_context(context).merge(
-            message_count: message_counts[context.id] || 0,
-            generation_count: generation_counts[context.id] || 0
-          )
-        end
+        interactions: (persisted + reported).sort_by { |row| row[:last_activity_at].to_s }.reverse.first(limit)
       }
     end
 
     # GET /api/interactions/:id
     def show
+      if (trace_id = params[:id].to_s[/\Atrace-(\d+)\z/, 1])
+        trace = current_account.telemetry_traces.find(trace_id)
+        return render json: { interaction: TraceInteractionSerializer.detail(trace) }
+      end
+
       context = interactions_scope.find(params[:id])
 
       render json: {
         interaction: serialize_context(context).merge(
+          source: "platform",
           instructions: context.instructions,
           messages: context.messages.chronological.map { |message| serialize_message(message) },
           generations: context.generations.order(created_at: :asc).map { |generation| serialize_generation(generation) }
@@ -48,6 +61,26 @@ module Api
     end
 
     private
+
+    # Agents executing outside the platform never write solid_agent contexts —
+    # they only report traces. Every reported trace is an interaction: one run
+    # of one agent. Traces without captured content still show their tool calls,
+    # timings, and generation metadata, so filtering on the presence of a
+    # prompt would hide most runs (locally: 9 of 11) and make the per-agent
+    # counts disagree with Traces for the same window.
+    def reported_traces(limit)
+      scope = current_account.telemetry_traces.where.not(agent_class: nil)
+      scope = scope.where(timestamp: window_minutes.minutes.ago..) if window_minutes
+      scope.order(timestamp: :desc).limit(limit)
+    end
+
+    # The dashboard-wide time window, shared with Traces. Absent means "all".
+    def window_minutes
+      return @window_minutes if defined?(@window_minutes)
+
+      raw = params[:minutes].presence
+      @window_minutes = raw ? raw.to_i.clamp(1, MAX_WINDOW_MINUTES) : nil
+    end
 
     def interactions_scope
       agents = current_user.agents

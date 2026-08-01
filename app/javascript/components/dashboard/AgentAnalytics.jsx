@@ -1,13 +1,8 @@
 import React, { useState, useEffect } from 'react';
+import { useTimeWindow } from '../../contexts/TimeWindowContext';
+import TimeWindowSelector from './TimeWindowSelector';
 import TracesView from './TracesView';
 import InteractionsView from './InteractionsView';
-
-const PERIOD_OPTIONS = [
-  { value: 7, label: '7 days' },
-  { value: 14, label: '14 days' },
-  { value: 30, label: '30 days' },
-  { value: 90, label: '90 days' }
-];
 
 const TABS = [
   { id: 'overview', label: 'Overview' },
@@ -18,7 +13,9 @@ const TABS = [
 export default function AgentAnalytics({ agent, onBack }) {
   const [analytics, setAnalytics] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [period, setPeriod] = useState(30);
+  // This endpoint takes whole days; the shared window rounds up so a
+  // sub-day selection still returns the current day rather than nothing.
+  const { timeWindow, days: period } = useTimeWindow();
   const [activeTab, setActiveTab] = useState('overview');
 
   // Correlation key between this Agent record and its telemetry traces
@@ -104,15 +101,14 @@ export default function AgentAnalytics({ agent, onBack }) {
           </div>
         </div>
 
-        <select
-          value={period}
-          onChange={(e) => setPeriod(Number(e.target.value))}
-          className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500"
-        >
-          {PERIOD_OPTIONS.map(opt => (
-            <option key={opt.value} value={opt.value}>Last {opt.label}</option>
-          ))}
-        </select>
+        <div className="flex items-center gap-2">
+          {timeWindow.minutes < 1440 && (
+            <span className="text-xs text-gray-400" title="This view aggregates by day">
+              showing 1 day
+            </span>
+          )}
+          <TimeWindowSelector />
+        </div>
       </div>
 
       {/* Shared-view tabs: Traces and Interactions are the same components

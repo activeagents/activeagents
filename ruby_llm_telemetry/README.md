@@ -39,9 +39,12 @@ failures are warned and swallowed — telemetry never raises into the app.
 
 ## What a turn looks like
 
-One trace per conversation turn: a `root` span (`Agent.action`), one `llm`
-span covering the whole provider loop with `llm.rounds` and token totals, and
-a `tool` span per tool call with real timings.
+One trace per conversation turn: a single `root` span (`Agent.action`)
+covering the whole provider loop, carrying `llm.rounds` and the turn's token
+totals, with a `tool` span per tool call hanging off it with real timings.
+
+There is no separate `llm` span — it spanned the identical window as the
+root, so it only restated it under a less useful name.
 
 RubyLLM emits a `chat.ruby_llm` event per provider round, and the two
 generations arrange them differently — 1.x nests a tool round inside the
@@ -49,7 +52,22 @@ enclosing event, 2.x drives a flat `step until complete?` loop whose rounds
 are siblings with tool calls between them. Rounds are accumulated and flushed
 on the round that ends the turn, so both produce the same trace.
 
-Tool arguments and results are never sent; error messages are truncated.
+Prompts, completions, and tool arguments/results are not sent unless
+`capture_content: true` is passed to `subscribe!`; error messages are always
+truncated.
+
+## Capturing prompts and completions
+
+Off by default, since this traffic may carry sensitive data. Enabling it adds
+`llm.prompt`, `llm.instructions` (every system message, joined — RubyLLM's
+`with_instructions` appends), `llm.completion`, and each tool call's
+`tool.arguments` / `tool.result` as span attributes, so a trace shows the
+whole prompt → tool → result → response flow. Captured values are truncated
+to `CONTENT_LIMIT` (4000) characters.
+
+```ruby
+subscribe!(api_key: ..., capture_content: true)
+```
 
 ## Naming the traffic
 

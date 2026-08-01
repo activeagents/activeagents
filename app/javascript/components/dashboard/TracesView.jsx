@@ -4,33 +4,26 @@ import {
   AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer
 } from 'recharts';
 import { ICONS, TYPOGRAPHY } from '../../utils/designTokens';
+import { useTimeWindow } from '../../contexts/TimeWindowContext';
+import TimeWindowSelector from './TimeWindowSelector';
 
 // Deterministic color assignment for agent classes
 const AGENT_PALETTE = ['#6366f1', '#10b981', '#f59e0b', '#ec4899', '#3b82f6', '#8b5cf6', '#14b8a6', '#f97316'];
 
-const WINDOW_MINUTES = 30;
 const REFRESH_INTERVAL_MS = 30000;
 
-// Browsable time ranges. Value is minutes; the API clamps to its own max.
-const WINDOW_OPTIONS = [
-  { label: '5m', minutes: 5 },
-  { label: '10m', minutes: 10 },
-  { label: '15m', minutes: 15 },
-  { label: '30m', minutes: 30 },
-  { label: '45m', minutes: 45 },
-  { label: '1h', minutes: 60 },
-  { label: '3h', minutes: 180 },
-  { label: '6h', minutes: 360 },
-  { label: '12h', minutes: 720 },
-  { label: '1d', minutes: 1440 },
-  { label: '3d', minutes: 4320 },
-  { label: '1w', minutes: 10080 },
-  { label: '1mo', minutes: 43200 },
-];
+// Bar width on a log scale, for comparing durations that span orders of
+// magnitude. A 5ms tool beside a 13.58s generation is a 2700x range; linearly
+// every tool collapses to the same minimum-width stub. Floors at 4% so the
+// shortest span is still visibly a bar.
+const logWidthPercent = (duration, longest) => {
+  const value = Math.max(duration || 0, 1);
+  const max = Math.max(longest || 1, 1);
+  if (max <= 1) return 100;
 
-// Keep the throughput chart at a sane resolution: ~60 buckets regardless of
-// window size (1-minute buckets under an hour, coarser above).
-const bucketMinutesFor = (windowMinutes) => Math.max(1, Math.round(windowMinutes / 60));
+  const ratio = Math.log(value) / Math.log(max);
+  return Math.min(100, Math.max(4, ratio * 100));
+};
 
 const buildAgentColors = (agents) => {
   const colors = {};
@@ -64,12 +57,13 @@ const buildSpanStats = (traces) => {
     .sort((a, b) => b.total - a.total);
 };
 
-// Bucket traces into 1-minute intervals for the throughput chart
-const buildThroughputData = (traces, agents, windowMinutes) => {
+// Bucket traces for the throughput chart. Bucket width scales with the window
+// so the chart stays readable at every zoom level.
+const buildThroughputData = (traces, agents, windowMinutes, bucketSeconds = 60) => {
   const now = Date.now();
   const data = [];
-  const bucketMs = bucketMinutesFor(windowMinutes) * 60000;
-  const bucketCount = Math.ceil((windowMinutes * 60000) / bucketMs);
+  const bucketMs = bucketSeconds * 1000;
+  const bucketCount = Math.max(1, Math.round((windowMinutes * 60) / bucketSeconds));
 
   for (let i = bucketCount - 1; i >= 0; i--) {
     const bucketStart = now - (i + 1) * bucketMs;
@@ -84,8 +78,9 @@ const buildThroughputData = (traces, agents, windowMinutes) => {
     });
 
     data.push({
-      time: windowMinutes >= 1440
-        ? new Date(bucketEnd).toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })
+      // Past a day, the clock alone is ambiguous — show the date too.
+      time: windowMinutes > 1440
+        ? new Date(bucketEnd).toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit' })
         : new Date(bucketEnd).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
       timestamp: bucketEnd,
       requests: bucketTraces.length,
@@ -109,19 +104,18 @@ export default function TracesView({ agentClass = null, embedded = false }) {
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState(null);
   const [selectedTrace, setSelectedTrace] = useState(null);
-  const [expandedSpan, setExpandedSpan] = useState(null); // `${trace.id}:${spanIdx}`
+  const [expandedSpan, setExpandedSpan] = useState(null); // `${trace.id}:${span_id || idx}`
   const [filter, setFilter] = useState({ status: 'all', agent: 'all', action: 'all' });
   const [sortBy, setSortBy] = useState('time'); // 'time' (chronological) | 'latency' (slowest first)
   const [selectedTimeBucket, setSelectedTimeBucket] = useState(null);
   const [viewMode, setViewMode] = useState('timeline'); // 'timeline', 'agents', 'actions', or 'spans'
-  const [windowMinutes, setWindowMinutes] = useState(WINDOW_MINUTES);
-
-  const windowLabel = WINDOW_OPTIONS.find((o) => o.minutes === windowMinutes)?.label || `${windowMinutes}m`;
+  const { timeWindow } = useTimeWindow();
 
   const fetchTraces = useCallback(async () => {
     try {
+      // The shared window bounds the range; an embedded view scopes to its agent.
       const scope = agentClass ? `&agent=${encodeURIComponent(agentClass)}` : '';
-      const response = await fetch(`/api/traces?minutes=${windowMinutes}${scope}`);
+      const response = await fetch(`/api/traces?minutes=${timeWindow.minutes}${scope}`);
       if (!response.ok) throw new Error(`Request failed (${response.status})`);
       const data = await response.json();
       setTraces(data.traces || []);
@@ -132,7 +126,7 @@ export default function TracesView({ agentClass = null, embedded = false }) {
     } finally {
       setIsLoading(false);
     }
-  }, [agentClass, windowMinutes]);
+  }, [timeWindow.minutes, agentClass]);
 
   useEffect(() => {
     fetchTraces();
@@ -142,10 +136,37 @@ export default function TracesView({ agentClass = null, embedded = false }) {
 
   const agentColors = useMemo(() => buildAgentColors(agentsList), [agentsList]);
 
+  // A bucket index refers to a position in the old bucketing; it means
+  // something different after a zoom, so drop the drill-down when the shared
+  // window changes.
+  useEffect(() => {
+    setSelectedTimeBucket(null);
+  }, [timeWindow.id]);
+
   const throughputData = useMemo(
-    () => buildThroughputData(traces, agentsList, windowMinutes),
-    [traces, agentsList, windowMinutes]
+    () => buildThroughputData(traces, agentsList, timeWindow.minutes, timeWindow.bucketSeconds),
+    [traces, agentsList, timeWindow]
   );
+
+  // Keep roughly six labels on the axis whatever the bucket count.
+  const tickInterval = Math.max(0, Math.ceil(throughputData.length / 6) - 1);
+
+  // Waterfall ordering. 'time' preserves the parent/child reading order a
+  // waterfall depends on; the others flatten it deliberately to answer
+  // "what was slowest?" or "which tool ran most?".
+  const [spanSort, setSpanSort] = useState('time');
+
+  const sortSpans = useCallback((spans) => {
+    const list = [...(spans || [])];
+    switch (spanSort) {
+      case 'duration':
+        return list.sort((a, b) => (b.duration || 0) - (a.duration || 0));
+      case 'name':
+        return list.sort((a, b) => (a.name || '').localeCompare(b.name || ''));
+      default:
+        return list.sort((a, b) => (a.start || 0) - (b.start || 0));
+    }
+  }, [spanSort]);
 
   // Filter traces based on selected time bucket and filters
   const filteredTraces = useMemo(() => {
@@ -261,6 +282,44 @@ export default function TracesView({ agentClass = null, embedded = false }) {
     return Object.values(stats).sort((a, b) => b.count - a.count);
   }, [traces, throughputData, selectedTimeBucket]);
 
+  // Which tools actually get called, and what they cost in aggregate. A tool
+  // called 40 times for 20ms each can matter more than one 3s call, and
+  // neither shows up when you're looking at a single trace's waterfall.
+  const toolStats = useMemo(() => {
+    const targetTraces = selectedTimeBucket !== null
+      ? (throughputData[selectedTimeBucket]?.traces || [])
+      : traces;
+
+    const stats = {};
+    targetTraces.forEach((trace) => {
+      (trace.spans || []).forEach((span) => {
+        if (span.type !== 'tool') return;
+        const name = span.attributes?.['tool.name'] || span.name?.replace(/^tool\./, '') || 'unknown';
+
+        if (!stats[name]) {
+          stats[name] = {
+            name,
+            count: 0,
+            totalDuration: 0,
+            maxDuration: 0,
+            errors: 0,
+            agents: new Set(),
+          };
+        }
+
+        stats[name].count++;
+        stats[name].totalDuration += span.duration || 0;
+        stats[name].maxDuration = Math.max(stats[name].maxDuration, span.duration || 0);
+        if (span.error) stats[name].errors++;
+        if (trace.agent) stats[name].agents.add(`${trace.agent}#${trace.action || 'unknown'}`);
+      });
+    });
+
+    return Object.values(stats)
+      .map((s) => ({ ...s, agents: [...s.agents], avgDuration: s.count ? s.totalDuration / s.count : 0 }))
+      .sort((a, b) => b.totalDuration - a.totalDuration);
+  }, [traces, throughputData, selectedTimeBucket]);
+
   // Get available actions for the selected agent (for filter dropdown)
   const availableActions = useMemo(() => {
     if (filter.agent === 'all') {
@@ -296,6 +355,21 @@ export default function TracesView({ agentClass = null, embedded = false }) {
 
   const totalTokensOf = (tokens) =>
     (tokens?.input || 0) + (tokens?.output || 0) + (tokens?.thinking || 0);
+
+  // Span attribute values: pretty-print embedded JSON (tool.arguments,
+  // tool.result), pass everything else through as text.
+  const formatAttrValue = (value) => {
+    if (value == null) return '—';
+    const text = typeof value === 'string' ? value : JSON.stringify(value, null, 2);
+    if (typeof value === 'string' && /^[\[{]/.test(value.trim())) {
+      try {
+        return JSON.stringify(JSON.parse(value), null, 2);
+      } catch {
+        return text;
+      }
+    }
+    return text;
+  };
 
   const formatCost = (cost) => {
     if (cost == null) return null;
@@ -339,6 +413,7 @@ export default function TracesView({ agentClass = null, embedded = false }) {
     }
   };
 
+  // Expanded detail panel for a single span (attributes, tokens, ids).
   // Display order for span attributes: system message first, then the tool
   // roster, then everything else, with the (long) message history last.
   // jsonb storage normalizes key order, so sorting has to happen here.
@@ -349,7 +424,6 @@ export default function TracesView({ agentClass = null, embedded = false }) {
     return 2;
   };
 
-  // Expanded detail panel for a single span (attributes, tokens, ids).
   const renderSpanDetails = (span, dark) => {
     const attributes = Object.entries(span.attributes || {}).sort(
       (a, b) => attributeRank(a[0]) - attributeRank(b[0])
@@ -533,7 +607,7 @@ export default function TracesView({ agentClass = null, embedded = false }) {
       if (withTraffic.length === 0) return 0;
       return Math.round(withTraffic.reduce((sum, b) => sum + b.avgLatency, 0) / withTraffic.length);
     })(),
-    throughput: (throughputData.reduce((sum, b) => sum + b.requests, 0) / windowMinutes).toFixed(1),
+    throughput: (throughputData.reduce((sum, b) => sum + b.requests, 0) / timeWindow.minutes).toFixed(1),
   };
 
   const emptyState = traces.length === 0;
@@ -550,29 +624,13 @@ export default function TracesView({ agentClass = null, embedded = false }) {
               <p style={{ fontSize: '14px', color: 'rgba(255,255,255,0.6)', marginTop: '4px' }}>
                 {selectedTimeBucket !== null
                   ? `Viewing ${throughputData[selectedTimeBucket]?.time} • ${filteredTraces.length} requests`
-                  : `Last ${windowLabel} • Click timeline to drill down`}
+                  : `Last ${timeWindow.label} • Click timeline to drill down`}
               </p>
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-              <select
-                value={windowMinutes}
-                onChange={(e) => { setWindowMinutes(Number(e.target.value)); setSelectedTimeBucket(null); }}
-                style={{
-                  padding: '8px 12px',
-                  background: 'rgba(255,255,255,0.1)',
-                  border: '1px solid rgba(255,255,255,0.2)',
-                  borderRadius: '8px',
-                  color: 'white',
-                  fontSize: '14px',
-                }}
-              >
-                {WINDOW_OPTIONS.map((option) => (
-                  <option key={option.minutes} value={option.minutes}>Last {option.label}</option>
-                ))}
-              </select>
               {/* View Mode Toggle */}
               <div style={{ display: 'flex', background: 'rgba(255,255,255,0.1)', borderRadius: '8px', padding: '2px' }}>
-                {['timeline', 'agents', 'actions', 'spans'].map((mode) => (
+                {['timeline', 'agents', 'actions', 'tools', 'spans'].map((mode) => (
                   <button
                     key={mode}
                     onClick={() => setViewMode(mode)}
@@ -729,7 +787,7 @@ export default function TracesView({ agentClass = null, embedded = false }) {
                     stroke="rgba(255,255,255,0.5)"
                     tick={{ fontSize: 10, fill: 'rgba(255,255,255,0.5)' }}
                     tickLine={false}
-                    interval={4}
+                    interval={tickInterval}
                   />
                   <YAxis
                     stroke="rgba(255,255,255,0.5)"
@@ -1036,14 +1094,16 @@ export default function TracesView({ agentClass = null, embedded = false }) {
 
                   {(trace.spans || []).map((span, idx) => {
                     const spanKey = `${trace.id}:${idx}`;
-                    const isSpanExpanded = expandedSpan === spanKey;
+                    const spanAttrs = span.attributes || {};
+                    const hasDetails = Object.keys(spanAttrs).length > 0;
+                    const isExpanded = expandedSpan === spanKey;
                     return (
                       <React.Fragment key={idx}>
                         <div
                           className={`span-row ${span.nested ? `nested-${Math.min(span.nested, 3)}` : ''}`}
-                          onClick={() => setExpandedSpan(isSpanExpanded ? null : spanKey)}
-                          style={{ cursor: 'pointer' }}
-                          title="Click for span details"
+                          onClick={hasDetails ? () => setExpandedSpan(isExpanded ? null : spanKey) : undefined}
+                          style={hasDetails ? { cursor: 'pointer' } : undefined}
+                          title={hasDetails ? 'Click for span details' : undefined}
                         >
                           <div className="span-label">
                             <span className={`span-icon ${span.type}`}>{getSpanIcon(span.type)}</span>
@@ -1067,7 +1127,7 @@ export default function TracesView({ agentClass = null, embedded = false }) {
                             {spanShareLabel(span, trace)}
                           </span>
                         </div>
-                        {isSpanExpanded && renderSpanDetails(span, true)}
+                        {isExpanded && renderSpanDetails(span, true)}
                       </React.Fragment>
                     );
                   })}
@@ -1130,22 +1190,15 @@ export default function TracesView({ agentClass = null, embedded = false }) {
           <p className="text-sm text-gray-500">
             {selectedTimeBucket !== null
               ? `Viewing ${throughputData[selectedTimeBucket]?.time} • ${filteredTraces.length} requests`
-              : `Last ${windowLabel} • Click timeline to drill down`}
+              : `Last ${timeWindow.label} • Click timeline to drill down`}
           </p>
         </div>
         <div className="flex items-center space-x-3">
-          <select
-            value={windowMinutes}
-            onChange={(e) => { setWindowMinutes(Number(e.target.value)); setSelectedTimeBucket(null); }}
-            className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-red-500"
-          >
-            {WINDOW_OPTIONS.map((option) => (
-              <option key={option.minutes} value={option.minutes}>Last {option.label}</option>
-            ))}
-          </select>
+          <TimeWindowSelector />
+
           {/* View Mode Toggle */}
           <div className="flex bg-gray-100 rounded-lg p-1">
-            {['timeline', 'agents', 'actions', 'spans'].map((mode) => (
+            {['timeline', 'agents', 'actions', 'tools', 'spans'].map((mode) => (
               <button
                 key={mode}
                 onClick={() => setViewMode(mode)}
@@ -1243,7 +1296,7 @@ export default function TracesView({ agentClass = null, embedded = false }) {
                 stroke="#9ca3af"
                 tick={{ fontSize: 10, fill: '#6b7280' }}
                 tickLine={false}
-                interval={4}
+                interval={tickInterval}
               />
               <YAxis
                 stroke="#9ca3af"
@@ -1428,6 +1481,68 @@ export default function TracesView({ agentClass = null, embedded = false }) {
         </div>
       )}
 
+      {/* Tool usage — which tools get called and what they cost in aggregate.
+          A 20ms tool called 40 times can dominate a 3s one called once, and
+          neither is visible from a single trace's waterfall. */}
+      {viewMode === 'tools' && (
+        toolStats.length === 0 ? (
+          <div className="text-center py-8 text-gray-500 text-sm">
+            No tool calls in this window
+          </div>
+        ) : (
+          <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+            {/* Flexbox rather than a 12-col grid: grid-cols-12 / col-span-*
+                aren't in the compiled Tailwind build. */}
+            <div className="flex items-center gap-4 px-4 py-2 text-xs font-medium text-gray-500 border-b border-gray-100">
+              <div className="flex-1">Tool</div>
+              <div className="w-20 text-right">Calls</div>
+              <div className="w-24 text-right">Total time</div>
+              <div className="w-20 text-right">Avg</div>
+              <div className="w-20 text-right">Slowest</div>
+            </div>
+            {toolStats.map((stat) => {
+              const share = toolStats[0].totalDuration
+                ? (stat.totalDuration / toolStats[0].totalDuration) * 100
+                : 0;
+              return (
+                <div key={stat.name} className="px-4 py-2 border-b border-gray-50 last:border-0">
+                  <div className="flex items-center gap-4 text-sm">
+                    <div className="flex-1 min-w-0">
+                      <div className="font-medium text-gray-900 truncate" title={stat.name}>{stat.name}</div>
+                      {stat.agents.length > 0 && (
+                        <div className="text-xs text-gray-400 truncate" title={stat.agents.join(', ')}>
+                          {stat.agents.join(', ')}
+                        </div>
+                      )}
+                    </div>
+                    <div className="w-20 text-right text-gray-700" style={{ fontFamily: TYPOGRAPHY.mono }}>
+                      {stat.count.toLocaleString()}
+                      {stat.errors > 0 && (
+                        <span className="text-red-600 ml-1" title={`${stat.errors} failed`}>
+                          ({stat.errors})
+                        </span>
+                      )}
+                    </div>
+                    <div className="w-24 text-right text-gray-900 font-medium" style={{ fontFamily: TYPOGRAPHY.mono }}>
+                      {formatDuration(stat.totalDuration)}
+                    </div>
+                    <div className="w-20 text-right text-gray-500" style={{ fontFamily: TYPOGRAPHY.mono }}>
+                      {formatDuration(stat.avgDuration)}
+                    </div>
+                    <div className="w-20 text-right text-gray-500" style={{ fontFamily: TYPOGRAPHY.mono }}>
+                      {formatDuration(stat.maxDuration)}
+                    </div>
+                  </div>
+                  {/* Share of the heaviest tool's total time */}
+                  <div className="h-1 bg-gray-100 rounded mt-1.5">
+                    <div className="h-1 bg-green-500 rounded" style={{ width: `${Math.max(share, 1)}%` }} />
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )
+      )}
       {/* Span Duration Breakdown View */}
       {viewMode === 'spans' && renderSpansBreakdown(false)}
 
@@ -1488,36 +1603,81 @@ export default function TracesView({ agentClass = null, embedded = false }) {
             {/* Expanded Timeline */}
             {selectedTrace === trace.id && (
               <div className="border-t border-gray-100 p-4 bg-gray-50">
-                <div className="flex justify-between text-xs text-gray-400 mb-2 px-32">
-                  <span>0ms</span>
-                  <span>{Math.round((trace.duration_ms || 0) * 0.33)}ms</span>
-                  <span>{Math.round((trace.duration_ms || 0) * 0.66)}ms</span>
-                  <span>{formatDuration(trace.duration_ms)}</span>
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-xs text-gray-500">
+                    {(trace.spans || []).length} spans
+                  </span>
+                  <div className="flex items-center gap-1">
+                    <span className="text-xs text-gray-400 mr-1">Sort</span>
+                    {[
+                      { id: 'time', label: 'Time', hint: 'Chronological — reads as a waterfall' },
+                      { id: 'duration', label: 'Slowest', hint: 'Longest-running first' },
+                      { id: 'name', label: 'Name', hint: 'Group repeated tool calls together' },
+                    ].map((option) => (
+                      <button
+                        key={option.id}
+                        onClick={(e) => { e.stopPropagation(); setSpanSort(option.id); }}
+                        title={option.hint}
+                        className={`px-2 py-0.5 text-xs rounded transition-colors ${
+                          spanSort === option.id ? 'bg-white shadow text-gray-900' : 'text-gray-500 hover:bg-white'
+                        }`}
+                      >
+                        {option.label}
+                      </button>
+                    ))}
+                  </div>
                 </div>
+                {/* The axis describes a timeline, which only holds while the
+                    spans are in chronological order. */}
+                {spanSort === 'time' ? (
+                  <div className="flex justify-between text-xs text-gray-400 mb-2">
+                    <span>0ms</span>
+                    <span>{Math.round((trace.duration_ms || 0) * 0.33)}ms</span>
+                    <span>{Math.round((trace.duration_ms || 0) * 0.66)}ms</span>
+                    <span>{formatDuration(trace.duration_ms)}</span>
+                  </div>
+                ) : (
+                  <div className="text-xs text-gray-400 mb-2">
+                    Bar length compares duration on a log scale
+                  </div>
+                )}
 
                 <div className="space-y-2">
-                  {(trace.spans || []).map((span, idx) => {
-                    const spanKey = `${trace.id}:${idx}`;
-                    const isSpanExpanded = expandedSpan === spanKey;
+                  {sortSpans(trace.spans).map((span, idx, sortedSpans) => {
+                    const longestSpan = Math.max(...sortedSpans.map((s) => s.duration || 0), 1);
+                    // Key on span_id, not index — indices shift when sorted,
+                    // which would move an open detail panel to another row.
+                    const spanKey = `${trace.id}:${span.span_id || idx}`;
+                    const spanAttrs = span.attributes || {};
+                    const hasDetails = Object.keys(spanAttrs).length > 0;
+                    const isExpanded = expandedSpan === spanKey;
                     return (
-                      <React.Fragment key={idx}>
+                      <React.Fragment key={spanKey}>
                         <div
-                          className="flex items-center group cursor-pointer hover:bg-gray-100 rounded"
-                          style={{ paddingLeft: `${(span.nested || 0) * 16}px` }}
-                          onClick={() => setExpandedSpan(isSpanExpanded ? null : spanKey)}
-                          title="Click for span details"
+                          className={`group py-0.5 ${hasDetails ? 'cursor-pointer hover:bg-gray-100 rounded' : ''}`}
+                          // Indentation encodes parent/child nesting, which no
+                          // longer holds once the list is reordered.
+                          style={{ paddingLeft: spanSort === 'time' ? `${(span.nested || 0) * 16}px` : 0 }}
+                          onClick={hasDetails ? () => setExpandedSpan(isExpanded ? null : spanKey) : undefined}
+                          title={hasDetails ? `${span.name} — click for span details` : span.name}
                         >
-                          <div className="w-40 flex items-center space-x-2 flex-shrink-0">
-                            <span className={span.type === 'thinking' ? '' : 'text-gray-400'}>
+                          {/* Name above the track, not beside it: a fixed label
+                              column truncated every tool.* span to the same
+                              unreadable prefix. */}
+                          <div className="flex items-baseline gap-2 min-w-0">
+                            <span className={`flex-shrink-0 ${span.type === 'thinking' ? '' : 'text-gray-400'}`}>
                               {getSpanIcon(span.type)}
                             </span>
-                            <span className={`text-sm truncate ${span.error ? 'text-red-600' : 'text-gray-700'}`}>
+                            <span className={`text-sm font-medium ${span.error ? 'text-red-600' : 'text-gray-800'}`}>
                               {span.name}
                             </span>
+                            <span className="text-xs text-gray-400 ml-auto flex-shrink-0" style={{ fontFamily: TYPOGRAPHY.mono }}>
+                              {formatDuration(span.duration)}
+                            </span>
                           </div>
-                          <div className="flex-1 h-6 relative bg-gray-100 rounded">
+                          <div className="h-3 relative bg-gray-100 rounded mt-0.5">
                             <div
-                              className={`absolute h-4 top-1 rounded transition-opacity ${
+                              className={`absolute h-3 rounded transition-opacity ${
                                 span.type === 'root' ? 'bg-gray-400' :
                                 span.type === 'prompt' ? 'bg-blue-400' :
                                 span.type === 'generate' ? 'bg-purple-500' :
@@ -1527,8 +1687,22 @@ export default function TracesView({ agentClass = null, embedded = false }) {
                                 span.type === 'response' ? 'bg-teal-400' : 'bg-gray-300'
                               } ${span.error ? 'bg-red-400' : ''}`}
                               style={{
-                                left: `${trace.duration_ms ? (span.start / trace.duration_ms) * 100 : 0}%`,
-                                width: `${trace.duration_ms ? Math.max((span.duration / trace.duration_ms) * 100, 1) : 1}%`
+                                // Chronological order earns wall-clock offsets:
+                                // the bar's position is when it ran. Any other
+                                // order breaks that link, so bars left-align and
+                                // become a pure length comparison — otherwise
+                                // "slowest first" shows short bars scattered
+                                // across the track and reads as neither.
+                                left: spanSort === 'time'
+                                  ? `${trace.duration_ms ? (span.start / trace.duration_ms) * 100 : 0}%`
+                                  : 0,
+                                width: spanSort === 'time'
+                                  ? `${trace.duration_ms ? Math.max((span.duration / trace.duration_ms) * 100, 1) : 1}%`
+                                  // Log scale: span durations here span three
+                                  // orders of magnitude (5ms tool, 13.58s llm),
+                                  // so a linear bar renders every tool as the
+                                  // same 1px minimum and compares nothing.
+                                  : `${logWidthPercent(span.duration, longestSpan)}%`
                               }}
                             />
                           </div>
@@ -1539,7 +1713,7 @@ export default function TracesView({ agentClass = null, embedded = false }) {
                             {spanShareLabel(span, trace)}
                           </span>
                         </div>
-                        {isSpanExpanded && renderSpanDetails(span, false)}
+                        {isExpanded && renderSpanDetails(span, false)}
                       </React.Fragment>
                     );
                   })}
