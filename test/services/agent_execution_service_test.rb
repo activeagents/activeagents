@@ -33,6 +33,40 @@ class AgentExecutionServiceTest < ActiveSupport::TestCase
     assert_equal 42, result[:result]
   end
 
+  test "execute_tool routes database tools to the account's reported resources" do
+    AdminResource.register_report!(
+      account: @account,
+      service_name: "support_inbox",
+      payload: {
+        "name" => "Ticket",
+        "table_name" => "tickets",
+        "columns" => [ { "name" => "subject", "type" => "string", "null" => false } ],
+        "record_count" => 42
+      }
+    )
+    service = AgentExecutionService.new(@agent, @run)
+
+    listing = service.execute_tool("list_resources")
+    assert_equal 1, listing[:count]
+    assert_equal "Ticket", listing[:resources].first[:name]
+    assert_equal false, listing[:resources].first[:admin_ui]
+
+    described = service.execute_tool("describe_resource", name: "Ticket")
+    assert_equal "tickets", described[:table_name]
+    assert_equal [ { "name" => "subject", "type" => "string", "null" => false } ], described[:columns]
+
+    missing = service.execute_tool("describe_resource", name: "Nope")
+    assert_includes missing[:error], "Nope"
+  end
+
+  test "database tools return empty results for agents without a workspace account" do
+    orphan = Agent.create!(name: "Orphan", provider: "openai", model: "gpt-4o-mini")
+    run = orphan.agent_runs.create!(input_prompt: "Hi", status: :running, started_at: Time.current)
+    service = AgentExecutionService.new(orphan, run)
+
+    assert_equal 0, service.execute_tool("list_resources")[:count]
+  end
+
   test "memory tool schemas are exposed when the agent enables the memory tool" do
     agent = create_agent(user: @user, name: "Rememberer", tools: %w[memory])
     run = agent.agent_runs.create!(input_prompt: "Hi", status: :running, started_at: Time.current)

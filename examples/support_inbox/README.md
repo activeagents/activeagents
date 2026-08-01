@@ -36,6 +36,22 @@ ACTIVEAGENTS_TELEMETRY_ENDPOINT=https://staging.activeagents.ai/v1/traces \
 bin/rails server
 ```
 
+## Admin agents from this app's resources
+
+The platform can scaffold **admin agents** around this app's models — the
+rails_admin idea, but agent-driven. Report the resource manifest:
+
+```bash
+ACTIVEAGENTS_API_KEY=<your workspace key> bin/rails active_agent:report_resources
+```
+
+Then open the dashboard's **Admin Agents** view: `Ticket`, `Reply`, and
+`KnowledgeBase` appear with a **Generate agent** button each. Generated
+agents carry the reported schema in their instructions, get CRUD action
+prompts (list/inspect/create/update/archive), and keep a human in the loop
+for anything destructive. Re-run the task after a migration to refresh the
+manifest; regenerating an agent records a new version.
+
 ## Environment variables
 
 | Variable | Purpose | Default |
