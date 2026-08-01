@@ -11,6 +11,27 @@ const AGENT_PALETTE = ['#6366f1', '#10b981', '#f59e0b', '#ec4899', '#3b82f6', '#
 const WINDOW_MINUTES = 30;
 const REFRESH_INTERVAL_MS = 30000;
 
+// Browsable time ranges. Value is minutes; the API clamps to its own max.
+const WINDOW_OPTIONS = [
+  { label: '5m', minutes: 5 },
+  { label: '10m', minutes: 10 },
+  { label: '15m', minutes: 15 },
+  { label: '30m', minutes: 30 },
+  { label: '45m', minutes: 45 },
+  { label: '1h', minutes: 60 },
+  { label: '3h', minutes: 180 },
+  { label: '6h', minutes: 360 },
+  { label: '12h', minutes: 720 },
+  { label: '1d', minutes: 1440 },
+  { label: '3d', minutes: 4320 },
+  { label: '1w', minutes: 10080 },
+  { label: '1mo', minutes: 43200 },
+];
+
+// Keep the throughput chart at a sane resolution: ~60 buckets regardless of
+// window size (1-minute buckets under an hour, coarser above).
+const bucketMinutesFor = (windowMinutes) => Math.max(1, Math.round(windowMinutes / 60));
+
 const buildAgentColors = (agents) => {
   const colors = {};
   agents.forEach((agent, idx) => {
@@ -47,10 +68,12 @@ const buildSpanStats = (traces) => {
 const buildThroughputData = (traces, agents, windowMinutes) => {
   const now = Date.now();
   const data = [];
+  const bucketMs = bucketMinutesFor(windowMinutes) * 60000;
+  const bucketCount = Math.ceil((windowMinutes * 60000) / bucketMs);
 
-  for (let i = windowMinutes - 1; i >= 0; i--) {
-    const bucketStart = now - (i + 1) * 60000;
-    const bucketEnd = now - i * 60000;
+  for (let i = bucketCount - 1; i >= 0; i--) {
+    const bucketStart = now - (i + 1) * bucketMs;
+    const bucketEnd = now - i * bucketMs;
     const bucketTraces = traces.filter(
       (t) => t.timestamp_ms >= bucketStart && t.timestamp_ms < bucketEnd
     );
@@ -61,7 +84,9 @@ const buildThroughputData = (traces, agents, windowMinutes) => {
     });
 
     data.push({
-      time: new Date(bucketEnd).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+      time: windowMinutes >= 1440
+        ? new Date(bucketEnd).toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })
+        : new Date(bucketEnd).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
       timestamp: bucketEnd,
       requests: bucketTraces.length,
       errors: bucketTraces.filter((t) => t.status === 'ERROR').length,
@@ -89,11 +114,14 @@ export default function TracesView({ agentClass = null, embedded = false }) {
   const [sortBy, setSortBy] = useState('time'); // 'time' (chronological) | 'latency' (slowest first)
   const [selectedTimeBucket, setSelectedTimeBucket] = useState(null);
   const [viewMode, setViewMode] = useState('timeline'); // 'timeline', 'agents', 'actions', or 'spans'
+  const [windowMinutes, setWindowMinutes] = useState(WINDOW_MINUTES);
+
+  const windowLabel = WINDOW_OPTIONS.find((o) => o.minutes === windowMinutes)?.label || `${windowMinutes}m`;
 
   const fetchTraces = useCallback(async () => {
     try {
       const scope = agentClass ? `&agent=${encodeURIComponent(agentClass)}` : '';
-      const response = await fetch(`/api/traces?minutes=${WINDOW_MINUTES}${scope}`);
+      const response = await fetch(`/api/traces?minutes=${windowMinutes}${scope}`);
       if (!response.ok) throw new Error(`Request failed (${response.status})`);
       const data = await response.json();
       setTraces(data.traces || []);
@@ -104,7 +132,7 @@ export default function TracesView({ agentClass = null, embedded = false }) {
     } finally {
       setIsLoading(false);
     }
-  }, [agentClass]);
+  }, [agentClass, windowMinutes]);
 
   useEffect(() => {
     fetchTraces();
@@ -115,8 +143,8 @@ export default function TracesView({ agentClass = null, embedded = false }) {
   const agentColors = useMemo(() => buildAgentColors(agentsList), [agentsList]);
 
   const throughputData = useMemo(
-    () => buildThroughputData(traces, agentsList, WINDOW_MINUTES),
-    [traces, agentsList]
+    () => buildThroughputData(traces, agentsList, windowMinutes),
+    [traces, agentsList, windowMinutes]
   );
 
   // Filter traces based on selected time bucket and filters
@@ -505,7 +533,7 @@ export default function TracesView({ agentClass = null, embedded = false }) {
       if (withTraffic.length === 0) return 0;
       return Math.round(withTraffic.reduce((sum, b) => sum + b.avgLatency, 0) / withTraffic.length);
     })(),
-    throughput: (throughputData.reduce((sum, b) => sum + b.requests, 0) / WINDOW_MINUTES).toFixed(1),
+    throughput: (throughputData.reduce((sum, b) => sum + b.requests, 0) / windowMinutes).toFixed(1),
   };
 
   const emptyState = traces.length === 0;
@@ -522,10 +550,26 @@ export default function TracesView({ agentClass = null, embedded = false }) {
               <p style={{ fontSize: '14px', color: 'rgba(255,255,255,0.6)', marginTop: '4px' }}>
                 {selectedTimeBucket !== null
                   ? `Viewing ${throughputData[selectedTimeBucket]?.time} • ${filteredTraces.length} requests`
-                  : `Last ${WINDOW_MINUTES} minutes • Click timeline to drill down`}
+                  : `Last ${windowLabel} • Click timeline to drill down`}
               </p>
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+              <select
+                value={windowMinutes}
+                onChange={(e) => { setWindowMinutes(Number(e.target.value)); setSelectedTimeBucket(null); }}
+                style={{
+                  padding: '8px 12px',
+                  background: 'rgba(255,255,255,0.1)',
+                  border: '1px solid rgba(255,255,255,0.2)',
+                  borderRadius: '8px',
+                  color: 'white',
+                  fontSize: '14px',
+                }}
+              >
+                {WINDOW_OPTIONS.map((option) => (
+                  <option key={option.minutes} value={option.minutes}>Last {option.label}</option>
+                ))}
+              </select>
               {/* View Mode Toggle */}
               <div style={{ display: 'flex', background: 'rgba(255,255,255,0.1)', borderRadius: '8px', padding: '2px' }}>
                 {['timeline', 'agents', 'actions', 'spans'].map((mode) => (
@@ -1086,10 +1130,19 @@ export default function TracesView({ agentClass = null, embedded = false }) {
           <p className="text-sm text-gray-500">
             {selectedTimeBucket !== null
               ? `Viewing ${throughputData[selectedTimeBucket]?.time} • ${filteredTraces.length} requests`
-              : `Last ${WINDOW_MINUTES} minutes • Click timeline to drill down`}
+              : `Last ${windowLabel} • Click timeline to drill down`}
           </p>
         </div>
         <div className="flex items-center space-x-3">
+          <select
+            value={windowMinutes}
+            onChange={(e) => { setWindowMinutes(Number(e.target.value)); setSelectedTimeBucket(null); }}
+            className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-red-500"
+          >
+            {WINDOW_OPTIONS.map((option) => (
+              <option key={option.minutes} value={option.minutes}>Last {option.label}</option>
+            ))}
+          </select>
           {/* View Mode Toggle */}
           <div className="flex bg-gray-100 rounded-lg p-1">
             {['timeline', 'agents', 'actions', 'spans'].map((mode) => (
