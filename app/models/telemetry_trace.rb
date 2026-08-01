@@ -26,10 +26,43 @@ class TelemetryTrace < ActiveAgent::TelemetryTrace
   def self.create_from_payload(trace, sdk_info = {}, account: nil)
     record = super
     record.send(:dedupe_token_totals!)
+    record.send(:auto_register_agent!)
     record
   end
 
   private
+
+  # Observed-agent registration: any agent that ships a trace appears in the
+  # Agents view automatically — the agents table carries observed-identity
+  # columns (service_name, agent_class_name, action_name + unique index) for
+  # exactly this, but until now only external syncs populated them.
+  # Registration must never break ingest, hence the blanket rescue.
+  def auto_register_agent!
+    return if agent_class.blank?
+
+    user = account&.members&.order(:id)&.first
+    return unless user
+
+    action = agent_action.presence
+    observed = Agent.find_or_initialize_by(
+      user_id: user.id,
+      service_name: service_name.presence || "unknown",
+      agent_class_name: agent_class,
+      action_name: action
+    )
+    if observed.new_record?
+      observed.name = [ agent_class, action ].compact.join(".")
+      observed.source = "telemetry"
+      observed.status = :active
+      observed.first_observed_at = created_at
+    end
+    observed.provider = provider if provider.present?
+    observed.model = model if model.present?
+    observed.last_observed_at = created_at
+    observed.save!
+  rescue StandardError => e
+    Rails.logger.warn("[TelemetryTrace] agent auto-registration failed for #{trace_id}: #{e.class} #{e.message}")
+  end
 
   def dedupe_token_totals!
     child_spans = (spans || []).reject { |s| s["parent_span_id"].nil? }
