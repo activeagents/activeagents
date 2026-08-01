@@ -11,7 +11,9 @@
 # meaningful. Costs are always presented as estimates.
 class ModelPricing
   PRICES = [
-    # [pattern, input $/1M, output $/1M]
+    # [pattern, input $/1M, output $/1M] — first match wins, so mock
+    # models ("mock-gpt-4o-mini") price free before real-model patterns.
+    [ /mock/i, 0.0, 0.0 ],
     [ /gpt-4o-mini/i, 0.15, 0.60 ],
     [ /gpt-4o/i, 2.50, 10.00 ],
     [ /gpt-4\.1-nano/i, 0.10, 0.40 ],
@@ -26,8 +28,7 @@ class ModelPricing
     [ /claude.*(opus)/i, 15.00, 75.00 ],
     [ /gemini.*flash/i, 0.10, 0.40 ],
     [ /gemini.*pro/i, 1.25, 10.00 ],
-    [ /llama|mistral|mixtral|qwen|deepseek/i, 0.20, 0.60 ],
-    [ /mock/i, 0.0, 0.0 ]
+    [ /llama|mistral|mixtral|qwen|deepseek/i, 0.20, 0.60 ]
   ].freeze
 
   # Fallback blended rate for unknown models ($/1M input, $/1M output)

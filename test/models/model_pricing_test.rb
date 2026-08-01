@@ -15,6 +15,11 @@ class ModelPricingTest < ActiveSupport::TestCase
     assert_equal [ 0.0, 0.0 ], ModelPricing.rate_for("mock-provider-model")
   end
 
+  test "mock models price free even when the name embeds a real model" do
+    assert_equal [ 0.0, 0.0 ], ModelPricing.static_rate("mock-gpt-4o-mini")
+    assert_equal [ 0.0, 0.0 ], ModelPricing.static_rate("mock-claude-sonnet-5")
+  end
+
   test "falls back to the blended default rate for unknown models" do
     assert_equal ModelPricing::DEFAULT_RATE, ModelPricing.rate_for("totally-unknown-model-xyz")
   end
