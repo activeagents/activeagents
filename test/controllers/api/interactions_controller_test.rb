@@ -83,4 +83,29 @@ class Api::InteractionsControllerTest < ActionDispatch::IntegrationTest
 
     assert_response :not_found
   end
+
+  test "export_file saves the run context to a file via Active Storage" do
+    context = create_interaction
+
+    post "/api/interactions/#{context.id}/export_file"
+
+    assert_response :created
+    file = json_response["export_file"]
+    assert_equal "application/json", file["content_type"]
+    assert file["url"].present?
+
+    payload = JSON.parse(context.reload.export_file.download)
+    assert_equal "SupportBotAgent", payload["context"]["agent_name"]
+    assert_equal %w[user assistant], payload["messages"].map { |m| m["role"] }
+    assert_equal "abc123", payload["generations"].first["trace_id"]
+  end
+
+  test "export_file 404s for other users' interactions" do
+    other_user = create_user
+    context = create_interaction(agent: create_agent(user: other_user, name: "Other Agent"))
+
+    post "/api/interactions/#{context.id}/export_file"
+
+    assert_response :not_found
+  end
 end

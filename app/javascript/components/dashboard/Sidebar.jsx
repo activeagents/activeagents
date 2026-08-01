@@ -25,6 +25,7 @@ export default function Sidebar({ currentView, onNavigate, agentCount, account, 
   const agentItems = [
     { id: 'list', label: 'Agents', icon: ICONS.nav.agents, badge: agentCount },
     { id: 'builder', label: 'New Agent', icon: ICONS.nav.newAgent },
+    { id: 'admin-agents', label: 'Admin Agents', icon: ICONS.nav.admin },
     { id: 'sandbox', label: 'Run Agents', icon: ICONS.nav.demo, highlight: true },
   ];
 

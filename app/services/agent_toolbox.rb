@@ -87,6 +87,34 @@ class AgentToolbox
         }
       }
     ],
+    # Resource-manifest tools for admin agents. Subject-bound like memory
+    # (they read the calling agent's account-scoped AdminResource rows), so
+    # NOT in FUNCTIONS below — AgentExecutionService routes them.
+    "database" => [
+      {
+        name: "list_resources",
+        description: "List the ActiveRecord resources connected apps have reported to this workspace: model name, table, column count, record count, and whether the app has an admin UI for it. Use to see what data an application manages.",
+        parameters: {
+          type: "object",
+          properties: {
+            service_name: { type: "string", description: "Only resources reported by this app (service name)" }
+          },
+          required: []
+        }
+      },
+      {
+        name: "describe_resource",
+        description: "Return the full reported schema of one resource: columns with types and nullability, associations, record count, and the admin route when the app has one. Use before reasoning about a model's fields.",
+        parameters: {
+          type: "object",
+          properties: {
+            name: { type: "string", description: "The resource's model class name, e.g. Ticket" },
+            service_name: { type: "string", description: "Disambiguates when two apps report the same model name" }
+          },
+          required: [ "name" ]
+        }
+      }
+    ],
     # Memory tools mirror solid_agent's HasMemory contract. They are NOT in
     # FUNCTIONS below — execution is subject-bound, so AgentExecutionService
     # routes them to the run's AgentMemory instead of this module.

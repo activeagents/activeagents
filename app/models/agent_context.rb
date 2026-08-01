@@ -12,6 +12,11 @@ class AgentContext < ApplicationRecord
   has_many :messages, class_name: "AgentMessage", dependent: :destroy
   has_many :generations, class_name: "AgentGeneration", dependent: :destroy
 
+  # The run context saved to a file: full conversation (instructions,
+  # messages, generations) attached as JSON via Active Storage, so a run's
+  # context is a portable artifact for audits, fixtures, and replays.
+  has_one_attached :export_file
+
   validates :agent_name, presence: true
   validates :action_name, presence: true
 
@@ -90,6 +95,58 @@ class AgentContext < ApplicationRecord
 
   def total_tokens
     total_input_tokens + total_output_tokens
+  end
+
+  # The portable file representation of this run context: the whole
+  # conversation as recorded, in the same shapes the Interactions API
+  # serves.
+  def export_payload
+    {
+      exported_at: Time.current.iso8601,
+      context: {
+        id: id,
+        agent_name: agent_name,
+        action_name: action_name,
+        instructions: instructions,
+        trace_id: trace_id,
+        options: options,
+        tokens: {
+          input: total_input_tokens,
+          output: total_output_tokens,
+          total: total_tokens
+        },
+        created_at: created_at.iso8601,
+        last_activity_at: updated_at.iso8601
+      },
+      messages: messages.order(created_at: :asc, id: :asc).map { |message| AgentMessageSerializer.call(message) },
+      generations: generations.order(created_at: :asc).map do |generation|
+        {
+          id: generation.id,
+          model: generation.model,
+          provider: generation.provider,
+          finish_reason: generation.finish_reason,
+          input_tokens: generation.input_tokens,
+          output_tokens: generation.output_tokens,
+          cached_tokens: generation.cached_tokens,
+          reasoning_tokens: generation.reasoning_tokens,
+          tool_calls: generation.tool_calls,
+          duration_seconds: generation.duration_seconds,
+          trace_id: generation.trace_id,
+          created_at: generation.created_at.iso8601(3)
+        }
+      end
+    }
+  end
+
+  # Saves the run context to a file via Active Storage (replacing any
+  # previous export) and returns the attachment.
+  def save_export_file!
+    export_file.attach(
+      io: StringIO.new(JSON.pretty_generate(export_payload)),
+      filename: "interaction-#{id}-#{agent_name.to_s.parameterize}-#{action_name.to_s.parameterize}.json",
+      content_type: "application/json"
+    )
+    export_file
   end
 
   def input_params

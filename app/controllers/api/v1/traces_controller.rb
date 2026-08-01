@@ -10,35 +10,14 @@ module Api
     # inherited from the gem's ingest controller; this subclass only layers
     # plan-based trace quotas on top.
     class TracesController < ActiveAgent::Dashboard::Api::TracesController
+      # Replaces the gem's Bearer auth so dashboard-generated ApiKey tokens
+      # (Settings -> API Keys) work in addition to the account's legacy
+      # telemetry_api_key. Shared with the /v1/resources ingest.
+      include IngestAuthentication
+
       before_action :enforce_trace_quota
 
       private
-
-      # Extends the gem's Bearer auth to accept dashboard-generated ApiKey
-      # tokens (Settings -> API Keys) in addition to the account's legacy
-      # telemetry_api_key.
-      def authenticate_api_key!
-        token = extract_bearer_token
-
-        if token.blank?
-          render json: { error: "Missing Authorization header" }, status: :unauthorized
-          return
-        end
-
-        if (api_key = ApiKey.authenticate(token))
-          api_key.touch_last_used!
-          @account = api_key.account
-        else
-          @account = Account.find_by(telemetry_api_key: token)
-        end
-
-        if @account.nil?
-          render json: { error: "Invalid API key" }, status: :unauthorized
-          return
-        end
-
-        @account.increment_telemetry_usage!
-      end
 
       def enforce_trace_quota
         return if @account.nil? || @account.can_ingest_traces?

@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.2].define(version: 2026_07_30_000001) do
+ActiveRecord::Schema[8.2].define(version: 2026_08_01_000001) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
 
@@ -93,6 +93,28 @@ ActiveRecord::Schema[8.2].define(version: 2026_07_30_000001) do
     t.bigint "blob_id", null: false
     t.string "variation_digest", null: false
     t.index ["blob_id", "variation_digest"], name: "index_active_storage_variant_records_uniqueness", unique: true
+  end
+
+  create_table "admin_resources", force: :cascade do |t|
+    t.bigint "account_id", null: false
+    t.string "admin_route"
+    t.bigint "agent_id"
+    t.jsonb "associations", default: [], null: false
+    t.jsonb "columns", default: [], null: false
+    t.datetime "created_at", null: false
+    t.string "environment"
+    t.datetime "first_reported_at"
+    t.datetime "last_reported_at"
+    t.jsonb "metadata", default: {}, null: false
+    t.string "name", null: false
+    t.integer "record_count"
+    t.string "service_name", null: false
+    t.string "table_name"
+    t.datetime "updated_at", null: false
+    t.index ["account_id", "service_name", "name"], name: "index_admin_resources_on_account_id_and_service_name_and_name", unique: true
+    t.index ["account_id", "service_name"], name: "index_admin_resources_on_account_id_and_service_name"
+    t.index ["account_id"], name: "index_admin_resources_on_account_id"
+    t.index ["agent_id"], name: "index_admin_resources_on_agent_id"
   end
 
   create_table "agent_contexts", force: :cascade do |t|
@@ -737,6 +759,8 @@ ActiveRecord::Schema[8.2].define(version: 2026_07_30_000001) do
   add_foreign_key "active_agent_telemetry_traces", "accounts"
   add_foreign_key "active_storage_attachments", "active_storage_blobs", column: "blob_id"
   add_foreign_key "active_storage_variant_records", "active_storage_blobs", column: "blob_id"
+  add_foreign_key "admin_resources", "accounts"
+  add_foreign_key "admin_resources", "agents"
   add_foreign_key "agent_generations", "agent_contexts"
   add_foreign_key "agent_memory_entries", "agent_memories"
   add_foreign_key "agent_messages", "agent_contexts"

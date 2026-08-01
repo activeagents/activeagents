@@ -64,9 +64,14 @@ Rails.application.routes.draw do
   # batched traces here (Configuration::DEFAULT_ENDPOINT is
   # https://api.activeagents.ai/v1/traces). Authenticated with the
   # account's telemetry API key (Bearer token).
+  #
+  # Resource-manifest ingestion (POST /v1/resources) shares the plane: a
+  # connected app reports its ActiveRecord models so the platform can
+  # scaffold admin agents around them.
   scope module: :api do
     namespace :v1 do
       resources :traces, only: [ :create ]
+      resources :resources, only: [ :create ]
     end
   end
 
@@ -91,10 +96,22 @@ Rails.application.routes.draw do
         post :test
         post :duplicate
         get :export
+        post :export_file
         get :analytics
       end
       collection do
         get :presets
+      end
+    end
+
+    # Admin Agents: resources reported by connected apps (POST /v1/resources)
+    # and the rails_admin-style scaffolding that turns them into admin agents.
+    resources :admin_resources, only: [ :index, :show ] do
+      member do
+        post :generate
+      end
+      collection do
+        post :generate_all
       end
     end
 
@@ -161,8 +178,13 @@ Rails.application.routes.draw do
     resources :traces, only: [ :index, :show ]
     resource :metrics, only: [ :show ], controller: "metrics"
 
-    # Conversation contexts persisted by solid_agent (Interactions view)
-    resources :interactions, only: [ :index, :show ]
+    # Conversation contexts persisted by solid_agent (Interactions view).
+    # export_file saves a run context to a file via Active Storage.
+    resources :interactions, only: [ :index, :show ] do
+      member do
+        post :export_file
+      end
+    end
 
     # Agent output evaluations (Evaluations view)
     resources :evaluations, only: [ :index, :show, :create, :destroy ] do
@@ -183,8 +205,10 @@ Rails.application.routes.draw do
 
     namespace :v1 do
       resources :plans, only: [ :index ]
-      # Alias of POST /v1/traces for clients configured with an /api prefix.
+      # Aliases of POST /v1/traces and /v1/resources for clients configured
+      # with an /api prefix.
       resources :traces, only: [ :create ]
+      resources :resources, only: [ :create ]
     end
   end
 end

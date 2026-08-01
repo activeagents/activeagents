@@ -2,7 +2,7 @@
 
 module Api
   class AgentsController < BaseController
-    before_action :set_agent, only: [ :show, :update, :destroy, :versions, :runs, :execute, :test, :restore, :duplicate, :export, :analytics ]
+    before_action :set_agent, only: [ :show, :update, :destroy, :versions, :runs, :execute, :test, :restore, :duplicate, :export, :export_file, :analytics ]
     before_action :require_account!, only: [ :execute, :test ]
     before_action :enforce_run_limit!, only: [ :execute, :test ]
 
@@ -163,6 +163,15 @@ module Api
       }
     end
 
+    # POST /api/agents/:id/export_file
+    # Saves the agent to a file via Active Storage (the persistent sibling
+    # of GET export's inline JSON) and returns the attachment metadata.
+    def export_file
+      @agent.save_export_file!
+
+      render json: { export_file: attachment_json(@agent.export_file) }, status: :created
+    end
+
     # GET /api/agents/:id/analytics
     def analytics
       days = (params[:days] || 30).to_i
@@ -291,7 +300,8 @@ module Api
           model_config: agent.model_config,
           response_format: agent.response_format,
           agent_class_name: agent.agent_class_name,
-          telemetry_agent_class: agent.telemetry_agent_class
+          telemetry_agent_class: agent.telemetry_agent_class,
+          export_file: attachment_json(agent.export_file)
         )
       end
 

@@ -6,6 +6,12 @@ class Agent < ApplicationRecord
   has_many :agent_runs, dependent: :destroy
   has_many :evaluations, dependent: :destroy
   has_many :agent_memories, as: :memorable, dependent: :destroy
+  has_many :admin_resources, dependent: :nullify
+
+  # The agent saved to a file: the full export payload (config, generated
+  # Ruby class, manifest) attached as JSON via Active Storage, so agents
+  # are portable artifacts, not just rows.
+  has_one_attached :export_file
 
   # Validations
   validates :name, presence: true, length: { minimum: 2, maximum: 100 }
@@ -149,10 +155,48 @@ class Agent < ApplicationRecord
     agent_versions.count
   end
 
-  # Generate Ruby agent class code
+  # The portable file representation of this agent: everything needed to
+  # recreate or install it elsewhere (config snapshot, generated ActiveAgent
+  # class, package manifest).
+  def export_payload
+    {
+      exported_at: Time.current.iso8601,
+      agent: configuration_snapshot.merge(
+        slug: slug,
+        status: status,
+        agent_class_name: agent_class_name,
+        telemetry_agent_class: telemetry_agent_class
+      ),
+      code: to_agent_class_code,
+      manifest: {
+        name: slug,
+        version: "1.0.0",
+        model: "#{provider}/#{model}",
+        description: description,
+        instructions: instructions,
+        tools: tools,
+        config: model_config
+      }
+    }
+  end
+
+  # Saves the agent to a file via Active Storage (replacing any previous
+  # export) and returns the attachment.
+  def save_export_file!
+    export_file.attach(
+      io: StringIO.new(JSON.pretty_generate(export_payload)),
+      filename: "#{slug}-agent.json",
+      content_type: "application/json"
+    )
+    export_file
+  end
+
+  # Generate Ruby agent class code. Uses telemetry_agent_class so the
+  # generated class matches the name runs are recorded under — and so an
+  # agent_class_name already ending in "Agent" isn't suffixed twice.
   def to_agent_class_code
     <<~RUBY
-      class #{agent_class_name || name.camelize}Agent < ApplicationAgent
+      class #{telemetry_agent_class} < ApplicationAgent
         generate_with :#{provider}, model: "#{model}"#{model_config_code}
 
         def perform
