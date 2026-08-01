@@ -75,6 +75,35 @@ class Api::InteractionsControllerTest < ActionDispatch::IntegrationTest
     assert_equal 100, generation.dig("tokens", "total")
   end
 
+  test "index carries context pressure for each row" do
+    create_interaction
+
+    get "/api/interactions"
+
+    assert_response :success
+    context = json_response["interactions"].first["context"]
+
+    assert_equal 100, context["used"]
+    assert_equal 128_000, context["limit"]
+    assert_equal "ok", context["state"]
+  end
+
+  test "show returns the full context utilization payload" do
+    interaction = create_interaction
+
+    get "/api/interactions/#{interaction.id}"
+
+    assert_response :success
+    context = json_response["interaction"]["context"]
+
+    assert context["measured"]
+    assert_equal 100, context["used"]
+    # Segments reconcile to the measured total, never to their own sum.
+    assert_equal context["used"], context["segments"].sum { |segment| segment["tokens"] }
+    assert_equal 1, context["turns"].length
+    assert_equal 40, context["turns"].first["added"]
+  end
+
   test "show 404s for other users' interactions" do
     other_user = create_user
     context = create_interaction(agent: create_agent(user: other_user, name: "Other Agent"))

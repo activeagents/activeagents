@@ -8,16 +8,20 @@ class TelemetryTraceSerializer
   # ActiveAgent::Telemetry::Span::TYPES).
   KNOWN_SPAN_TYPES = %w[root prompt generate llm tool thinking embedding response error].freeze
 
-  def self.summary(trace)
-    new(trace).summary
+  def self.summary(trace, generation: nil)
+    new(trace, generation: generation).summary
   end
 
   def self.detail(trace)
     new(trace).detail
   end
 
-  def initialize(trace)
+  # generation is the AgentGeneration recorded under this trace_id, when
+  # one exists. Passing it in lets the controller batch the lookup for a
+  # whole list instead of querying per row.
+  def initialize(trace, generation: nil)
     @trace = trace
+    @generation = generation
   end
 
   def summary
@@ -48,6 +52,7 @@ class TelemetryTraceSerializer
         input_tokens: @trace.total_input_tokens,
         output_tokens: @trace.total_output_tokens
       ),
+      context: context_summary,
       spans: serialized_spans
     }
   end
@@ -55,11 +60,51 @@ class TelemetryTraceSerializer
   def detail
     summary.merge(
       resource_attributes: @trace.resource_attributes,
-      sdk_info: @trace.sdk_info
+      sdk_info: @trace.sdk_info,
+      # The full per-source attribution costs a messages load, so it is
+      # only built for the drilled-in trace. List rows get the measured
+      # numbers from #context_summary instead.
+      context: detail_generation ? ContextUtilization.for_generation(detail_generation) : context_summary
     )
   end
 
   private
+
+  # Context occupancy at the moment of the call. The generation's
+  # input_tokens is exactly what the provider read, so nothing here is
+  # inferred — only the denominator is resolved, and window_known says
+  # whether it was looked up or assumed.
+  #
+  # Falls back to the trace's own token totals when no AgentGeneration was
+  # recorded under this trace_id (traces from the gem's own runs).
+  def context_summary
+    model = @generation&.model || @trace.model
+    used = @generation ? @generation.input_tokens.to_i : @trace.total_input_tokens.to_i
+    return nil if used.zero?
+
+    limit = ModelContextWindow.for(model)
+    pct = ContextUtilization.percent_of(used, limit)
+
+    {
+      model: model,
+      limit: limit,
+      window_known: ModelContextWindow.known?(model),
+      used: used,
+      free: [ limit - used, 0 ].max,
+      overflow: [ used - limit, 0 ].max,
+      pct: pct,
+      state: ContextUtilization.state_for(pct),
+      measured: true,
+      cached: @generation&.cached_tokens.to_i,
+      thinking: (@generation&.reasoning_tokens || @trace.total_thinking_tokens).to_i,
+      finish_reason: @generation&.finish_reason,
+      truncated: @generation&.truncated? || false
+    }
+  end
+
+  def detail_generation
+    @detail_generation ||= @generation || AgentGeneration.with_trace(@trace.trace_id).order(:created_at).last
+  end
 
   # Maps raw gem spans (start_time/end_time ISO strings, parent_span_id
   # links) to waterfall rows with millisecond offsets relative to the root

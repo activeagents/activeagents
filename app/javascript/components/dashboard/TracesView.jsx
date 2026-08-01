@@ -4,6 +4,8 @@ import {
   AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer
 } from 'recharts';
 import { ICONS, TYPOGRAPHY } from '../../utils/designTokens';
+import ContextMeter from './ContextMeter';
+import ContextUtilizationPanel from './ContextUtilizationPanel';
 
 // Deterministic color assignment for agent classes
 const AGENT_PALETTE = ['#6366f1', '#10b981', '#f59e0b', '#ec4899', '#3b82f6', '#8b5cf6', '#14b8a6', '#f97316'];
@@ -84,11 +86,31 @@ export default function TracesView({ agentClass = null, embedded = false }) {
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState(null);
   const [selectedTrace, setSelectedTrace] = useState(null);
+  // Per-source context attribution costs a messages load, so it is only
+  // fetched for the trace an operator actually drills into.
+  const [traceDetails, setTraceDetails] = useState({});
   const [expandedSpan, setExpandedSpan] = useState(null); // `${trace.id}:${spanIdx}`
   const [filter, setFilter] = useState({ status: 'all', agent: 'all', action: 'all' });
   const [sortBy, setSortBy] = useState('time'); // 'time' (chronological) | 'latency' (slowest first)
   const [selectedTimeBucket, setSelectedTimeBucket] = useState(null);
   const [viewMode, setViewMode] = useState('timeline'); // 'timeline', 'agents', 'actions', or 'spans'
+
+  const toggleTrace = useCallback(async (trace) => {
+    if (selectedTrace === trace.id) {
+      setSelectedTrace(null);
+      return;
+    }
+    setSelectedTrace(trace.id);
+    if (traceDetails[trace.id]) return;
+    try {
+      const response = await fetch(`/api/traces/${trace.id}`);
+      if (!response.ok) return;
+      const data = await response.json();
+      setTraceDetails((prev) => ({ ...prev, [trace.id]: data.trace }));
+    } catch {
+      // the row falls back to the summary context payload
+    }
+  }, [selectedTrace, traceDetails]);
 
   const fetchTraces = useCallback(async () => {
     try {
@@ -932,7 +954,7 @@ export default function TracesView({ agentClass = null, embedded = false }) {
             <React.Fragment key={trace.id}>
               <div
                 className="trace-header-row"
-                onClick={() => setSelectedTrace(selectedTrace === trace.id ? null : trace.id)}
+                onClick={() => toggleTrace(trace)}
                 style={{ cursor: 'pointer' }}
               >
                 <div className="trace-id">
@@ -950,6 +972,11 @@ export default function TracesView({ agentClass = null, embedded = false }) {
                       style={{ fontFamily: TYPOGRAPHY.mono, background: 'rgba(99,102,241,0.2)', color: '#a5b4fc', padding: '2px 8px', borderRadius: '4px' }}
                     >
                       {trace.model}
+                    </span>
+                  )}
+                  {trace.context && (
+                    <span className="meta-item" title="Context window at time of call">
+                      <ContextMeter context={trace.context} compact darkMode style={{ width: 120 }} />
                     </span>
                   )}
                   <span className="meta-item"><i className="fa-solid fa-clock"></i> {formatDuration(trace.duration_ms)}</span>
@@ -1030,6 +1057,17 @@ export default function TracesView({ agentClass = null, embedded = false }) {
                       </div>
                     </div>
                   </div>
+
+                  {(traceDetails[trace.id]?.context || trace.context) && (
+                    <div style={{ marginTop: '14px' }}>
+                      <ContextUtilizationPanel
+                        context={traceDetails[trace.id]?.context || trace.context}
+                        label="Context at time of call"
+                        darkMode
+                        dense
+                      />
+                    </div>
+                  )}
 
                   {trace.error && (
                     <div style={{ padding: '12px 16px', background: 'rgba(239, 68, 68, 0.1)', borderRadius: '6px', marginTop: '12px' }}>
@@ -1373,7 +1411,7 @@ export default function TracesView({ agentClass = null, embedded = false }) {
             {/* Trace Header */}
             <div
               className="p-4 flex items-center justify-between cursor-pointer hover:bg-gray-50"
-              onClick={() => setSelectedTrace(selectedTrace === trace.id ? null : trace.id)}
+              onClick={() => toggleTrace(trace)}
             >
               <div className="flex items-center space-x-4">
                 <div className="flex items-center space-x-2">
@@ -1392,6 +1430,11 @@ export default function TracesView({ agentClass = null, embedded = false }) {
                     title="Model that generated this trace"
                   >
                     {trace.model}
+                  </span>
+                )}
+                {trace.context && (
+                  <span title="Context window at time of call">
+                    <ContextMeter context={trace.context} compact style={{ width: 120 }} />
                   </span>
                 )}
                 <span className="text-sm text-gray-500">
@@ -1487,6 +1530,16 @@ export default function TracesView({ agentClass = null, embedded = false }) {
                     <span className="text-sm text-gray-500" style={{ fontFamily: TYPOGRAPHY.mono }}>{trace.provider}{trace.model ? ` · ${trace.model}` : ''}</span>
                   )}
                 </div>
+
+                {(traceDetails[trace.id]?.context || trace.context) && (
+                  <div className="mt-4">
+                    <ContextUtilizationPanel
+                      context={traceDetails[trace.id]?.context || trace.context}
+                      label="Context at time of call"
+                      dense
+                    />
+                  </div>
+                )}
 
                 {trace.error && (
                   <div className="mt-4 p-3 bg-red-50 border border-red-200 rounded-lg">

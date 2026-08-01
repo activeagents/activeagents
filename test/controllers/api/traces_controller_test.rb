@@ -100,6 +100,61 @@ class Api::TracesControllerTest < ActionDispatch::IntegrationTest
     assert json_response["trace"].key?("resource_attributes")
   end
 
+  test "index reports context occupancy at the time of each call" do
+    trace = create_trace
+    agent = create_agent(user: @user, name: "Support Bot")
+    context = AgentContext.create!(contextable: agent, agent_name: "SupportAgent", action_name: "respond")
+    context.generations.create!(
+      model: "gpt-4o-mini", input_tokens: 118_000, output_tokens: 400,
+      cached_tokens: 32_000, finish_reason: "stop", trace_id: trace.trace_id
+    )
+
+    get "/api/traces", params: { minutes: 30 }
+
+    assert_response :success
+    payload = json_response["traces"].first["context"]
+
+    # input_tokens is exactly what the provider read for this call.
+    assert_equal 118_000, payload["used"]
+    assert_equal 128_000, payload["limit"]
+    assert_equal "critical", payload["state"]
+    assert_equal 32_000, payload["cached"]
+  end
+
+  test "index falls back to trace tokens when no generation was recorded" do
+    create_trace
+
+    get "/api/traces", params: { minutes: 30 }
+
+    payload = json_response["traces"].first["context"]
+
+    assert_equal 10, payload["used"]
+    assert_equal "ok", payload["state"]
+  end
+
+  test "show adds the per-source breakdown for the drilled-in trace" do
+    trace = create_trace
+    agent = create_agent(user: @user, name: "Support Bot")
+    context = AgentContext.create!(
+      contextable: agent, agent_name: "SupportAgent", action_name: "respond",
+      instructions: "You answer support questions."
+    )
+    context.add_user_message("How do I reset my password?")
+    context.generations.create!(
+      model: "gpt-4o-mini", input_tokens: 20_000, output_tokens: 300,
+      finish_reason: "stop", trace_id: trace.trace_id
+    )
+
+    get "/api/traces/#{trace.id}"
+
+    assert_response :success
+    payload = json_response["trace"]["context"]
+
+    assert_equal 20_000, payload["used"]
+    assert_equal payload["used"], payload["segments"].sum { |segment| segment["tokens"] }
+    assert payload["segments"].any? { |segment| segment["key"] == "instructions" }
+  end
+
   test "show 404s for other accounts' traces" do
     other = create_trace(account: create_account(owner: create_user))
 
