@@ -457,6 +457,29 @@ class Api::AgentsControllerTest < ActionDispatch::IntegrationTest
     assert_equal @agent.slug, data["manifest"]["name"]
   end
 
+  test "export_file saves the agent to a file via Active Storage" do
+    post "/api/agents/#{@agent.id}/export_file"
+
+    assert_response :created
+    file = json_response["export_file"]
+    assert_equal "#{@agent.slug}-agent.json", file["filename"]
+    assert_equal "application/json", file["content_type"]
+    assert file["url"].present?
+
+    assert @agent.reload.export_file.attached?
+    payload = JSON.parse(@agent.export_file.download)
+    assert_equal @agent.slug, payload["manifest"]["name"]
+    assert_includes payload["code"], "ApplicationAgent"
+  end
+
+  test "export_file replaces a previous export" do
+    post "/api/agents/#{@agent.id}/export_file"
+    post "/api/agents/#{@agent.id}/export_file"
+
+    assert_response :created
+    assert_equal 1, ActiveStorage::Attachment.where(record: @agent, name: "export_file").count
+  end
+
   # ===========================================
   # Analytics Tests
   # ===========================================

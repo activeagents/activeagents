@@ -42,9 +42,20 @@ module Api
         interaction: serialize_context(context).merge(
           instructions: context.instructions,
           messages: context.messages.chronological.map { |message| serialize_message(message) },
-          generations: context.generations.order(created_at: :asc).map { |generation| serialize_generation(generation) }
+          generations: context.generations.order(created_at: :asc).map { |generation| serialize_generation(generation) },
+          export_file: attachment_json(context.export_file)
         )
       }
+    end
+
+    # POST /api/interactions/:id/export_file
+    # Saves the run context to a file via Active Storage and returns the
+    # attachment metadata.
+    def export_file
+      context = interactions_scope.find(params[:id])
+      context.save_export_file!
+
+      render json: { export_file: attachment_json(context.export_file) }, status: :created
     end
 
     private

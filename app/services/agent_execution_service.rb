@@ -198,6 +198,10 @@ class AgentExecutionService
         }
       when "call_agent"
         call_agent(slug: kwargs[:slug], message: kwargs[:message])
+      when "list_resources"
+        list_admin_resources(service_name: kwargs[:service_name])
+      when "describe_resource"
+        describe_admin_resource(name: kwargs[:name], service_name: kwargs[:service_name])
       else
         AgentToolbox.call(name, **kwargs)
       end
@@ -267,6 +271,52 @@ class AgentExecutionService
     context.update_column(:instructions, composed_instructions)
   rescue StandardError => e
     Rails.logger.warn("[AgentExecutionService] Failed to sync context instructions: #{e.message}")
+  end
+
+  # Resource manifests visible to the database tools: the calling agent
+  # owner's account — the same tenancy the manifests were ingested under.
+  def account_admin_resources
+    account = @agent_record.user&.primary_account
+    account ? account.admin_resources : AdminResource.none
+  end
+
+  def list_admin_resources(service_name: nil)
+    resources = account_admin_resources.recent
+    resources = resources.for_service(service_name.to_s) if service_name.present?
+
+    {
+      count: resources.size,
+      resources: resources.map do |resource|
+        {
+          name: resource.name,
+          service_name: resource.service_name,
+          table_name: resource.table_name,
+          column_count: Array(resource.columns).size,
+          record_count: resource.record_count,
+          admin_ui: resource.admin_ui?
+        }.compact
+      end
+    }
+  end
+
+  def describe_admin_resource(name:, service_name: nil)
+    resources = account_admin_resources.where(name: name.to_s)
+    resources = resources.for_service(service_name.to_s) if service_name.present?
+    resource = resources.order(last_reported_at: :desc).first
+    return { error: "No reported resource named '#{name}'" } unless resource
+
+    {
+      name: resource.name,
+      service_name: resource.service_name,
+      environment: resource.environment,
+      table_name: resource.table_name,
+      columns: resource.columns,
+      associations: resource.associations,
+      record_count: resource.record_count,
+      admin_route: resource.admin_route,
+      schema_fingerprint: resource.schema_fingerprint,
+      last_reported_at: resource.last_reported_at&.iso8601
+    }.compact
   end
 
   # Agents callable via call_agent: same workspace as the calling agent's

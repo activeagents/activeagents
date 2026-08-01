@@ -9,6 +9,7 @@ import AgentInteractions from '../components/dashboard/AgentInteractions';
 import TemplateLibrary from '../components/dashboard/TemplateLibrary';
 import Sidebar from '../components/dashboard/Sidebar';
 import Header from '../components/dashboard/Header';
+import AdminAgentsView from '../components/dashboard/AdminAgentsView';
 import TracesView from '../components/dashboard/TracesView';
 import MetricsView from '../components/dashboard/MetricsView';
 import InteractionsView from '../components/dashboard/InteractionsView';
@@ -38,7 +39,9 @@ function DashboardContent({ user, initialAgents = [], meta = {}, account = null,
   // Parse URL to determine initial view
   useEffect(() => {
     const path = window.location.pathname;
-    if (path.includes('/traces')) {
+    if (path.includes('/admin-agents')) {
+      setCurrentView('admin-agents');
+    } else if (path.includes('/traces')) {
       setCurrentView('traces');
     } else if (path.includes('/metrics')) {
       setCurrentView('metrics');
@@ -232,6 +235,7 @@ function DashboardContent({ user, initialAgents = [], meta = {}, account = null,
     else if (view === 'runner' && agent) path = `/dashboard/agents/${agent.id}/run`;
     else if (view === 'agent-analytics' && agent) path = `/dashboard/agents/${agent.id}/analytics`;
     else if (view === 'history' && agent) path = `/dashboard/agents/${agent.id}/interactions`;
+    else if (view === 'admin-agents') path = '/dashboard/admin-agents';
     else if (view === 'analytics') path = '/dashboard/analytics';
     else if (view === 'traces') path = '/dashboard/traces';
     else if (view === 'metrics') path = '/dashboard/metrics';
@@ -298,6 +302,14 @@ function DashboardContent({ user, initialAgents = [], meta = {}, account = null,
             onSelectAgent={(agent) => {
               loadAgent(agent.id, 'agent-analytics');
             }}
+          />
+        );
+      case 'admin-agents':
+        return (
+          <AdminAgentsView
+            onSelectAgent={(agent) => loadAgent(agent.id, 'editor')}
+            onAgentsChanged={refreshAgents}
+            onNotify={showNotification}
           />
         );
       case 'traces':

@@ -57,6 +57,7 @@ export const ICONS = {
   nav: {
     agents: '@',
     newAgent: '+',
+    admin: '[=]',
     demo: '>',
     traces: '->',
     metrics: '#',
