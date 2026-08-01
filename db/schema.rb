@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.2].define(version: 2026_07_30_000001) do
+ActiveRecord::Schema[8.2].define(version: 2026_07_31_000001) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
 
@@ -42,6 +42,7 @@ ActiveRecord::Schema[8.2].define(version: 2026_07_30_000001) do
     t.bigint "account_id", null: false
     t.string "agent_action"
     t.string "agent_class"
+    t.bigint "agent_id"
     t.datetime "created_at", null: false
     t.string "environment"
     t.text "error_message"
@@ -61,6 +62,7 @@ ActiveRecord::Schema[8.2].define(version: 2026_07_30_000001) do
     t.index ["account_id", "trace_id"], name: "index_active_agent_telemetry_traces_on_account_id_and_trace_id", unique: true
     t.index ["account_id"], name: "index_active_agent_telemetry_traces_on_account_id"
     t.index ["agent_class"], name: "index_active_agent_telemetry_traces_on_agent_class"
+    t.index ["agent_id"], name: "index_active_agent_telemetry_traces_on_agent_id"
     t.index ["service_name"], name: "index_active_agent_telemetry_traces_on_service_name"
     t.index ["status"], name: "index_active_agent_telemetry_traces_on_status"
     t.index ["timestamp"], name: "index_active_agent_telemetry_traces_on_timestamp"
@@ -180,7 +182,6 @@ ActiveRecord::Schema[8.2].define(version: 2026_07_30_000001) do
   end
 
   create_table "agent_runs", force: :cascade do |t|
-    t.string "action_name"
     t.bigint "agent_id", null: false
     t.datetime "completed_at"
     t.datetime "created_at", null: false
@@ -246,13 +247,15 @@ ActiveRecord::Schema[8.2].define(version: 2026_07_30_000001) do
   end
 
   create_table "agents", force: :cascade do |t|
-    t.jsonb "action_prompts", default: [], null: false
+    t.string "action_name"
     t.string "agent_class_name"
     t.jsonb "appearance", default: {}
     t.datetime "created_at", null: false
     t.text "description"
+    t.datetime "first_observed_at"
     t.jsonb "instruction_sets", default: []
     t.text "instructions"
+    t.datetime "last_observed_at"
     t.jsonb "mcp_servers", default: []
     t.string "model", default: "gpt-4o-mini"
     t.jsonb "model_config", default: {}
@@ -260,7 +263,9 @@ ActiveRecord::Schema[8.2].define(version: 2026_07_30_000001) do
     t.string "preset_type"
     t.string "provider", default: "openai"
     t.jsonb "response_format", default: {}
+    t.string "service_name"
     t.string "slug", null: false
+    t.string "source"
     t.integer "status", default: 0, null: false
     t.jsonb "tools", default: []
     t.datetime "updated_at", null: false
@@ -268,6 +273,7 @@ ActiveRecord::Schema[8.2].define(version: 2026_07_30_000001) do
     t.index ["provider"], name: "index_agents_on_provider"
     t.index ["slug"], name: "index_agents_on_slug", unique: true
     t.index ["status"], name: "index_agents_on_status"
+    t.index ["user_id", "service_name", "agent_class_name", "action_name"], name: "index_agents_on_observed_identity", unique: true, where: "(service_name IS NOT NULL)"
     t.index ["user_id", "slug"], name: "index_agents_on_user_id_and_slug", unique: true
     t.index ["user_id"], name: "index_agents_on_user_id"
   end
@@ -354,7 +360,6 @@ ActiveRecord::Schema[8.2].define(version: 2026_07_30_000001) do
 
   create_table "evaluations", force: :cascade do |t|
     t.bigint "agent_id", null: false
-    t.jsonb "config", default: {}, null: false
     t.datetime "created_at", null: false
     t.jsonb "criteria", default: [], null: false
     t.string "judge_kind", default: "rules", null: false
@@ -735,6 +740,7 @@ ActiveRecord::Schema[8.2].define(version: 2026_07_30_000001) do
   add_foreign_key "account_memberships", "users"
   add_foreign_key "accounts", "users", column: "owner_id"
   add_foreign_key "active_agent_telemetry_traces", "accounts"
+  add_foreign_key "active_agent_telemetry_traces", "agents"
   add_foreign_key "active_storage_attachments", "active_storage_blobs", column: "blob_id"
   add_foreign_key "active_storage_variant_records", "active_storage_blobs", column: "blob_id"
   add_foreign_key "agent_generations", "agent_contexts"

@@ -1,9 +1,16 @@
 import React, { useState, useEffect, useRef } from 'react';
 import AgentAvatar from '../AgentAvatar';
+import { useTimeWindow } from '../../contexts/TimeWindowContext';
+import TimeWindowSelector from './TimeWindowSelector';
 import InteractionStream from './InteractionStream';
 import InteractionsView from './InteractionsView';
 
+<<<<<<< HEAD:app/javascript/components/dashboard/AgentInteractions.jsx
 export default function AgentInteractions({ agent, onBack }) {
+=======
+export default function ConversationHistory({ agent, onBack }) {
+  const { timeWindow } = useTimeWindow();
+>>>>>>> claude/rubyllm-telemetry-recording-rogzp9:app/javascript/components/dashboard/ConversationHistory.jsx
   const [runs, setRuns] = useState([]);
   const [sessions, setSessions] = useState([]);
   const [selectedRun, setSelectedRun] = useState(null);
@@ -22,7 +29,12 @@ export default function AgentInteractions({ agent, onBack }) {
 
   useEffect(() => {
     loadRuns();
-  }, [agent.id, page, filterStatus]);
+  }, [agent.id, page, filterStatus, timeWindow.minutes]);
+
+  // The shared window is a different result set, not more of the same one.
+  useEffect(() => {
+    setPage(1);
+  }, [timeWindow.minutes]);
 
   // Sessions are solid_agent conversation contexts — one persisted stream
   // per agent action (e.g. DocsNavigatorAgent#ask) that every run appends
@@ -74,7 +86,8 @@ export default function AgentInteractions({ agent, onBack }) {
     try {
       const params = new URLSearchParams({
         page: page.toString(),
-        per_page: '20'
+        per_page: '20',
+        minutes: String(timeWindow.minutes)
       });
       if (filterStatus) params.append('status', filterStatus);
 
@@ -248,6 +261,11 @@ export default function AgentInteractions({ agent, onBack }) {
               <h2 className="font-semibold text-gray-900">Agent Interactions</h2>
               <p className="text-sm text-gray-500">{agent.name}</p>
             </div>
+          </div>
+
+          {/* Shared dashboard time window */}
+          <div className="mb-2">
+            <TimeWindowSelector compact />
           </div>
 
           {/* Filter */}

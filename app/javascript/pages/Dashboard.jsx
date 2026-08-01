@@ -19,6 +19,7 @@ import SessionReplayView from '../components/dashboard/SessionReplayView';
 import OrganizationView from '../components/dashboard/OrganizationView';
 import SettingsView from '../components/dashboard/SettingsView';
 import { ThemeProvider, useTheme } from '../contexts/ThemeContext';
+import { TimeWindowProvider } from '../contexts/TimeWindowContext';
 
 /**
  * Dashboard - Main dashboard application
@@ -411,11 +412,14 @@ function DashboardContent({ user, initialAgents = [], meta = {}, account = null,
   );
 }
 
-// Wrap with ThemeProvider
+// Wrap with ThemeProvider and TimeWindowProvider. The time window is
+// app-level so it survives navigation between views.
 export default function Dashboard(props) {
   return (
     <ThemeProvider>
-      <DashboardContent {...props} />
+      <TimeWindowProvider>
+        <DashboardContent {...props} />
+      </TimeWindowProvider>
     </ThemeProvider>
   );
 }

@@ -16,8 +16,12 @@ module ActiveAgents
   #
   # Requires RubyLLM.config.instrumenter = ActiveSupport::Notifications.
   #
-  # One trace per conversation turn: a root span, an llm span covering the
-  # whole provider loop, and a tool span per tool_call.ruby_llm event.
+  # One trace per conversation turn: a single root span named for the agent
+  # action (Clara.respond) covering the whole provider loop, with a tool span
+  # per tool_call.ruby_llm event hanging off it. There is no separate llm
+  # span — it spanned the identical window as the root, so it only ever
+  # restated it under a less useful name; the llm.* attributes and the turn's
+  # token totals live on the root instead.
   #
   # RubyLLM emits a chat.ruby_llm event per provider round, and the two
   # generations of the gem arrange those rounds differently: through 1.x a
@@ -29,7 +33,9 @@ module ActiveAgents
   # Tokens are summed per round from the assistant messages that round added,
   # so a repeated event-level count is never double counted.
   #
-  # Tool arguments and results are never sent; error messages are truncated.
+  # Prompts, completions, and tool arguments/results are not sent unless
+  # capture_content is enabled (they may contain sensitive data); error
+  # messages are truncated.
   module RubyLLMTelemetry
     DEFAULT_ENDPOINT = 'https://api.activeagents.ai/v1/traces'.freeze
     AGENT_KEY = :active_agents_ruby_llm_agent
@@ -39,6 +45,7 @@ module ActiveAgents
     # A turn that never reaches a final round (a halted tool call, or an app
     # driving RubyLLM 2.x's `step` by hand) would otherwise accumulate forever.
     MAX_TURN_SECONDS = 600
+    CONTENT_LIMIT = 4_000
 
     State = Struct.new(:depth, :started_at, :tool_spans, :rounds, :tokens, :chat_key)
 
@@ -51,13 +58,19 @@ module ActiveAgents
       # carries no application identity on the payload — neither RubyLLM::Agent
       # nor an acts_as_chat record reaches the instrumenter — so unattributed
       # traffic reports as RubyLLM::Chat.
-      def subscribe!(api_key:, endpoint: DEFAULT_ENDPOINT, service_name: nil, environment: nil, agent_resolver: nil, async: true)
+      # capture_content: opt-in — record the truncated prompt, system
+      # instructions, assistant completion, and tool arguments/results as span
+      # attributes, so a trace shows the whole prompt → tool → result →
+      # response flow. Leave off when that traffic may carry sensitive data.
+      def subscribe!(api_key:, endpoint: DEFAULT_ENDPOINT, service_name: nil, environment: nil, agent_resolver: nil,
+                     async: true, capture_content: false)
         @api_key = api_key
         @endpoint = endpoint
         @service_name = service_name || default_service_name
         @environment = environment || default_environment
         @agent_resolver = agent_resolver
         @async = async
+        @capture_content = capture_content
 
         @subscriptions ||= [
           ActiveSupport::Notifications.subscribe('chat.ruby_llm', ChatSubscriber.new),
@@ -123,6 +136,10 @@ module ActiveAgents
       def build_tool_span(payload, started_at, finished_at)
         error = payload[:exception_object]
         attributes = { 'tool.name' => payload[:tool_name].to_s, 'tool.call_id' => payload[:tool_call_id].to_s }
+        if @capture_content
+          attributes['tool.arguments'] = tool_io_json(payload[:tool_arguments])
+          attributes['tool.result'] = tool_io_json(payload[:result_content]) unless error
+        end
         attributes.merge!(error_attributes(error)) if error
 
         {
@@ -145,7 +162,6 @@ module ActiveAgents
         agent = Thread.current[AGENT_KEY] || resolve_agent(payload) || { name: 'RubyLLM::Chat', action: 'chat' }
         trace_id = SecureRandom.hex(16)
         root_id = SecureRandom.hex(8)
-        llm_id = SecureRandom.hex(8)
         started_at = turn.started_at || Time.current
         finished_at = Time.current
         error = payload[:exception_object]
@@ -159,34 +175,31 @@ module ActiveAgents
           'events' => []
         }
 
+        # One span for the ask, not a root wrapping an llm span. The provider
+        # loop *is* the interaction: both spanned the identical window, so the
+        # second row only ever restated the first under a less useful name.
+        # Tools hang directly off it.
         root_attributes = {
           'agent.class' => agent[:name],
           'agent.action' => agent[:action],
           'agent.provider' => payload[:provider].to_s,
-          'agent.model' => payload[:model].to_s
+          'agent.model' => payload[:model].to_s,
+          'llm.provider' => payload[:provider].to_s,
+          'llm.model' => payload[:model].to_s,
+          'llm.rounds' => turn.rounds,
+          'llm.streaming' => payload[:streaming] || false
         }
+        root_attributes.merge!(conversation_attributes(payload)) if @capture_content
         root_attributes.merge!(error_attributes(error)) if error
 
         root_span = base.merge(
           'span_id' => root_id, 'parent_span_id' => nil,
           'name' => "#{agent[:name]}.#{agent[:action]}", 'type' => 'root',
           'attributes' => root_attributes,
-          'tokens' => zero_tokens
-        )
-
-        llm_span = base.merge(
-          'span_id' => llm_id, 'parent_span_id' => root_id,
-          'name' => 'llm.generate', 'type' => 'llm',
-          'attributes' => {
-            'llm.provider' => payload[:provider].to_s,
-            'llm.model' => payload[:model].to_s,
-            'llm.rounds' => turn.rounds,
-            'llm.streaming' => payload[:streaming] || false
-          },
           'tokens' => turn.tokens
         )
 
-        tool_spans = turn.tool_spans.map { |span| span.merge('trace_id' => trace_id, 'parent_span_id' => llm_id) }
+        tool_spans = turn.tool_spans.map { |span| span.merge('trace_id' => trace_id, 'parent_span_id' => root_id) }
 
         post_traces(
           'traces' => [ {
@@ -195,7 +208,7 @@ module ActiveAgents
             'environment' => environment,
             'timestamp' => finished_at.utc.iso8601(6),
             'resource_attributes' => {},
-            'spans' => [ root_span, llm_span ] + tool_spans
+            'spans' => [ root_span ] + tool_spans
           } ],
           'sdk' => { 'name' => 'active_agents-ruby_llm_telemetry', 'version' => VERSION, 'language' => 'ruby', 'runtime_version' => RUBY_VERSION }
         )
@@ -208,6 +221,60 @@ module ActiveAgents
       def accumulate_tokens(turn, payload)
         round_tokens = token_totals(payload)
         turn.tokens = turn.tokens.merge(round_tokens) { |_key, carried, added| carried + added }
+      end
+
+      # The prompt that opened the turn and the answer that closed it — the two
+      # ends a trace is otherwise missing. System instructions are included:
+      # they are the most common cause of a surprising answer.
+      def conversation_attributes(payload)
+        input = Array(payload[:input_messages])
+        initial_count = input.size
+        new_messages = Array(payload[:messages_after])[initial_count..] || []
+
+        attributes = {}
+        if (prompt = last_message_text(input, 'user'))
+          attributes['llm.prompt'] = truncate_captured(prompt)
+        end
+        if (instructions = system_instructions(input))
+          attributes['llm.instructions'] = truncate_captured(instructions)
+        end
+        if (completion = last_message_text(new_messages, 'assistant'))
+          attributes['llm.completion'] = truncate_captured(completion)
+        end
+        attributes
+      end
+
+      # RubyLLM's `with_instructions` appends by default (chat.rb
+      # #append_system_instruction), so a chat can carry several system
+      # messages and the model sees all of them. Join rather than taking the
+      # last, or an app that layers a base prompt with a per-request one would
+      # report only the fragment.
+      def system_instructions(messages)
+        texts = messages.select do |candidate|
+          candidate.respond_to?(:role) && candidate.role.to_s == 'system' &&
+            candidate.respond_to?(:content) && candidate.content.present?
+        end.map { |message| message.content.to_s }
+
+        texts.join("\n\n").presence
+      end
+
+      def last_message_text(messages, role)
+        message = messages.reverse.find do |candidate|
+          candidate.respond_to?(:role) && candidate.role.to_s == role &&
+            candidate.respond_to?(:content) && candidate.content.present?
+        end
+        message&.content.to_s.presence
+      end
+
+      def tool_io_json(value)
+        json = value.is_a?(String) ? value : JSON.generate(value)
+        truncate_captured(json)
+      rescue StandardError
+        value.inspect[0, CONTENT_LIMIT]
+      end
+
+      def truncate_captured(text)
+        text.to_s.truncate(CONTENT_LIMIT)
       end
 
       def resolve_agent(payload)

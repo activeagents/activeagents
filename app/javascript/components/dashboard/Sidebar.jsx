@@ -24,6 +24,9 @@ export default function Sidebar({ currentView, onNavigate, agentCount, account, 
 
   const agentItems = [
     { id: 'list', label: 'Agents', icon: ICONS.nav.agents, badge: agentCount },
+    // Interactions are an agent's conversation streams, so they belong to the
+    // agent rather than to the observability tooling around it.
+    { id: 'interactions', label: 'Interactions', icon: ICONS.nav.interactions, indent: true },
     { id: 'builder', label: 'New Agent', icon: ICONS.nav.newAgent },
     { id: 'sandbox', label: 'Run Agents', icon: ICONS.nav.demo, highlight: true },
   ];
@@ -31,7 +34,6 @@ export default function Sidebar({ currentView, onNavigate, agentCount, account, 
   const observabilityItems = [
     { id: 'traces', label: 'Traces', icon: ICONS.nav.traces },
     { id: 'metrics', label: 'Metrics', icon: ICONS.nav.metrics },
-    { id: 'interactions', label: 'Interactions', icon: ICONS.nav.interactions },
     { id: 'evaluations', label: 'Evaluations', icon: ICONS.nav.evaluations },
     { id: 'replay', label: 'Session Replay', icon: ICONS.nav.replay },
     { id: 'benchmarks', label: 'Benchmarks', icon: ICONS.nav.benchmarks },
@@ -45,7 +47,9 @@ export default function Sidebar({ currentView, onNavigate, agentCount, account, 
   const NavButton = ({ item }) => (
     <button
       onClick={() => onNavigate(item.id)}
-      className="w-full flex items-center justify-between px-4 py-3 rounded-lg text-left transition-colors"
+      className={`w-full flex items-center justify-between py-3 rounded-lg text-left transition-colors ${
+        item.indent ? 'pl-10 pr-4' : 'px-4'
+      }`}
       style={{
         backgroundColor: currentView === item.id
           ? (darkMode ? 'rgba(239, 68, 68, 0.15)' : '#fef2f2')

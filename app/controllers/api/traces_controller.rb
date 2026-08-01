@@ -10,7 +10,7 @@ module Api
     before_action :require_account!
 
     DEFAULT_WINDOW_MINUTES = 60
-    MAX_WINDOW_MINUTES = 60 * 24 * 31
+    MAX_WINDOW_MINUTES = 60 * 24 * 90
     DEFAULT_LIMIT = 500
 
     # GET /api/traces
