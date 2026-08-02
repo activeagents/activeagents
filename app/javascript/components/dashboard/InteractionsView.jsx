@@ -518,9 +518,15 @@ export default function InteractionsView({ agentId = null, embedded = false }) {
                                   {generation.finish_reason && <span>{generation.finish_reason}</span>}
                                   {generation.duration_seconds != null && <span>{(generation.duration_seconds * 1000).toFixed(0)}ms</span>}
                                   {generation.trace_id && (
-                                    <span title={generation.trace_id} style={{ color: colors.textMuted }}>
-                                      trace:{generation.trace_id.slice(0, 8)}
-                                    </span>
+                                    <a
+                                      href={`/dashboard/traces?trace=${generation.trace_id}`}
+                                      title={`${generation.trace_id} — open in Traces`}
+                                      style={{ color: '#3b82f6' }}
+                                      className="hover:underline"
+                                      onClick={(e) => e.stopPropagation()}
+                                    >
+                                      trace:{generation.trace_id.slice(0, 8)} →
+                                    </a>
                                   )}
                                 </div>
                               ))}

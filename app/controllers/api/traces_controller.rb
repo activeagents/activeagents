@@ -33,9 +33,12 @@ module Api
       }
     end
 
-    # GET /api/traces/:id
+    # GET /api/traces/:id — accepts the record id or the OTel trace_id
+    # (full or 8-char short form), so generation refs can deep-link.
     def show
-      trace = traces_scope.find(params[:id])
+      trace = traces_scope.find_by(trace_id: params[:id]) ||
+        traces_scope.where("trace_id LIKE ?", "#{TelemetryTrace.sanitize_sql_like(params[:id].to_s)}%").first ||
+        traces_scope.find(params[:id])
       render json: { trace: TelemetryTraceSerializer.detail(trace) }
     end
 

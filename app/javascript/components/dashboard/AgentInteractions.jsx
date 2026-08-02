@@ -502,9 +502,13 @@ export default function AgentInteractions({ agent, onBack }) {
                   <span>Input: {selectedRun.input_tokens} / Output: {selectedRun.output_tokens}</span>
                 )}
                 {selectedRun.trace_id && (
-                  <span className="font-mono text-xs text-gray-400" title={selectedRun.trace_id}>
-                    trace:{selectedRun.trace_id.slice(0, 8)}
-                  </span>
+                  <a
+                    href={`/dashboard/traces?trace=${selectedRun.trace_id}`}
+                    className="font-mono text-xs text-blue-500 hover:underline"
+                    title={`${selectedRun.trace_id} — open in Traces`}
+                  >
+                    trace:{selectedRun.trace_id.slice(0, 8)} →
+                  </a>
                 )}
               </div>
             </div>
