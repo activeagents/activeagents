@@ -6,7 +6,7 @@ import {
 import { ICONS, TYPOGRAPHY } from '../../utils/designTokens';
 import InteractionStream from './InteractionStream';
 import ToolRoster from './ToolRoster';
-import ContextMeter from './ContextMeter';
+import ContextMeter, { contextWindowFor, estimateTokens } from './ContextMeter';
 import { useTimeWindow } from '../../contexts/TimeWindowContext';
 import TimeWindowSelector from './TimeWindowSelector';
 
@@ -557,22 +557,6 @@ export default function TracesView({ agentClass = null, embedded = false }) {
   // Context pressure: what the biggest generation in this trace held against
   // the model's window. Segment sizes are estimated from recorded content
   // (~4 chars/token); the input/output totals are the provider's real counts.
-  const contextWindowFor = (model) => {
-    const name = (model || '').toLowerCase();
-    if (name.includes('claude')) return 200000;
-    if (name.includes('gemini')) return 1000000;
-    if (name.includes('llama')) return 131072;
-    if (name.includes('gpt-4o') || name.includes('gpt-4-turbo') || name.includes('gpt-4.1')) return 128000;
-    if (name.includes('gpt-5')) return 400000;
-    return 128000;
-  };
-
-  const estimateTokens = (value) => {
-    if (value == null) return 0;
-    const text = typeof value === 'string' ? value : JSON.stringify(value);
-    return Math.round(text.length / 4);
-  };
-
   const traceContext = (trace) => {
     const spans = trace.spans || [];
     let peak = null;
