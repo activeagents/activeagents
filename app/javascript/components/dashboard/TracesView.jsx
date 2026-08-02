@@ -414,6 +414,41 @@ export default function TracesView({ agentClass = null, embedded = false }) {
   };
 
   // Expanded detail panel for a single span (attributes, tokens, ids).
+  // At-a-glance contents for a trace row: the latest user input and the
+  // final output, pulled from span content attributes (either SDK's shape —
+  // RubyLLM's llm.prompt/llm.completion or ActiveAgent's
+  // prompt.input.messages/llm.output.message).
+  const traceContentPreview = (trace) => {
+    const spans = trace.spans || [];
+    const attr = (key) => {
+      for (const span of spans) {
+        const value = (span.attributes || {})[key];
+        if (value) return value;
+      }
+      return null;
+    };
+    let input = attr('llm.prompt');
+    if (!input) {
+      const raw = attr('prompt.input.messages');
+      if (raw) {
+        try {
+          const messages = JSON.parse(raw);
+          const lastUser = [...messages].reverse().find((m) => m && m.role === 'user' && m.content);
+          input = lastUser?.content;
+        } catch {
+          // not JSON — skip the preview rather than show markup soup
+        }
+      }
+    }
+    const output = attr('llm.completion') || attr('llm.output.message');
+    return { input, output };
+  };
+
+  const previewText = (text, max = 200) => {
+    const clean = String(text).replace(/\s+/g, ' ').trim();
+    return clean.length > max ? `${clean.slice(0, max)}…` : clean;
+  };
+
   // Display order for span attributes: system message first, then the tool
   // roster, then everything else, with the (long) message history last.
   // jsonb storage normalizes key order, so sorting has to happen here.
@@ -1083,6 +1118,28 @@ export default function TracesView({ agentClass = null, embedded = false }) {
                 </div>
               </div>
 
+              {(() => {
+                const preview = traceContentPreview(trace);
+                if (!preview.input && !preview.output) return null;
+                return (
+                  <div
+                    onClick={() => setSelectedTrace(selectedTrace === trace.id ? null : trace.id)}
+                    style={{ cursor: 'pointer', padding: '0 16px 10px', fontSize: '12px', fontFamily: TYPOGRAPHY.mono, color: 'rgba(255,255,255,0.6)', display: 'grid', gap: '2px' }}
+                  >
+                    {preview.input && (
+                      <div style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                        <span style={{ color: 'rgba(255,255,255,0.35)' }}>input:</span> {previewText(preview.input)}
+                      </div>
+                    )}
+                    {preview.output && (
+                      <div style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                        <span style={{ color: 'rgba(255,255,255,0.35)' }}>output:</span> {previewText(preview.output)}
+                      </div>
+                    )}
+                  </div>
+                );
+              })()}
+
               {selectedTrace === trace.id && (
                 <div className="trace-timeline">
                   <div className="timeline-scale">
@@ -1599,6 +1656,29 @@ export default function TracesView({ agentClass = null, embedded = false }) {
                 </span>
               </div>
             </div>
+
+            {(() => {
+              const preview = traceContentPreview(trace);
+              if (!preview.input && !preview.output) return null;
+              return (
+                <div
+                  className="px-4 pb-3 cursor-pointer"
+                  onClick={() => setSelectedTrace(selectedTrace === trace.id ? null : trace.id)}
+                  style={{ fontFamily: TYPOGRAPHY.mono, fontSize: '12px', display: 'grid', gap: '2px' }}
+                >
+                  {preview.input && (
+                    <div className="text-gray-500" style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                      <span className="text-gray-400">input:</span> {previewText(preview.input)}
+                    </div>
+                  )}
+                  {preview.output && (
+                    <div className="text-gray-500" style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                      <span className="text-gray-400">output:</span> {previewText(preview.output)}
+                    </div>
+                  )}
+                </div>
+              );
+            })()}
 
             {/* Expanded Timeline */}
             {selectedTrace === trace.id && (
