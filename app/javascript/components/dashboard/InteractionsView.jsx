@@ -595,13 +595,13 @@ export default function InteractionsView({ agentId = null, embedded = false }) {
                                 </div>
                                 {ms > 0 && (
                                   <div
-                                    className="h-1.5 rounded mt-1"
+                                    className="rounded mt-1"
                                     title={`${ms.toFixed(0)}ms`}
-                                    style={{ background: darkMode ? 'rgba(255,255,255,0.08)' : '#f3f4f6' }}
+                                    style={{ height: '6px', background: darkMode ? 'rgba(255,255,255,0.08)' : '#f3f4f6' }}
                                   >
                                     <div
-                                      className="h-1.5 rounded"
-                                      style={{ width: `${Math.max((ms / maxMs) * 100, 2)}%`, background: '#ef4444' }}
+                                      className="rounded"
+                                      style={{ height: '6px', width: `${Math.max((ms / maxMs) * 100, 2)}%`, background: '#ef4444' }}
                                     />
                                   </div>
                                 )}
