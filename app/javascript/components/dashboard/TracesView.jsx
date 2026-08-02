@@ -4,6 +4,7 @@ import {
   AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer
 } from 'recharts';
 import { ICONS, TYPOGRAPHY } from '../../utils/designTokens';
+import InteractionStream from './InteractionStream';
 import { useTimeWindow } from '../../contexts/TimeWindowContext';
 import TimeWindowSelector from './TimeWindowSelector';
 
@@ -158,6 +159,41 @@ export default function TracesView({ agentClass = null, embedded = false }) {
   // waterfall depends on; the others flatten it deliberately to answer
   // "what was slowest?" or "which tool ran most?".
   const [spanSort, setSpanSort] = useState('time');
+  // Per-trace expanded view: the 'spans' waterfall or the interaction-style
+  // 'conversation' stream (same renderer as the Interactions view; the
+  // interactions API serializes any trace as trace-<id>).
+  const [traceViews, setTraceViews] = useState({});
+  const [traceConversations, setTraceConversations] = useState({});
+
+  const showTraceConversation = (traceId) => {
+    setTraceViews((prev) => ({ ...prev, [traceId]: 'conversation' }));
+    if (traceConversations[traceId]) return;
+    setTraceConversations((prev) => ({ ...prev, [traceId]: 'loading' }));
+    fetch(`/api/interactions/trace-${traceId}`)
+      .then((response) => (response.ok ? response.json() : Promise.reject(new Error('request failed'))))
+      .then((data) => setTraceConversations((prev) => ({ ...prev, [traceId]: data.interaction })))
+      .catch(() => setTraceConversations((prev) => ({ ...prev, [traceId]: 'error' })));
+  };
+
+  const renderTraceConversation = (trace, dark) => {
+    const detail = traceConversations[trace.id];
+    if (!detail || detail === 'loading') {
+      return <div className="text-sm text-gray-400 py-4">Loading conversation…</div>;
+    }
+    if (detail === 'error') {
+      return <div className="text-sm text-red-500 py-4">Couldn't load the conversation for this trace.</div>;
+    }
+    const messages = detail.instructions
+      ? [
+          { id: `trace-${trace.id}-system`, role: 'system', content: detail.instructions, created_at: detail.created_at },
+          ...(detail.messages || []),
+        ]
+      : (detail.messages || []);
+    if (messages.length === 0) {
+      return <div className="text-sm text-gray-400 py-4">This trace predates content capture — no conversation to show.</div>;
+    }
+    return <InteractionStream messages={messages} darkMode={dark} />;
+  };
 
   const sortSpans = useCallback((spans) => {
     const list = [...(spans || [])];
@@ -1712,29 +1748,59 @@ export default function TracesView({ agentClass = null, embedded = false }) {
             {selectedTrace === trace.id && (
               <div className="border-t border-gray-100 p-4 bg-gray-50">
                 <div className="flex items-center justify-between mb-2">
-                  <span className="text-xs text-gray-500">
-                    {(trace.spans || []).length} spans
-                  </span>
                   <div className="flex items-center gap-1">
-                    <span className="text-xs text-gray-400 mr-1">Sort</span>
                     {[
-                      { id: 'time', label: 'Time', hint: 'Chronological — reads as a waterfall' },
-                      { id: 'duration', label: 'Slowest', hint: 'Longest-running first' },
-                      { id: 'name', label: 'Name', hint: 'Group repeated tool calls together' },
+                      { id: 'spans', label: 'Spans', hint: 'Timing waterfall with span details' },
+                      { id: 'conversation', label: 'Conversation', hint: 'The run as a message stream — prompt, tool calls, response' },
                     ].map((option) => (
                       <button
                         key={option.id}
-                        onClick={(e) => { e.stopPropagation(); setSpanSort(option.id); }}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          if (option.id === 'conversation') showTraceConversation(trace.id);
+                          else setTraceViews((prev) => ({ ...prev, [trace.id]: 'spans' }));
+                        }}
                         title={option.hint}
                         className={`px-2 py-0.5 text-xs rounded transition-colors ${
-                          spanSort === option.id ? 'bg-white shadow text-gray-900' : 'text-gray-500 hover:bg-white'
+                          (traceViews[trace.id] || 'spans') === option.id ? 'bg-white shadow text-gray-900' : 'text-gray-500 hover:bg-white'
                         }`}
                       >
                         {option.label}
                       </button>
                     ))}
+                    <span className="text-xs text-gray-500 ml-2">
+                      {(trace.spans || []).length} spans
+                    </span>
                   </div>
+                  {(traceViews[trace.id] || 'spans') === 'spans' && (
+                    <div className="flex items-center gap-1">
+                      <span className="text-xs text-gray-400 mr-1">Sort</span>
+                      {[
+                        { id: 'time', label: 'Time', hint: 'Chronological — reads as a waterfall' },
+                        { id: 'duration', label: 'Slowest', hint: 'Longest-running first' },
+                        { id: 'name', label: 'Name', hint: 'Group repeated tool calls together' },
+                      ].map((option) => (
+                        <button
+                          key={option.id}
+                          onClick={(e) => { e.stopPropagation(); setSpanSort(option.id); }}
+                          title={option.hint}
+                          className={`px-2 py-0.5 text-xs rounded transition-colors ${
+                            spanSort === option.id ? 'bg-white shadow text-gray-900' : 'text-gray-500 hover:bg-white'
+                          }`}
+                        >
+                          {option.label}
+                        </button>
+                      ))}
+                    </div>
+                  )}
                 </div>
+                {(traceViews[trace.id] || 'spans') === 'conversation' && (
+                  <div className="bg-white rounded-lg border border-gray-200 p-4">
+                    {renderTraceConversation(trace, false)}
+                  </div>
+                )}
+
+                {(traceViews[trace.id] || 'spans') === 'spans' && (<>
                 {/* The axis describes a timeline, which only holds while the
                     spans are in chronological order. */}
                 {spanSort === 'time' ? (
@@ -1826,6 +1892,7 @@ export default function TracesView({ agentClass = null, embedded = false }) {
                     );
                   })}
                 </div>
+                </>)}
 
                 {renderTraceBreakdown(trace, false)}
 
