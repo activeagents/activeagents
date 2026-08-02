@@ -219,6 +219,12 @@ export default function InteractionStream({ messages, darkMode, tools }) {
           ? (tools || []).find((tool) => tool && tool.name === message.tool_name)
           : null;
         const argsCompact = message.role === 'tool' ? compactJson(message.tool_arguments) : null;
+        // A consolidated call row: agent (assistant, red) supplied the
+        // input, the tool (amber) answered with the output — both roles
+        // stay visible on their own line.
+        const mergedCall = message.role === 'tool' && Boolean(argsCompact);
+        const assistantTone = roleBubble('assistant', darkMode);
+        const toolTone = roleBubble('tool', darkMode);
         // When the preceding assistant row carries this call's input, the
         // tool row only needs the output side.
         const inputCarriedByAssistant =
@@ -241,12 +247,26 @@ export default function InteractionStream({ messages, darkMode, tools }) {
               onClick={expandable ? () => toggleMessage(message.id) : undefined}
               style={isExpanded ? { background: darkMode ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.03)' } : {}}
             >
-              <span
-                className="px-2 py-0.5 rounded text-xs font-medium flex-shrink-0 mt-0.5"
-                style={{ background: bubble.background, color: bubble.color, minWidth: '72px', textAlign: 'center' }}
-              >
-                {bubble.label}
-              </span>
+              {mergedCall ? (
+                <span className="flex flex-col gap-1 flex-shrink-0 mt-0.5" style={{ minWidth: '72px' }}>
+                  {[assistantTone, toolTone].map((tone) => (
+                    <span
+                      key={tone.label}
+                      className="px-2 py-0.5 rounded text-xs font-medium"
+                      style={{ background: tone.background, color: tone.color, textAlign: 'center' }}
+                    >
+                      {tone.label}
+                    </span>
+                  ))}
+                </span>
+              ) : (
+                <span
+                  className="px-2 py-0.5 rounded text-xs font-medium flex-shrink-0 mt-0.5"
+                  style={{ background: bubble.background, color: bubble.color, minWidth: '72px', textAlign: 'center' }}
+                >
+                  {bubble.label}
+                </span>
+              )}
               <div className="min-w-0 flex-1">
                 <div className="text-sm break-words" style={{ color: colors.textPrimary }}>
                   {message.role === 'tool' ? (
@@ -256,7 +276,7 @@ export default function InteractionStream({ messages, darkMode, tools }) {
                     <span style={{ display: 'grid', gap: '2px' }}>
                       {argsCompact && !inputCarriedByAssistant && (
                         <span className="font-mono text-xs break-words">
-                          <span style={{ color: colors.textMuted }}>in:</span>{' '}
+                          <span style={{ color: mergedCall ? assistantTone.color : colors.textMuted }}>in:</span>{' '}
                           {previewText(argsCompact, 180)}
                           {argsCompact.length > 180 ? '…' : ''}
                         </span>
@@ -264,7 +284,7 @@ export default function InteractionStream({ messages, darkMode, tools }) {
                       {resultPreview ? (
                         <span>
                           {(argsCompact || inputCarriedByAssistant) && (
-                            <span className="font-mono text-xs mr-1" style={{ color: colors.textMuted }}>out:</span>
+                            <span className="font-mono text-xs mr-1" style={{ color: mergedCall ? toolTone.color : colors.textMuted }}>out:</span>
                           )}
                           {resultPreview.meta && (
                             <span className="font-mono text-xs mr-2" style={{ color: colors.textMuted }}>
@@ -277,7 +297,7 @@ export default function InteractionStream({ messages, darkMode, tools }) {
                       ) : message.content ? (
                         <span>
                           {(argsCompact || inputCarriedByAssistant) && (
-                            <span className="font-mono text-xs mr-1" style={{ color: colors.textMuted }}>out:</span>
+                            <span className="font-mono text-xs mr-1" style={{ color: mergedCall ? toolTone.color : colors.textMuted }}>out:</span>
                           )}
                           “{previewText(message.content, 180)}
                           {message.content.replace(/\s+/g, ' ').trim().length > 180 ? '…' : ''}”
@@ -356,13 +376,17 @@ export default function InteractionStream({ messages, darkMode, tools }) {
                 </div>
                 {argsJson && (
                   <div>
-                    <div className="text-xs uppercase tracking-wide mb-1" style={{ color: colors.textMuted }}>Arguments</div>
+                    <div className="text-xs uppercase tracking-wide mb-1" style={{ color: mergedCall ? assistantTone.color : colors.textMuted }}>
+                      Arguments{mergedCall ? ' · from the agent' : ''}
+                    </div>
                     <pre style={preStyle}>{argsJson}</pre>
                   </div>
                 )}
                 {resultPreview ? (
                   <div>
-                    <div className="text-xs uppercase tracking-wide mb-1" style={{ color: colors.textMuted }}>Result</div>
+                    <div className="text-xs uppercase tracking-wide mb-1" style={{ color: mergedCall ? toolTone.color : colors.textMuted }}>
+                      Result{mergedCall ? ' · from the tool' : ''}
+                    </div>
                     {Object.keys(resultPreview.rest).length > 0 && (
                       <pre style={preStyle}>{JSON.stringify(resultPreview.rest, null, 2)}</pre>
                     )}
@@ -383,8 +407,8 @@ export default function InteractionStream({ messages, darkMode, tools }) {
                   </div>
                 ) : message.role === 'tool' && message.content ? (
                   <div>
-                    <div className="text-xs uppercase tracking-wide mb-1" style={{ color: colors.textMuted }}>
-                      Result · {message.content.length.toLocaleString()} chars
+                    <div className="text-xs uppercase tracking-wide mb-1" style={{ color: mergedCall ? toolTone.color : colors.textMuted }}>
+                      Result{mergedCall ? ' · from the tool' : ''} · {message.content.length.toLocaleString()} chars
                     </div>
                     <pre style={{ ...preStyle, whiteSpace: 'pre-wrap', maxHeight: '320px', overflowY: 'auto' }}>
                       {message.content.slice(0, 8000)}
