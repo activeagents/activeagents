@@ -98,6 +98,47 @@ const callInputs = (message) => {
 
 const hasText = (content) => Boolean(content && String(content).trim() && String(content).trim() !== '—');
 
+// One tool call = one row. An assistant message that only carries tool
+// calls merges into its result row(s): the args attach to the matching
+// tool message (by call id, else adjacency) and the empty assistant row
+// drops. Assistants with prose keep their row; calls with no result yet
+// (streaming, errors) stay visible as the assistant row.
+const mergeToolTurns = (list) => {
+  const messages = (list || []).filter(Boolean);
+  const overrides = new Map();
+  const dropped = new Set();
+  messages.forEach((message, index) => {
+    if (message.role !== 'assistant' || hasText(message.content)) return;
+    const calls = callInputs(message);
+    if (calls.length === 0) return;
+    const callIds = new Set();
+    if (Array.isArray(message.tool_calls)) {
+      message.tool_calls.forEach((call) => call.id && callIds.add(call.id));
+    } else if (message.tool_call_id) {
+      callIds.add(message.tool_call_id);
+    }
+    const matched = [];
+    for (let j = index + 1; j < messages.length && matched.length < calls.length; j++) {
+      const candidate = messages[j];
+      if (candidate.role !== 'tool' || dropped.has(j) || overrides.has(j)) break;
+      if (callIds.size > 0 && candidate.tool_call_id && !callIds.has(candidate.tool_call_id)) break;
+      matched.push(j);
+    }
+    if (matched.length === 0) return;
+    matched.forEach((j, k) => {
+      const tool = messages[j];
+      const call = calls.find((c) => c.name && c.name === tool.tool_name) || calls[Math.min(k, calls.length - 1)];
+      if (call && call.args && !tool.tool_arguments) {
+        overrides.set(j, { tool_arguments: call.args, created_at: message.created_at || tool.created_at });
+      }
+    });
+    dropped.add(index);
+  });
+  return messages
+    .map((message, index) => (overrides.has(index) ? { ...message, ...overrides.get(index) } : message))
+    .filter((_, index) => !dropped.has(index));
+};
+
 const collapsesWhenLong = (message) =>
   COLLAPSED_ROLES.includes(message.role) &&
   typeof message.content === 'string' &&
@@ -158,9 +199,11 @@ export default function InteractionStream({ messages, darkMode, tools }) {
     textMuted: darkMode ? 'rgba(255,255,255,0.4)' : '#9ca3af',
   };
 
+  const stream = mergeToolTurns(messages);
+
   return (
     <div className="space-y-3">
-      {(messages || []).map((message) => {
+      {stream.map((message) => {
         const bubble = roleBubble(message.role, darkMode);
         const isExpanded = !!expandedMessages[message.id];
         const collapsed = collapsesWhenLong(message) && !isExpanded;
@@ -180,7 +223,8 @@ export default function InteractionStream({ messages, darkMode, tools }) {
         // tool row only needs the output side.
         const inputCarriedByAssistant =
           message.role === 'tool' &&
-          (messages || []).some(
+          !message.tool_arguments &&
+          stream.some(
             (m) =>
               m &&
               m.role === 'assistant' &&
