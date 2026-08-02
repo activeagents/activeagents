@@ -105,6 +105,9 @@ export default function TracesView({ agentClass = null, embedded = false }) {
   const [loadError, setLoadError] = useState(null);
   const [selectedTrace, setSelectedTrace] = useState(null);
   const [expandedSpan, setExpandedSpan] = useState(null); // `${trace.id}:${span_id || idx}`
+  // Content attributes (inputs/outputs) render minimized; each expands
+  // independently. Keyed `${span_id}:${attribute}`.
+  const [expandedAttributes, setExpandedAttributes] = useState({});
   const [filter, setFilter] = useState({ status: 'all', agent: 'all', action: 'all' });
   const [sortBy, setSortBy] = useState('time'); // 'time' (chronological) | 'latency' (slowest first)
   const [selectedTimeBucket, setSelectedTimeBucket] = useState(null);
@@ -476,7 +479,7 @@ export default function TracesView({ agentClass = null, embedded = false }) {
     return (
       <div
         style={{
-          margin: '4px 0 8px 176px',
+          margin: '4px 0 8px 0',
           padding: '10px 12px',
           borderRadius: '8px',
           background: dark ? 'rgba(0,0,0,0.35)' : '#f9fafb',
@@ -503,14 +506,39 @@ export default function TracesView({ agentClass = null, embedded = false }) {
               const pretty = key.match(/args|result|input|output/) ? prettyAttribute(value) : null;
               // Plain-text prose (rendered instructions) gets a wrapped block
               // rather than one inline run-on line.
-              const prose = !pretty && key.endsWith('.instructions') && typeof value === 'string' ? value : null;
+              const prose = !pretty && (key.endsWith('.instructions') || key.match(/input|output|result/)) && typeof value === 'string' ? value : null;
               const block = pretty || prose;
+              if (!block) {
+                return (
+                  <div key={key} style={{ wordBreak: 'break-all' }}>
+                    <span style={{ color: mutedColor }}>{key}:</span>{' '}
+                    {typeof value === 'string' ? value : JSON.stringify(value)}
+                  </div>
+                );
+              }
+              // Content blocks start minimized to one preview line; each
+              // toggles independently of the span and its sibling attributes.
+              const attributeKey = `${span.span_id}:${key}`;
+              const isOpen = !!expandedAttributes[attributeKey];
               return (
-                <div key={key} style={{ wordBreak: 'break-all' }}>
-                  <span style={{ color: mutedColor }}>{key}:</span>{' '}
-                  {block
-                    ? <pre style={prose ? { ...preStyle, whiteSpace: 'pre-wrap' } : preStyle}>{block}</pre>
-                    : (typeof value === 'string' ? value : JSON.stringify(value))}
+                <div key={key}>
+                  <div
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setExpandedAttributes((prev) => ({ ...prev, [attributeKey]: !prev[attributeKey] }));
+                    }}
+                    title={isOpen ? 'Collapse' : 'Expand'}
+                    style={{ cursor: 'pointer', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}
+                  >
+                    <span style={{ color: mutedColor }}>{isOpen ? '▾' : '▸'} {key}:</span>{' '}
+                    {!isOpen && <span style={{ color: mutedColor }}>{previewText(block, 140)}</span>}
+                  </div>
+                  {isOpen && (
+                    <pre
+                      onClick={(e) => e.stopPropagation()}
+                      style={prose ? { ...preStyle, whiteSpace: 'pre-wrap' } : preStyle}
+                    >{block}</pre>
+                  )}
                 </div>
               );
             })}
