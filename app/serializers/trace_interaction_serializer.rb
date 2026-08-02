@@ -37,6 +37,7 @@ class TraceInteractionSerializer
       agent: nil,
       service_name: @trace.service_name,
       environment: @trace.environment,
+      model: @trace.model,
       tokens: {
         input: @trace.total_input_tokens,
         output: @trace.total_output_tokens,

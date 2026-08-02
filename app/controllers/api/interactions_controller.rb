@@ -25,10 +25,18 @@ module Api
 
       message_counts = AgentMessage.where(agent_context_id: contexts.map(&:id)).group(:agent_context_id).count
       generation_counts = AgentGeneration.where(agent_context_id: contexts.map(&:id)).group(:agent_context_id).count
+      # Latest model per context, so list rows can gauge context-window
+      # pressure without loading generations.
+      latest_models = AgentGeneration
+        .where(agent_context_id: contexts.map(&:id))
+        .select("DISTINCT ON (agent_context_id) agent_context_id, model")
+        .order("agent_context_id, created_at DESC")
+        .to_h { |generation| [ generation.agent_context_id, generation.model ] }
 
       persisted = contexts.map do |context|
         serialize_context(context).merge(
           source: "platform",
+          model: latest_models[context.id],
           message_count: message_counts[context.id] || 0,
           generation_count: generation_counts[context.id] || 0
         )

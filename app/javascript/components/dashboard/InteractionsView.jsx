@@ -6,6 +6,51 @@ import { useTheme } from '../../contexts/ThemeContext';
 import { useTimeWindow } from '../../contexts/TimeWindowContext';
 import TimeWindowSelector from './TimeWindowSelector';
 import InteractionStream from './InteractionStream';
+import ContextMeter, { contextWindowFor, estimateTokens } from './ContextMeter';
+
+// Context pressure for one interaction: the biggest generation's real token
+// counts against its model's window, with segment sizes estimated from the
+// recorded conversation (~4 chars/token).
+const interactionContext = (detail) => {
+  let peak = null;
+  (detail?.generations || []).forEach((generation) => {
+    const tokens = generation.tokens || {};
+    const total = (tokens.input || 0) + (tokens.output || 0);
+    if (total > 0 && (!peak || total > peak.total)) {
+      peak = {
+        input: tokens.input || 0,
+        output: tokens.output || 0,
+        cached: tokens.cached || 0,
+        thinking: tokens.thinking || 0,
+        model: generation.model,
+        total,
+      };
+    }
+  });
+  if (!peak) return null;
+
+  const instructions = estimateTokens(detail?.instructions);
+  let toolResults = 0;
+  (detail?.messages || []).forEach((message) => {
+    if (message.role !== 'tool') return;
+    toolResults += estimateTokens(message.content) + estimateTokens(message.tool_arguments);
+  });
+  toolResults = Math.min(toolResults, peak.input);
+  const conversation = Math.max(peak.input - instructions - toolResults, 0);
+
+  return {
+    used: peak.total,
+    limit: contextWindowFor(peak.model),
+    cached: peak.cached,
+    thinking: peak.thinking,
+    segments: [
+      { key: 'messages', label: 'Messages', tokens: conversation },
+      { key: 'tool_results', label: 'Tool results', tokens: toolResults },
+      { key: 'instructions', label: 'Instructions', tokens: instructions },
+      { key: 'output', label: 'Generated output', tokens: peak.output },
+    ],
+  };
+};
 
 // Same categorical order as Traces, so an agent keeps its colour across views.
 // Validated (light surface): worst adjacent pair ΔE 27.1 deutan / 31.8 normal.
@@ -448,6 +493,16 @@ export default function InteractionsView({ agentId = null, embedded = false }) {
                         : `${session.tool_count || 0} tool ${session.tool_count === 1 ? 'call' : 'calls'}`}
                     </span>
                     <span>{formatNumber(session.tokens?.total)} tokens</span>
+                    {(session.tokens?.total || 0) > 0 && (
+                      <ContextMeter
+                        compact
+                        darkMode={darkMode}
+                        label="Context"
+                        used={(session.tokens?.input || 0) + (session.tokens?.output || 0) || session.tokens?.total}
+                        limit={contextWindowFor(session.model)}
+                        segments={[{ key: 'messages', label: 'Context', tokens: (session.tokens?.input || 0) + (session.tokens?.output || 0) || session.tokens?.total }]}
+                      />
+                    )}
                     <span style={{ color: colors.textMuted }}>{timeAgo(session.last_activity_at)}</span>
                     <svg
                       className={`w-4 h-4 transition-transform ${isExpanded ? 'rotate-180' : ''}`}
@@ -496,9 +551,18 @@ export default function InteractionsView({ agentId = null, embedded = false }) {
                             <div className="text-xs uppercase tracking-wide mb-2" style={{ color: colors.textMuted }}>
                               Generations
                             </div>
-                            <div className="space-y-1">
-                              {detail.generations.map((generation) => (
-                                <div key={generation.id} className="flex flex-wrap items-center gap-3 text-xs font-mono" style={{ color: colors.textSecondary }}>
+                            <div className="space-y-2">
+                              {detail.generations.map((generation) => {
+                                // Bars compare runtimes across the interaction's
+                                // generations, trace-span style.
+                                const maxMs = Math.max(
+                                  ...detail.generations.map((g) => (g.duration_seconds || 0) * 1000),
+                                  1
+                                );
+                                const ms = (generation.duration_seconds || 0) * 1000;
+                                return (
+                              <div key={generation.id}>
+                                <div className="flex flex-wrap items-center gap-3 text-xs font-mono" style={{ color: colors.textSecondary }}>
                                   <span
                                     title={generation.cache_hit ? `${formatNumber(generation.tokens.cached)} cached prompt tokens` : 'No prompt cache hit'}
                                     className={generation.cache_hit ? 'text-green-600' : ''}
@@ -529,10 +593,33 @@ export default function InteractionsView({ agentId = null, embedded = false }) {
                                     </a>
                                   )}
                                 </div>
-                              ))}
+                                {ms > 0 && (
+                                  <div
+                                    className="h-1.5 rounded mt-1"
+                                    title={`${ms.toFixed(0)}ms`}
+                                    style={{ background: darkMode ? 'rgba(255,255,255,0.08)' : '#f3f4f6' }}
+                                  >
+                                    <div
+                                      className="h-1.5 rounded"
+                                      style={{ width: `${Math.max((ms / maxMs) * 100, 2)}%`, background: '#ef4444' }}
+                                    />
+                                  </div>
+                                )}
+                              </div>
+                                );
+                              })}
                             </div>
                           </div>
                         )}
+
+                        {(() => {
+                          const ctx = interactionContext(detail);
+                          return ctx ? (
+                            <div className="pt-3 mt-2 border-t" style={{ borderColor: colors.cardBorder }}>
+                              <ContextMeter {...ctx} label="Context pressure" estimated darkMode={darkMode} />
+                            </div>
+                          ) : null;
+                        })()}
                       </>
                     )}
                   </div>
