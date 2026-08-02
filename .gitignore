@@ -61,3 +61,14 @@ terraform/**/.terraform.lock.hcl
 # Playwright MCP screenshots and data (per CLAUDE.md)
 tmp/
 .playwright-mcp/
+
+# Claude skill packages: track the markdown instructions, ignore the web
+# asset payloads (prototype HTML/JS/CSS, typings, fonts)
+.claude/skills/**/*.html
+.claude/skills/**/*.css
+.claude/skills/**/*.js
+.claude/skills/**/*.jsx
+.claude/skills/**/*.d.ts
+.claude/skills/**/fonts/
+.claude/settings.local.json
+.claude/skills/**/repo_commit/

@@ -1,10 +1,12 @@
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { useTheme } from '../../contexts/ThemeContext';
 import {
   AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer
 } from 'recharts';
 import { ICONS, TYPOGRAPHY } from '../../utils/designTokens';
 import InteractionStream from './InteractionStream';
+import ToolRoster from './ToolRoster';
+import ContextMeter from './ContextMeter';
 import { useTimeWindow } from '../../contexts/TimeWindowContext';
 import TimeWindowSelector from './TimeWindowSelector';
 
@@ -105,6 +107,11 @@ export default function TracesView({ agentClass = null, embedded = false }) {
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState(null);
   const [selectedTrace, setSelectedTrace] = useState(null);
+  // Deep link: /dashboard/traces?trace=<id> (record id, trace_id, or its
+  // 8-char short form) selects and scrolls to that trace, fetching it
+  // directly when it falls outside the loaded window.
+  const focusTraceRef = useRef(new URLSearchParams(window.location.search).get('trace'));
+  const [pinnedTrace, setPinnedTrace] = useState(null);
   const [expandedSpan, setExpandedSpan] = useState(null); // `${trace.id}:${span_id || idx}`
   // Content attributes (inputs/outputs) render minimized; each expands
   // independently. Keyed `${span_id}:${attribute}`.
@@ -192,7 +199,7 @@ export default function TracesView({ agentClass = null, embedded = false }) {
     if (messages.length === 0) {
       return <div className="text-sm text-gray-400 py-4">This trace predates content capture — no conversation to show.</div>;
     }
-    return <InteractionStream messages={messages} darkMode={dark} />;
+    return <InteractionStream messages={messages} darkMode={dark} tools={traceTools(trace)} />;
   };
 
   const sortSpans = useCallback((spans) => {
@@ -241,8 +248,43 @@ export default function TracesView({ agentClass = null, embedded = false }) {
       result = [...result].sort((a, b) => (b.duration_ms || 0) - (a.duration_ms || 0));
     }
 
+    // A deep-linked trace outside the loaded window pins to the top so the
+    // link always lands somewhere.
+    if (pinnedTrace && !result.some((t) => t.id === pinnedTrace.id)) {
+      result = [pinnedTrace, ...result];
+    }
+
     return result;
-  }, [traces, selectedTimeBucket, throughputData, filter, sortBy]);
+  }, [traces, selectedTimeBucket, throughputData, filter, sortBy, pinnedTrace]);
+
+  useEffect(() => {
+    const target = focusTraceRef.current;
+    if (!target) return;
+    const select = (trace) => {
+      focusTraceRef.current = null;
+      setSelectedTrace(trace.id);
+      setTimeout(() => {
+        document.getElementById(`trace-row-${trace.id}`)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }, 150);
+    };
+    const match = traces.find(
+      (t) => t.id === target || t.trace_id === target || (t.short_id && String(target).startsWith(t.short_id))
+    );
+    if (match) {
+      select(match);
+      return;
+    }
+    if (traces.length === 0) return; // wait for the first window load before falling back
+    fetch(`/api/traces/${encodeURIComponent(target)}`)
+      .then((response) => (response.ok ? response.json() : Promise.reject(new Error('not found'))))
+      .then(({ trace }) => {
+        setPinnedTrace(trace);
+        select(trace);
+      })
+      .catch(() => {
+        focusTraceRef.current = null;
+      });
+  }, [traces]);
 
   // Aggregate agent stats for selected time range
   const agentStats = useMemo(() => {
@@ -488,6 +530,102 @@ export default function TracesView({ agentClass = null, embedded = false }) {
     return clean.length > max ? `${clean.slice(0, max)}…` : clean;
   };
 
+  // Per-span input/output previews so prompt and generate rows read the
+  // same way tool rows do — what went in, what came out, at a glance.
+  const spanContentPreview = (span) => {
+    const attrs = span.attributes || {};
+    let input = null;
+    if (attrs['prompt.input.messages']) {
+      try {
+        const parsed = JSON.parse(attrs['prompt.input.messages']);
+        const lastUser = [...parsed].reverse().find((m) => m && m.role === 'user' && m.content);
+        if (typeof lastUser?.content === 'string') input = lastUser.content;
+      } catch {
+        // not JSON — no preview
+      }
+    }
+    if (!input && attrs['llm.prompt']) input = String(attrs['llm.prompt']);
+    if (!input && attrs['tool.input.args']) {
+      const args = attrs['tool.input.args'];
+      input = typeof args === 'string' ? args : JSON.stringify(args);
+    }
+    let output = attrs['llm.output.message'] || attrs['llm.completion'] || attrs['tool.output.result'] || null;
+    if (output != null && typeof output !== 'string') output = JSON.stringify(output);
+    return { input, output };
+  };
+
+  // Context pressure: what the biggest generation in this trace held against
+  // the model's window. Segment sizes are estimated from recorded content
+  // (~4 chars/token); the input/output totals are the provider's real counts.
+  const contextWindowFor = (model) => {
+    const name = (model || '').toLowerCase();
+    if (name.includes('claude')) return 200000;
+    if (name.includes('gemini')) return 1000000;
+    if (name.includes('llama')) return 131072;
+    if (name.includes('gpt-4o') || name.includes('gpt-4-turbo') || name.includes('gpt-4.1')) return 128000;
+    if (name.includes('gpt-5')) return 400000;
+    return 128000;
+  };
+
+  const estimateTokens = (value) => {
+    if (value == null) return 0;
+    const text = typeof value === 'string' ? value : JSON.stringify(value);
+    return Math.round(text.length / 4);
+  };
+
+  const traceContext = (trace) => {
+    const spans = trace.spans || [];
+    let peak = null;
+    for (const span of spans) {
+      const tokens = span.tokens || {};
+      const total = (tokens.input || 0) + (tokens.output || 0);
+      if (total > 0 && (!peak || total > peak.total)) {
+        peak = {
+          input: tokens.input || 0,
+          output: tokens.output || 0,
+          thinking: tokens.thinking || 0,
+          cached: tokens.cached || 0,
+          total,
+        };
+      }
+    }
+    if (!peak) return null;
+
+    const attr = (key) => {
+      for (const span of spans) {
+        const value = (span.attributes || {})[key];
+        if (value) return value;
+      }
+      return null;
+    };
+    const instructions = estimateTokens(attr('prompt.input.instructions'));
+    const toolSchemas = estimateTokens(attr('prompt.input.tools'));
+    const mcpSchemas = estimateTokens(attr('prompt.input.mcp_tools'));
+    let toolResults = 0;
+    for (const span of spans) {
+      const attrs = span.attributes || {};
+      if (attrs['tool.output.result']) toolResults += estimateTokens(attrs['tool.output.result']);
+      if (attrs['tool.input.args']) toolResults += estimateTokens(attrs['tool.input.args']);
+    }
+    toolResults = Math.min(toolResults, peak.input);
+    const messages = Math.max(peak.input - instructions - toolSchemas - mcpSchemas - toolResults, 0);
+
+    return {
+      used: peak.total,
+      limit: contextWindowFor(trace.model),
+      cached: peak.cached,
+      thinking: peak.thinking,
+      segments: [
+        { key: 'messages', label: 'Messages', tokens: messages },
+        { key: 'tool_results', label: 'Tool results', tokens: toolResults },
+        { key: 'instructions', label: 'Instructions', tokens: instructions },
+        { key: 'tool_schemas', label: 'Tool schemas', tokens: toolSchemas },
+        { key: 'mcp_schemas', label: 'MCP tool schemas', tokens: mcpSchemas },
+        { key: 'output', label: 'Generated output', tokens: peak.output },
+      ],
+    };
+  };
+
   // Display order for span attributes: system message first, then the tool
   // roster, then everything else, with the (long) message history last.
   // jsonb storage normalizes key order, so sorting has to happen here.
@@ -498,8 +636,94 @@ export default function TracesView({ agentClass = null, embedded = false }) {
     return 2;
   };
 
-  const renderSpanDetails = (span, dark) => {
-    const attributes = Object.entries(span.attributes || {}).sort(
+  // Lift a span's content attributes (instructions, prompt messages, tool
+  // args/results, completions — either SDK shape) into InteractionStream
+  // messages so span contents read like the Interactions view. Everything
+  // else stays a raw attribute row.
+  const spanMessages = (span) => {
+    const rest = { ...(span.attributes || {}) };
+    const take = (key) => {
+      const value = rest[key];
+      delete rest[key];
+      return value;
+    };
+    const messages = [];
+    const push = (m) => messages.push({ id: `${span.span_id}-m${messages.length}`, ...m });
+
+    const instructions = take('prompt.input.instructions');
+    if (instructions) push({ role: 'system', content: String(instructions) });
+
+    const rawMessages = take('prompt.input.messages');
+    if (rawMessages) {
+      try {
+        JSON.parse(rawMessages).forEach((m) => {
+          if (!m) return;
+          push({
+            role: m.role || 'user',
+            content: typeof m.content === 'string' ? m.content : JSON.stringify(m.content),
+            tool_call_id: m.tool_call_id,
+            tool_calls: m.tool_calls,
+          });
+        });
+      } catch {
+        rest['prompt.input.messages'] = rawMessages;
+      }
+    }
+
+    const prompt = take('llm.prompt');
+    if (prompt) push({ role: 'user', content: String(prompt) });
+
+    const toolArgs = take('tool.input.args');
+    const toolResult = take('tool.output.result');
+    if (toolArgs || toolResult) {
+      const toolName = take('tool.name');
+      push({
+        role: 'tool',
+        tool_name: toolName || (span.name || '').replace(/^tool\./, ''),
+        tool_arguments: toolArgs,
+        content: toolResult ? String(toolResult) : null,
+      });
+    }
+
+    const completion = take('llm.completion');
+    const outputMessage = take('llm.output.message');
+    if (completion || outputMessage) push({ role: 'assistant', content: String(completion || outputMessage) });
+
+    return { messages, rest };
+  };
+
+  // The tool schemas a trace carried (from whichever span recorded them) —
+  // lets tool messages anywhere in the trace link back to their definition.
+  const traceTools = (trace) => {
+    for (const span of trace.spans || []) {
+      const raw = (span.attributes || {})['prompt.input.tools'];
+      if (!raw) continue;
+      try {
+        const parsed = typeof raw === 'string' ? JSON.parse(raw) : raw;
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      } catch {
+        // unparseable — fall through
+      }
+    }
+    return [];
+  };
+
+  const renderSpanDetails = (span, dark, knownTools = []) => {
+    const { messages, rest } = spanMessages(span);
+    let rosterTools = null;
+    const rawTools = rest['prompt.input.tools'];
+    if (rawTools) {
+      try {
+        const parsed = typeof rawTools === 'string' ? JSON.parse(rawTools) : rawTools;
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          rosterTools = parsed;
+          delete rest['prompt.input.tools'];
+        }
+      } catch {
+        // unparseable — keep the raw attribute row
+      }
+    }
+    const attributes = Object.entries(rest).sort(
       (a, b) => attributeRank(a[0]) - attributeRank(b[0])
     );
     const textColor = dark ? 'rgba(255,255,255,0.75)' : '#4b5563';
@@ -536,6 +760,15 @@ export default function TracesView({ agentClass = null, embedded = false }) {
           )}
           <span style={{ color: mutedColor }}>span: {span.span_id}</span>
         </div>
+        {messages.length > 0 && (
+          <div
+            onClick={(e) => e.stopPropagation()}
+            style={{ marginTop: '10px', fontFamily: 'ui-sans-serif, system-ui, sans-serif', cursor: 'default' }}
+          >
+            <InteractionStream messages={messages} darkMode={dark} tools={rosterTools || knownTools} />
+          </div>
+        )}
+        {rosterTools && <ToolRoster tools={rosterTools} darkMode={dark} />}
         {attributes.length > 0 && (
           <div style={{ marginTop: '6px', display: 'grid', gap: '2px' }}>
             {attributes.map(([key, value]) => {
@@ -1151,6 +1384,7 @@ export default function TracesView({ agentClass = null, embedded = false }) {
             <React.Fragment key={trace.id}>
               <div
                 className="trace-header-row"
+                id={`trace-row-${trace.id}`}
                 onClick={() => setSelectedTrace(selectedTrace === trace.id ? null : trace.id)}
                 style={{ cursor: 'pointer' }}
               >
@@ -1171,6 +1405,10 @@ export default function TracesView({ agentClass = null, embedded = false }) {
                       {trace.model}
                     </span>
                   )}
+                  {(() => {
+                    const ctx = traceContext(trace);
+                    return ctx ? <ContextMeter compact {...ctx} label="Context" darkMode /> : null;
+                  })()}
                   <span className="meta-item"><i className="fa-solid fa-clock"></i> {formatDuration(trace.duration_ms)}</span>
                   <span className="meta-item">{formatTokens(trace.tokens)} tokens</span>
                   {trace.estimated_cost != null && (
@@ -1248,10 +1486,48 @@ export default function TracesView({ agentClass = null, embedded = false }) {
                             {spanShareLabel(span, trace)}
                           </span>
                         </div>
-                        {isExpanded && renderSpanDetails(span, true)}
+                        {(() => {
+                          const preview = spanContentPreview(span);
+                          if (!preview.input && !preview.output) return null;
+                          return (
+                            <div
+                              onClick={hasDetails ? () => setExpandedSpan(isExpanded ? null : spanKey) : undefined}
+                              style={{
+                                padding: '0 0 4px 24px',
+                                fontFamily: TYPOGRAPHY.mono,
+                                fontSize: '11px',
+                                color: 'rgba(255,255,255,0.5)',
+                                display: 'grid',
+                                gap: '1px',
+                                cursor: hasDetails ? 'pointer' : 'default',
+                              }}
+                            >
+                              {preview.input && (
+                                <div style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                                  <span style={{ color: 'rgba(255,255,255,0.3)' }}>input:</span> {previewText(preview.input, 140)}
+                                </div>
+                              )}
+                              {preview.output && (
+                                <div style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                                  <span style={{ color: 'rgba(255,255,255,0.3)' }}>output:</span> {previewText(preview.output, 140)}
+                                </div>
+                              )}
+                            </div>
+                          );
+                        })()}
+                        {isExpanded && renderSpanDetails(span, true, traceTools(trace))}
                       </React.Fragment>
                     );
                   })}
+
+                  {(() => {
+                    const ctx = traceContext(trace);
+                    return ctx ? (
+                      <div style={{ margin: '10px 0' }} onClick={(e) => e.stopPropagation()}>
+                        <ContextMeter {...ctx} label="Context pressure" estimated darkMode />
+                      </div>
+                    ) : null;
+                  })()}
 
                   {renderTraceBreakdown(trace, true)}
 
@@ -1675,6 +1951,7 @@ export default function TracesView({ agentClass = null, embedded = false }) {
         ) : filteredTraces.map((trace) => (
           <div
             key={trace.id}
+            id={`trace-row-${trace.id}`}
             className="bg-white rounded-xl border border-gray-200 overflow-hidden hover:border-gray-300 transition-colors"
           >
             {/* Trace Header */}
@@ -1701,6 +1978,10 @@ export default function TracesView({ agentClass = null, embedded = false }) {
                     {trace.model}
                   </span>
                 )}
+                {(() => {
+                  const ctx = traceContext(trace);
+                  return ctx ? <ContextMeter compact {...ctx} label="Context" /> : null;
+                })()}
                 <span className="text-sm text-gray-500">
                   <i className="fa-solid fa-clock mr-1"></i>
                   {formatDuration(trace.duration_ms)}
@@ -1886,13 +2167,43 @@ export default function TracesView({ agentClass = null, embedded = false }) {
                           >
                             {spanShareLabel(span, trace)}
                           </span>
+                          {(() => {
+                            const preview = spanContentPreview(span);
+                            if (!preview.input && !preview.output) return null;
+                            return (
+                              <div
+                                className="min-w-0"
+                                style={{ fontFamily: TYPOGRAPHY.mono, fontSize: '11px', display: 'grid', gap: '1px', marginTop: '2px' }}
+                              >
+                                {preview.input && (
+                                  <div className="text-gray-500" style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                                    <span className="text-gray-400">input:</span> {previewText(preview.input, 160)}
+                                  </div>
+                                )}
+                                {preview.output && (
+                                  <div className="text-gray-500" style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                                    <span className="text-gray-400">output:</span> {previewText(preview.output, 160)}
+                                  </div>
+                                )}
+                              </div>
+                            );
+                          })()}
                         </div>
-                        {isExpanded && renderSpanDetails(span, false)}
+                        {isExpanded && renderSpanDetails(span, false, traceTools(trace))}
                       </React.Fragment>
                     );
                   })}
                 </div>
                 </>)}
+
+                {(() => {
+                  const ctx = traceContext(trace);
+                  return ctx ? (
+                    <div className="mt-3" onClick={(e) => e.stopPropagation()}>
+                      <ContextMeter {...ctx} label="Context pressure" estimated />
+                    </div>
+                  ) : null;
+                })()}
 
                 {renderTraceBreakdown(trace, false)}
 

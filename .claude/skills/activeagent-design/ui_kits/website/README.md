@@ -1,0 +1,1 @@
+# Active Agent — Marketing website UI kit\nRecreation of the lander (public/landing + docs/landing-page-content.md): capsule nav, hero with eyebrow badge, feature grid, observability bento, gems + platform pricing, FAQ accordion, footer. Static HTML using the lander CSS system (brand red #FA343B, 1008px page, 16px radius cards).\n

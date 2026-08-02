@@ -303,11 +303,11 @@ export default function AgentRunner({ agent, onBack }) {
                 )}
                 {currentRun.trace_id && (
                   <a
-                    href="/dashboard/traces"
+                    href={`/dashboard/traces?trace=${currentRun.trace_id}`}
                     className="text-gray-400 hover:text-red-500 font-mono text-xs"
-                    title="Open in Traces"
+                    title={`${currentRun.trace_id} — open in Traces`}
                   >
-                    trace:{currentRun.trace_id.slice(0, 8)}
+                    trace:{currentRun.trace_id.slice(0, 8)} →
                   </a>
                 )}
               </div>

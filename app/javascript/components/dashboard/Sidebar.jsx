@@ -24,15 +24,13 @@ export default function Sidebar({ currentView, onNavigate, agentCount, account, 
 
   const agentItems = [
     { id: 'list', label: 'Agents', icon: ICONS.nav.agents, badge: agentCount },
-    // Interactions are an agent's conversation streams, so they belong to the
-    // agent rather than to the observability tooling around it.
-    { id: 'interactions', label: 'Interactions', icon: ICONS.nav.interactions, indent: true },
     { id: 'builder', label: 'New Agent', icon: ICONS.nav.newAgent },
     { id: 'sandbox', label: 'Run Agents', icon: ICONS.nav.demo, highlight: true },
   ];
 
   const observabilityItems = [
     { id: 'traces', label: 'Traces', icon: ICONS.nav.traces },
+    { id: 'interactions', label: 'Interactions', icon: ICONS.nav.interactions },
     { id: 'metrics', label: 'Metrics', icon: ICONS.nav.metrics },
     { id: 'evaluations', label: 'Evaluations', icon: ICONS.nav.evaluations },
     { id: 'replay', label: 'Session Replay', icon: ICONS.nav.replay },

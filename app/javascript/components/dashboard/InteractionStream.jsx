@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import Markdown from './Markdown';
+import { ToolDetails } from './ToolRoster';
 
 // Shared conversation stream renderer: role-labeled messages with
 // click-to-expand details (tool name/arguments/results, durations,
@@ -61,6 +62,47 @@ const hasDetails = (message) =>
     message.duration_ms != null || prettyJson(message.content)
   );
 
+// Long tool results and system/developer instructions collapse to a
+// tweet-length preview; expanding the message shows the full text.
+// User/assistant messages are the conversation itself and stay full.
+const PREVIEW_CHARS = 280;
+const COLLAPSED_ROLES = ['tool', 'system', 'developer'];
+
+const previewText = (value, max = PREVIEW_CHARS) => value.replace(/\s+/g, ' ').trim().slice(0, max);
+
+// One-line JSON for the collapsed `in:` arguments preview.
+const compactJson = (value) => {
+  if (value == null) return null;
+  if (typeof value === 'object') return JSON.stringify(value);
+  try {
+    return JSON.stringify(JSON.parse(value));
+  } catch {
+    return String(value);
+  }
+};
+
+// A tool-calling assistant message's inputs, whatever shape tool_calls
+// takes: provider-style call arrays ({function: {name, arguments}}) or the
+// bare arguments object the trace serializer emits.
+const callInputs = (message) => {
+  const calls = message.tool_calls;
+  if (!calls) return [];
+  if (Array.isArray(calls)) {
+    return calls.map((call) => ({
+      name: call.function?.name || call.name || message.tool_name,
+      args: compactJson(call.function?.arguments ?? call.arguments ?? call.input),
+    }));
+  }
+  return [{ name: message.tool_name, args: compactJson(calls) }];
+};
+
+const hasText = (content) => Boolean(content && String(content).trim() && String(content).trim() !== '—');
+
+const collapsesWhenLong = (message) =>
+  COLLAPSED_ROLES.includes(message.role) &&
+  typeof message.content === 'string' &&
+  previewText(message.content).length >= PREVIEW_CHARS;
+
 // Shared stream design primitives — also used by the run activity feed so
 // streamed output matches the interaction/trace visual language.
 export const streamPreStyle = (darkMode) => ({
@@ -102,7 +144,9 @@ export const roleBubble = (role, darkMode) => {
   }
 };
 
-export default function InteractionStream({ messages, darkMode }) {
+// `tools` (optional): the tool schemas in play for this conversation, so an
+// expanded tool message can show where its tool comes from and what it does.
+export default function InteractionStream({ messages, darkMode, tools }) {
   const [expandedMessages, setExpandedMessages] = useState({});
 
   const toggleMessage = (id) =>
@@ -119,11 +163,32 @@ export default function InteractionStream({ messages, darkMode }) {
       {(messages || []).map((message) => {
         const bubble = roleBubble(message.role, darkMode);
         const isExpanded = !!expandedMessages[message.id];
-        const expandable = hasDetails(message);
+        const collapsed = collapsesWhenLong(message) && !isExpanded;
+        const expandable = hasDetails(message) || collapsesWhenLong(message);
         const argsJson = prettyJson(message.tool_arguments);
         const resultJson = prettyJson(message.tool_result) || prettyJson(message.content);
-        const toolCallsJson = (message.tool_calls || []).length > 0 ? prettyJson(message.tool_calls) : null;
+        const toolCallsJson =
+          message.tool_calls && (!Array.isArray(message.tool_calls) || message.tool_calls.length > 0)
+            ? prettyJson(message.tool_calls)
+            : null;
         const resultPreview = message.role === 'tool' ? toolResultPreview(message) : null;
+        const toolSchema = message.tool_name
+          ? (tools || []).find((tool) => tool && tool.name === message.tool_name)
+          : null;
+        const argsCompact = message.role === 'tool' ? compactJson(message.tool_arguments) : null;
+        // When the preceding assistant row carries this call's input, the
+        // tool row only needs the output side.
+        const inputCarriedByAssistant =
+          message.role === 'tool' &&
+          (messages || []).some(
+            (m) =>
+              m &&
+              m.role === 'assistant' &&
+              ((message.tool_call_id && m.tool_call_id === message.tool_call_id) ||
+                (Array.isArray(m.tool_calls) && m.tool_calls.some((call) => call.id && call.id === message.tool_call_id)))
+          );
+        const assistantCalls =
+          message.role === 'assistant' && !hasText(message.content) ? callInputs(message) : [];
         const preStyle = streamPreStyle(darkMode);
         return (
           <div key={message.id}>
@@ -141,27 +206,71 @@ export default function InteractionStream({ messages, darkMode }) {
               <div className="min-w-0 flex-1">
                 <div className="text-sm break-words" style={{ color: colors.textPrimary }}>
                   {message.role === 'tool' ? (
-                    resultPreview ? (
-                      <span>
-                        {resultPreview.meta && (
-                          <span className="font-mono text-xs mr-2" style={{ color: colors.textMuted }}>
-                            {resultPreview.meta}
-                          </span>
-                        )}
-                        “{resultPreview.body.replace(/\s+/g, ' ').trim().slice(0, 180)}
-                        {resultPreview.body.length > 180 ? '…' : ''}”
-                      </span>
-                    ) : (
-                      <span className="whitespace-pre-wrap">
-                        {message.content || (message.tool_name ? `→ ${message.tool_name}(...)` : '—')}
-                      </span>
-                    )
+                    // Tool rows always read as a compact in/out summary — the
+                    // full arguments and result live in the expanded details
+                    // below, in that order.
+                    <span style={{ display: 'grid', gap: '2px' }}>
+                      {argsCompact && !inputCarriedByAssistant && (
+                        <span className="font-mono text-xs break-words">
+                          <span style={{ color: colors.textMuted }}>in:</span>{' '}
+                          {previewText(argsCompact, 180)}
+                          {argsCompact.length > 180 ? '…' : ''}
+                        </span>
+                      )}
+                      {resultPreview ? (
+                        <span>
+                          {(argsCompact || inputCarriedByAssistant) && (
+                            <span className="font-mono text-xs mr-1" style={{ color: colors.textMuted }}>out:</span>
+                          )}
+                          {resultPreview.meta && (
+                            <span className="font-mono text-xs mr-2" style={{ color: colors.textMuted }}>
+                              {resultPreview.meta}
+                            </span>
+                          )}
+                          “{resultPreview.body.replace(/\s+/g, ' ').trim().slice(0, 180)}
+                          {resultPreview.body.length > 180 ? '…' : ''}”
+                        </span>
+                      ) : message.content ? (
+                        <span>
+                          {(argsCompact || inputCarriedByAssistant) && (
+                            <span className="font-mono text-xs mr-1" style={{ color: colors.textMuted }}>out:</span>
+                          )}
+                          “{previewText(message.content, 180)}
+                          {message.content.replace(/\s+/g, ' ').trim().length > 180 ? '…' : ''}”
+                        </span>
+                      ) : (
+                        <span className="whitespace-pre-wrap">
+                          {message.tool_name ? `→ ${message.tool_name}(...)` : '—'}
+                        </span>
+                      )}
+                    </span>
+                  ) : collapsed ? (
+                    <span style={{ color: colors.textSecondary }}>{previewText(message.content)}…</span>
+                  ) : assistantCalls.length > 0 ? (
+                    // A tool-calling turn with no prose: use the row for the
+                    // call's input instead of an empty dash.
+                    <span style={{ display: 'grid', gap: '2px' }}>
+                      {assistantCalls.map((call, callIndex) => (
+                        <span key={callIndex} className="font-mono text-xs break-words">
+                          {call.name && <span style={{ color: colors.textMuted }}>{call.name} </span>}
+                          <span style={{ color: colors.textMuted }}>in:</span>{' '}
+                          {call.args ? (
+                            <>
+                              {previewText(call.args, 180)}
+                              {call.args.length > 180 ? '…' : ''}
+                            </>
+                          ) : (
+                            '—'
+                          )}
+                        </span>
+                      ))}
+                    </span>
                   ) : (
                     <Markdown text={message.content || '—'} />
                   )}
                 </div>
                 <div className="text-xs mt-0.5 font-mono flex items-center gap-2 flex-wrap" style={{ color: colors.textMuted }}>
-                  <span>{new Date(message.created_at).toLocaleTimeString()}</span>
+                  {message.created_at && <span>{new Date(message.created_at).toLocaleTimeString()}</span>}
                   {message.tool_name && (
                     <span
                       className="px-1.5 py-0.5 rounded"
@@ -196,7 +305,7 @@ export default function InteractionStream({ messages, darkMode }) {
                 style={{ borderColor: bubble.color + '55' }}
               >
                 <div className="flex flex-wrap gap-x-5 gap-y-1 text-xs font-mono" style={{ color: colors.textSecondary }}>
-                  <span>{new Date(message.created_at).toLocaleString()}</span>
+                  {message.created_at && <span>{new Date(message.created_at).toLocaleString()}</span>}
                   {message.tool_call_id && <span>call: {message.tool_call_id}</span>}
                   {message.duration_ms != null && <span>took {formatMs(message.duration_ms)}</span>}
                   {message.content_checksum && <span>🔒 {message.content_checksum}</span>}
@@ -221,18 +330,36 @@ export default function InteractionStream({ messages, darkMode }) {
                       {resultPreview.body.length > 8000 ? '\n…' : ''}
                     </pre>
                   </div>
-                ) : resultJson && (
+                ) : resultJson ? (
                   <div>
                     <div className="text-xs uppercase tracking-wide mb-1" style={{ color: colors.textMuted }}>
                       {message.role === 'tool' ? 'Result' : 'Content (parsed)'}
                     </div>
                     <pre style={preStyle}>{resultJson}</pre>
                   </div>
-                )}
+                ) : message.role === 'tool' && message.content ? (
+                  <div>
+                    <div className="text-xs uppercase tracking-wide mb-1" style={{ color: colors.textMuted }}>
+                      Result · {message.content.length.toLocaleString()} chars
+                    </div>
+                    <pre style={{ ...preStyle, whiteSpace: 'pre-wrap', maxHeight: '320px', overflowY: 'auto' }}>
+                      {message.content.slice(0, 8000)}
+                      {message.content.length > 8000 ? '\n…' : ''}
+                    </pre>
+                  </div>
+                ) : null}
                 {toolCallsJson && (
                   <div>
                     <div className="text-xs uppercase tracking-wide mb-1" style={{ color: colors.textMuted }}>Requested tool calls</div>
                     <pre style={preStyle}>{toolCallsJson}</pre>
+                  </div>
+                )}
+                {toolSchema && (
+                  <div>
+                    <div className="text-xs uppercase tracking-wide mb-1" style={{ color: colors.textMuted }}>
+                      Tool definition
+                    </div>
+                    <ToolDetails tool={toolSchema} darkMode={darkMode} />
                   </div>
                 )}
               </div>
