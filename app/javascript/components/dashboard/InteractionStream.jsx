@@ -257,17 +257,6 @@ export default function InteractionStream({ messages, darkMode, tools }) {
                     {tone.label}
                   </span>
                 ))}
-                {message.role === 'tool' && message.tool_name && (
-                  // The call's function name lives with its role chip, not
-                  // down in the meta line.
-                  <span
-                    className="font-mono text-center"
-                    style={{ fontSize: '10px', color: toolTone.color, wordBreak: 'break-all' }}
-                    title={message.tool_name}
-                  >
-                    ⚙ {message.tool_name}
-                  </span>
-                )}
               </span>
               <div className="min-w-0 flex-1">
                 <div className="text-sm break-words" style={{ color: colors.textPrimary }}>
@@ -278,6 +267,11 @@ export default function InteractionStream({ messages, darkMode, tools }) {
                     <span style={{ display: 'grid', gap: '2px' }}>
                       {argsCompact && !inputCarriedByAssistant && (
                         <span className="font-mono text-xs break-words">
+                          {message.tool_name && (
+                            // The function name heads its own call line — this
+                            // is what took the input and rendered the result.
+                            <span style={{ color: toolTone.color }}>⚙ {message.tool_name} </span>
+                          )}
                           <span style={{ color: mergedCall ? assistantTone.color : colors.textMuted }}>in:</span>{' '}
                           {previewText(argsCompact, 180)}
                           {argsCompact.length > 180 ? '…' : ''}
@@ -285,6 +279,9 @@ export default function InteractionStream({ messages, darkMode, tools }) {
                       )}
                       {resultPreview ? (
                         <span>
+                          {message.tool_name && !(argsCompact && !inputCarriedByAssistant) && (
+                            <span className="font-mono text-xs mr-1" style={{ color: toolTone.color }}>⚙ {message.tool_name}</span>
+                          )}
                           {(argsCompact || inputCarriedByAssistant) && (
                             <span className="font-mono text-xs mr-1" style={{ color: mergedCall ? toolTone.color : colors.textMuted }}>out:</span>
                           )}
@@ -298,6 +295,9 @@ export default function InteractionStream({ messages, darkMode, tools }) {
                         </span>
                       ) : message.content ? (
                         <span>
+                          {message.tool_name && !(argsCompact && !inputCarriedByAssistant) && (
+                            <span className="font-mono text-xs mr-1" style={{ color: toolTone.color }}>⚙ {message.tool_name}</span>
+                          )}
                           {(argsCompact || inputCarriedByAssistant) && (
                             <span className="font-mono text-xs mr-1" style={{ color: mergedCall ? toolTone.color : colors.textMuted }}>out:</span>
                           )}
