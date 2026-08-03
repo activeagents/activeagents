@@ -1,0 +1,108 @@
+# frozen_string_literal: true
+
+require "net/http"
+
+# Minimal MCP client (streamable HTTP transport) for a Playwright MCP
+# server — typically `npx @playwright/mcp --port 8931` running beside the
+# app in development, or a sandbox-provisioned browser container in
+# production. Speaks just enough JSON-RPC for tools/call: initialize once
+# per process, then call tools under the session id the server hands back.
+class PlaywrightMcpClient
+  DEFAULT_URL = ENV.fetch("PLAYWRIGHT_MCP_URL", "http://host.orb.internal:8931/mcp")
+  OPEN_TIMEOUT_SECONDS = 5
+  READ_TIMEOUT_SECONDS = 60
+
+  class Error < StandardError; end
+
+  def self.instance
+    @instance ||= new
+  end
+
+  def self.reset!
+    @instance = nil
+  end
+
+  def initialize(url: DEFAULT_URL)
+    @uri = URI(url)
+    @mutex = Mutex.new
+  end
+
+  # Returns { text:, is_error: } — the tool result's text content.
+  def call_tool(name, arguments = {})
+    ensure_session!
+    response = post(
+      { jsonrpc: "2.0", id: next_id, method: "tools/call",
+        params: { name: name, arguments: arguments } },
+      session: @session_id
+    )
+    result = response["result"]
+    raise Error, (response.dig("error", "message") || "empty MCP response") unless result
+
+    text = Array(result["content"]).filter_map { |block| block["text"] }.join("\n")
+    { text: text, is_error: result["isError"] ? true : false }
+  rescue Errno::ECONNREFUSED, Errno::EHOSTUNREACH, Net::OpenTimeout, SocketError => e
+    self.class.reset!
+    raise Error, "Playwright MCP server unreachable at #{@uri} (#{e.class}): start it with `npx @playwright/mcp --port 8931`"
+  end
+
+  private
+
+  def ensure_session!
+    @mutex.synchronize do
+      next if @session_id
+
+      _body, response = post_raw(
+        { jsonrpc: "2.0", id: next_id, method: "initialize",
+          params: { protocolVersion: "2025-03-26", capabilities: {},
+                    clientInfo: { name: "activeagents", version: "1.0" } } }
+      )
+      @session_id = response["mcp-session-id"]
+      raise Error, "MCP server did not return a session id" unless @session_id
+
+      post({ jsonrpc: "2.0", method: "notifications/initialized" }, session: @session_id)
+    end
+  end
+
+  def post(payload, session: nil)
+    body, _response = post_raw(payload, session: session)
+    body
+  end
+
+  def post_raw(payload, session: nil)
+    http = Net::HTTP.new(@uri.host, @uri.port)
+    http.open_timeout = OPEN_TIMEOUT_SECONDS
+    http.read_timeout = READ_TIMEOUT_SECONDS
+    request = Net::HTTP::Post.new(@uri.request_uri)
+    request["Content-Type"] = "application/json"
+    request["Accept"] = "application/json, text/event-stream"
+    request["Mcp-Session-Id"] = session if session
+    request.body = payload.to_json
+
+    response = http.request(request)
+    raise Error, "MCP server returned HTTP #{response.code}" unless response.code.to_i.between?(200, 299)
+
+    [ parse_body(response), response ]
+  end
+
+  # Streamable HTTP answers as plain JSON or as an SSE stream whose data:
+  # lines carry the JSON-RPC response — accept both.
+  def parse_body(response)
+    body = response.body.to_s
+    return {} if body.empty?
+
+    if response["Content-Type"].to_s.include?("text/event-stream")
+      body.lines
+          .select { |line| line.start_with?("data:") }
+          .filter_map { |line| JSON.parse(line.delete_prefix("data:").strip) rescue nil }
+          .find { |json| json["result"] || json["error"] } || {}
+    else
+      JSON.parse(body)
+    end
+  rescue JSON::ParserError
+    {}
+  end
+
+  def next_id
+    @id = (@id || 0) + 1
+  end
+end
