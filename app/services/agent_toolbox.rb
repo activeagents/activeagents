@@ -45,6 +45,39 @@ class AgentToolbox
         }
       }
     ],
+    # A real browser via a Playwright MCP server (PlaywrightMcpClient).
+    # Stateful: navigate changes what snapshot/click see, so these bypass
+    # the toolbox result cache.
+    "playwright_mcp" => [
+      {
+        name: "browser_navigate",
+        description: "Open a URL in the managed browser. Returns a text snapshot of the page with element refs.",
+        parameters: {
+          type: "object",
+          properties: {
+            url: { type: "string", description: "Absolute http(s) URL to open" }
+          },
+          required: [ "url" ]
+        }
+      },
+      {
+        name: "browser_snapshot",
+        description: "Accessibility snapshot of the current browser page: its readable structure, with element refs usable by browser_click.",
+        parameters: { type: "object", properties: {}, required: [] }
+      },
+      {
+        name: "browser_click",
+        description: "Click an element from the latest snapshot by its ref (e.g. e12). Returns the updated page snapshot.",
+        parameters: {
+          type: "object",
+          properties: {
+            ref: { type: "string", description: "Element ref from the snapshot" },
+            element: { type: "string", description: "Human-readable description of the element" }
+          },
+          required: [ "ref" ]
+        }
+      }
+    ],
     # Subject-bound like memory: routed by AgentExecutionService (needs the
     # calling agent's account scope), so NOT in FUNCTIONS below.
     "agents" => [
@@ -123,8 +156,14 @@ class AgentToolbox
     "fetch_url" => :fetch_url,
     "web_search" => :web_search,
     "calculate" => :calculate,
-    "browse_page" => :browse_page
+    "browse_page" => :browse_page,
+    "browser_navigate" => :browser_navigate,
+    "browser_snapshot" => :browser_snapshot,
+    "browser_click" => :browser_click
   }.freeze
+
+  # Stateful tools whose results must never be replayed from cache.
+  UNCACHED_FUNCTIONS = %w[browser_navigate browser_snapshot browser_click].freeze
 
   # Hosts browse_page may fetch — the platform's own trusted docs.
   BROWSE_ALLOWED_HOSTS = %w[docs.activeagents.ai].freeze
@@ -148,6 +187,7 @@ class AgentToolbox
     # instead of re-running the side effect.
     def call(name, **kwargs)
       return { error: "Unknown tool: #{name}" } unless function?(name)
+      return public_send(FUNCTIONS.fetch(name.to_s), **kwargs) if UNCACHED_FUNCTIONS.include?(name.to_s)
 
       cached_fetch(name, kwargs) do
         public_send(FUNCTIONS.fetch(name.to_s), **kwargs)
@@ -228,6 +268,31 @@ class AgentToolbox
       return url if url.match?(%r{\Ahttps?://})
 
       "https://#{BROWSE_ALLOWED_HOSTS.first}#{url.start_with?('/') ? url : "/#{url}"}"
+    end
+
+    PLAYWRIGHT_RESULT_LIMIT = 8_000
+
+    def browser_navigate(url:)
+      playwright_mcp("browser_navigate", { url: url })
+    end
+
+    def browser_snapshot
+      playwright_mcp("browser_snapshot", {})
+    end
+
+    def browser_click(ref:, element: nil)
+      playwright_mcp("browser_click", { ref: ref, element: element || ref })
+    end
+
+    def playwright_mcp(tool, arguments)
+      result = PlaywrightMcpClient.instance.call_tool(tool, arguments)
+      text = result[:text].to_s
+      if text.length > PLAYWRIGHT_RESULT_LIMIT
+        text = "#{text[0, PLAYWRIGHT_RESULT_LIMIT]}\n…(truncated, #{text.length} chars total)"
+      end
+      result[:is_error] ? { error: text.presence || "browser tool failed" } : { text: text }
+    rescue PlaywrightMcpClient::Error => e
+      { error: e.message }
     end
 
     def browse_page(url:)
