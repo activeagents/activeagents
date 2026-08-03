@@ -54,6 +54,7 @@ class AgentExecutionService
 
   def call
     root_span = @root_span = build_root_span
+    record_prompt_span(root_span)
     llm_span = root_span.add_span(
       "llm.generate",
       span_type: :llm,
@@ -113,6 +114,28 @@ class AgentExecutionService
     ensure
       record_trace(root_span)
     end
+  end
+
+  # The outbound prompt as a span, in the SDK's attribute shape — gives the
+  # Traces UI its System/User conversation rows and lets the context-pressure
+  # meter attribute instructions and tool schemas instead of lumping the
+  # whole input into "messages".
+  def record_prompt_span(root_span)
+    span = root_span.add_span("agent.prompt", span_type: :prompt)
+    if composed_instructions.present?
+      span.set_attribute("prompt.input.instructions", composed_instructions.to_s.byteslice(0, 6000).to_s.scrub)
+    end
+    if tool_schemas.present?
+      span.set_attribute("prompt.input.tools", tool_schemas.to_json.byteslice(0, 6000).to_s.scrub)
+    end
+    span.set_attribute(
+      "prompt.input.messages",
+      [ { role: "user", content: @run.input_prompt.to_s.byteslice(0, 4000).to_s.scrub } ].to_json
+    )
+    span.set_attribute("messages.count", 1)
+    span.finish
+  rescue StandardError => e
+    Rails.logger.warn("[AgentExecutionService] prompt span failed: #{e.message}")
   end
 
   # Per-run provider/model overrides (input_params) let callers replay the
