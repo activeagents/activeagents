@@ -284,15 +284,36 @@ class AgentToolbox
       playwright_mcp("browser_click", { ref: ref, element: element || ref })
     end
 
-    def playwright_mcp(tool, arguments)
+    SNAPSHOT_LINK = /\[Snapshot\]\(([^)]+)\)/
+
+    def playwright_mcp(tool, arguments, retried: false)
       result = PlaywrightMcpClient.instance.call_tool(tool, arguments)
-      text = result[:text].to_s
+      text = inline_snapshot(result[:text].to_s)
       if text.length > PLAYWRIGHT_RESULT_LIMIT
         text = "#{text[0, PLAYWRIGHT_RESULT_LIMIT]}\n…(truncated, #{text.length} chars total)"
       end
       result[:is_error] ? { error: text.presence || "browser tool failed" } : { text: text }
     rescue PlaywrightMcpClient::Error => e
+      # One fresh-session retry: the first call after a server (re)start can
+      # race the browser launch.
+      unless retried
+        PlaywrightMcpClient.reset!
+        return playwright_mcp(tool, arguments, retried: true)
+      end
       { error: e.message }
+    end
+
+    # The MCP server saves page snapshots to files; when it runs beside the
+    # app with its output dir on a shared path, read them back so the model
+    # sees the page inline.
+    def inline_snapshot(text)
+      match = SNAPSHOT_LINK.match(text)
+      return text unless match
+
+      file = Rails.root.join(".playwright-mcp", File.basename(match[1]))
+      return text unless File.exist?(file)
+
+      "#{text}\n\n### Page snapshot\n#{File.read(file)}"
     end
 
     def browse_page(url:)

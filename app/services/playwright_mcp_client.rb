@@ -29,6 +29,7 @@ class PlaywrightMcpClient
 
   # Returns { text:, is_error: } — the tool result's text content.
   def call_tool(name, arguments = {})
+    Rails.logger.debug("[PlaywrightMcpClient] call #{name} args=#{arguments.inspect[0, 200]}")
     ensure_session!
     response = post(
       { jsonrpc: "2.0", id: next_id, method: "tools/call",
@@ -36,7 +37,10 @@ class PlaywrightMcpClient
       session: @session_id
     )
     result = response["result"]
-    raise Error, (response.dig("error", "message") || "empty MCP response") unless result
+    unless result
+      Rails.logger.warn("[PlaywrightMcpClient] #{name} unexpected response: #{response.inspect[0, 500]}")
+      raise Error, (response.dig("error", "message") || "empty MCP response")
+    end
 
     text = Array(result["content"]).filter_map { |block| block["text"] }.join("\n")
     { text: text, is_error: result["isError"] ? true : false }
@@ -79,9 +83,20 @@ class PlaywrightMcpClient
     request.body = payload.to_json
 
     response = http.request(request)
-    raise Error, "MCP server returned HTTP #{response.code}" unless response.code.to_i.between?(200, 299)
+    Rails.logger.debug(
+      "[PlaywrightMcpClient] #{payload[:method]} -> #{response.code} " \
+      "ct=#{response['Content-Type']} bytes=#{response.body.to_s.bytesize} session=#{session ? 'yes' : 'no'}"
+    )
+    unless response.code.to_i.between?(200, 299)
+      Rails.logger.warn("[PlaywrightMcpClient] HTTP #{response.code}: #{response.body.to_s[0, 300]}")
+      raise Error, "MCP server returned HTTP #{response.code}"
+    end
 
-    [ parse_body(response), response ]
+    parsed = parse_body(response)
+    if parsed.empty? && payload[:id]
+      Rails.logger.warn("[PlaywrightMcpClient] unparsed body (#{response['Content-Type']}): #{response.body.to_s[0, 500]}")
+    end
+    [ parsed, response ]
   end
 
   # Streamable HTTP answers as plain JSON or as an SSE stream whose data:
