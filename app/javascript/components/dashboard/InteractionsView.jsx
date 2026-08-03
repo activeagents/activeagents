@@ -7,6 +7,7 @@ import { useTimeWindow } from '../../contexts/TimeWindowContext';
 import TimeWindowSelector from './TimeWindowSelector';
 import InteractionStream from './InteractionStream';
 import ContextMeter, { contextWindowFor, estimateTokens } from './ContextMeter';
+import TraceSpanPills from './TraceSpanPills';
 
 // Context pressure for one interaction: the biggest generation's real token
 // counts against its model's window, with segment sizes estimated from the
@@ -593,7 +594,12 @@ export default function InteractionsView({ agentId = null, embedded = false }) {
                                     </a>
                                   )}
                                 </div>
-                                {ms > 0 && (
+                                {generation.trace_id ? (
+                                  // Each generation is one trace: its spans
+                                  // render as a pill that expands to a mini
+                                  // waterfall.
+                                  <TraceSpanPills traceId={generation.trace_id} darkMode={darkMode} />
+                                ) : ms > 0 && (
                                   <div
                                     className="rounded mt-1"
                                     title={`${ms.toFixed(0)}ms`}
