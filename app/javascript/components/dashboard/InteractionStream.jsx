@@ -247,26 +247,28 @@ export default function InteractionStream({ messages, darkMode, tools }) {
               onClick={expandable ? () => toggleMessage(message.id) : undefined}
               style={isExpanded ? { background: darkMode ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.03)' } : {}}
             >
-              {mergedCall ? (
-                <span className="flex flex-col gap-1 flex-shrink-0 mt-0.5" style={{ minWidth: '72px' }}>
-                  {[assistantTone, toolTone].map((tone) => (
-                    <span
-                      key={tone.label}
-                      className="px-2 py-0.5 rounded text-xs font-medium"
-                      style={{ background: tone.background, color: tone.color, textAlign: 'center' }}
-                    >
-                      {tone.label}
-                    </span>
-                  ))}
-                </span>
-              ) : (
-                <span
-                  className="px-2 py-0.5 rounded text-xs font-medium flex-shrink-0 mt-0.5"
-                  style={{ background: bubble.background, color: bubble.color, minWidth: '72px', textAlign: 'center' }}
-                >
-                  {bubble.label}
-                </span>
-              )}
+              <span className="flex flex-col gap-1 flex-shrink-0 mt-0.5" style={{ minWidth: '72px' }}>
+                {(mergedCall ? [assistantTone, toolTone] : [bubble]).map((tone) => (
+                  <span
+                    key={tone.label}
+                    className="px-2 py-0.5 rounded text-xs font-medium"
+                    style={{ background: tone.background, color: tone.color, textAlign: 'center' }}
+                  >
+                    {tone.label}
+                  </span>
+                ))}
+                {message.role === 'tool' && message.tool_name && (
+                  // The call's function name lives with its role chip, not
+                  // down in the meta line.
+                  <span
+                    className="font-mono text-center"
+                    style={{ fontSize: '10px', color: toolTone.color, wordBreak: 'break-all' }}
+                    title={message.tool_name}
+                  >
+                    ⚙ {message.tool_name}
+                  </span>
+                )}
+              </span>
               <div className="min-w-0 flex-1">
                 <div className="text-sm break-words" style={{ color: colors.textPrimary }}>
                   {message.role === 'tool' ? (
@@ -335,7 +337,7 @@ export default function InteractionStream({ messages, darkMode, tools }) {
                 </div>
                 <div className="text-xs mt-0.5 font-mono flex items-center gap-2 flex-wrap" style={{ color: colors.textMuted }}>
                   {message.created_at && <span>{new Date(message.created_at).toLocaleTimeString()}</span>}
-                  {message.tool_name && (
+                  {message.tool_name && message.role !== 'tool' && (
                     <span
                       className="px-1.5 py-0.5 rounded"
                       style={{ background: bubble.background, color: bubble.color }}
