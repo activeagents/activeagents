@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
 require "net/http"
+require "resolv"
 
 # Minimal MCP client (streamable HTTP transport) for a Playwright MCP
 # server — typically `npx @playwright/mcp --port 8931` running beside the
@@ -73,7 +74,21 @@ class PlaywrightMcpClient
   end
 
   def post_raw(payload, session: nil)
+    # Tool calls run inside the provider SDK's streaming enumerator — a
+    # fiber, where Net::HTTP reads of SSE bodies misbehave (headers arrive,
+    # body comes back empty). A dedicated thread always does real blocking
+    # IO outside any fiber/scheduler context.
+    Thread.new { blocking_post_raw(payload, session: session) }.value
+  end
+
+  def blocking_post_raw(payload, session: nil)
     http = Net::HTTP.new(@uri.host, @uri.port)
+    # Container->host bridge hostnames (host.orb.internal) publish an IPv6
+    # address whose path doesn't reach the server; dual-stack connects then
+    # fail intermittently. Pin to IPv4 while keeping the Host header.
+    if (ipv4 = ipv4_address)
+      http.ipaddr = ipv4
+    end
     http.open_timeout = OPEN_TIMEOUT_SECONDS
     http.read_timeout = READ_TIMEOUT_SECONDS
     request = Net::HTTP::Post.new(@uri.request_uri)
@@ -115,6 +130,14 @@ class PlaywrightMcpClient
     end
   rescue JSON::ParserError
     {}
+  end
+
+  def ipv4_address
+    return @ipv4_address if defined?(@ipv4_address)
+
+    @ipv4_address = Resolv.getaddresses(@uri.host).find { |address| address =~ Resolv::IPv4::Regex }
+  rescue Resolv::ResolvError
+    @ipv4_address = nil
   end
 
   def next_id
