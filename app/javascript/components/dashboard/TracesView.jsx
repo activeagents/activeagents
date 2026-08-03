@@ -549,8 +549,8 @@ export default function TracesView({ agentClass = null, embedded = false }) {
       }
     }
     if (!input && attrs['llm.prompt']) input = String(attrs['llm.prompt']);
-    if (!input && attrs['tool.input.args']) {
-      const args = attrs['tool.input.args'];
+    if (!input && (attrs['tool.input.args'] || attrs['tool.arguments'])) {
+      const args = attrs['tool.input.args'] || attrs['tool.arguments'];
       input = typeof args === 'string' ? args : JSON.stringify(args);
       inputLabel = 'in:';
       inputTone = 'assistant';
@@ -560,8 +560,8 @@ export default function TracesView({ agentClass = null, embedded = false }) {
     let outputTone = 'assistant';
     if (attrs['llm.output.message'] || attrs['llm.completion']) {
       output = attrs['llm.output.message'] || attrs['llm.completion'];
-    } else if (attrs['tool.output.result']) {
-      output = attrs['tool.output.result'];
+    } else if (attrs['tool.output.result'] || attrs['tool.result']) {
+      output = attrs['tool.output.result'] || attrs['tool.result'];
       outputLabel = 'out:';
       outputTone = 'tool';
     }
@@ -607,14 +607,19 @@ export default function TracesView({ agentClass = null, embedded = false }) {
       }
       return null;
     };
-    const instructions = estimateTokens(attr('prompt.input.instructions'));
-    const toolSchemas = estimateTokens(attr('prompt.input.tools'));
+    // Both telemetry shapes: ActiveAgent SDK (prompt.input.*, tool.input/
+    // output.*) and the RubyLLM adapter (llm.instructions/tools,
+    // tool.arguments/result).
+    const instructions = estimateTokens(attr('prompt.input.instructions') || attr('llm.instructions'));
+    const toolSchemas = estimateTokens(attr('prompt.input.tools') || attr('llm.tools'));
     const mcpSchemas = estimateTokens(attr('prompt.input.mcp_tools'));
     let toolResults = 0;
     for (const span of spans) {
       const attrs = span.attributes || {};
-      if (attrs['tool.output.result']) toolResults += estimateTokens(attrs['tool.output.result']);
-      if (attrs['tool.input.args']) toolResults += estimateTokens(attrs['tool.input.args']);
+      const result = attrs['tool.output.result'] || attrs['tool.result'];
+      const args = attrs['tool.input.args'] || attrs['tool.arguments'];
+      if (result) toolResults += estimateTokens(result);
+      if (args) toolResults += estimateTokens(args);
     }
     toolResults = Math.min(toolResults, peak.input);
     const messages = Math.max(peak.input - instructions - toolSchemas - mcpSchemas - toolResults, 0);
@@ -659,7 +664,7 @@ export default function TracesView({ agentClass = null, embedded = false }) {
     const messages = [];
     const push = (m) => messages.push({ id: `${span.span_id}-m${messages.length}`, ...m });
 
-    const instructions = take('prompt.input.instructions');
+    const instructions = take('prompt.input.instructions') || take('llm.instructions');
     if (instructions) push({ role: 'system', content: String(instructions) });
 
     const rawMessages = take('prompt.input.messages');
@@ -682,8 +687,8 @@ export default function TracesView({ agentClass = null, embedded = false }) {
     const prompt = take('llm.prompt');
     if (prompt) push({ role: 'user', content: String(prompt) });
 
-    const toolArgs = take('tool.input.args');
-    const toolResult = take('tool.output.result');
+    const toolArgs = take('tool.input.args') || take('tool.arguments');
+    const toolResult = take('tool.output.result') || take('tool.result');
     if (toolArgs || toolResult) {
       const toolName = take('tool.name');
       push({
