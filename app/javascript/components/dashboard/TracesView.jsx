@@ -1486,6 +1486,7 @@ export default function TracesView({ agentClass = null, embedded = false }) {
                           </span>
                         </div>
                         {(() => {
+                          if (isExpanded) return null;
                           const preview = spanContentPreview(span);
                           if (!preview.input && !preview.output) return null;
                           return (
@@ -2167,6 +2168,9 @@ export default function TracesView({ agentClass = null, embedded = false }) {
                             {spanShareLabel(span, trace)}
                           </span>
                           {(() => {
+                            // The expanded details panel carries the stylized
+                            // content — don't say it twice.
+                            if (isExpanded) return null;
                             const preview = spanContentPreview(span);
                             if (!preview.input && !preview.output) return null;
                             return (
