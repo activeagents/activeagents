@@ -569,6 +569,16 @@ export default function TracesView({ agentClass = null, embedded = false }) {
     return { input, output, inputLabel, inputTone, outputLabel, outputTone };
   };
 
+  // Span preview minus whatever the trace header already says — the
+  // trace-level input/output lines shouldn't repeat on their source spans.
+  const dedupedSpanPreview = (span, trace) => {
+    const preview = spanContentPreview(span);
+    const traceLevel = traceContentPreview(trace);
+    if (preview.input && preview.input === traceLevel.input) preview.input = null;
+    if (preview.output && preview.output === traceLevel.output) preview.output = null;
+    return preview;
+  };
+
   // Context pressure: what the biggest generation in this trace held against
   // the model's window. Segment sizes are estimated from recorded content
   // (~4 chars/token); the input/output totals are the provider's real counts.
@@ -759,7 +769,54 @@ export default function TracesView({ agentClass = null, embedded = false }) {
           )}
           <span style={{ color: mutedColor }}>span: {span.span_id}</span>
         </div>
-        {messages.length > 0 && (
+        {(() => {
+          // A lone tool message condenses to bare call lines — the chip
+          // shell earns its keep in conversations, not in a span card.
+          const toolMessage = messages.length === 1 && messages[0].role === 'tool' ? messages[0] : null;
+          if (!toolMessage) return null;
+          const toolColor = roleBubble('tool', dark).color;
+          const args = toolMessage.tool_arguments == null
+            ? null
+            : typeof toolMessage.tool_arguments === 'string'
+              ? toolMessage.tool_arguments
+              : JSON.stringify(toolMessage.tool_arguments);
+          return (
+            <div
+              onClick={(e) => e.stopPropagation()}
+              style={{ marginTop: '8px', display: 'grid', gap: '4px', cursor: 'default' }}
+            >
+              <div style={{ fontSize: '12px', wordBreak: 'break-all' }}>
+                <span style={{ color: toolColor }}>⚙ {toolMessage.tool_name}</span>
+                {args && (
+                  <>
+                    {' '}
+                    <span style={{ color: roleBubble('assistant', dark).color }}>in:</span>{' '}
+                    <span style={{ color: textColor }}>{args}</span>
+                  </>
+                )}
+              </div>
+              {toolMessage.content && (
+                <div style={{ fontSize: '12px' }}>
+                  <span style={{ color: toolColor }}>out:</span>{' '}
+                  <span
+                    style={{
+                      color: textColor,
+                      whiteSpace: 'pre-wrap',
+                      display: 'inline-block',
+                      maxHeight: '240px',
+                      overflowY: 'auto',
+                      verticalAlign: 'top',
+                      maxWidth: '100%',
+                    }}
+                  >
+                    {toolMessage.content}
+                  </span>
+                </div>
+              )}
+            </div>
+          );
+        })()}
+        {messages.length > 0 && !(messages.length === 1 && messages[0].role === 'tool') && (
           <div
             onClick={(e) => e.stopPropagation()}
             style={{ marginTop: '10px', fontFamily: 'ui-sans-serif, system-ui, sans-serif', cursor: 'default' }}
@@ -840,6 +897,10 @@ export default function TracesView({ agentClass = null, embedded = false }) {
   const renderTraceBreakdown = (trace, dark) => {
     const { generation, tools, toolTotal, total, overhead } = traceTimeBreakdown(trace);
     if (generation === 0 && toolTotal === 0) return null;
+    // When generation IS the trace (llm.generate ~100%, negligible tool
+    // time), the waterfall above already tells this story — skip the
+    // redundant section.
+    if (generation / total >= 0.99 && toolTotal / total < 0.01) return null;
     const muted = dark ? 'rgba(255,255,255,0.5)' : '#6b7280';
     const text = dark ? 'rgba(255,255,255,0.85)' : '#374151';
     const pct = (ms) => `${((ms / total) * 100).toFixed(ms / total < 0.01 ? 2 : 1)}%`;
@@ -1487,7 +1548,7 @@ export default function TracesView({ agentClass = null, embedded = false }) {
                         </div>
                         {(() => {
                           if (isExpanded) return null;
-                          const preview = spanContentPreview(span);
+                          const preview = dedupedSpanPreview(span, trace);
                           if (!preview.input && !preview.output) return null;
                           return (
                             <div
@@ -2171,7 +2232,7 @@ export default function TracesView({ agentClass = null, embedded = false }) {
                             // The expanded details panel carries the stylized
                             // content — don't say it twice.
                             if (isExpanded) return null;
-                            const preview = spanContentPreview(span);
+                            const preview = dedupedSpanPreview(span, trace);
                             if (!preview.input && !preview.output) return null;
                             return (
                               <div
