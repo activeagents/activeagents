@@ -4,7 +4,7 @@ import {
   AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer
 } from 'recharts';
 import { ICONS, TYPOGRAPHY } from '../../utils/designTokens';
-import InteractionStream from './InteractionStream';
+import InteractionStream, { roleBubble } from './InteractionStream';
 import ToolRoster from './ToolRoster';
 import ContextMeter, { contextWindowFor, estimateTokens } from './ContextMeter';
 import { useTimeWindow } from '../../contexts/TimeWindowContext';
@@ -532,9 +532,13 @@ export default function TracesView({ agentClass = null, embedded = false }) {
 
   // Per-span input/output previews so prompt and generate rows read the
   // same way tool rows do — what went in, what came out, at a glance.
+  // Labels carry the role's color: blue user input, red agent output/args,
+  // amber tool results.
   const spanContentPreview = (span) => {
     const attrs = span.attributes || {};
     let input = null;
+    let inputLabel = 'input:';
+    let inputTone = 'user';
     if (attrs['prompt.input.messages']) {
       try {
         const parsed = JSON.parse(attrs['prompt.input.messages']);
@@ -548,10 +552,21 @@ export default function TracesView({ agentClass = null, embedded = false }) {
     if (!input && attrs['tool.input.args']) {
       const args = attrs['tool.input.args'];
       input = typeof args === 'string' ? args : JSON.stringify(args);
+      inputLabel = 'in:';
+      inputTone = 'assistant';
     }
-    let output = attrs['llm.output.message'] || attrs['llm.completion'] || attrs['tool.output.result'] || null;
+    let output = null;
+    let outputLabel = 'output:';
+    let outputTone = 'assistant';
+    if (attrs['llm.output.message'] || attrs['llm.completion']) {
+      output = attrs['llm.output.message'] || attrs['llm.completion'];
+    } else if (attrs['tool.output.result']) {
+      output = attrs['tool.output.result'];
+      outputLabel = 'out:';
+      outputTone = 'tool';
+    }
     if (output != null && typeof output !== 'string') output = JSON.stringify(output);
-    return { input, output };
+    return { input, output, inputLabel, inputTone, outputLabel, outputTone };
   };
 
   // Context pressure: what the biggest generation in this trace held against
@@ -1488,12 +1503,12 @@ export default function TracesView({ agentClass = null, embedded = false }) {
                             >
                               {preview.input && (
                                 <div style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                                  <span style={{ color: 'rgba(255,255,255,0.3)' }}>input:</span> {previewText(preview.input, 140)}
+                                  <span style={{ color: roleBubble(preview.inputTone, true).color }}>{preview.inputLabel}</span> {previewText(preview.input, 140)}
                                 </div>
                               )}
                               {preview.output && (
                                 <div style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                                  <span style={{ color: 'rgba(255,255,255,0.3)' }}>output:</span> {previewText(preview.output, 140)}
+                                  <span style={{ color: roleBubble(preview.outputTone, true).color }}>{preview.outputLabel}</span> {previewText(preview.output, 140)}
                                 </div>
                               )}
                             </div>
@@ -2161,12 +2176,12 @@ export default function TracesView({ agentClass = null, embedded = false }) {
                               >
                                 {preview.input && (
                                   <div className="text-gray-500" style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                                    <span className="text-gray-400">input:</span> {previewText(preview.input, 160)}
+                                    <span style={{ color: roleBubble(preview.inputTone, false).color }}>{preview.inputLabel}</span> {previewText(preview.input, 160)}
                                   </div>
                                 )}
                                 {preview.output && (
                                   <div className="text-gray-500" style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                                    <span className="text-gray-400">output:</span> {previewText(preview.output, 160)}
+                                    <span style={{ color: roleBubble(preview.outputTone, false).color }}>{preview.outputLabel}</span> {previewText(preview.output, 160)}
                                   </div>
                                 )}
                               </div>
