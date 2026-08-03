@@ -125,8 +125,18 @@ class AgentRegistrar
     spans.filter_map { |span| span.dig("attributes", key).presence }.first
   end
 
+  # The roster the agent was OFFERED (ActiveAgent puts it on the prompt span
+  # as prompt.input.tools), falling back to the tools actually CALLED for
+  # SDKs without roster capture. A tool the agent never happens to call is
+  # still part of its configuration.
   def observed_tools
-    spans.filter_map { |span| span.dig("attributes", "tool.name").presence }.uniq
+    offered = begin
+      JSON.parse(llm_attribute("prompt.input.tools").to_s)
+    rescue JSON::ParserError
+      []
+    end
+    names = Array(offered).filter_map { |tool| tool.is_a?(Hash) ? tool["name"].presence : nil }
+    names.presence || spans.filter_map { |span| span.dig("attributes", "tool.name").presence }.uniq
   end
 
   def spans
@@ -148,8 +158,11 @@ class AgentRegistrar
       updates[:instructions] = instructions
     end
 
-    if agent.tools.blank? && observed_tools.any?
-      updates[:tools] = observed_tools
+    # Union, not gap-fill: later traces legitimately grow the roster (new
+    # tools ship). Names are only ever added, so operator edits survive.
+    if observed_tools.any?
+      merged = Array(agent.tools) | observed_tools
+      updates[:tools] = merged if merged != Array(agent.tools)
     end
 
     if agent.model.blank? || agent.model == "unknown"
