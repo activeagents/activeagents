@@ -144,6 +144,44 @@ const collapsesWhenLong = (message) =>
   typeof message.content === 'string' &&
   previewText(message.content).length >= PREVIEW_CHARS;
 
+// Span-message pill bar: when a message knows its span's place on the
+// trace's wall clock, a small positioned pill renders in the row — the
+// conversation doubles as a waterfall.
+const SpanMessagePill = ({ message, darkMode }) => {
+  const total = message.trace_duration_ms || 0;
+  if (!total || message.span_duration_ms == null) return null;
+  const left = Math.min(((message.span_start_ms || 0) / total) * 100, 98);
+  const width = Math.max((message.span_duration_ms / total) * 100, 2);
+  const color = message.role === 'tool' ? '#22c55e' : message.role === 'assistant' ? '#ef4444' : '#60a5fa';
+  return (
+    <span
+      title={`${Math.round(message.span_duration_ms)}ms · starts at ${Math.round(message.span_start_ms || 0)}ms of ${Math.round(total)}ms`}
+      style={{
+        position: 'relative',
+        width: '96px',
+        height: '5px',
+        borderRadius: '999px',
+        background: darkMode ? 'rgba(255,255,255,0.08)' : '#f3f4f6',
+        flexShrink: 0,
+        marginTop: '8px',
+        display: 'inline-block',
+      }}
+    >
+      <span
+        style={{
+          position: 'absolute',
+          top: 0,
+          bottom: 0,
+          left: `${left}%`,
+          width: `${Math.min(width, 100 - left)}%`,
+          borderRadius: '999px',
+          background: color,
+        }}
+      />
+    </span>
+  );
+};
+
 // Shared stream design primitives — also used by the run activity feed so
 // streamed output matches the interaction/trace visual language.
 export const streamPreStyle = (darkMode) => ({
@@ -354,6 +392,7 @@ export default function InteractionStream({ messages, darkMode, tools }) {
                   )}
                 </div>
               </div>
+              <SpanMessagePill message={message} darkMode={darkMode} />
               {expandable && (
                 <svg
                   className={`w-3.5 h-3.5 mt-1 flex-shrink-0 transition-transform ${isExpanded ? 'rotate-180' : ''}`}

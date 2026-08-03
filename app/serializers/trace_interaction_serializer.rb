@@ -107,12 +107,13 @@ class TraceInteractionSerializer
     @messages ||= begin
       stream = []
       index = 0
+      prompt_span = @spans.find { |span| span["type"] == "prompt" }
 
       if (prompt = llm_attribute("llm.prompt"))
-        stream << message(index += 1, role: "user", content: prompt, at: @trace.timestamp)
+        stream << message(index += 1, role: "user", content: prompt, at: @trace.timestamp, timing: timing_for(prompt_span))
       else
         outbound_messages.each do |entry|
-          stream << message(index += 1, role: entry["role"].presence || "user", content: entry["content"], at: @trace.timestamp)
+          stream << message(index += 1, role: entry["role"].presence || "user", content: entry["content"], at: @trace.timestamp, timing: timing_for(prompt_span))
         end
       end
 
@@ -125,25 +126,45 @@ class TraceInteractionSerializer
         stream << message(
           index += 1, role: "assistant", content: nil, at: started,
           tool_name: name, tool_call_id: call_id,
-          tool_calls: parsed(span.dig("attributes", "tool.arguments") || span.dig("attributes", "tool.input.args"))
+          tool_calls: parsed(span.dig("attributes", "tool.arguments") || span.dig("attributes", "tool.input.args")),
+          timing: timing_for(span)
         )
         stream << message(
           index += 1, role: "tool",
           content: span.dig("attributes", "tool.result") || span.dig("attributes", "tool.output.result"),
           at: finished,
-          tool_name: name, tool_call_id: call_id
+          tool_name: name, tool_call_id: call_id,
+          timing: timing_for(span)
         )
       end
 
       if (completion = llm_attribute("llm.completion") || llm_attribute("llm.output.message"))
-        stream << message(index += 1, role: "assistant", content: completion, at: end_time)
+        stream << message(index += 1, role: "assistant", content: completion, at: end_time, timing: timing_for(llm_spans.first))
       end
 
       stream
     end
   end
 
-  def message(index, role:, content:, at:, tool_name: nil, tool_call_id: nil, tool_calls: nil)
+  # Where a message's span sits on the trace's wall clock — lets the
+  # conversation view double as a waterfall (span-message pill bars).
+  def trace_start
+    @trace_start ||= @spans.filter_map { |span| parse_time(span["start_time"]) }.min
+  end
+
+  def timing_for(span)
+    return {} unless span
+
+    start = parse_time(span["start_time"])
+    offset = (start && trace_start) ? ((start - trace_start) * 1000.0).round(2) : 0
+    {
+      span_start_ms: [ offset, 0 ].max,
+      span_duration_ms: span["duration_ms"]&.to_f&.round(2) || 0,
+      trace_duration_ms: @trace.total_duration_ms&.to_f&.round(2)
+    }
+  end
+
+  def message(index, role:, content:, at:, tool_name: nil, tool_call_id: nil, tool_calls: nil, timing: nil)
     {
       id: "#{@trace.id}-#{index}",
       role: role,
@@ -152,7 +173,8 @@ class TraceInteractionSerializer
       tool_call_id: tool_call_id,
       tool_calls: tool_calls,
       content_checksum: nil,
-      created_at: at.iso8601(3)
+      created_at: at.iso8601(3),
+      **(timing || {})
     }
   end
 
