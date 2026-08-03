@@ -1051,7 +1051,9 @@ export default function TracesView({ agentClass = null, embedded = false }) {
                   border: '1px solid rgba(255,255,255,0.2)',
                   borderRadius: '8px',
                   color: 'white',
-                  fontSize: '14px'
+                  fontSize: '14px',
+                  maxWidth: '180px',
+                  textOverflow: 'ellipsis'
                 }}
               >
                 <option value="all">All Agents</option>
@@ -1069,7 +1071,9 @@ export default function TracesView({ agentClass = null, embedded = false }) {
                   border: filter.action !== 'all' ? '1px solid #ef4444' : '1px solid rgba(255,255,255,0.2)',
                   borderRadius: '8px',
                   color: 'white',
-                  fontSize: '14px'
+                  fontSize: '14px',
+                  maxWidth: '220px',
+                  textOverflow: 'ellipsis'
                 }}
               >
                 <option value="all">All Actions</option>
@@ -1642,7 +1646,7 @@ export default function TracesView({ agentClass = null, embedded = false }) {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between flex-wrap gap-y-2">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Traces</h1>
           <p className="text-sm text-gray-500">
@@ -1651,7 +1655,9 @@ export default function TracesView({ agentClass = null, embedded = false }) {
               : `Last ${timeWindow.label} • Click timeline to drill down`}
           </p>
         </div>
-        <div className="flex items-center space-x-3">
+        {/* Wraps instead of forcing horizontal page overflow; long
+            agent#action option names cap the selects, not the layout. */}
+        <div className="flex items-center space-x-3 flex-wrap gap-y-2 min-w-0">
           <TimeWindowSelector />
 
           {/* View Mode Toggle */}
@@ -1672,6 +1678,7 @@ export default function TracesView({ agentClass = null, embedded = false }) {
             value={filter.agent}
             onChange={(e) => setFilter({ ...filter, agent: e.target.value, action: 'all' })}
             className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-red-500"
+            style={{ maxWidth: '180px', textOverflow: 'ellipsis' }}
           >
             <option value="all">All Agents</option>
             {agentsList.map((agent) => (
@@ -1684,6 +1691,7 @@ export default function TracesView({ agentClass = null, embedded = false }) {
             className={`px-3 py-2 border rounded-lg text-sm focus:ring-2 focus:ring-red-500 ${
               filter.action !== 'all' ? 'border-red-500 bg-red-50' : 'border-gray-300'
             }`}
+            style={{ maxWidth: '220px', textOverflow: 'ellipsis' }}
           >
             <option value="all">All Actions</option>
             {availableActions.map((action) => (
