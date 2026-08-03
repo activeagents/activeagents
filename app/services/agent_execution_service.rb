@@ -166,7 +166,9 @@ class AgentExecutionService
 
     span = @root_span&.add_span("tool.#{name}", span_type: :tool)
     span&.set_attribute("tool.name", name.to_s)
-    span&.set_attribute("tool.args", kwargs.to_json.byteslice(0, 500)) if kwargs.present?
+    # tool.input.args is the key the Traces UI and TraceInteractionSerializer
+    # read — the call's in: side.
+    span&.set_attribute("tool.input.args", kwargs.to_json.byteslice(0, 500).to_s.scrub) if kwargs.present?
     started = Process.clock_gettime(Process::CLOCK_MONOTONIC)
 
     event_kind = name.to_s == "call_agent" ? "agent" : "tool"
@@ -209,7 +211,16 @@ class AgentExecutionService
     duration_ms = ((Process.clock_gettime(Process::CLOCK_MONOTONIC) - started) * 1000).round(2)
     errored = result.respond_to?(:key?) && (result.key?(:error) || result.key?("error"))
     span&.set_attribute("tool.error", true) if errored
-    span&.set_attribute("tool.result", result.to_json.byteslice(0, 600).to_s.scrub)
+    # Record the readable side of the result (most tools wrap one long text
+    # field); byteslicing whole-JSON breaks it mid-string and the UI can't
+    # parse the remainder.
+    result_text =
+      if result.respond_to?(:key?) && (result[:text] || result["text"]).is_a?(String)
+        result[:text] || result["text"]
+      else
+        result.to_json
+      end
+    span&.set_attribute("tool.output.result", result_text.byteslice(0, 4000).to_s.scrub)
     span&.finish
     emit_event(
       eid: event_id, kind: event_kind, label: event_label,
