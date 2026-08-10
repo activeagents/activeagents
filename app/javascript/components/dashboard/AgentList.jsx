@@ -80,7 +80,7 @@ export default function AgentList({
   const StatCell = ({ label, value, valueClass = 'text-gray-900', title }) => (
     <div className="rounded-lg bg-gray-50 px-2 py-1.5" title={title}>
       <div className={`text-sm font-semibold leading-tight ${valueClass}`}>{value}</div>
-      <div className="text-[10px] uppercase tracking-wide text-gray-400">{label}</div>
+      <div className="text-[10px] uppercase tracking-wide text-gray-400 whitespace-nowrap">{label}</div>
     </div>
   );
 
