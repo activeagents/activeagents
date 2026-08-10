@@ -11,9 +11,6 @@ gem "puma", ">= 5.0"
 
 # Active Agent — the AI framework these product features are built on
 gem "activeagent", github: "activeagents/activeagent", branch: "main"
-# Shared telemetry core activeagent depends on; not yet published to
-# RubyGems, so resolve it from GitHub alongside the framework gem.
-gem "activeagents-telemetry", github: "activeagents/activeagents-telemetry"
 # Solid Agent — persists agent conversations (contexts, messages,
 # generations) with telemetry trace correlation
 gem "solid_agent", github: "activeagents/solid_agent", branch: "main"
