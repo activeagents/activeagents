@@ -79,7 +79,7 @@ test.describe('API Keys settings', () => {
 });
 
 test.describe('Agent scorecards', () => {
-  test('agent cards show run, success, latency and eval stats', async ({ page }) => {
+  test('agent cards show run, success, latency, eval, token and recency stats', async ({ page }) => {
     await signIn(page, USER);
     await page.goto('/dashboard');
 
@@ -88,8 +88,12 @@ test.describe('Agent scorecards', () => {
     await expect(card.getByText(/SUCCESS/i)).toBeVisible();
     await expect(card.getByText(/AVG TIME/i)).toBeVisible();
     await expect(card.getByText(/EVAL/i)).toBeVisible();
+    await expect(card.getByText(/TOKENS/i)).toBeVisible();
+    await expect(card.getByText(/LAST RUN/i)).toBeVisible();
     // Seeded data renders real numbers, not placeholders.
     await expect(card.getByText(/%$/).first()).toBeVisible();
+    // The mascot no longer heads every card — the scorecard carries the space.
+    await expect(card.locator('svg[viewBox="0 0 500 500"]')).toHaveCount(0);
     await shot(page, 'e2e-4-scorecards');
   });
 });

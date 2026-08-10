@@ -61,6 +61,14 @@ export default function AgentList({
     return `${tokens}`;
   };
 
+  const formatLastRun = (dateString) => {
+    if (!dateString) return '—';
+    const days = Math.floor((new Date() - new Date(dateString)) / (1000 * 60 * 60 * 24));
+    if (days <= 0) return 'Today';
+    if (days < 30) return `${days}d ago`;
+    return new Date(dateString).toLocaleDateString();
+  };
+
   // Green/yellow/red thresholds matching the Evaluations view.
   const rateColor = (fraction) => {
     if (fraction == null) return 'text-gray-400';
@@ -69,8 +77,8 @@ export default function AgentList({
     return 'text-red-600';
   };
 
-  const StatCell = ({ label, value, valueClass = 'text-gray-900' }) => (
-    <div className="rounded-lg bg-gray-50 px-2 py-1.5">
+  const StatCell = ({ label, value, valueClass = 'text-gray-900', title }) => (
+    <div className="rounded-lg bg-gray-50 px-2 py-1.5" title={title}>
       <div className={`text-sm font-semibold leading-tight ${valueClass}`}>{value}</div>
       <div className="text-[10px] uppercase tracking-wide text-gray-400">{label}</div>
     </div>
@@ -161,27 +169,22 @@ export default function AgentList({
                 className="bg-white rounded-xl border border-gray-200 overflow-hidden hover:shadow-lg transition-all cursor-pointer group"
                 onClick={() => onSelect(agent)}
               >
-                {/* Avatar Preview */}
-                <div className="h-32 bg-gradient-to-br from-gray-50 to-gray-100 flex items-center justify-center relative overflow-hidden">
-                  <div className="transform group-hover:scale-110 transition-transform">
-                    <AgentAvatar size={96} />
-                  </div>
-                  <span className={`absolute top-3 right-3 px-2 py-1 text-xs font-medium rounded-full ${getStatusColor(agent.status)}`}>
-                    {agent.status}
-                  </span>
-                </div>
-
                 {/* Content */}
                 <div className="p-4">
-                  <h3 className="font-semibold text-gray-900 group-hover:text-red-600 transition-colors">
-                    {agent.name}
-                  </h3>
+                  <div className="flex items-start justify-between gap-2">
+                    <h3 className="font-semibold text-gray-900 group-hover:text-red-600 transition-colors">
+                      {agent.name}
+                    </h3>
+                    <span className={`shrink-0 px-2 py-0.5 text-xs font-medium rounded-full ${getStatusColor(agent.status)}`}>
+                      {agent.status}
+                    </span>
+                  </div>
                   <p className="text-sm text-gray-500 mt-1 line-clamp-2">
                     {agent.description || 'No description'}
                   </p>
 
                   {/* Scorecard */}
-                  <div className="mt-3 grid grid-cols-4 gap-1.5 text-center">
+                  <div className="mt-3 grid grid-cols-3 gap-1.5 text-center">
                     <StatCell label={`Runs ${stats.window_days || 30}d`} value={stats.runs ?? 0} />
                     <StatCell
                       label="Success"
@@ -190,10 +193,13 @@ export default function AgentList({
                     />
                     <StatCell label="Avg time" value={formatDuration(stats.avg_duration_ms)} />
                     <StatCell
-                      label="Eval"
+                      label={stats.eval_samples_evaluated ? `Eval ${stats.eval_samples_passed}/${stats.eval_samples_evaluated}` : 'Eval'}
+                      title={stats.eval_samples_evaluated ? `Latest evaluation: ${stats.eval_samples_passed} of ${stats.eval_samples_evaluated} samples passed` : undefined}
                       value={stats.eval_score != null ? `${Math.round(stats.eval_score * 100)}%` : '—'}
                       valueClass={rateColor(stats.eval_score)}
                     />
+                    <StatCell label="Tokens" value={formatTokens(stats.tokens)} />
+                    <StatCell label="Last run" value={formatLastRun(stats.last_run_at)} />
                   </div>
 
                   <div className="mt-3 flex items-center justify-between text-xs text-gray-400">
@@ -201,9 +207,7 @@ export default function AgentList({
                       <span className="px-2 py-1 bg-gray-100 rounded">{agent.provider}</span>
                       <span>{agent.model}</span>
                     </div>
-                    <span title={stats.last_run_at ? `Last run ${formatDate(stats.last_run_at)}` : undefined}>
-                      {stats.tokens ? `${formatTokens(stats.tokens)} tok · ` : ''}{formatDate(agent.updatedAt || agent.updated_at)}
-                    </span>
+                    <span>Updated {formatDate(agent.updatedAt || agent.updated_at)}</span>
                   </div>
                 </div>
 

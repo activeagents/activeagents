@@ -108,8 +108,10 @@ The Active Agent mascot is used consistently across:
 - Landing page hero (`activeagent-hero.svg`)
 - Dashboard sidebar logo
 - Agent builder preview
-- Agent cards (thumbnails)
 - Error/empty states
+
+Agent cards intentionally omit the mascot — repeating the same mark on every
+card adds noise without information; the space goes to the scorecard metrics.
 
 ### SVG Source
 - Primary: `public/images/activeagent-hero.svg` (500x500 viewBox)
