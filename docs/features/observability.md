@@ -6,9 +6,19 @@ pipeline behind the gem's local dev console. Metric definitions match the
 gem's dashboard (`ActiveAgent::Dashboard`), and the hosted code reuses the
 gem's classes rather than reimplementing them.
 
-Positioning: the gem's dashboard is a **development console**; production
-observability is the paid platform product. Free workspaces get a
-deliberately low-volume trial (see Quotas) to evaluate it.
+Positioning — the same engine runs in three contexts:
+
+- **Dev console** (free, in the gem): local traces while you build.
+- **Self-hosted enterprise**: a customer mounts the engine in their own
+  Rails app (e.g. `activeagents.combinaut.com`) as a production trace
+  sink for their fleet — see the gem's
+  `docs/framework/self-hosted-observability.md`. Data stays in their
+  database; the richer React suite below stays platform-only.
+- **Hosted platform** (this app): the paid, multi-tenant product at
+  activeagents.ai. Free workspaces get a deliberately low-volume trial
+  (see Quotas). Note the platform does **not** mount the engine — it
+  subclasses the gem's trace model and ingest controller and layers its
+  own React read path on top.
 
 ## Architecture
 
@@ -172,17 +182,20 @@ For apps built directly on RubyLLM, see
 vendorable adapter that bridges RubyLLM's `chat.ruby_llm` instrumentation
 events to `/v1/traces`.
 
-## Known gem-side gaps (worked around here)
+## Gem-side gaps: current status
 
-- The gem dashboard engine overrides `Engine.root` after Rails computes load
-  paths, so its `app/` classes aren't autoloadable in a host app; the
-  initializer requires the model/job/controller files explicitly.
-- The gem's telemetry instrumentation mirrors LLM token usage on both the
-  root and llm spans while `create_from_payload` sums across all spans;
-  `TelemetryTrace.dedupe_token_totals!` recomputes totals from child spans
-  to avoid double counting.
-- The gem's `Reporter` local-storage path serializes trace payloads with
-  symbol keys that the normalizer reads back as strings; the platform
-  serializes with `as_json` (string keys) before persisting.
+Earlier platform workarounds have been fixed upstream in the activeagent
+gem:
 
-These are candidates for upstream fixes in the activeagent gem.
+- ~~Engine `app/` classes not autoloadable in a host app~~ — fixed:
+  `Engine.find_root` points at the dashboard directory before load paths
+  are computed, and the gem's `test/dashboard/engine_integration_test.rb`
+  asserts autoloadability. No manual requires needed.
+- ~~Reporter local-storage symbol-key payloads dropped by the
+  normalizer~~ — fixed upstream; the reporter stringifies before
+  persisting.
+- Token double-counting on root+llm spans — fixed upstream
+  (`create_from_payload` treats child spans as authoritative). The
+  platform's `TelemetryTrace.dedupe_token_totals!` is therefore redundant
+  and kept only as belt-and-braces for old SDKs; it can be removed once
+  pre-fix SDK versions are out of the wild.

@@ -184,6 +184,14 @@ keys, once PR
 [#96](https://github.com/activeagents/activeagents/pull/96) lands) or the
 account's legacy `telemetry_api_key` from the Organization page.
 
+For an **enterprise self-hosted mount** of the gem's dashboard engine
+(customer's own Rails app, e.g. `activeagents.combinaut.com` — see the
+gem's `docs/framework/self-hosted-observability.md`), the endpoint shape
+is `<mount>/api/traces`, e.g.
+`https://activeagents.combinaut.com/api/traces`, and the Bearer token is
+that install's `ActiveAgent::Dashboard.ingest_api_key` (single-tenant) or
+an account `telemetry_api_key` (multi-tenant).
+
 ## Wire format reference
 
 The endpoint accepts what `ActiveAgent::Telemetry::Reporter` sends —
