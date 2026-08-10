@@ -8,7 +8,7 @@
 #
 # Telemetry (the monitoring story):
 #   - development without ACTIVEAGENTS_API_KEY: traces are stored locally
-#     and browsable in the gem's dev console at /active_agent.
+#     and browsable in the gem's dev console at /activeagents.
 #   - development with ACTIVEAGENTS_API_KEY: traces POST to the
 #     ActiveAgents platform instead — handy for testing the hosted
 #     pipeline from your machine.
