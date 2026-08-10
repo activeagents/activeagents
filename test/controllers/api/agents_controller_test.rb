@@ -391,6 +391,10 @@ class Api::AgentsControllerTest < ActionDispatch::IntegrationTest
   # ===========================================
 
   test "test executes synchronously and returns result" do
+    # Execute through the gem's mock provider — the test-environment double;
+    # without credentials real providers now fail instead of falling back.
+    @agent.update!(provider: "mock")
+
     post "/api/agents/#{@agent.id}/test", params: {
       prompt: "What is 2+2?"
     }

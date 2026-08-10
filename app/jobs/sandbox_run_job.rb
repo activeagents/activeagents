@@ -84,7 +84,7 @@ class SandboxRunJob < ApplicationJob
     when "ollama"
       execute_with_ollama(task)
     else
-      execute_mock_task(task, provider)
+      { content: "Error: Unknown provider '#{provider}'", tokens: 0, screenshots: [] }
     end
 
     duration_ms = ((Time.current - started_at) * 1000).to_i
@@ -108,7 +108,7 @@ class SandboxRunJob < ApplicationJob
 
     unless api_key.present?
       Rails.logger.warn("Anthropic API key not configured")
-      return execute_mock_task(task, "anthropic")
+      return { content: "Error: Anthropic API key is not configured — set ANTHROPIC_API_KEY or add it to credentials", tokens: 0, screenshots: [] }
     end
 
     require "net/http"
@@ -153,7 +153,7 @@ class SandboxRunJob < ApplicationJob
 
     unless api_key.present?
       Rails.logger.warn("OpenAI API key not configured")
-      return execute_mock_task(task, "openai")
+      return { content: "Error: OpenAI API key is not configured — set OPENAI_API_KEY or add it to credentials", tokens: 0, screenshots: [] }
     end
 
     require "net/http"
@@ -229,28 +229,6 @@ class SandboxRunJob < ApplicationJob
   rescue => e
     Rails.logger.error("Ollama API call failed: #{e.message}")
     { content: "Error: #{e.message}\n\nMake sure Ollama is running locally with: ollama serve", tokens: 0, screenshots: [] }
-  end
-
-  def execute_mock_task(task, provider = "unknown")
-    # Mock response for development without API keys
-    sleep(1)
-
-    content = <<~RESPONSE
-      [Mock Response - #{provider.upcase}]
-
-      Task: "#{task}"
-
-      This is a simulated response because the #{provider} API key is not configured.
-
-      To enable real responses:
-      - Anthropic: Add ANTHROPIC_API_KEY or set in credentials
-      - OpenAI: Add OPENAI_API_KEY or set in credentials
-      - Ollama: Run `ollama serve` locally
-
-      In production, the agent would provide a real response using the #{provider} model.
-    RESPONSE
-
-    { content: content, tokens: task.split.size * 2 + 50, screenshots: [] }
   end
 
   def default_system_prompt
