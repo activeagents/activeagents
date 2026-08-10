@@ -57,6 +57,10 @@ class Api::McpControllerTest < ActionDispatch::IntegrationTest
   end
 
   test "tools/call runs the agent and returns its output" do
+    # Execute through the gem's mock provider — the test-environment double;
+    # without credentials real providers now fail instead of falling back.
+    @agent.update!(provider: "mock")
+
     rpc("tools/call", { name: "run_#{@agent.slug}", arguments: { message: "Hello there" } })
 
     assert_response :success
