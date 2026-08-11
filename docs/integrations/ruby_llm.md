@@ -130,9 +130,7 @@ gem "activeagents-telemetry-ruby_llm"
 ```
 
 The initializer above is the whole integration. Implementation, tests, and
-the full option list live in the adapter's README. (The `ruby_llm_telemetry/`
-directory still vendored in this repo is its predecessor — superseded by
-the published gem, kept only until in-repo consumers migrate.)
+the full option list live in the adapter's README.
 
 Notes:
 
@@ -204,10 +202,13 @@ Full payload spec: activeagent's `docs/framework/telemetry.md`
 Python sidecars, edge functions, other frameworks — can feed the same
 dashboard.
 
-## Roadmap note
+## History
 
-`ruby_llm_telemetry/` is a self-contained gem so it can be broken out into
-its own repository, or folded into the activeagent gem itself (e.g.
-`ActiveAgent::Telemetry::Adapters::RubyLLM`, loadable without the rest of the
-framework), without changing the consuming app beyond its Gemfile line.
-First production consumer: Sparkle's Clara admin chat (`combinaut/sparkle`).
+The adapter began as a vendored gem in this repo (`ruby_llm_telemetry/`)
+and was extracted to
+[activeagents/activeagents-telemetry](https://github.com/activeagents/activeagents-telemetry)
+(`adapters/ruby_llm`, on the shared telemetry core) and published as
+`activeagents-telemetry-ruby_llm` — the namespace moved from
+`ActiveAgents::RubyLLMTelemetry` to `ActiveAgents::Telemetry::RubyLLM` in
+the process. First production consumer: Sparkle's Clara admin chat
+(`combinaut/sparkle`).
