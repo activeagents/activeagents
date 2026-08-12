@@ -260,12 +260,14 @@ function DashboardContent({ user, initialAgents = [], meta = {}, account = null,
       case 'editor':
         return selectedAgent ? (
           <AgentEditor
+            key={`editor-${selectedAgent.id}`}
             agent={selectedAgent}
             meta={meta}
             onSave={(data) => handleUpdateAgent(selectedAgent.id, data)}
             onDelete={() => handleDeleteAgent(selectedAgent.id)}
             onRun={() => navigateTo('runner', selectedAgent)}
             onDuplicate={() => handleDuplicateAgent(selectedAgent.id)}
+            onRunReport={() => navigateTo('history', selectedAgent)}
             onBack={() => navigateTo('list')}
             isLoading={isLoading}
           />
@@ -282,6 +284,7 @@ function DashboardContent({ user, initialAgents = [], meta = {}, account = null,
       case 'agent-analytics':
         return selectedAgent ? (
           <AgentEditor
+            key={`agent-analytics-${selectedAgent.id}`}
             agent={selectedAgent}
             meta={meta}
             initialTab="metrics"
@@ -289,6 +292,7 @@ function DashboardContent({ user, initialAgents = [], meta = {}, account = null,
             onDelete={() => handleDeleteAgent(selectedAgent.id)}
             onRun={() => navigateTo('runner', selectedAgent)}
             onDuplicate={() => handleDuplicateAgent(selectedAgent.id)}
+            onRunReport={() => navigateTo('history', selectedAgent)}
             onBack={() => navigateTo('list')}
             isLoading={isLoading}
           />

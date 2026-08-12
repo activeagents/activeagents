@@ -3,6 +3,7 @@ import AgentAvatar, { AGENT_PRESETS } from '../AgentAvatar';
 import { TYPOGRAPHY } from '../../utils/designTokens';
 import { FALLBACK_PROVIDER_MODELS, fetchProviderModels } from '../../utils/providerModels';
 import { useTheme } from '../../contexts/ThemeContext';
+import { paletteFor, ACCENT } from '../../utils/dashboardTheme';
 import TracesView from './TracesView';
 import InteractionsView from './InteractionsView';
 import EvaluationsView from './EvaluationsView';
@@ -29,25 +30,6 @@ const OBSERVABILITY_TABS = [
 ];
 
 const OBSERVABILITY_TAB_IDS = OBSERVABILITY_TABS.map(tab => tab.id);
-
-const ACCENT = '#ef4444';
-
-// Product surface tokens, resolved per theme. Mirrors the token layer the
-// other dashboard views build inline (EvaluationsView, TracesView) so the
-// agent page sits flush against them.
-export const paletteFor = (darkMode) => ({
-  cardBg: darkMode ? '#1f1f1f' : '#ffffff',
-  cardBorder: darkMode ? '#2a2a2a' : '#e5e7eb',
-  borderStrong: darkMode ? 'rgba(255,255,255,0.2)' : '#d1d5db',
-  mutedBg: darkMode ? 'rgba(255,255,255,0.06)' : '#f3f4f6',
-  innerBg: darkMode ? 'rgba(255,255,255,0.04)' : '#f9fafb',
-  textPrimary: darkMode ? '#ffffff' : '#111827',
-  textCell: darkMode ? 'rgba(255,255,255,0.75)' : '#4b5563',
-  textSecondary: darkMode ? 'rgba(255,255,255,0.6)' : '#6b7280',
-  textMuted: darkMode ? 'rgba(255,255,255,0.4)' : '#9ca3af',
-  inputBg: darkMode ? 'rgba(255,255,255,0.06)' : '#ffffff',
-  inputBorder: darkMode ? 'rgba(255,255,255,0.2)' : '#d1d5db'
-});
 
 // Soft tint + strong text. Dark mode lifts the text off the base hue instead
 // of using the light-mode ink, which would go unreadable on a dark tint.
@@ -138,7 +120,7 @@ function TabGroup({ tabs, active, onChange, colors }) {
   );
 }
 
-export default function AgentEditor({ agent, meta, onSave, onDelete, onRun, onDuplicate, onBack, isLoading, initialTab }) {
+export default function AgentEditor({ agent, meta, onSave, onDelete, onRun, onDuplicate, onRunReport, onBack, isLoading, initialTab }) {
   const { darkMode } = useTheme();
   const colors = paletteFor(darkMode);
   const [activeTab, setActiveTab] = useState(initialTab || 'config');
@@ -320,8 +302,32 @@ export default function AgentEditor({ agent, meta, onSave, onDelete, onRun, onDu
         <div>
           {activeTab === 'traces' && <TracesView agentClass={telemetryAgentClass} embedded />}
           {activeTab === 'metrics' && <AgentAnalytics agent={agent} embedded />}
-          {activeTab === 'interactions' && <InteractionsView agentId={agent.id} embedded />}
-          {activeTab === 'evals' && <EvaluationsView embedded />}
+          {activeTab === 'interactions' && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+              {/* The run report is a separate view — runs and their cohorts,
+                  not conversation streams — and this is its only entry. */}
+              {onRunReport && (
+                <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+                  <button
+                    type="button"
+                    onClick={onRunReport}
+                    style={{
+                      background: 'none',
+                      border: 'none',
+                      cursor: 'pointer',
+                      fontFamily: TYPOGRAPHY.mono,
+                      fontSize: '11px',
+                      color: '#3b82f6'
+                    }}
+                  >
+                    {'run report ->'}
+                  </button>
+                </div>
+              )}
+              <InteractionsView agentId={agent.id} embedded />
+            </div>
+          )}
+          {activeTab === 'evals' && <EvaluationsView embedded agentId={agent.id} />}
           {activeTab === 'feedback' && <FeedbackTab colors={colors} />}
         </div>
       ) : (
@@ -358,9 +364,10 @@ export default function AgentEditor({ agent, meta, onSave, onDelete, onRun, onDu
         </div>
       )}
 
-      {/* Save lives with the configuration tabs it applies to, and only
-          surfaces once something actually changed. */}
-      {!isObservability && hasChanges && (
+      {/* Surfaces once something actually changed, on every tab: the header
+          badge reports "unsaved" from anywhere, so the control has to follow
+          it or an edit made on Configuration looks unsavable from Traces. */}
+      {hasChanges && (
         <div
           style={{
             position: 'sticky',
@@ -406,8 +413,7 @@ const fieldStyle = (colors) => ({
   color: colors.textPrimary,
   // textarea defaults to monospace; only the fields that mean it opt in.
   fontFamily: 'inherit',
-  fontSize: '13px',
-  outline: 'none'
+  fontSize: '13px'
 });
 
 const microLabel = (colors) => ({
@@ -429,6 +435,7 @@ function ConfigTab({ formData, updateField, providerModels, colors, darkMode, on
             type="text"
             value={formData.name}
             onChange={(e) => updateField('name', e.target.value)}
+            className="aa-field"
             style={fieldStyle(colors)}
           />
         </div>
@@ -437,6 +444,7 @@ function ConfigTab({ formData, updateField, providerModels, colors, darkMode, on
           <select
             value={formData.preset_type}
             onChange={(e) => updateField('preset_type', e.target.value)}
+            className="aa-field"
             style={fieldStyle(colors)}
           >
             {Object.keys(AGENT_PRESETS).map(preset => (
@@ -452,6 +460,7 @@ function ConfigTab({ formData, updateField, providerModels, colors, darkMode, on
           value={formData.description}
           onChange={(e) => updateField('description', e.target.value)}
           rows={3}
+          className="aa-field"
           style={{ ...fieldStyle(colors), resize: 'vertical' }}
         />
       </div>
@@ -465,6 +474,7 @@ function ConfigTab({ formData, updateField, providerModels, colors, darkMode, on
               updateField('provider', e.target.value);
               updateField('model', providerModels[e.target.value][0]);
             }}
+            className="aa-field"
             style={fieldStyle(colors)}
           >
             {Object.keys(providerModels).map(p => (
@@ -477,6 +487,7 @@ function ConfigTab({ formData, updateField, providerModels, colors, darkMode, on
           <select
             value={formData.model}
             onChange={(e) => updateField('model', e.target.value)}
+            className="aa-field"
             style={{ ...fieldStyle(colors), fontFamily: TYPOGRAPHY.mono }}
           >
             {(providerModels[formData.provider]?.includes(formData.model)
@@ -512,6 +523,7 @@ function ConfigTab({ formData, updateField, providerModels, colors, darkMode, on
           <select
             value={formData.status}
             onChange={(e) => updateField('status', e.target.value)}
+            className="aa-field"
             style={fieldStyle(colors)}
           >
             <option value="draft">Draft</option>
@@ -569,6 +581,7 @@ function InstructionsTab({ formData, updateField, meta, toggleArrayItem, colors 
           onChange={(e) => updateField('instructions', e.target.value)}
           placeholder="You are a helpful AI assistant..."
           rows={12}
+          className="aa-field"
           style={{ ...fieldStyle(colors), fontFamily: TYPOGRAPHY.mono, resize: 'vertical' }}
         />
       </div>
@@ -606,6 +619,7 @@ function InstructionsTab({ formData, updateField, meta, toggleArrayItem, colors 
                     value={action.name}
                     onChange={(e) => updateActionPrompt(index, { name: e.target.value.toLowerCase().replace(/[^a-z0-9_]/g, '_') })}
                     placeholder="action_name"
+                    className="aa-field"
                     style={{ ...fieldStyle(colors), flex: 1, padding: '6px 10px', fontFamily: TYPOGRAPHY.mono }}
                   />
                   <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px', color: colors.textSecondary, whiteSpace: 'nowrap' }}>
@@ -639,6 +653,7 @@ function InstructionsTab({ formData, updateField, meta, toggleArrayItem, colors 
                   onChange={(e) => updateActionPrompt(index, { prompt: e.target.value })}
                   placeholder="This action's system prompt, applied on top of the base instructions..."
                   rows={4}
+                  className="aa-field"
                   style={{ ...fieldStyle(colors), fontFamily: TYPOGRAPHY.mono, resize: 'vertical' }}
                 />
               </div>
