@@ -7,7 +7,6 @@
 .aa-field:focus-visible {
   outline: 2px solid #ef4444;
   outline-offset: 1px;
-  border-color: #ef4444;
 }
 
 /* Hover affordance for the time-window zoom buttons. A neutral translucent

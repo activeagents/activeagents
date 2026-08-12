@@ -56,7 +56,10 @@ export default function EvaluationsView({ embedded = false, agentId = null }) {
 
   const fetchEvaluations = useCallback(async () => {
     try {
-      const response = await fetch('/api/evaluations');
+      // Scoped server-side: the endpoint caps at the 50 most recent, so
+      // narrowing here rather than after the fetch is what makes an agent's
+      // older evaluations reachable at all.
+      const response = await fetch(`/api/evaluations${agentId ? `?agent_id=${encodeURIComponent(agentId)}` : ''}`);
       if (!response.ok) throw new Error(`Request failed (${response.status})`);
       const data = await response.json();
       setEvaluations(data.evaluations || []);
@@ -66,7 +69,7 @@ export default function EvaluationsView({ embedded = false, agentId = null }) {
     } finally {
       setIsLoading(false);
     }
-  }, []);
+  }, [agentId]);
 
   useEffect(() => {
     fetchEvaluations();
@@ -159,8 +162,8 @@ export default function EvaluationsView({ embedded = false, agentId = null }) {
     );
   }
 
-  // The API returns the account's evaluations; scope them here so the list,
-  // the summary cards, and the empty state all describe the same set.
+  // The request is already scoped; this is a belt-and-braces guard so the
+  // list, the summary cards, and the empty state can never disagree.
   const shownEvaluations = agentId
     ? evaluations.filter((e) => String(e.agent?.id) === String(agentId))
     : evaluations;
