@@ -7,13 +7,19 @@ A small but real Rails app that shows the whole ActiveAgent product loop:
   - `SupportReplyAgent` — drafts replies grounded in matching knowledge-base articles (`config/knowledge_base.yml`), with the conversation persisted through [solid_agent](https://github.com/activeagents/solid_agent)
   - `SummarizeAgent` — running thread summaries
 - **Monitoring**:
-  - In development, traces land in the gem's **dev console** at [`/active_agent`](http://localhost:3000/active_agent)
+  - In development, traces land in the gem's **dev console** at [`/activeagents`](http://localhost:3000/activeagents)
   - In production (or whenever `ACTIVEAGENTS_API_KEY` is set), traces POST to the **ActiveAgents platform** — the same pipeline, hosted
   - Every persisted `AgentGeneration` carries the `trace_id` of the telemetry trace that produced it, so a conversation row here links to its trace on the dashboard
 
 It works **without any API keys**: the gem's mock provider exercises the full
 prompt → provider → response pipeline (including token accounting and
 telemetry). Set `OPENAI_API_KEY` or `ANTHROPIC_API_KEY` to use a real model.
+
+This app doubles as the **runnable reference for the self-hosted
+(enterprise) observability mode** — an existing Rails app that mounts
+`ActiveAgent::Dashboard::Engine` and stores its own traces. The full
+deployment story (production auth, ingest keys, fleet ingest, subdomain
+mounts) is in the gem's `docs/framework/self-hosted-observability.md`.
 
 ## Run it locally
 
@@ -25,7 +31,7 @@ bin/rails server
 
 Open http://localhost:3000, click into a ticket, and hit **Triage**,
 **Draft reply**, or **Summarize thread**. Then open
-http://localhost:3000/active_agent to see each click as a trace with a span
+http://localhost:3000/activeagents to see each click as a trace with a span
 waterfall and token counts.
 
 To post traces to a platform workspace instead (hosted or local):
@@ -40,8 +46,8 @@ bin/rails server
 
 | Variable | Purpose | Default |
 |---|---|---|
-| `AI_PROVIDER` | `mock`, `openai`, or `anthropic` | auto: first provider with credentials, else `mock` |
-| `OPENAI_API_KEY` / `ANTHROPIC_API_KEY` | real model credentials | — |
+| `AI_PROVIDER` | `mock`, `openai`, `anthropic`, or `openrouter` | auto: first provider with credentials, else `mock` |
+| `OPENAI_API_KEY` / `ANTHROPIC_API_KEY` / `OPENROUTER_API_KEY` | real model credentials | — |
 | `ACTIVEAGENTS_API_KEY` | workspace telemetry key (Organization page) | — (dev falls back to the local dev console) |
 | `ACTIVEAGENTS_TELEMETRY_ENDPOINT` | trace ingest URL | `https://api.activeagents.ai/v1/traces` |
 

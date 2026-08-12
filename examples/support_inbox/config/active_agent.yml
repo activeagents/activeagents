@@ -8,7 +8,7 @@
 #
 # Telemetry (the monitoring story):
 #   - development without ACTIVEAGENTS_API_KEY: traces are stored locally
-#     and browsable in the gem's dev console at /active_agent.
+#     and browsable in the gem's dev console at /activeagents.
 #   - development with ACTIVEAGENTS_API_KEY: traces POST to the
 #     ActiveAgents platform instead — handy for testing the hosted
 #     pipeline from your machine.
@@ -28,10 +28,17 @@ shared:
     access_token: <%= ENV["ANTHROPIC_API_KEY"] %>
     model: "claude-haiku-4-5"
 
+  # One key, many models (https://openrouter.ai/models) — handy for dev.
+  openrouter: &openrouter
+    service: "OpenRouter"
+    access_token: <%= ENV["OPENROUTER_API_KEY"] %>
+    model: "meta-llama/llama-3.3-70b-instruct"
+
 development:
   mock: *mock
   openai: *openai
   anthropic: *anthropic
+  openrouter: *openrouter
   telemetry:
     enabled: true
     <% if ENV["ACTIVEAGENTS_API_KEY"].to_s.strip != "" %>
@@ -54,6 +61,7 @@ production:
   mock: *mock
   openai: *openai
   anthropic: *anthropic
+  openrouter: *openrouter
   telemetry:
     enabled: true
     endpoint: <%= ENV.fetch("ACTIVEAGENTS_TELEMETRY_ENDPOINT", "https://api.activeagents.ai/v1/traces") %>

@@ -13,19 +13,29 @@ export default function AgentInteractions({ agent, onBack }) {
   const [selectedSession, setSelectedSession] = useState(null); // {id, name}
   const [selectedMessages, setSelectedMessages] = useState([]);
   const [detailMode, setDetailMode] = useState('run'); // 'run' | 'all'
+  // Whether both lists have answered yet, so the default tab is chosen from
+  // real counts rather than from the empty initial state.
+  const [runsLoaded, setRunsLoaded] = useState(false);
+  const [sessionsLoaded, setSessionsLoaded] = useState(false);
+  // A level named in the URL, or a tab the operator clicked, both outrank
+  // the "open on whatever this agent actually has" default.
+  const urlPinnedMode = useRef(false);
+  const modeChosenByUser = useRef(false);
   const [reportSort, setReportSort] = useState('recent'); // 'recent' | 'longest'
   const [expandedCohorts, setExpandedCohorts] = useState({});
   const [isLoading, setIsLoading] = useState(true);
   const [page, setPage] = useState(1);
   const [hasMore, setHasMore] = useState(true);
   const [filterStatus, setFilterStatus] = useState('');
+  const [filterSource, setFilterSource] = useState(''); // '' | 'dashboard' | 'reported'
+  const [sort, setSort] = useState('recent'); // see AgentExecutions::SORTS
   const conversationRef = useRef(null);
 
   const basePath = `/dashboard/agents/${agent.id}/interactions`;
 
   useEffect(() => {
     loadRuns();
-  }, [agent.id, page, filterStatus, timeWindow.minutes]);
+  }, [agent.id, page, filterStatus, filterSource, sort, timeWindow.minutes]);
 
   // The shared window is a different result set, not more of the same one.
   useEffect(() => {
@@ -39,7 +49,8 @@ export default function AgentInteractions({ agent, onBack }) {
     fetch(`/api/interactions?agent_id=${agent.id}`)
       .then((response) => response.json())
       .then((data) => setSessions(data.interactions || []))
-      .catch(() => {});
+      .catch(() => {})
+      .finally(() => setSessionsLoaded(true));
   }, [agent.id]);
 
   // Sync drill-down state with the URL: deep links like
@@ -66,16 +77,31 @@ export default function AgentInteractions({ agent, onBack }) {
         setDetailMode('all');
         setSelectedSession(null);
       } else {
-        setDetailMode('run');
+        // No level in the URL: leave the default to the effect below, which
+        // waits until it knows whether this agent has any dashboard runs.
+        urlPinnedMode.current = false;
         setSelectedRun(null);
         setSelectedSession(null);
         setSelectedMessages([]);
+        return;
       }
+      urlPinnedMode.current = true;
     };
     applyLocation();
     window.addEventListener('popstate', applyLocation);
     return () => window.removeEventListener('popstate', applyLocation);
   }, [agent.id]);
+
+  // Agents observed purely from telemetry have interactions but no dashboard
+  // runs, and defaulting to the runs tab showed them "No runs yet" next to a
+  // scorecard reporting real traffic. Open on interactions in that case —
+  // unless the URL pinned a level or the operator picked a tab themselves.
+  useEffect(() => {
+    if (urlPinnedMode.current || modeChosenByUser.current) return;
+    if (!runsLoaded || !sessionsLoaded) return;
+
+    setDetailMode(runs.length === 0 && sessions.length > 0 ? 'all' : 'run');
+  }, [runsLoaded, sessionsLoaded, runs.length, sessions.length]);
 
   const loadRuns = async () => {
     setIsLoading(true);
@@ -86,6 +112,8 @@ export default function AgentInteractions({ agent, onBack }) {
         minutes: String(timeWindow.minutes)
       });
       if (filterStatus) params.append('status', filterStatus);
+      if (filterSource) params.append('source', filterSource);
+      if (sort !== 'recent') params.append('sort', sort);
 
       const response = await fetch(`/api/agents/${agent.id}/runs?${params}`);
       const data = await response.json();
@@ -101,6 +129,7 @@ export default function AgentInteractions({ agent, onBack }) {
       console.error('Failed to load runs:', error);
     } finally {
       setIsLoading(false);
+      setRunsLoaded(true);
     }
   };
 
@@ -120,6 +149,19 @@ export default function AgentInteractions({ agent, onBack }) {
     } catch (error) {
       console.error('Failed to load run details:', error);
     }
+  };
+
+  // One list, two kinds of row. A dashboard run has a record to open; a
+  // reported execution only exists as a trace, so it deep-links to Traces
+  // where its spans and reconstructed conversation live.
+  const openExecution = (execution) => {
+    if (execution.source === 'reported') {
+      const ref = execution.trace_id || String(execution.id).replace(/^trace-/, '');
+      window.history.pushState(window.history.state, '', `/dashboard/traces/${ref}`);
+      window.dispatchEvent(new CustomEvent('dashboard:navigate', { detail: { path: `/dashboard/traces/${ref}` } }));
+      return;
+    }
+    loadRunDetails(execution.record_id || execution.id);
   };
 
   const clearRunSelection = () => {
@@ -143,6 +185,8 @@ export default function AgentInteractions({ agent, onBack }) {
   };
 
   const switchMode = (mode) => {
+    // An explicit choice sticks: don't let the auto-default override it.
+    modeChosenByUser.current = true;
     setDetailMode(mode);
     if (mode === 'all') {
       pushPath(selectedSession ? `${basePath}/sessions/${selectedSession.id}` : `${basePath}/sessions`);
@@ -223,6 +267,15 @@ export default function AgentInteractions({ agent, onBack }) {
     return `${Math.floor(ms / 60000)}m ${Math.floor((ms % 60000) / 1000)}s`;
   };
 
+  // Single executions are usually fractions of a cent, so $0.00 would read
+  // as free for most rows; show enough precision to be meaningful instead.
+  const formatCost = (cost) => {
+    if (cost == null) return '—';
+    if (cost === 0) return '$0';
+    if (cost < 0.01) return `$${cost.toFixed(4)}`;
+    return `$${cost.toFixed(2)}`;
+  };
+
   const formatDate = (dateString) => {
     const date = new Date(dateString);
     const now = new Date();
@@ -264,6 +317,34 @@ export default function AgentInteractions({ agent, onBack }) {
             <TimeWindowSelector compact />
           </div>
 
+          {/* Source — the one real difference between these executions:
+              did the dashboard run it, or did the customer's app report it?
+              Both are the same grain, so they share one list. */}
+          <div className="flex bg-gray-100 rounded-lg p-1 mb-2 text-sm">
+            {[
+              { value: '', label: 'All' },
+              { value: 'dashboard', label: 'Dashboard' },
+              { value: 'reported', label: 'Reported' },
+            ].map((option) => (
+              <button
+                key={option.value || 'all'}
+                onClick={() => { setFilterSource(option.value); setPage(1); }}
+                className={`flex-1 px-2 py-1 rounded-md transition-colors ${
+                  filterSource === option.value ? 'bg-white shadow text-gray-900' : 'text-gray-600'
+                }`}
+                title={
+                  option.value === 'dashboard'
+                    ? 'Executions started from this dashboard'
+                    : option.value === 'reported'
+                      ? 'Executions reported by your app via telemetry'
+                      : 'Every execution, however it started'
+                }
+              >
+                {option.label}
+              </button>
+            ))}
+          </div>
+
           {/* Filter */}
           <select
             value={filterStatus}
@@ -273,11 +354,28 @@ export default function AgentInteractions({ agent, onBack }) {
             }}
             className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-red-500"
           >
-            <option value="">All Runs</option>
+            <option value="">All statuses</option>
             <option value="complete">Completed</option>
             <option value="failed">Failed</option>
             <option value="running">Running</option>
             <option value="cancelled">Cancelled</option>
+          </select>
+
+          {/* Ranking. Server-side so it ranks the whole window, not the
+              twenty rows already loaded. */}
+          <select
+            value={sort}
+            onChange={(e) => {
+              setSort(e.target.value);
+              setPage(1);
+            }}
+            className="w-full mt-2 px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-red-500"
+            title="Rank these executions"
+          >
+            <option value="recent">Most recent</option>
+            <option value="longest">Longest running</option>
+            <option value="cost">Highest cost</option>
+            <option value="tokens">Most tokens</option>
           </select>
         </div>
 
@@ -289,34 +387,68 @@ export default function AgentInteractions({ agent, onBack }) {
             </div>
           ) : runs.length > 0 ? (
             <>
-              {runs.map(run => (
-                <div
-                  key={run.id}
-                  onClick={() => loadRunDetails(run.id)}
-                  className={`p-4 border-b border-gray-100 cursor-pointer transition-colors ${
-                    selectedRun?.id === run.id
-                      ? 'bg-red-50 border-l-4 border-l-red-500'
-                      : 'hover:bg-gray-50'
-                  }`}
-                >
-                  <div className="flex items-center justify-between mb-2">
-                    <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${getStatusColor(run.status)}`}>
-                      {run.status}
-                    </span>
-                    <span className="text-xs text-gray-400">{formatDate(run.created_at)}</span>
+              {runs.map(execution => {
+                const reported = execution.source === 'reported';
+                return (
+                  <div
+                    key={execution.id}
+                    onClick={() => openExecution(execution)}
+                    title={reported
+                      ? 'Reported by your app — opens its trace'
+                      : 'Started from this dashboard'}
+                    className={`p-4 border-b border-gray-100 cursor-pointer transition-colors ${
+                      !reported && selectedRun?.id === execution.id
+                        ? 'bg-red-50 border-l-4 border-l-red-500'
+                        : 'hover:bg-gray-50'
+                    }`}
+                  >
+                    <div className="flex items-center justify-between mb-2 gap-2">
+                      <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${getStatusColor(execution.status)}`}>
+                        {execution.status}
+                      </span>
+                      <div className="flex items-center gap-2">
+                        {/* The only real difference between these rows. */}
+                        <span className={`px-1.5 py-0.5 rounded text-[10px] uppercase tracking-wide ${
+                          reported ? 'bg-blue-100 text-blue-700' : 'bg-gray-100 text-gray-600'
+                        }`}>
+                          {reported ? 'reported' : 'dashboard'}
+                        </span>
+                        <span className="text-xs text-gray-400">
+                          {formatDate(execution.created_at || execution.occurred_at)}
+                        </span>
+                      </div>
+                    </div>
+                    <p className="text-sm text-gray-700 truncate">
+                      {execution.input_preview
+                        || execution.input_prompt?.substring(0, 60)
+                        || (reported
+                          ? `${execution.action_name || 'execution'} · trace ${String(execution.trace_id || '').slice(0, 8)}`
+                          : 'No input')}
+                    </p>
+                    <div className="flex items-center space-x-3 mt-2 text-xs text-gray-400 flex-wrap gap-y-1">
+                      {execution.model && (
+                        <span className="px-1.5 py-0.5 rounded bg-indigo-50 text-indigo-700 font-mono">{execution.model}</span>
+                      )}
+                      <span className={sort === 'longest' ? 'text-gray-700 font-medium' : undefined}>
+                        {formatDuration(execution.duration_ms)}
+                      </span>
+                      {!!execution.tokens && (
+                        <span className={sort === 'tokens' ? 'text-gray-700 font-medium' : undefined}>
+                          {execution.tokens} tokens
+                        </span>
+                      )}
+                      {execution.cost != null && (
+                        <span
+                          className={sort === 'cost' ? 'text-gray-700 font-medium' : undefined}
+                          title="Estimated from token counts at this model's published rates"
+                        >
+                          {formatCost(execution.cost)}
+                        </span>
+                      )}
+                    </div>
                   </div>
-                  <p className="text-sm text-gray-700 truncate">
-                    {run.input_preview || run.input_prompt?.substring(0, 60) || 'No input'}
-                  </p>
-                  <div className="flex items-center space-x-3 mt-2 text-xs text-gray-400 flex-wrap gap-y-1">
-                    {run.model && (
-                      <span className="px-1.5 py-0.5 rounded bg-indigo-50 text-indigo-700 font-mono">{run.model}</span>
-                    )}
-                    <span>{formatDuration(run.duration_ms)}</span>
-                    {run.tokens && <span>{run.tokens} tokens</span>}
-                  </div>
-                </div>
-              ))}
+                );
+              })}
 
               {hasMore && (
                 <button

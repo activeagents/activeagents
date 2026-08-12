@@ -1,11 +1,19 @@
 # frozen_string_literal: true
 
 # Per-agent scorecard stats for the dashboard's agent cards, computed with
-# grouped queries (no per-agent N+1) over the solid_agent datasets:
-# agent_runs for volume/success/latency/tokens and evaluation_runs for the
-# latest quality score. Platform runs write telemetry-correlated records
-# (AgentRun#trace_id == TelemetryTrace#trace_id), so these numbers agree
-# with the Traces/Metrics views.
+# grouped queries (no per-agent N+1) over two sources:
+#
+# * agent_runs — executions the platform itself ran, and
+# * active_agent_telemetry_traces — executions reported by an SDK in the
+#   customer's own app, attributed to an Agent by AgentRegistrar.
+#
+# Agents discovered by observation (status: :observed) only ever have the
+# second kind, so a runs-only scorecard reported 0 for every tile while the
+# Traces view showed real traffic.
+#
+# A platform run writes BOTH an AgentRun and a trace sharing a trace_id, so
+# traces are counted only when no AgentRun claims the same trace_id —
+# otherwise every platform execution would count twice.
 class AgentScorecard
   WINDOW = 30.days
 
@@ -25,24 +33,128 @@ class AgentScorecard
     last_runs = AgentRun.where(agent_id: ids).group(:agent_id).maximum(:created_at)
     eval_runs = latest_evaluation_runs(ids)
 
+    trace_stats = telemetry_stats(ids, window_start)
+    trace_last = unclaimed_traces(ids, nil).group(:agent_id).maximum(:timestamp)
+    costs = estimated_costs(ids, windowed, window_start)
+
     ids.index_with do |id|
       runs = run_counts[id].to_i
-      completed = completed_counts[id].to_i
+      stats = trace_stats[id] || {}
+      traced = stats[:count].to_i
+      total = runs + traced
+      succeeded = completed_counts[id].to_i + stats[:ok].to_i
       eval_run = eval_runs[id]
 
       {
         window_days: (WINDOW / 1.day).to_i,
-        runs: runs,
-        success_rate: runs.positive? ? (completed * 100.0 / runs).round(1) : nil,
-        avg_duration_ms: avg_durations[id]&.round,
-        tokens: token_sums[id].to_i,
+        runs: total,
+        # Which sources contributed, so the UI can say where numbers came from.
+        run_sources: run_sources(runs, traced),
+        success_rate: total.positive? ? (succeeded * 100.0 / total).round(1) : nil,
+        avg_duration_ms: blended_duration(avg_durations[id], runs, stats[:avg_duration], traced),
+        tokens: token_sums[id].to_i + stats[:tokens].to_i,
+        cost: costs[id],
         eval_score: eval_run&.average_score,
         eval_samples_passed: eval_run&.samples_passed,
         eval_samples_evaluated: eval_run&.samples_evaluated,
-        last_run_at: last_runs[id]&.iso8601
+        last_run_at: [ last_runs[id], trace_last[id] ].compact.max&.iso8601
       }
     end
   end
+
+  # Count, success, latency and tokens for SDK-reported executions, in one
+  # grouped query (FILTER keeps it to a single pass over the window).
+  def self.telemetry_stats(agent_ids, window_start)
+    rows = unclaimed_traces(agent_ids, window_start)
+      .group("active_agent_telemetry_traces.agent_id")
+      .pluck(
+        Arel.sql("active_agent_telemetry_traces.agent_id"),
+        Arel.sql("COUNT(*)"),
+        Arel.sql("COUNT(*) FILTER (WHERE active_agent_telemetry_traces.status <> 'ERROR')"),
+        Arel.sql("AVG(active_agent_telemetry_traces.total_duration_ms)"),
+        Arel.sql(
+          "SUM(COALESCE(total_input_tokens, 0) + COALESCE(total_output_tokens, 0) + " \
+          "COALESCE(total_thinking_tokens, 0))"
+        )
+      )
+
+    rows.to_h do |agent_id, count, ok, avg_duration, tokens|
+      [ agent_id, { count: count, ok: ok, avg_duration: avg_duration, tokens: tokens } ]
+    end
+  end
+  private_class_method :telemetry_stats
+
+  # Estimated USD spend per agent over the window, across both sources.
+  # Rates are per model (ModelPricing), so the token columns are plucked
+  # alongside the model rather than summed in SQL — two queries, no payload
+  # loading: the trace's model lives in the spans jsonb and is extracted
+  # there, the run's in output_metadata.
+  def self.estimated_costs(agent_ids, windowed_runs, window_start)
+    costs = Hash.new(0.0)
+    priced = Set.new
+
+    windowed_runs.pluck(
+      :agent_id,
+      Arel.sql("output_metadata ->> 'model'"),
+      :input_tokens,
+      :output_tokens
+    ).each do |agent_id, model, input, output|
+      cost = ModelPricing.estimate(model: model, input_tokens: input, output_tokens: output)
+      next unless cost
+
+      costs[agent_id] += cost
+      priced << agent_id
+    end
+
+    unclaimed_traces(agent_ids, window_start).pluck(
+      Arel.sql("active_agent_telemetry_traces.agent_id"),
+      Arel.sql(
+        "(SELECT s.value -> 'attributes' ->> 'llm.model' " \
+        "FROM jsonb_array_elements(spans) AS s " \
+        "WHERE s.value ->> 'type' = 'llm' LIMIT 1)"
+      ),
+      Arel.sql("total_input_tokens"),
+      Arel.sql("total_output_tokens")
+    ).each do |agent_id, model, input, output|
+      cost = ModelPricing.estimate(model: model, input_tokens: input, output_tokens: output)
+      next unless cost
+
+      costs[agent_id] += cost
+      priced << agent_id
+    end
+
+    # nil, not 0.0, for agents with nothing to price — the card shows "—"
+    # rather than claiming a real $0.00 spend.
+    agent_ids.index_with { |id| priced.include?(id) ? costs[id].round(4) : nil }
+  end
+  private_class_method :estimated_costs
+
+  # Traces attributed to these agents that no AgentRun already accounts for.
+  # window_start nil scans all time (used for "last activity"). Shared with
+  # AgentExecutions so the cards, the list and the counts never disagree.
+  def self.unclaimed_traces(agent_ids, window_start)
+    AgentExecutions.unclaimed_traces(agent_ids, since: window_start)
+  end
+  private_class_method :unclaimed_traces
+
+  def self.run_sources(runs, traced)
+    sources = []
+    sources << "platform" if runs.positive?
+    sources << "telemetry" if traced.positive?
+    sources
+  end
+  private_class_method :run_sources
+
+  # Duration averages weight by how many executions each source contributed,
+  # so a blend of platform runs and traces isn't skewed by the smaller set.
+  def self.blended_duration(run_avg, runs, trace_avg, traced)
+    weighted = (run_avg.to_f * runs) + (trace_avg.to_f * traced)
+    counted = (run_avg ? runs : 0) + (trace_avg ? traced : 0)
+    return nil if counted.zero?
+
+    (weighted / counted).round
+  end
+  private_class_method :blended_duration
 
   # Latest complete evaluation run per agent, one query via DISTINCT ON.
   def self.latest_evaluation_runs(agent_ids)

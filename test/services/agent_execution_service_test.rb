@@ -8,6 +8,15 @@ class AgentExecutionServiceTest < ActiveSupport::TestCase
     @account = create_account(owner: @user)
     @agent = create_agent(user: @user, name: "Support Bot", provider: "openai", model: "gpt-4o-mini")
     @run = @agent.agent_runs.create!(input_prompt: "Hello there", status: :running, started_at: Time.current)
+
+    # Full-pipeline tests execute through the gem's mock provider — the
+    # test-environment double. App environments never accept it: runs
+    # without real credentials raise ProviderNotConfiguredError instead.
+    @mock_agent = create_agent(user: @user, name: "Mock Bot", provider: "mock", model: "gpt-4o-mini")
+  end
+
+  def create_running_run(agent, prompt: "Hello there")
+    agent.agent_runs.create!(input_prompt: prompt, status: :running, started_at: Time.current)
   end
 
   test "execute_tool routes memory tools to the agent's AgentMemory" do
@@ -35,7 +44,7 @@ class AgentExecutionServiceTest < ActiveSupport::TestCase
 
   test "memory tool schemas are exposed when the agent enables the memory tool" do
     agent = create_agent(user: @user, name: "Rememberer", tools: %w[memory])
-    run = agent.agent_runs.create!(input_prompt: "Hi", status: :running, started_at: Time.current)
+    run = create_running_run(agent, prompt: "Hi")
     # Account provider key makes openai "available" so tool schemas are built.
     @account.provider_keys.create!(provider: "openai", credential: "sk-test")
 
@@ -44,9 +53,9 @@ class AgentExecutionServiceTest < ActiveSupport::TestCase
     assert_equal %w[save_memory recall_memory], names
   end
 
-  test "runs with tools configured still succeed on the mock fallback" do
-    agent = create_agent(user: @user, name: "Tool Bot", tools: %w[fetch code])
-    run = agent.agent_runs.create!(input_prompt: "What is 2+2?", status: :running, started_at: Time.current)
+  test "runs with tools configured still succeed under the mock provider" do
+    agent = create_agent(user: @user, name: "Tool Bot", provider: "mock", tools: %w[fetch code])
+    run = create_running_run(agent, prompt: "What is 2+2?")
 
     result = AgentExecutionService.call(agent, run)
 
@@ -63,7 +72,7 @@ class AgentExecutionServiceTest < ActiveSupport::TestCase
       fake_message.new("tool", "fetch_url", "call_2")
     ])
 
-    service = AgentExecutionService.new(@agent, @run)
+    service = AgentExecutionService.new(@mock_agent, create_running_run(@mock_agent))
     root_span = service.send(:build_root_span)
     names = service.send(:record_tool_spans, root_span, response)
 
@@ -78,35 +87,44 @@ class AgentExecutionServiceTest < ActiveSupport::TestCase
 
     service = AgentExecutionService.new(@agent, @run)
     assert_equal :openai, service.provider
-    assert_not service.mock_fallback?
   end
 
   test "treats ollama as available when the account stores a host for it" do
     agent = create_agent(user: @user, name: "Local Bot", provider: "ollama", model: "llama3")
-    run = agent.agent_runs.create!(input_prompt: "Hi", status: :running, started_at: Time.current)
+    run = create_running_run(agent, prompt: "Hi")
     @account.provider_keys.create!(provider: "ollama", credential: "http://localhost:11434/v1")
 
     service = AgentExecutionService.new(agent, run)
     assert_equal :ollama, service.provider
   end
 
-  test "falls back to the gem's mock provider when the requested provider is not configured" do
-    result = AgentExecutionService.call(@agent, @run)
+  test "raises when the requested provider has no credentials instead of falling back to mock" do
+    error = assert_raises(AgentExecutionService::ProviderNotConfiguredError) do
+      AgentExecutionService.call(@agent, @run)
+    end
 
-    assert result[:output].present?
-    assert result[:metadata][:mock]
-    assert_equal "mock", result[:metadata][:provider]
-    assert_equal "openai", result[:metadata][:requested_provider]
-    assert_operator result[:usage][:input_tokens], :>, 0
-    assert_operator result[:usage][:output_tokens], :>, 0
+    assert_match(/openai/, error.message)
+    assert_match(/Settings/, error.message)
+    # Nothing fabricated gets stored: no trace, no conversation.
+    assert_equal 0, TelemetryTrace.count
+    assert_nil AgentContext.find_by(contextable: @agent)
+  end
+
+  test "test_execute marks the run failed when provider credentials are missing" do
+    run = @agent.test_execute("Ping")
+
+    assert run.failed?
+    assert_match(/openai/, run.error_message)
+    assert_nil run.output
   end
 
   test "records a telemetry trace correlated with the run" do
-    AgentExecutionService.call(@agent, @run)
+    run = create_running_run(@mock_agent)
+    AgentExecutionService.call(@mock_agent, run)
 
-    trace = TelemetryTrace.for_account(@account).find_by(trace_id: @run.trace_id)
+    trace = TelemetryTrace.for_account(@account).find_by(trace_id: run.trace_id)
     assert trace, "expected a telemetry trace for the run's trace_id"
-    assert_equal "SupportBotAgent", trace.agent_class
+    assert_equal "MockBotAgent", trace.agent_class
     assert_equal "OK", trace.status
     assert_operator trace.total_input_tokens, :>, 0
     assert_operator trace.total_duration_ms.to_f, :>, 0
@@ -118,8 +136,8 @@ class AgentExecutionServiceTest < ActiveSupport::TestCase
 
   test "skips trace recording when the agent has no account" do
     orphan_user = create_user # no account
-    agent = create_agent(user: orphan_user, name: "No Account Agent")
-    run = agent.agent_runs.create!(input_prompt: "hi", status: :running, started_at: Time.current)
+    agent = create_agent(user: orphan_user, name: "No Account Agent", provider: "mock")
+    run = create_running_run(agent, prompt: "hi")
 
     assert_nothing_raised { AgentExecutionService.call(agent, run) }
     assert_equal 0, TelemetryTrace.where(trace_id: run.trace_id).count
@@ -127,7 +145,7 @@ class AgentExecutionServiceTest < ActiveSupport::TestCase
 
   test "records an error trace when generation fails" do
     failing_agent = create_agent(user: @user, name: "Failing Agent", provider: "mock")
-    run = failing_agent.agent_runs.create!(input_prompt: "hi", status: :running, started_at: Time.current)
+    run = create_running_run(failing_agent, prompt: "hi")
 
     service = AgentExecutionService.new(failing_agent, run)
     service.define_singleton_method(:generate!) { raise StandardError, "provider exploded" }
@@ -141,35 +159,37 @@ class AgentExecutionServiceTest < ActiveSupport::TestCase
   end
 
   test "persists the conversation through solid_agent with trace correlation" do
-    AgentExecutionService.call(@agent, @run)
+    run = create_running_run(@mock_agent)
+    AgentExecutionService.call(@mock_agent, run)
 
-    context = AgentContext.find_by(contextable: @agent)
+    context = AgentContext.find_by(contextable: @mock_agent)
     assert context, "expected an AgentContext for the agent"
-    assert_equal "SupportBotAgent", context.agent_name
+    assert_equal "MockBotAgent", context.agent_name
     assert_equal "ask", context.action_name
 
     roles = context.messages.chronological.map(&:role)
     assert_equal %w[user assistant], roles
-    assert_equal @run.input_prompt, context.messages.user_messages.first.content
+    assert_equal run.input_prompt, context.messages.user_messages.first.content
 
     generation = context.generations.last
     assert generation, "expected an AgentGeneration"
-    assert_equal @run.trace_id, generation.trace_id
+    assert_equal run.trace_id, generation.trace_id
     assert_operator generation.input_tokens, :>, 0
     assert_equal generation.trace_id, generation.provenance["trace_id"]
     assert_operator context.reload.total_tokens, :>, 0
   end
 
   test "conversation stream accumulates across runs of the same agent" do
-    AgentExecutionService.call(@agent, @run)
-    second_run = @agent.agent_runs.create!(input_prompt: "Another question", status: :running, started_at: Time.current)
-    AgentExecutionService.call(@agent, second_run)
+    first_run = create_running_run(@mock_agent)
+    AgentExecutionService.call(@mock_agent, first_run)
+    second_run = create_running_run(@mock_agent, prompt: "Another question")
+    AgentExecutionService.call(@mock_agent, second_run)
 
-    assert_equal 1, AgentContext.where(contextable: @agent).count
-    context = AgentContext.find_by(contextable: @agent)
+    assert_equal 1, AgentContext.where(contextable: @mock_agent).count
+    context = AgentContext.find_by(contextable: @mock_agent)
     assert_equal 4, context.messages.count
     assert_equal 2, context.generations.count
-    assert_equal [ @run.trace_id, second_run.trace_id ], context.generations.order(:created_at).pluck(:trace_id)
+    assert_equal [ first_run.trace_id, second_run.trace_id ], context.generations.order(:created_at).pluck(:trace_id)
   end
 
   test "strips sampling params for Claude 5-family and Opus 4.7+ models" do
@@ -181,16 +201,16 @@ class AgentExecutionServiceTest < ActiveSupport::TestCase
     end
 
     # A run configured with sampling params on such a model still succeeds
-    # (params are dropped before reaching the provider).
-    agent = create_agent(user: @user, name: "Sonnet Five Bot", provider: "anthropic", model: "claude-sonnet-5",
+    # (params are dropped before generate_with sees them).
+    agent = create_agent(user: @user, name: "Sonnet Five Bot", provider: "mock", model: "claude-sonnet-5",
                          model_config: { "temperature" => 0.7, "top_p" => 0.9, "max_tokens" => 512 })
-    run = agent.agent_runs.create!(input_prompt: "Hi", status: :running, started_at: Time.current)
+    run = create_running_run(agent, prompt: "Hi")
     result = AgentExecutionService.call(agent, run)
     assert result[:output].present?
   end
 
   test "test_execute persists run results from real execution" do
-    run = @agent.test_execute("Ping")
+    run = @mock_agent.test_execute("Ping")
 
     assert run.complete?
     assert run.output.present?

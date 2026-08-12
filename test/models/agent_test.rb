@@ -254,7 +254,9 @@ class AgentTest < ActiveSupport::TestCase
 
   test "test_execute creates and runs synchronously" do
     user = create_user
-    agent = create_agent(user: user)
+    # The gem's mock provider is only accepted in the test environment;
+    # execution requires real credentials everywhere else.
+    agent = create_agent(user: user, provider: "mock")
 
     run = agent.test_execute("Test prompt")
 

@@ -193,7 +193,7 @@ export default function EvaluationsView({ embedded = false, agentId = null }) {
       >
         {mono ? label : label.replace(/_/g, ' ')}
         {score.source === 'telemetry' && (
-          <span className="ml-1 text-[10px] uppercase tracking-wide" style={{ color: colors.textMuted }} title={`Aggregate over ${score.traces} traces in the last ${score.window_hours}h`}>
+          <span data-testid="score-source-telemetry" className="ml-1 text-[10px] uppercase tracking-wide" style={{ color: colors.textMuted }} title={`Aggregate over ${score.traces} traces in the last ${score.window_hours}h`}>
             telemetry
           </span>
         )}
@@ -441,9 +441,17 @@ export default function EvaluationsView({ embedded = false, agentId = null }) {
         {shownEvaluations.map((evaluation) => {
           const run = evaluation.latest_run;
           const isExpanded = expandedEval === evaluation.id;
+          // Criteria are only rendered once expanded, so this exposes on the
+          // collapsed card whether the evaluation scores from telemetry —
+          // otherwise nothing can select one without opening every card.
+          const scoresFromTelemetry = (evaluation.criteria || []).some((criterion) =>
+            TELEMETRY_CRITERIA.some((telemetry) => telemetry.key === criterion.key)
+          );
           return (
             <div
               key={evaluation.id}
+              data-testid="evaluation-card"
+              data-telemetry={scoresFromTelemetry ? 'true' : 'false'}
               className="rounded-xl border shadow-sm overflow-hidden"
               style={{ backgroundColor: colors.cardBg, borderColor: colors.cardBorder }}
             >

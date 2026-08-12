@@ -14,6 +14,18 @@ module Api
     DEFAULT_WINDOW_HOURS = 24
     MAX_WINDOW_HOURS = 24 * 30
 
+    # How to rank the per-agent table. Cost is applied after the grouped
+    # query because pricing happens in Ruby (rates vary per model), so all
+    # four are ordered in one place rather than half in SQL.
+    AGENT_SORTS = {
+      "popular" => "Most requests",
+      "longest" => "Longest average",
+      "cost" => "Highest cost",
+      "tokens" => "Most tokens",
+      "errors" => "Most errors"
+    }.freeze
+    DEFAULT_AGENT_SORT = "popular"
+
     # GET /api/metrics
     def show
       hours = params.fetch(:hours, DEFAULT_WINDOW_HOURS).to_i.clamp(1, MAX_WINDOW_HOURS)
@@ -23,16 +35,37 @@ module Api
       previous = traces_scope.for_date_range((hours * 2).hours.ago(now), hours.hours.ago(now))
 
       costs = cost_statistics(current)
+      priced = agent_statistics(current).map { |row| row.merge(cost: costs[:by_agent][row[:name]] || 0.0) }
 
       render json: {
         summary: summary_for(current, previous).merge(total_cost: costs[:total]),
         hourly_requests: hourly_requests(current, hours, now),
-        by_agent: agent_statistics(current).map { |row| row.merge(cost: costs[:by_agent][row[:name]] || 0.0) },
-        window_hours: hours
+        by_agent: sort_agents(priced, params[:sort]),
+        window_hours: hours,
+        sorts: AGENT_SORTS,
+        sort: agent_sort(params[:sort])
       }
     end
 
     private
+
+    def agent_sort(requested)
+      AGENT_SORTS.key?(requested.to_s) ? requested.to_s : DEFAULT_AGENT_SORT
+    end
+
+    # Descending on the chosen dimension; request count breaks ties so the
+    # table keeps a stable, meaningful secondary order.
+    def sort_agents(rows, requested)
+      key = case agent_sort(requested)
+      when "longest" then :avg_duration_ms
+      when "cost" then :cost
+      when "tokens" then :tokens
+      when "errors" then :errors
+      else :requests
+      end
+
+      rows.sort_by { |row| [ -row[key].to_f, -row[:requests].to_i ] }
+    end
 
     def traces_scope
       TelemetryTrace.for_account(current_account)

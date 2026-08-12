@@ -426,9 +426,14 @@ export default function InteractionsView({ agentId = null, embedded = false }) {
       {/* Sessions List */}
       {sessions.length === 0 ? (
         <div className="text-center py-12">
-          <div className="text-lg" style={{ color: colors.textMuted }}>No interactions yet</div>
+          {/* "Nothing recorded" and "nothing in this window" are different
+              facts — saying the first when the second is true contradicts a
+              sidebar that is listing interactions from further back. */}
+          <div className="text-lg" style={{ color: colors.textMuted }}>
+            No interactions in the last {timeWindow.label}
+          </div>
           <p className="text-sm mt-2" style={{ color: colors.textSecondary }}>
-            Run an agent to start recording its conversation stream
+            Widen the time window, or run an agent to start recording its conversation stream
           </p>
         </div>
       ) : (
