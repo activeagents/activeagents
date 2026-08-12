@@ -33,8 +33,10 @@ const scoreStatus = (value) => {
 };
 
 // embedded hides the page title when this renders inside the agent detail
-// page's Evals tab, which already carries the heading.
-export default function EvaluationsView({ embedded = false }) {
+// page's Evals tab, which already carries the heading. agentId scopes every
+// number on the page to that agent — an account-wide average score under one
+// agent's name reads as that agent's score, which it is not.
+export default function EvaluationsView({ embedded = false, agentId = null }) {
   const { darkMode } = useTheme();
   const [evaluations, setEvaluations] = useState([]);
   const [agents, setAgents] = useState([]);
@@ -44,7 +46,7 @@ export default function EvaluationsView({ embedded = false }) {
   const [showForm, setShowForm] = useState(false);
   const [runningId, setRunningId] = useState(null);
   const [form, setForm] = useState({
-    agent_id: '', name: '', sample_size: 20,
+    agent_id: agentId ? String(agentId) : '', name: '', sample_size: 20,
     criteria: RULE_CRITERIA.map((c) => c.key),
     containsPattern: '', llmJudgePrompt: '',
     judgeKind: 'manual', judgeModel: '', compareModels: '',
@@ -157,7 +159,13 @@ export default function EvaluationsView({ embedded = false }) {
     );
   }
 
-  const completedRuns = evaluations.map((e) => e.latest_run).filter((r) => r && r.status === 'complete');
+  // The API returns the account's evaluations; scope them here so the list,
+  // the summary cards, and the empty state all describe the same set.
+  const shownEvaluations = agentId
+    ? evaluations.filter((e) => String(e.agent?.id) === String(agentId))
+    : evaluations;
+
+  const completedRuns = shownEvaluations.map((e) => e.latest_run).filter((r) => r && r.status === 'complete');
   const avgScore = completedRuns.length
     ? completedRuns.reduce((sum, r) => sum + (r.average_score || 0), 0) / completedRuns.length
     : null;
@@ -249,11 +257,12 @@ export default function EvaluationsView({ embedded = false }) {
               <label className="block text-xs uppercase tracking-wide mb-1" style={{ color: colors.textMuted }}>Agent</label>
               <select
                 required
+                disabled={!!agentId}
                 value={form.agent_id}
                 onChange={(e) => setForm({ ...form, agent_id: e.target.value })}
-                style={{ ...inputStyle, width: '100%' }}
+                style={{ ...inputStyle, width: '100%', opacity: agentId ? 0.7 : 1 }}
               >
-                <option value="">Select agent…</option>
+                {!agentId && <option value="">Select agent…</option>}
                 {agents.map((agent) => (
                   <option key={agent.id} value={agent.id}>{agent.name}</option>
                 ))}
@@ -410,7 +419,7 @@ export default function EvaluationsView({ embedded = false }) {
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <div className="rounded-xl p-5 border shadow-sm" style={{ backgroundColor: colors.cardBg, borderColor: colors.cardBorder }}>
           <div className="text-sm mb-1" style={{ color: colors.textSecondary }}>Total Evaluations</div>
-          <div className="text-3xl font-bold" style={{ color: colors.textPrimary }}>{evaluations.length}</div>
+          <div className="text-3xl font-bold" style={{ color: colors.textPrimary }}>{shownEvaluations.length}</div>
         </div>
         <div className="rounded-xl p-5 border shadow-sm" style={{ backgroundColor: colors.cardBg, borderColor: colors.cardBorder }}>
           <div className="text-sm mb-1" style={{ color: colors.textSecondary }}>Average Score</div>
@@ -426,7 +435,7 @@ export default function EvaluationsView({ embedded = false }) {
 
       {/* Evaluations List */}
       <div className="space-y-4">
-        {evaluations.map((evaluation) => {
+        {shownEvaluations.map((evaluation) => {
           const run = evaluation.latest_run;
           const isExpanded = expandedEval === evaluation.id;
           return (
@@ -528,7 +537,7 @@ export default function EvaluationsView({ embedded = false }) {
         })}
       </div>
 
-      {evaluations.length === 0 && !showForm && (
+      {shownEvaluations.length === 0 && !showForm && (
         <div className="text-center py-12 rounded-xl border" style={{ backgroundColor: colors.cardBg, borderColor: colors.cardBorder }}>
           <div className="text-lg" style={{ color: colors.textMuted }}>No evaluations yet</div>
           <p className="text-sm mt-2" style={{ color: colors.textSecondary }}>Create an evaluation to start scoring agent outputs</p>
