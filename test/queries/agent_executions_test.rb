@@ -9,7 +9,8 @@ class AgentExecutionsTest < ActiveSupport::TestCase
     @agent = create_agent(user: @user, name: "Unified Bot")
   end
 
-  def ingest_trace(agent: @agent, status: "OK", duration_ms: 500, trace_id: nil, at: Time.current, tokens: 0)
+  def ingest_trace(agent: @agent, status: "OK", duration_ms: 500, trace_id: nil, at: Time.current,
+                   tokens: 0, input_tokens: 0, output_tokens: nil, model: nil)
     TelemetryTrace.create!(
       account: @account,
       agent: agent,
@@ -19,7 +20,10 @@ class AgentExecutionsTest < ActiveSupport::TestCase
       status: status,
       timestamp: at,
       total_duration_ms: duration_ms,
-      total_output_tokens: tokens
+      total_input_tokens: input_tokens,
+      total_output_tokens: output_tokens || tokens,
+      # The model lives on the llm span, which is where pricing reads it.
+      spans: model ? [ { "type" => "llm", "attributes" => { "llm.model" => model } } ] : []
     )
   end
 
@@ -98,6 +102,42 @@ class AgentExecutionsTest < ActiveSupport::TestCase
     assert_equal 2, result[:total]
     assert_equal 1, result[:rows].size
     assert_equal "reported", result[:rows].first.source, "newest first"
+  end
+
+  test "longest sort ranks by duration across both sources" do
+    create_run(agent: @agent, status: :complete, duration_ms: 200)
+    ingest_trace(duration_ms: 9_000, at: 1.hour.ago)
+    ingest_trace(duration_ms: 1_500)
+
+    assert_equal [ 9_000, 1_500, 200 ], executions(sort: "longest").sorted_rows.map(&:duration_ms)
+  end
+
+  test "cost sort prices each execution by its own model" do
+    # Same token count, wildly different rates: cost order is not token order.
+    cheap = ingest_trace(model: "gpt-4o-mini", input_tokens: 1_000, output_tokens: 1_000)
+    dear = ingest_trace(model: "claude-3-opus-20240229", input_tokens: 1_000, output_tokens: 1_000)
+
+    rows = executions(sort: "cost").sorted_rows
+
+    assert_equal [ dear.id, cheap.id ], rows.map(&:id)
+    assert rows.first.cost > rows.last.cost
+  end
+
+  # A running execution has no duration yet; it must not outrank finished
+  # ones by sorting as nil, nor disappear from the list.
+  test "executions missing the sorted value fall to the end, newest first" do
+    running = create_run(agent: @agent, status: :running, duration_ms: nil, completed_at: nil)
+    finished = create_run(agent: @agent, status: :complete, duration_ms: 500)
+
+    assert_equal [ finished.id, running.id ], executions(sort: "longest").sorted_rows.map(&:id)
+  end
+
+  test "unknown sort falls back to recent rather than raising" do
+    old = create_run(agent: @agent, status: :complete)
+    old.update_columns(created_at: 2.hours.ago)
+    recent = create_run(agent: @agent, status: :complete)
+
+    assert_equal [ recent.id, old.id ], executions(sort: "'; drop table").sorted_rows.map(&:id)
   end
 
   test "reported executions are addressable by trace, runs by record id" do

@@ -35,6 +35,7 @@ function DashboardContent({ user, initialAgents = [], meta = {}, account = null,
   const [isLoading, setIsLoading] = useState(false);
   const [notification, setNotification] = useState(null);
   const [showTemplateLibrary, setShowTemplateLibrary] = useState(false);
+  const [agentSort, setAgentSort] = useState('recent');
 
   // Parse the URL into a view. Runs on mount and on popstate, so browser
   // back/forward and in-app pushState navigation (e.g. a Traces agent card
@@ -118,10 +119,13 @@ function DashboardContent({ user, initialAgents = [], meta = {}, account = null,
     }
   };
 
-  const refreshAgents = async () => {
+  // Ranking is applied server-side (Api::AgentsController::LIST_SORTS) over
+  // every agent and their scorecards, so changing it refetches rather than
+  // reordering the array in place.
+  const refreshAgents = async (sort = agentSort) => {
     setIsLoading(true);
     try {
-      const response = await fetch('/api/agents');
+      const response = await fetch(`/api/agents?sort=${sort}`);
       const data = await response.json();
       setAgents(data.agents);
     } catch (error) {
@@ -129,6 +133,11 @@ function DashboardContent({ user, initialAgents = [], meta = {}, account = null,
     } finally {
       setIsLoading(false);
     }
+  };
+
+  const changeAgentSort = (sort) => {
+    setAgentSort(sort);
+    refreshAgents(sort);
   };
 
   const showNotification = (message, type = 'info') => {
@@ -374,6 +383,8 @@ function DashboardContent({ user, initialAgents = [], meta = {}, account = null,
             onDuplicate={handleDuplicateAgent}
             onDelete={handleDeleteAgent}
             onRefresh={refreshAgents}
+            sort={agentSort}
+            onSortChange={changeAgentSort}
             isLoading={isLoading}
           />
         );

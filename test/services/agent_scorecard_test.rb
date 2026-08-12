@@ -11,7 +11,7 @@ class AgentScorecardTest < ActiveSupport::TestCase
 
   # Mirrors what AgentRegistrar writes for an SDK-reported execution:
   # a trace attributed to the Agent record.
-  def ingest_trace(agent:, status: "OK", duration_ms: 500, input: 0, output: 0, trace_id: nil)
+  def ingest_trace(agent:, status: "OK", duration_ms: 500, input: 0, output: 0, trace_id: nil, model: nil)
     TelemetryTrace.create!(
       account: @account,
       agent: agent,
@@ -21,7 +21,8 @@ class AgentScorecardTest < ActiveSupport::TestCase
       timestamp: Time.current,
       total_duration_ms: duration_ms,
       total_input_tokens: input,
-      total_output_tokens: output
+      total_output_tokens: output,
+      spans: model ? [ { "type" => "llm", "attributes" => { "llm.model" => model } } ] : []
     )
   end
 
@@ -110,17 +111,39 @@ class AgentScorecardTest < ActiveSupport::TestCase
     assert_equal 5, stats[:eval_samples_passed]
   end
 
-  test "returns a row per agent without N+1 per-agent queries" do
-    other = create_agent(user: @user, name: "Other Bot")
-    create_run(agent: @agent, status: :complete)
+  test "estimates cost across both execution sources" do
+    create_run(agent: @agent, status: :complete, input_tokens: 1_000_000, output_tokens: 1_000_000,
+               output_metadata: { "model" => "gpt-4o" })
+    ingest_trace(agent: @agent, input: 1_000_000, output: 1_000_000, model: "gpt-4o")
 
+    # gpt-4o is $2.50/1M in + $10.00/1M out = $12.50 per source.
+    assert_in_delta 25.0, AgentScorecard.for_agents([ @agent ])[@agent.id][:cost], 0.01
+  end
+
+  test "cost is nil, not zero, when there is nothing to price" do
+    create_run(agent: @agent, status: :failed, input_tokens: 0, output_tokens: 0, total_tokens: 0)
+
+    assert_nil AgentScorecard.for_agents([ @agent ])[@agent.id][:cost]
+  end
+
+  # The guarantee is that query count is independent of how many agents are
+  # scored — asserting a fixed number just breaks whenever a stat is added.
+  test "query count does not grow with the number of agents" do
+    create_run(agent: @agent, status: :complete)
+    few = [ @agent ]
+    many = few + 5.times.map { |i| create_agent(user: @user, name: "Bot #{i}") }
+    many.each { |agent| create_run(agent: agent, status: :complete) }
+
+    assert_equal count_queries { AgentScorecard.for_agents(few) },
+                 count_queries { AgentScorecard.for_agents(many) },
+                 "expected grouped queries; count scaled with the agent list"
+  end
+
+  def count_queries
     queries = 0
     counter = ->(*, payload) { queries += 1 unless payload[:name] == "SCHEMA" }
-    ActiveSupport::Notifications.subscribed(counter, "sql.active_record") do
-      AgentScorecard.for_agents([ @agent, other ])
-    end
-
-    assert_operator queries, :<=, 8, "expected grouped queries, got #{queries}"
+    ActiveSupport::Notifications.subscribed(counter, "sql.active_record") { yield }
+    queries
   end
 
   test "empty agent list returns an empty hash" do

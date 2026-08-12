@@ -23,8 +23,20 @@
 class AgentExecutions
   SOURCES = %w[dashboard reported].freeze
 
+  # What to rank a list of executions by. "Popular" is deliberately absent:
+  # it's an aggregate property of an agent or a model, not of one attempt —
+  # the agent list and the metrics table sort by it, this list can't.
+  SORTS = {
+    "recent" => "Most recent",
+    "longest" => "Longest running",
+    "cost" => "Highest cost",
+    "tokens" => "Most tokens"
+  }.freeze
+  DEFAULT_SORT = "recent"
+
   Row = Struct.new(
     :id, :source, :status, :occurred_at, :duration_ms, :tokens,
+    :input_tokens, :output_tokens, :cost,
     :trace_id, :agent_id, :action_name, :provider, :model,
     :input_preview, :output_preview, :error_message,
     keyword_init: true
@@ -44,19 +56,30 @@ class AgentExecutions
   # @param window_minutes [Integer, nil] nil means all time
   # @param source [String, nil] "dashboard" | "reported" | nil for both
   # @param status [String, nil] AgentRun status; also filters reported by OK/ERROR
-  def initialize(agents:, account: nil, window_minutes: nil, source: nil, status: nil)
+  # @param sort [String, nil] one of SORTS; unknown values fall back to recent
+  def initialize(agents:, account: nil, window_minutes: nil, source: nil, status: nil, sort: nil)
     @agent_ids = Array(agents.respond_to?(:pluck) ? agents.pluck(:id) : agents.map(&:id))
     @account = account
     @window_minutes = window_minutes
     @source = source.presence
     @status = status.presence
+    @sort = SORTS.key?(sort.to_s) ? sort.to_s : DEFAULT_SORT
   end
 
-  # Newest first, across both sources.
+  # Ranked by the chosen dimension, descending. The two sources can only be
+  # ordered together in Ruby (no SQL union), which is also why this always
+  # ranks the whole window rather than the page.
   def page(page: 1, per_page: 20)
-    all = rows.sort_by { |row| row.occurred_at || Time.at(0) }.reverse
+    all = sorted_rows
     offset = (page.to_i - 1) * per_page.to_i
     { rows: all[offset, per_page.to_i] || [], total: all.size }
+  end
+
+  def sorted_rows
+    # Ties (and rows missing the sorted value entirely — an execution still
+    # running has no duration) fall back to newest first, so the list never
+    # reorders arbitrarily between requests.
+    rows.sort_by { |row| [ -sort_value(row), -(row.occurred_at || Time.at(0)).to_f ] }
   end
 
   def rows
@@ -80,6 +103,15 @@ class AgentExecutions
 
   private
 
+  def sort_value(row)
+    case @sort
+    when "longest" then row.duration_ms.to_f
+    when "cost" then row.cost.to_f
+    when "tokens" then row.tokens.to_i
+    else (row.occurred_at || Time.at(0)).to_f
+    end
+  end
+
   def include_dashboard? = @source.nil? || @source == "dashboard"
   def include_reported? = (@source.nil? || @source == "reported") && @account.present?
 
@@ -91,6 +123,7 @@ class AgentExecutions
     scope = scope.where(status: @status) if @status
 
     scope.map do |run|
+      model = run.output_metadata&.dig("model")
       Row.new(
         id: run.id,
         source: "dashboard",
@@ -98,11 +131,18 @@ class AgentExecutions
         occurred_at: run.created_at,
         duration_ms: run.calculated_duration_ms,
         tokens: run.total_tokens.to_i,
+        input_tokens: run.input_tokens.to_i,
+        output_tokens: run.output_tokens.to_i,
+        cost: ModelPricing.estimate(
+          model: model,
+          input_tokens: run.input_tokens,
+          output_tokens: run.output_tokens
+        ),
         trace_id: run.trace_id,
         agent_id: run.agent_id,
         action_name: run.action_name,
         provider: run.output_metadata&.dig("provider"),
-        model: run.output_metadata&.dig("model"),
+        model: model,
         input_preview: run.input_prompt.to_s.truncate(160),
         output_preview: run.output.to_s.truncate(160).presence,
         error_message: run.error_message
@@ -119,6 +159,7 @@ class AgentExecutions
     return [] if @status.present? && !%w[failed complete].include?(@status)
 
     scope.map do |trace|
+      model = trace.model
       Row.new(
         id: trace.id,
         source: "reported",
@@ -126,11 +167,18 @@ class AgentExecutions
         occurred_at: trace.timestamp,
         duration_ms: trace.total_duration_ms&.round,
         tokens: trace.total_tokens.to_i,
+        input_tokens: trace.total_input_tokens.to_i,
+        output_tokens: trace.total_output_tokens.to_i,
+        cost: ModelPricing.estimate(
+          model: model,
+          input_tokens: trace.total_input_tokens,
+          output_tokens: trace.total_output_tokens
+        ),
         trace_id: trace.trace_id,
         agent_id: trace.agent_id,
         action_name: trace.agent_action,
         provider: trace.provider,
-        model: trace.model,
+        model: model,
         input_preview: nil,
         output_preview: nil,
         error_message: trace.error_message

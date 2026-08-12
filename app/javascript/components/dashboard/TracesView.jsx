@@ -123,6 +123,7 @@ export default function TracesView({ agentClass = null, embedded = false }) {
   const [sortBy, setSortBy] = useState('time'); // 'time' (chronological) | 'latency' (slowest first)
   const [selectedTimeBucket, setSelectedTimeBucket] = useState(null);
   const [viewMode, setViewMode] = useState('timeline'); // 'timeline', 'agents', 'actions', or 'spans'
+  const [agentRank, setAgentRank] = useState('popular'); // agents view card ranking
   const { timeWindow } = useTimeWindow();
 
   const fetchTraces = useCallback(async () => {
@@ -304,6 +305,7 @@ export default function TracesView({ agentClass = null, embedded = false }) {
           agent: trace.agent,
           count: 0,
           totalDuration: 0,
+          cost: 0,
           errors: 0,
           actions: {},
           tokens: { thinking: 0, input: 0, output: 0 },
@@ -311,6 +313,7 @@ export default function TracesView({ agentClass = null, embedded = false }) {
       }
       stats[trace.agent].count++;
       stats[trace.agent].totalDuration += trace.duration_ms || 0;
+      stats[trace.agent].cost += trace.estimated_cost || 0;
       if (trace.status === 'ERROR') stats[trace.agent].errors++;
       if (trace.tokens) {
         stats[trace.agent].tokens.thinking += trace.tokens.thinking || 0;
@@ -322,8 +325,21 @@ export default function TracesView({ agentClass = null, embedded = false }) {
       }
     });
 
-    return Object.values(stats).sort((a, b) => b.count - a.count);
-  }, [traces, throughputData, selectedTimeBucket]);
+    // Ranked by whichever dimension is selected. These cards are already an
+    // aggregate per agent, so "popular" is meaningful here in a way it is
+    // not on a list of individual executions.
+    const rank = {
+      popular: (s) => s.count,
+      longest: (s) => s.totalDuration / (s.count || 1),
+      cost: (s) => s.cost,
+      // Inlined rather than totalTokensOf(): this memo runs during render,
+      // before that const is initialized.
+      tokens: (s) => (s.tokens.input || 0) + (s.tokens.output || 0) + (s.tokens.thinking || 0),
+      errors: (s) => s.errors,
+    }[agentRank] || ((s) => s.count);
+
+    return Object.values(stats).sort((a, b) => rank(b) - rank(a) || b.count - a.count);
+  }, [traces, throughputData, selectedTimeBucket, agentRank]);
 
   // Aggregate action stats for selected time range (Agent#action level)
   const actionStats = useMemo(() => {
@@ -454,10 +470,49 @@ export default function TracesView({ agentClass = null, embedded = false }) {
       },
       { label: 'Avg time', value: `${Math.round(stat.totalDuration / (stat.count || 1))}ms` },
       { label: 'Tokens', value: totalTokensOf(stat.tokens).toLocaleString() },
-      { label: 'Thinking', value: (stat.tokens?.thinking || 0).toLocaleString() },
+      {
+        label: 'Cost',
+        value: formatCardCost(stat.cost),
+        title: 'Estimated from token counts at this model\'s published rates',
+        tone: stat.cost ? undefined : 'muted',
+      },
       { label: 'Actions', value: (stat.agents?.length || 0).toLocaleString() },
     ];
   };
+
+  // Card totals, not single traces: dollars with a floor, where formatCost
+  // below shows a single trace's fraction of a cent at full precision.
+  const formatCardCost = (cost) => {
+    if (!cost) return '—';
+    if (cost < 0.01) return '<$0.01';
+    return `$${cost.toFixed(2)}`;
+  };
+
+  // Rendered by both agents-view layouts (this component keeps a dark and a
+  // light variant), so the control can't live in either one's markup.
+  const agentRankControl = (
+    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '8px', marginBottom: '12px' }}>
+      <span style={{ fontSize: '12px', color: darkMode ? 'rgba(255,255,255,0.5)' : '#6b7280' }}>Rank by</span>
+      <select
+        value={agentRank}
+        onChange={(e) => setAgentRank(e.target.value)}
+        style={{
+          fontSize: '12px',
+          padding: '4px 8px',
+          borderRadius: '6px',
+          border: `1px solid ${darkMode ? 'rgba(255,255,255,0.15)' : '#e5e7eb'}`,
+          background: darkMode ? 'rgba(255,255,255,0.05)' : '#ffffff',
+          color: darkMode ? '#f9fafb' : '#111827',
+        }}
+      >
+        <option value="popular">Most calls</option>
+        <option value="longest">Longest average</option>
+        <option value="cost">Highest cost</option>
+        <option value="tokens">Most tokens</option>
+        <option value="errors">Most errors</option>
+      </select>
+    </div>
+  );
 
   const toggleAgentFilter = (agent) =>
     setFilter((current) => ({ ...current, agent: current.agent === agent ? 'all' : agent }));
@@ -1293,6 +1348,7 @@ export default function TracesView({ agentClass = null, embedded = false }) {
 
         {viewMode === 'agents' && (
           <div style={{ padding: '0 24px', marginBottom: '24px' }}>
+            {agentRankControl}
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '16px' }}>
               {agentStats.map((stat) => (
                 <AgentStatCard
@@ -1806,7 +1862,9 @@ export default function TracesView({ agentClass = null, embedded = false }) {
 
       {/* Agent Breakdown View */}
       {viewMode === 'agents' && (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        <div>
+          {agentRankControl}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {agentStats.map((stat) => (
             <AgentStatCard
               key={stat.agent}
@@ -1836,6 +1894,7 @@ export default function TracesView({ agentClass = null, embedded = false }) {
               }
             />
           ))}
+          </div>
         </div>
       )}
 
