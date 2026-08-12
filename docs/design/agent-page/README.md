@@ -21,6 +21,9 @@ Reference shots for the agent detail page rebuild against
 | `12-after-focus-ring-dark.png` | Keyboard focus ring restored on form fields |
 
 Captured from the real components in a Playwright harness at 1320px with the
-app's Tailwind build loaded — not from a booted Rails app. The mock agent has
-no version history, and the API calls 404, so the Traces / Metrics /
-Interactions / Evals tabs are not shown populated here.
+app's Tailwind build loaded — not from a booted Rails app. Shots `01`-`09`
+ran against unstubbed endpoints, so the panels that fetch are empty there and
+the mock agent has no version history. `10`-`12` stub the analytics endpoint,
+which is why the Metrics tab is populated. The Traces, Interactions and Evals
+tabs are still not shown with real data; that needs a booted app with seeded
+telemetry.
