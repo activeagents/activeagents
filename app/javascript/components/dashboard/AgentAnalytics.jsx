@@ -10,7 +10,10 @@ const TABS = [
   { id: 'interactions', label: 'Interactions' }
 ];
 
-export default function AgentAnalytics({ agent, onBack }) {
+// embedded drops the page header and the nested tab bar: when this renders
+// inside the agent detail page's Metrics tab, that page already owns the
+// heading and the tab row, and Traces/Interactions are siblings there.
+export default function AgentAnalytics({ agent, onBack, embedded = false }) {
   const [analytics, setAnalytics] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
   // This endpoint takes whole days; the shared window rounds up so a
@@ -82,26 +85,14 @@ export default function AgentAnalytics({ agent, onBack }) {
     ? Math.max(...analytics.runs_by_day.map(d => d.count))
     : 1;
 
+  // Embedded, this is only ever the overview — the host page owns the tabs.
+  const shownTab = embedded ? 'overview' : activeTab;
+
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center space-x-4">
-          <button
-            onClick={onBack}
-            className="p-2 text-gray-400 hover:text-gray-600 transition-colors"
-          >
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-            </svg>
-          </button>
-          <div>
-            <h1 className="text-2xl font-bold text-gray-900">{agent.name} Analytics</h1>
-            <p className="text-sm text-gray-500">Performance metrics and usage data</p>
-          </div>
-        </div>
-
-        <div className="flex items-center gap-2">
+      {embedded ? (
+        <div className="flex items-center justify-end gap-2">
           {timeWindow.minutes < 1440 && (
             <span className="text-xs text-gray-400" title="This view aggregates by day">
               showing 1 day
@@ -109,33 +100,61 @@ export default function AgentAnalytics({ agent, onBack }) {
           )}
           <TimeWindowSelector />
         </div>
-      </div>
+      ) : (
+        <div className="flex items-center justify-between">
+          <div className="flex items-center space-x-4">
+            <button
+              onClick={onBack}
+              className="p-2 text-gray-400 hover:text-gray-600 transition-colors"
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+              </svg>
+            </button>
+            <div>
+              <h1 className="text-2xl font-bold text-gray-900">{agent.name} Analytics</h1>
+              <p className="text-sm text-gray-500">Performance metrics and usage data</p>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2">
+            {timeWindow.minutes < 1440 && (
+              <span className="text-xs text-gray-400" title="This view aggregates by day">
+                showing 1 day
+              </span>
+            )}
+            <TimeWindowSelector />
+          </div>
+        </div>
+      )}
 
       {/* Shared-view tabs: Traces and Interactions are the same components
           as the global observability views, scoped to this agent. */}
-      <div className="flex bg-gray-100 rounded-lg p-1 w-fit">
-        {TABS.map(tab => (
-          <button
-            key={tab.id}
-            onClick={() => setActiveTab(tab.id)}
-            className={`px-4 py-1.5 text-sm rounded-md transition-colors ${
-              activeTab === tab.id ? 'bg-white shadow text-gray-900' : 'text-gray-600'
-            }`}
-          >
-            {tab.label}
-          </button>
-        ))}
-      </div>
+      {!embedded && (
+        <div className="flex bg-gray-100 rounded-lg p-1 w-fit">
+          {TABS.map(tab => (
+            <button
+              key={tab.id}
+              onClick={() => setActiveTab(tab.id)}
+              className={`px-4 py-1.5 text-sm rounded-md transition-colors ${
+                activeTab === tab.id ? 'bg-white shadow text-gray-900' : 'text-gray-600'
+              }`}
+            >
+              {tab.label}
+            </button>
+          ))}
+        </div>
+      )}
 
-      {activeTab === 'traces' && (
+      {shownTab === 'traces' && (
         <TracesView agentClass={telemetryAgentClass} embedded />
       )}
 
-      {activeTab === 'interactions' && (
+      {shownTab === 'interactions' && (
         <InteractionsView agentId={agent.id} embedded />
       )}
 
-      {activeTab === 'overview' && (<>
+      {shownTab === 'overview' && (<>
       {/* Stats Cards */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         <StatCard
