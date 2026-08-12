@@ -32,7 +32,9 @@ const scoreStatus = (value) => {
   return 'low';
 };
 
-export default function EvaluationsView() {
+// embedded hides the page title when this renders inside the agent detail
+// page's Evals tab, which already carries the heading.
+export default function EvaluationsView({ embedded = false }) {
   const { darkMode } = useTheme();
   const [evaluations, setEvaluations] = useState([]);
   const [agents, setAgents] = useState([]);
@@ -211,14 +213,16 @@ export default function EvaluationsView() {
 
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold" style={{ color: colors.textPrimary }}>Evaluations</h1>
-          <p className="text-sm mt-1" style={{ color: colors.textSecondary }}>
-            Score outputs with LLM-as-judge, rule-based checks, or custom criteria
-          </p>
-        </div>
+      {/* Header — embedded in the agent page, that page owns the heading. */}
+      <div className={`flex items-center ${embedded ? 'justify-end' : 'justify-between'}`}>
+        {!embedded && (
+          <div>
+            <h1 className="text-2xl font-bold" style={{ color: colors.textPrimary }}>Evaluations</h1>
+            <p className="text-sm mt-1" style={{ color: colors.textSecondary }}>
+              Score outputs with LLM-as-judge, rule-based checks, or custom criteria
+            </p>
+          </div>
+        )}
         <button
           onClick={() => setShowForm(!showForm)}
           className="px-4 py-2 bg-red-500 text-white rounded-lg text-sm font-medium hover:bg-red-600 transition-colors"
