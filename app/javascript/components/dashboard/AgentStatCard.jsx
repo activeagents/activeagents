@@ -69,8 +69,15 @@ export default function AgentStatCard({
       }}
       style={{
         background: palette.cardBg,
-        border: `1px solid ${hovered ? palette.borderHover : palette.border}`,
-        borderLeft: accentColor ? `4px solid ${accentColor}` : undefined,
+        // Longhands, not `border` + `borderLeft`: React applies the shorthand
+        // and then clears the conflicting longhand, which zeroed the left
+        // edge on every card without an accent colour (the whole Agents list).
+        borderTop: `1px solid ${hovered ? palette.borderHover : palette.border}`,
+        borderRight: `1px solid ${hovered ? palette.borderHover : palette.border}`,
+        borderBottom: `1px solid ${hovered ? palette.borderHover : palette.border}`,
+        borderLeft: accentColor
+          ? `4px solid ${accentColor}`
+          : `1px solid ${hovered ? palette.borderHover : palette.border}`,
         borderRadius: '12px',
         padding: '16px',
         cursor: onClick ? 'pointer' : 'default',
