@@ -46,8 +46,8 @@ bin/rails server
 
 | Variable | Purpose | Default |
 |---|---|---|
-| `AI_PROVIDER` | `mock`, `openai`, or `anthropic` | auto: first provider with credentials, else `mock` |
-| `OPENAI_API_KEY` / `ANTHROPIC_API_KEY` | real model credentials | — |
+| `AI_PROVIDER` | `mock`, `openai`, `anthropic`, or `openrouter` | auto: first provider with credentials, else `mock` |
+| `OPENAI_API_KEY` / `ANTHROPIC_API_KEY` / `OPENROUTER_API_KEY` | real model credentials | — |
 | `ACTIVEAGENTS_API_KEY` | workspace telemetry key (Organization page) | — (dev falls back to the local dev console) |
 | `ACTIVEAGENTS_TELEMETRY_ENDPOINT` | trace ingest URL | `https://api.activeagents.ai/v1/traces` |
 

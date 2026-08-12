@@ -7,6 +7,8 @@ class ApplicationAgent < ActiveAgent::Base
       "openai"
     elsif ENV["ANTHROPIC_API_KEY"].present?
       "anthropic"
+    elsif ENV["OPENROUTER_API_KEY"].present?
+      "openrouter"
     else
       "mock"
     end
