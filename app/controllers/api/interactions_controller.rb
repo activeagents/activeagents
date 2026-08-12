@@ -33,12 +33,15 @@ module Api
         .order("agent_context_id, created_at DESC")
         .to_h { |generation| [ generation.agent_context_id, generation.model ] }
 
+      previews = message_previews(contexts.map(&:id))
+
       persisted = contexts.map do |context|
         serialize_context(context).merge(
           source: "platform",
           model: latest_models[context.id],
           message_count: message_counts[context.id] || 0,
-          generation_count: generation_counts[context.id] || 0
+          generation_count: generation_counts[context.id] || 0,
+          preview: previews[context.id] || { input: nil, output: nil }
         )
       end
 
@@ -69,6 +72,33 @@ module Api
     end
 
     private
+
+    # What each stream opened with and what it finally answered, so a collapsed
+    # interaction row says what it was about — the same two lines a collapsed
+    # trace row shows. Two grouped queries rather than loading every message:
+    # the list is 50 streams deep and only needs the ends of each.
+    def message_previews(context_ids)
+      return {} if context_ids.empty?
+
+      first_input = edge_messages(context_ids, "user", :asc)
+      last_output = edge_messages(context_ids, "assistant", :desc)
+
+      context_ids.index_with do |id|
+        {
+          input: InteractionPreview.line(first_input[id]),
+          output: InteractionPreview.line(last_output[id])
+        }
+      end
+    end
+
+    def edge_messages(context_ids, role, direction)
+      AgentMessage
+        .where(agent_context_id: context_ids, role: role)
+        .where.not(content: [ nil, "" ])
+        .select("DISTINCT ON (agent_context_id) agent_context_id, content")
+        .order(agent_context_id: :asc, created_at: direction)
+        .to_h { |message| [ message.agent_context_id, message.content ] }
+    end
 
     # Agents executing outside the platform never write solid_agent contexts —
     # they only report traces. Every reported trace is an interaction: one run
