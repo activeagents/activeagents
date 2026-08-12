@@ -28,10 +28,17 @@ shared:
     access_token: <%= ENV["ANTHROPIC_API_KEY"] %>
     model: "claude-haiku-4-5"
 
+  # One key, many models (https://openrouter.ai/models) — handy for dev.
+  openrouter: &openrouter
+    service: "OpenRouter"
+    access_token: <%= ENV["OPENROUTER_API_KEY"] %>
+    model: "meta-llama/llama-3.3-70b-instruct"
+
 development:
   mock: *mock
   openai: *openai
   anthropic: *anthropic
+  openrouter: *openrouter
   telemetry:
     enabled: true
     <% if ENV["ACTIVEAGENTS_API_KEY"].to_s.strip != "" %>
@@ -54,6 +61,7 @@ production:
   mock: *mock
   openai: *openai
   anthropic: *anthropic
+  openrouter: *openrouter
   telemetry:
     enabled: true
     endpoint: <%= ENV.fetch("ACTIVEAGENTS_TELEMETRY_ENDPOINT", "https://api.activeagents.ai/v1/traces") %>
