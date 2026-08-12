@@ -32,6 +32,11 @@ export default function AgentStatCard({
   onClick,
   actions,
 }) {
+  // Test hook. The e2e suite used to find cards by their Tailwind classes
+  // (div.bg-white.rounded-xl); unifying the card onto inline styles silently
+  // removed those classes and the locator matched nothing, so the whole
+  // scorecard test failed on its first assertion rather than reporting drift.
+  // A data-testid survives restyling.
   const { darkMode } = useTheme();
   const [hovered, setHovered] = React.useState(false);
 
@@ -55,6 +60,8 @@ export default function AgentStatCard({
 
   return (
     <div
+      data-testid="agent-card"
+      data-agent-name={typeof name === 'string' ? name : undefined}
       onClick={onClick}
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}

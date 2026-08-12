@@ -72,3 +72,6 @@ tmp/
 .claude/skills/**/fonts/
 .claude/settings.local.json
 .claude/skills/**/repo_commit/
+e2e/.auth/
+test-results/
+playwright-report/

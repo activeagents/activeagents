@@ -1,13 +1,8 @@
 import { test, expect } from '@playwright/test';
-import { signIn, TEST_USER } from './helpers/auth';
+// Signed in once by e2e/auth.setup.ts and reused via storageState.
 import { completeStripeCheckout, STRIPE_TEST_CARDS } from './helpers/stripe';
 
 test.describe('Subscription Checkout Flow', () => {
-  test.beforeEach(async ({ page }) => {
-    // Sign in before each test
-    await signIn(page);
-  });
-
   test('displays plans page correctly', async ({ page }) => {
     await page.goto('/plans');
 
@@ -88,9 +83,6 @@ test.describe('Subscription Checkout Flow', () => {
 });
 
 test.describe('Subscription Management', () => {
-  test.beforeEach(async ({ page }) => {
-    await signIn(page);
-  });
 
   test('can access billing portal', async ({ page }) => {
     await page.goto('/subscriptions');
@@ -121,6 +113,9 @@ test.describe('Subscription Management', () => {
 });
 
 test.describe('Unauthenticated Access', () => {
+  // Opts out of the shared signed-in storage state from e2e/auth.setup.ts.
+  test.use({ storageState: { cookies: [], origins: [] } });
+
   test('redirects to sign in when accessing plans without auth', async ({ page }) => {
     await page.goto('/plans');
 

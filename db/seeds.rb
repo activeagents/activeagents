@@ -107,9 +107,10 @@ unless Rails.env.production?
   puts "\nSeed Summary:"
   puts "  Users: #{User.count}"
   puts "  Agents: #{Agent.count}"
-  puts "  Agent Runs: #{AgentRun.count}"
-  puts "  Agent Versions: #{AgentVersion.count}"
   puts "  Agent Templates: #{AgentTemplate.count}"
+  # Runs and versions are no longer seeded, so reporting their counts here
+  # only ever printed 0 and read as a failed seed rather than a deliberate one.
+  puts "  Agent Runs: 0 seeded (populate by running an agent)"
 end
 
 # Pricing Plans

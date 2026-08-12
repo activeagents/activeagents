@@ -1,15 +1,18 @@
 import { test, expect } from '@playwright/test';
-import { signIn } from './helpers/auth';
+// The session is established once by e2e/auth.setup.ts and reused via
+// storageState, so no test signs in for itself.
 
 // Covers the encrypted API key + provider credential settings flows, the
 // agent scorecard cards, and the telemetry evaluation criteria.
 //
-// Requires a seeded account (see scripts/demo_seed via docs) — override with
-// E2E_EMAIL / E2E_PASSWORD.
-const USER = {
-  email: process.env.E2E_EMAIL || 'demo@activeagents.ai',
-  password: process.env.E2E_PASSWORD || 'demo-password-123',
-};
+// Runs against `bin/rails db:seed` — override with E2E_EMAIL / E2E_PASSWORD.
+// The defaults used to be demo@activeagents.ai / demo-password-123, which no
+// seed has ever created (the sibling checkout spec used the seeded pair), so
+// every test here died in signIn before reaching an assertion.
+
+// Seeded by db/seeds.rb. Not "Research Assistant" — that is an AgentTemplate
+// name, and templates only render inside the Browse Templates modal.
+const SEEDED_AGENT = 'Code Review Assistant';
 
 const SHOTS = process.env.E2E_SHOTS_DIR;
 const shot = async (page, name: string) => {
@@ -18,7 +21,6 @@ const shot = async (page, name: string) => {
 
 test.describe('API Keys settings', () => {
   test.beforeEach(async ({ page }) => {
-    await signIn(page, USER);
     await page.goto('/dashboard/settings');
     await page.getByRole('button', { name: 'API Keys' }).click();
   });
@@ -79,28 +81,45 @@ test.describe('API Keys settings', () => {
 });
 
 test.describe('Agent scorecards', () => {
-  test('agent cards show run, success, latency, eval, token and recency stats', async ({ page }) => {
-    await signIn(page, USER);
+  // Located by data-testid, not by Tailwind classes: the card was unified onto
+  // AgentStatCard's inline styles, which removed div.bg-white.rounded-xl and
+  // left the old locator matching zero elements — so every assertion below
+  // failed on the first one while the mascot check passed vacuously.
+  const cardFor = (page, name: string) =>
+    page.locator(`[data-testid="agent-card"][data-agent-name="${name}"]`).first();
+
+  test('agent cards show run, success, latency, eval, token and cost tiles', async ({ page }) => {
     await page.goto('/dashboard');
 
-    const card = page.locator('div.bg-white.rounded-xl', { hasText: 'Research Assistant' }).first();
-    await expect(card.getByText(/RUNS/i)).toBeVisible();
-    await expect(card.getByText(/SUCCESS/i)).toBeVisible();
-    await expect(card.getByText(/AVG TIME/i)).toBeVisible();
-    await expect(card.getByText(/EVAL/i)).toBeVisible();
-    await expect(card.getByText(/TOKENS/i)).toBeVisible();
-    await expect(card.getByText(/LAST RUN/i)).toBeVisible();
-    // Seeded data renders real numbers, not placeholders.
-    await expect(card.getByText(/%$/).first()).toBeVisible();
+    const card = cardFor(page, SEEDED_AGENT);
+    await expect(card).toBeVisible();
+    for (const label of [/RUNS/i, /SUCCESS/i, /AVG TIME/i, /EVAL/i, /TOKENS/i, /COST/i]) {
+      await expect(card.getByText(label)).toBeVisible();
+    }
     // The mascot no longer heads every card — the scorecard carries the space.
     await expect(card.locator('svg[viewBox="0 0 500 500"]')).toHaveCount(0);
     await shot(page, 'e2e-4-scorecards');
+  });
+
+  // The point of removing fabricated seed data: an agent that has never run
+  // must say so. This asserts the placeholder, where the previous version
+  // asserted a "%" that only fabricated runs could have produced.
+  test('an agent with no executions renders placeholders, not invented metrics', async ({ page }) => {
+    await page.goto('/dashboard');
+
+    const card = cardFor(page, SEEDED_AGENT);
+    await expect(card).toBeVisible();
+    await expect(card).toContainText('0');
+    // Success, avg time, eval and cost all have nothing to report.
+    expect(await card.getByText('—', { exact: true }).count()).toBeGreaterThan(0);
+    await expect(card.getByText(/%$/)).toHaveCount(0);
+    // Last activity replaces the config edit date only once something ran.
+    await expect(card.getByText(/Updated /)).toBeVisible();
   });
 });
 
 test.describe('Telemetry evaluations', () => {
   test('form offers telemetry criteria and results tag telemetry sources', async ({ page }) => {
-    await signIn(page, USER);
     await page.goto('/dashboard/evaluations');
 
     await page.getByRole('button', { name: /New Evaluation/i }).click();
@@ -108,11 +127,33 @@ test.describe('Telemetry evaluations', () => {
     await expect(page.getByText(/Trace error rate/)).toBeVisible();
     await expect(page.getByText(/Avg trace latency/)).toBeVisible();
     await shot(page, 'e2e-5-telemetry-criteria-form');
+  });
 
-    // The seeded "Production health" evaluation shows telemetry-scored rows.
-    await page.getByRole('button', { name: /Cancel|Close/i }).first().click().catch(() => {});
-    await page.getByText('Production health').first().click();
-    await expect(page.getByText('telemetry').first()).toBeVisible();
+  // Previously this clicked a "Production health" evaluation described as
+  // seeded. No seed has ever created an Evaluation — that row existed only in
+  // one developer's database, and its criteria are rule-based, so it has no
+  // telemetry scores to find. The assertion was also satisfiable by the form
+  // label "Telemetry criteria (trace aggregates)" left open by a Cancel click
+  // wrapped in .catch(), so it could report success having proven nothing.
+  //
+  // Scoring a telemetry criterion requires ingested traces, which db:seed
+  // deliberately does not fabricate. Rather than assert against a fixture that
+  // does not exist, this skips visibly when there is nothing to check.
+  test('telemetry-sourced scores are tagged in results', async ({ page }) => {
+    await page.goto('/dashboard/evaluations');
+
+    const telemetryEval = page
+      .locator('[data-testid="evaluation-card"][data-telemetry="true"]')
+      .first();
+    await page.locator('[data-testid="evaluation-card"]').first().waitFor({ timeout: 10000 }).catch(() => {});
+    test.skip(
+      (await telemetryEval.count()) === 0,
+      'no evaluation with telemetry criteria in this database — needs ingested traces, which db:seed does not fabricate'
+    );
+
+    await telemetryEval.click();
+    // Scoped to a result row's source tag, not to the criteria form's label.
+    await expect(page.getByTestId('score-source-telemetry').first()).toBeVisible();
     await shot(page, 'e2e-6-telemetry-scored-run');
   });
 });

@@ -110,9 +110,11 @@ developer sees locally is what the platform shows in production.
 
 - The agent's configured provider is used when its credentials are present
   in `config/active_agent.yml` (e.g. `OPENAI_API_KEY`,
-  `ANTHROPIC_API_KEY`). Otherwise execution falls back to the gem's **mock
-  provider**, which still runs the full prompt → provider → response
-  pipeline with real usage accounting — no hand-rolled fake data.
+  `ANTHROPIC_API_KEY`). Otherwise execution raises
+  `AgentExecutionService::ProviderNotConfiguredError` and the run is marked
+  failed with that message. There is no mock fallback outside the test
+  environment, so every stored run, trace and generation reflects a real
+  provider response.
 - Each run records a telemetry trace (root + llm spans with real timings and
   token usage) whose `trace_id` matches `AgentRun#trace_id`, so runs and
   traces correlate.

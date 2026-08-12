@@ -142,8 +142,10 @@ Grid view of all agents with search and filtering.
 
 **Features:**
 - Search by name/description
-- Filter by provider and status
-- Avatar preview with hover effects
+- Filter by provider and status; rank by recency, runs, avg duration, cost
+  or tokens (server-side, over the scorecards)
+- Scorecard tiles per card: runs, success rate, avg time, eval, tokens, cost
+  (no mascot — removed so the metrics carry the space)
 - Quick actions (duplicate, delete)
 
 #### AgentBuilder (`app/javascript/components/dashboard/AgentBuilder.jsx`)
@@ -182,8 +184,9 @@ Async agent execution via SolidQueue.
 
 **Features:**
 - Executes through AgentExecutionService: real provider generation when
-  credentials are configured (config/active_agent.yml), the gem's mock
-  provider otherwise — either way the full ActiveAgent pipeline runs
+  credentials are configured (config/active_agent.yml); without them the run
+  fails with `ProviderNotConfiguredError` rather than falling back to the
+  gem's mock provider, which is accepted in the test environment only
 - Records a telemetry trace and persists the conversation (solid_agent)
   per run, correlated on trace_id
 - Error handling and logging
