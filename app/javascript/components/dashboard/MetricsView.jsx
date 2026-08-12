@@ -13,15 +13,26 @@ const sparklinePoints = (values) => {
     .join(' ');
 };
 
+// Ranking for the agent table. Server-side (Api::MetricsController::AGENT_SORTS)
+// so it ranks every agent in the window, not just what is on screen.
+const AGENT_SORTS = [
+  { value: 'popular', label: 'Requests', column: 'requests' },
+  { value: 'tokens', label: 'Tokens', column: 'tokens' },
+  { value: 'cost', label: 'Cost', column: 'cost' },
+  { value: 'longest', label: 'Avg Duration', column: 'avg_duration_ms' },
+  { value: 'errors', label: 'Errors', column: 'errors' },
+];
+
 export default function MetricsView() {
   const { darkMode } = useTheme();
   const [metrics, setMetrics] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState(null);
+  const [agentSort, setAgentSort] = useState('popular');
 
   const fetchMetrics = useCallback(async () => {
     try {
-      const response = await fetch('/api/metrics?hours=24');
+      const response = await fetch(`/api/metrics?hours=24&sort=${agentSort}`);
       if (!response.ok) throw new Error(`Request failed (${response.status})`);
       const data = await response.json();
       setMetrics(data);
@@ -31,7 +42,7 @@ export default function MetricsView() {
     } finally {
       setIsLoading(false);
     }
-  }, []);
+  }, [agentSort]);
 
   useEffect(() => {
     fetchMetrics();
@@ -52,6 +63,14 @@ export default function MetricsView() {
     if (num >= 1000000) return (num / 1000000).toFixed(1) + 'M';
     if (num >= 1000) return (num / 1000).toFixed(1) + 'K';
     return num.toString();
+  };
+
+  // Two decimals alone renders every sub-cent figure as $0.00, which reads
+  // as "no spend" and makes a cost ranking look broken.
+  const formatCost = (cost) => {
+    if (!cost) return '$0.00';
+    if (cost < 0.01) return '<$0.01';
+    return `$${cost.toFixed(2)}`;
   };
 
   // Theme colors - single source of truth
@@ -100,6 +119,16 @@ export default function MetricsView() {
       </div>
     );
   };
+
+  // The ranked column reads bold, so the ordering is legible without
+  // re-reading the header.
+  const sortedColumn = AGENT_SORTS.find((option) => option.value === agentSort)?.column;
+  const cellStyle = (column) => ({
+    padding: '12px 0',
+    textAlign: 'right',
+    color: colors.textCell,
+    fontWeight: column === sortedColumn ? '600' : '400',
+  });
 
   const MetricCard = ({ label, children, trend, sparkline, sparklineColor }) => (
     <div style={{ background: colors.cardBg, borderRadius: '12px', padding: '20px', border: `1px solid ${colors.border}` }}>
@@ -158,7 +187,7 @@ export default function MetricsView() {
 
           <MetricCard label="Total Cost">
             <div style={{ fontSize: '32px', fontWeight: 'bold', color: colors.textPrimary, fontFamily: 'monospace' }}>
-              ${(summary.total_cost ?? 0).toFixed(2)}
+              {formatCost(summary.total_cost)}
             </div>
             <div style={{ fontSize: '13px', color: colors.textSecondary, marginTop: '8px' }}>estimated, this period</div>
           </MetricCard>
@@ -215,7 +244,12 @@ export default function MetricsView() {
 
         {/* Top Agents Table */}
         <div style={{ background: colors.cardBg, borderRadius: '12px', padding: '20px', border: `1px solid ${colors.border}` }}>
-          <h3 style={{ fontSize: '16px', fontWeight: '600', color: colors.textPrimary, marginBottom: '16px' }}>Agent Statistics</h3>
+          <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', marginBottom: '16px', gap: '12px', flexWrap: 'wrap' }}>
+            <h3 style={{ fontSize: '16px', fontWeight: '600', color: colors.textPrimary, margin: 0 }}>Agent Statistics</h3>
+            <span style={{ fontSize: '12px', color: colors.textMuted }}>
+              Ranked by {AGENT_SORTS.find((s) => s.value === agentSort)?.label.toLowerCase()} — click a column to change
+            </span>
+          </div>
           {byAgent.length === 0 ? (
             <div style={{ textAlign: 'center', padding: '24px 0', color: colors.textSecondary, fontSize: '14px' }}>
               {isEmpty
@@ -227,11 +261,28 @@ export default function MetricsView() {
               <thead>
                 <tr style={{ textAlign: 'left', fontSize: '13px', color: colors.textSecondary, borderBottom: `1px solid ${colors.border}` }}>
                   <th style={{ paddingBottom: '12px', fontWeight: '500' }}>Agent</th>
-                  <th style={{ paddingBottom: '12px', fontWeight: '500', textAlign: 'right' }}>Requests</th>
-                  <th style={{ paddingBottom: '12px', fontWeight: '500', textAlign: 'right' }}>Tokens</th>
-                  <th style={{ paddingBottom: '12px', fontWeight: '500', textAlign: 'right' }}>Cost</th>
-                  <th style={{ paddingBottom: '12px', fontWeight: '500', textAlign: 'right' }}>Avg Duration</th>
-                  <th style={{ paddingBottom: '12px', fontWeight: '500', textAlign: 'right' }}>Errors</th>
+                  {AGENT_SORTS.map((option) => {
+                    const active = agentSort === option.value;
+                    return (
+                      <th key={option.value} style={{ paddingBottom: '12px', fontWeight: '500', textAlign: 'right' }}>
+                        <button
+                          onClick={() => setAgentSort(option.value)}
+                          title={`Rank agents by ${option.label.toLowerCase()}`}
+                          style={{
+                            background: 'none',
+                            border: 'none',
+                            padding: 0,
+                            cursor: 'pointer',
+                            font: 'inherit',
+                            fontWeight: active ? '600' : '500',
+                            color: active ? colors.textPrimary : colors.textSecondary,
+                          }}
+                        >
+                          {option.label}{active ? ' ↓' : ''}
+                        </button>
+                      </th>
+                    );
+                  })}
                 </tr>
               </thead>
               <tbody>
@@ -257,12 +308,12 @@ export default function MetricsView() {
                         <span style={{ fontWeight: '500', color: colors.textPrimary }}>{agent.name}</span>
                       </div>
                     </td>
-                    <td style={{ padding: '12px 0', textAlign: 'right', color: colors.textCell }}>{formatNumber(agent.requests)}</td>
-                    <td style={{ padding: '12px 0', textAlign: 'right', color: colors.textCell }}>{formatNumber(agent.tokens)}</td>
-                    <td style={{ padding: '12px 0', textAlign: 'right', color: colors.textCell }}>${(agent.cost ?? 0).toFixed(2)}</td>
-                    <td style={{ padding: '12px 0', textAlign: 'right', color: colors.textCell }}>{agent.avg_duration_ms}ms</td>
-                    <td style={{ padding: '12px 0', textAlign: 'right' }}>
-                      <span style={{ color: agent.errors > 0 ? colors.badgeText : colors.textCell }}>{agent.errors}</span>
+                    <td style={cellStyle('requests')}>{formatNumber(agent.requests)}</td>
+                    <td style={cellStyle('tokens')}>{formatNumber(agent.tokens)}</td>
+                    <td style={cellStyle('cost')}>{formatCost(agent.cost)}</td>
+                    <td style={cellStyle('avg_duration_ms')}>{agent.avg_duration_ms}ms</td>
+                    <td style={{ ...cellStyle('errors'), color: agent.errors > 0 ? colors.badgeText : colors.textCell }}>
+                      {agent.errors}
                     </td>
                   </tr>
                 ))}

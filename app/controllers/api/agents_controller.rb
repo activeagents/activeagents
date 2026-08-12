@@ -2,6 +2,18 @@
 
 module Api
   class AgentsController < BaseController
+    # Ranking for the agent cards. Every dimension except "recent" reads the
+    # scorecard, which is computed in Ruby over both execution sources, so
+    # the ordering is applied there rather than in the SQL scope.
+    LIST_SORTS = {
+      "recent" => "Recently updated",
+      "popular" => "Most runs",
+      "longest" => "Longest average",
+      "cost" => "Highest cost",
+      "tokens" => "Most tokens"
+    }.freeze
+    DEFAULT_LIST_SORT = "recent"
+
     before_action :set_agent, only: [ :show, :update, :destroy, :versions, :runs, :execute, :test, :restore, :duplicate, :export, :analytics ]
     before_action :require_account!, only: [ :execute, :test ]
     before_action :enforce_run_limit!, only: [ :execute, :test ]
@@ -20,11 +32,17 @@ module Api
       @agents = @agents.where("name ILIKE ?", "%#{params[:q]}%") if params[:q].present?
 
       scorecards = AgentScorecard.for_agents(@agents)
+      cards = sort_cards(
+        @agents.map { |agent| agent_json(agent).merge(stats: scorecards[agent.id]) },
+        params[:sort]
+      )
 
       render json: {
-        agents: @agents.map { |agent| agent_json(agent).merge(stats: scorecards[agent.id]) },
+        agents: cards,
         meta: {
-          total: @agents.count,
+          total: cards.size,
+          sorts: LIST_SORTS,
+          sort: list_sort(params[:sort]),
           providers: Agent::PROVIDERS,
           preset_types: Agent::PRESET_TYPES,
           instruction_sets: Agent::INSTRUCTION_SETS,
@@ -86,33 +104,38 @@ module Api
     end
 
     # GET /api/agents/:id/runs
+    # Every execution of this agent, whoever ran it: dashboard runs and
+    # SDK-reported traces in one list, discriminated by `source`. Agents
+    # observed from telemetry have no AgentRun rows at all, so a runs-only
+    # list showed them as empty while their scorecard reported real traffic.
     def runs
-      @runs = @agent.agent_runs.recent
-
-      # Dashboard-wide time window, shared with Traces and Interactions
-      if params[:minutes].present?
-        minutes = params[:minutes].to_i.clamp(1, 60 * 24 * 90)
-        @runs = @runs.where(created_at: minutes.minutes.ago..)
-      end
-
-      # Filter by status
-      @runs = @runs.where(status: params[:status]) if params[:status].present?
-
-      # Pagination
+      minutes = params[:minutes].presence&.then { |m| m.to_i.clamp(1, 60 * 24 * 90) }
       page = (params[:page] || 1).to_i
       per_page = (params[:per_page] || 20).to_i
-      @runs = @runs.offset((page - 1) * per_page).limit(per_page)
+
+      executions = AgentExecutions.new(
+        agents: [ @agent ],
+        account: current_account,
+        window_minutes: minutes,
+        source: params[:source],
+        status: params[:status],
+        sort: params[:sort]
+      ).page(page: page, per_page: per_page)
 
       # One digest->version map for the page; labels each run's instructions
       # with the agent version that introduced them where one matches.
       digest_versions = @agent.instructions_digest_versions
+      runs_by_id = AgentRun.where(id: executions[:rows].select { |r| r.source == "dashboard" }.map(&:id))
+        .index_by(&:id)
 
       render json: {
-        runs: @runs.map { |run| run.summary.merge(instructions_version: digest_versions[run.instructions_digest]) },
+        runs: executions[:rows].map { |row| serialize_execution(row, runs_by_id, digest_versions) },
         meta: {
           page: page,
           per_page: per_page,
-          total: @agent.agent_runs.count
+          total: executions[:total],
+          sources: AgentExecutions::SOURCES,
+          sorts: AgentExecutions::SORTS
         }
       }
     end
@@ -235,6 +258,44 @@ module Api
     end
 
     private
+
+    def list_sort(requested)
+      LIST_SORTS.key?(requested.to_s) ? requested.to_s : DEFAULT_LIST_SORT
+    end
+
+    # Descending on the chosen dimension. Agents with nothing to rank (no
+    # runs, no priced spend) sort last instead of interleaving as zeroes,
+    # and run count breaks ties.
+    def sort_cards(cards, requested)
+      sort = list_sort(requested)
+      return cards if sort == "recent"
+
+      key = { "popular" => :runs, "longest" => :avg_duration_ms, "cost" => :cost, "tokens" => :tokens }[sort]
+
+      cards.sort_by do |card|
+        value = card[:stats]&.dig(key)
+        [ value.nil? ? 1 : 0, -value.to_f, -card[:stats].to_h[:runs].to_i ]
+      end
+    end
+
+    # Dashboard runs keep their full summary (logs, previews, instructions
+    # version); reported executions carry only what a trace knows. `source`
+    # tells the UI which it is holding.
+    def serialize_execution(row, runs_by_id, digest_versions)
+      run = runs_by_id[row.id] if row.source == "dashboard"
+
+      if run
+        run.summary.merge(
+          source: "dashboard",
+          # Priced here rather than on AgentRun so both sources use one
+          # estimator, and so a run and its trace never quote different costs.
+          cost: row.cost,
+          instructions_version: digest_versions[run.instructions_digest]
+        )
+      else
+        row.as_json.merge(id: row.to_param, record_id: row.id)
+      end
+    end
 
     # Same contract as Api::SandboxesController#run: 402 + usage stats so the
     # frontend can show the upgrade prompt.

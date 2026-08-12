@@ -36,8 +36,9 @@ telemetry:
 
 RubyLLM emits `chat.ruby_llm` and `tool_call.ruby_llm` events through a
 configurable instrumenter. Point it at `ActiveSupport::Notifications` and
-subscribe with this repo's `active_agents-ruby_llm_telemetry` gem — no
-dependencies beyond ActiveSupport and stdlib.
+subscribe with the
+[activeagents-telemetry-ruby_llm](https://rubygems.org/gems/activeagents-telemetry-ruby_llm)
+gem — no dependencies beyond ActiveSupport and the shared telemetry core.
 
 ```ruby
 # config/initializers/ruby_llm.rb
@@ -45,7 +46,7 @@ RubyLLM.configure do |config|
   config.instrumenter = ActiveSupport::Notifications
 end
 
-ActiveAgents::RubyLLMTelemetry.subscribe!(
+ActiveAgents::Telemetry::RubyLLM.subscribe!(
   api_key: ENV["ACTIVEAGENTS_API_KEY"],
   service_name: "my-app"
 )
@@ -55,7 +56,7 @@ Attribute traffic to a logical agent (otherwise it reports as
 `RubyLLM::Chat`):
 
 ```ruby
-ActiveAgents::RubyLLMTelemetry.with_agent("SupportBot", action: "respond") do
+ActiveAgents::Telemetry::RubyLLM.with_agent("SupportBot", action: "respond") do
   chat = RubyLLM.chat(model: "gpt-4o")
   chat.ask("How do I reset my password?")
 end
@@ -95,10 +96,10 @@ so unattributed traffic reports as `RubyLLM::Chat`. Three ways to name it:
 
 ```ruby
 # 1. Per call site.
-ActiveAgents::RubyLLMTelemetry.with_agent("SupportBot", action: "respond") { chat.ask(...) }
+ActiveAgents::Telemetry::RubyLLM.with_agent("SupportBot", action: "respond") { chat.ask(...) }
 
 # 2. From the initializer, derived from the event payload.
-ActiveAgents::RubyLLMTelemetry.subscribe!(
+ActiveAgents::Telemetry::RubyLLM.subscribe!(
   api_key: ENV["ACTIVEAGENTS_API_KEY"],
   agent_resolver: ->(payload) { { name: "SupportBot", action: payload[:tools].present? ? "respond" : "summarize" } }
 )
@@ -106,7 +107,7 @@ ActiveAgents::RubyLLMTelemetry.subscribe!(
 # 3. Every RubyLLM::Agent subclass, by class name.
 module AgentTelemetryAttribution
   def ask(...)
-    ActiveAgents::RubyLLMTelemetry.with_agent(self.class.name) { super }
+    ActiveAgents::Telemetry::RubyLLM.with_agent(self.class.name) { super }
   end
 end
 RubyLLM::Agent.prepend(AgentTelemetryAttribution)
@@ -119,18 +120,17 @@ from the payload.
 
 ### The adapter
 
-It ships as a gem in this repo (`ruby_llm_telemetry/`), so nothing is
-vendored into the consuming app:
+Published to RubyGems from
+[activeagents/activeagents-telemetry](https://github.com/activeagents/activeagents-telemetry)
+(`adapters/ruby_llm`, on the shared `activeagents-telemetry` core):
 
 ```ruby
 # Gemfile
-gem "active_agents-ruby_llm_telemetry",
-    github: "activeagents/activeagents", glob: "ruby_llm_telemetry/*.gemspec"
+gem "activeagents-telemetry-ruby_llm"
 ```
 
-Bundler requires it as `active_agents/ruby_llm_telemetry`, so the initializer
-above is the whole integration. Implementation, tests, and the full option
-list live in `ruby_llm_telemetry/README.md`.
+The initializer above is the whole integration. Implementation, tests, and
+the full option list live in the adapter's README.
 
 Notes:
 
@@ -167,9 +167,9 @@ The endpoint is just a parameter — point it at any deployment of this app or
 of the gem's dashboard:
 
 ```ruby
-ActiveAgents::RubyLLMTelemetry.subscribe!(
+ActiveAgents::Telemetry::RubyLLM.subscribe!(
   api_key: ENV["ACTIVEAGENTS_API_KEY"],
-  endpoint: ENV.fetch("ACTIVEAGENTS_TELEMETRY_ENDPOINT", ActiveAgents::RubyLLMTelemetry::DEFAULT_ENDPOINT),
+  endpoint: ENV.fetch("ACTIVEAGENTS_TELEMETRY_ENDPOINT", ActiveAgents::Telemetry::Configuration::DEFAULT_ENDPOINT),
   service_name: "my-app",
   environment: Rails.env
 )
@@ -184,6 +184,14 @@ keys, once PR
 [#96](https://github.com/activeagents/activeagents/pull/96) lands) or the
 account's legacy `telemetry_api_key` from the Organization page.
 
+For an **enterprise self-hosted mount** of the gem's dashboard engine
+(customer's own Rails app, e.g. `activeagents.combinaut.com` — see the
+gem's `docs/framework/self-hosted-observability.md`), the endpoint shape
+is `<mount>/api/traces`, e.g.
+`https://activeagents.combinaut.com/api/traces`, and the Bearer token is
+that install's `ActiveAgent::Dashboard.ingest_api_key` (single-tenant) or
+an account `telemetry_api_key` (multi-tenant).
+
 ## Wire format reference
 
 The endpoint accepts what `ActiveAgent::Telemetry::Reporter` sends —
@@ -194,10 +202,13 @@ Full payload spec: activeagent's `docs/framework/telemetry.md`
 Python sidecars, edge functions, other frameworks — can feed the same
 dashboard.
 
-## Roadmap note
+## History
 
-`ruby_llm_telemetry/` is a self-contained gem so it can be broken out into
-its own repository, or folded into the activeagent gem itself (e.g.
-`ActiveAgent::Telemetry::Adapters::RubyLLM`, loadable without the rest of the
-framework), without changing the consuming app beyond its Gemfile line.
-First production consumer: Sparkle's Clara admin chat (`combinaut/sparkle`).
+The adapter began as a vendored gem in this repo (`ruby_llm_telemetry/`)
+and was extracted to
+[activeagents/activeagents-telemetry](https://github.com/activeagents/activeagents-telemetry)
+(`adapters/ruby_llm`, on the shared telemetry core) and published as
+`activeagents-telemetry-ruby_llm` — the namespace moved from
+`ActiveAgents::RubyLLMTelemetry` to `ActiveAgents::Telemetry::RubyLLM` in
+the process. First production consumer: Sparkle's Clara admin chat
+(`combinaut/sparkle`).

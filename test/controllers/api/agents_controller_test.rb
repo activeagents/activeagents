@@ -27,6 +27,49 @@ class Api::AgentsControllerTest < ActionDispatch::IntegrationTest
     assert data["meta"]["preset_types"].present?
   end
 
+  test "index ranks agents by run count" do
+    busy = create_agent(user: @user, name: "Busy Agent")
+    2.times { create_run(agent: busy) }
+    create_run(agent: @agent)
+
+    get "/api/agents", params: { sort: "popular" }
+
+    assert_response :success
+    assert_equal [ busy.id, @agent.id ], json_response["agents"].map { |a| a["id"] }
+    assert_equal "popular", json_response.dig("meta", "sort")
+  end
+
+  test "index ranks agents by estimated cost" do
+    cheap = create_agent(user: @user, name: "Cheap Agent")
+    create_run(agent: cheap, input_tokens: 1_000, output_tokens: 1_000,
+               output_metadata: { "model" => "gpt-4o-mini" })
+    create_run(agent: @agent, input_tokens: 1_000, output_tokens: 1_000,
+               output_metadata: { "model" => "claude-3-opus-20240229" })
+
+    get "/api/agents", params: { sort: "cost" }
+
+    assert_equal [ @agent.id, cheap.id ], json_response["agents"].map { |a| a["id"] }
+  end
+
+  # Agents with nothing to rank belong at the bottom, not interleaved as
+  # zeroes ahead of agents that have actually run.
+  test "index puts agents with no priced spend last" do
+    unpriced = create_agent(user: @user, name: "Never Run")
+    create_run(agent: @agent, input_tokens: 1_000, output_tokens: 1_000,
+               output_metadata: { "model" => "gpt-4o" })
+
+    get "/api/agents", params: { sort: "cost" }
+
+    assert_equal [ @agent.id, unpriced.id ], json_response["agents"].map { |a| a["id"] }
+  end
+
+  test "index falls back to recently-updated for an unknown sort" do
+    get "/api/agents", params: { sort: "; drop table" }
+
+    assert_response :success
+    assert_equal "recent", json_response.dig("meta", "sort")
+  end
+
   test "index filters by status" do
     draft_agent = create_agent(user: @user, name: "Draft Agent", status: :draft)
 
@@ -391,6 +434,10 @@ class Api::AgentsControllerTest < ActionDispatch::IntegrationTest
   # ===========================================
 
   test "test executes synchronously and returns result" do
+    # Execute through the gem's mock provider — the test-environment double;
+    # without credentials real providers now fail instead of falling back.
+    @agent.update!(provider: "mock")
+
     post "/api/agents/#{@agent.id}/test", params: {
       prompt: "What is 2+2?"
     }

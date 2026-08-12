@@ -5,16 +5,21 @@
 #
 # The requested provider is used when credentials are available — the
 # account's own provider key (Settings -> Provider API Keys) when configured,
-# else the platform keys in config/active_agent.yml; otherwise execution
-# falls back to the gem's mock provider so the full prompt -> provider ->
-# response pipeline (including usage accounting) still runs without external
-# API keys.
+# else the platform keys in config/active_agent.yml. Without credentials the
+# run fails with an actionable error: execution never falls back to mock
+# output, so every stored run, trace and generation reflects a real provider
+# response. (The gem's mock provider is a test double, accepted only in the
+# test environment.)
 #
 # Traces are built with the gem's ActiveAgent::Telemetry::Span and persisted
 # through TelemetryTrace.create_from_payload — the same normalizer used by
 # the telemetry ingest endpoint — so platform-executed runs and SDK-reported
 # runs share one pipeline.
 class AgentExecutionService
+  # Raised when the requested provider has no usable credentials. The run is
+  # marked failed with this message — never silently degraded to mock output.
+  class ProviderNotConfiguredError < StandardError; end
+
   SERVICE_NAME = "activeagents-platform"
 
   def self.call(agent_record, run)
@@ -93,7 +98,6 @@ class AgentExecutionService
           action: action_name,
           instructions: composed_instructions,
           requested_provider: @agent_record.provider,
-          mock: mock_fallback?,
           trace_id: root_span.trace_id,
           context_id: conversation_context&.id,
           tool_calls: tool_calls
@@ -153,9 +157,17 @@ class AgentExecutionService
     @requested_model ||= run_params[:model_override].presence || @agent_record.model
   end
 
-  # Returns the provider actually used for this execution.
+  # Returns the provider used for this execution, or raises when its
+  # credentials are missing.
   def provider
-    @provider ||= provider_available?(requested_provider) ? requested_provider.to_sym : :mock
+    @provider ||= begin
+      unless provider_available?(requested_provider)
+        raise ProviderNotConfiguredError,
+          "No credentials configured for provider '#{requested_provider}' — " \
+          "add an API key in Settings -> Provider API Keys, or configure platform credentials"
+      end
+      requested_provider.to_sym
+    end
   end
 
   # The named action this run invokes (falls back to the default). Named
@@ -169,10 +181,6 @@ class AgentExecutionService
 
   def composed_instructions
     @composed_instructions ||= @agent_record.composed_instructions_for(action_name)
-  end
-
-  def mock_fallback?
-    provider == :mock && requested_provider != "mock"
   end
 
   # Routes a provider tool call to its implementation: memory tools bind to
@@ -319,7 +327,7 @@ class AgentExecutionService
   end
 
   def model
-    mock_fallback? ? "mock-#{requested_model}" : requested_model
+    requested_model
   end
 
   # Newer Anthropic models (Opus 4.7+, Sonnet 5, Fable 5/Mythos 5) reject
@@ -358,6 +366,7 @@ class AgentExecutionService
       has_context contextual: false
 
       if effective_provider == :mock
+        # Test environment only (see #provider_available?).
         generate_with :mock
       else
         generate_with effective_provider, model: provider_model, **model_options
@@ -458,7 +467,9 @@ class AgentExecutionService
   end
 
   def provider_available?(name)
-    return true if name.to_s == "mock"
+    # The gem's mock provider is a test double: accepted only in the test
+    # environment so app runs can never store fabricated output.
+    return Rails.env.test? if name.to_s == "mock"
     return true if account_provider_key(name).present?
 
     config = ActiveAgent.configuration[name.to_sym]

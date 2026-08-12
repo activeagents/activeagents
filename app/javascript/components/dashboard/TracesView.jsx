@@ -8,6 +8,7 @@ import InteractionStream, { roleBubble } from './InteractionStream';
 import ToolRoster from './ToolRoster';
 import ContextMeter, { contextWindowFor, estimateTokens } from './ContextMeter';
 import { useTimeWindow } from '../../contexts/TimeWindowContext';
+import AgentStatCard from './AgentStatCard';
 import TimeWindowSelector from './TimeWindowSelector';
 
 // Deterministic color assignment for agent classes
@@ -104,6 +105,8 @@ export default function TracesView({ agentClass = null, embedded = false }) {
   const { darkMode } = useTheme();
   const [traces, setTraces] = useState([]);
   const [agentsList, setAgentsList] = useState([]);
+  // agent_class => platform Agent id, so a card can open that agent's page.
+  const [agentIds, setAgentIds] = useState({});
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState(null);
   const [selectedTrace, setSelectedTrace] = useState(null);
@@ -120,6 +123,7 @@ export default function TracesView({ agentClass = null, embedded = false }) {
   const [sortBy, setSortBy] = useState('time'); // 'time' (chronological) | 'latency' (slowest first)
   const [selectedTimeBucket, setSelectedTimeBucket] = useState(null);
   const [viewMode, setViewMode] = useState('timeline'); // 'timeline', 'agents', 'actions', or 'spans'
+  const [agentRank, setAgentRank] = useState('popular'); // agents view card ranking
   const { timeWindow } = useTimeWindow();
 
   const fetchTraces = useCallback(async () => {
@@ -131,6 +135,7 @@ export default function TracesView({ agentClass = null, embedded = false }) {
       const data = await response.json();
       setTraces(data.traces || []);
       setAgentsList(agentClass ? [agentClass] : (data.agents || []));
+      setAgentIds(data.agent_ids || {});
       setLoadError(null);
     } catch (error) {
       setLoadError(error.message);
@@ -300,6 +305,7 @@ export default function TracesView({ agentClass = null, embedded = false }) {
           agent: trace.agent,
           count: 0,
           totalDuration: 0,
+          cost: 0,
           errors: 0,
           actions: {},
           tokens: { thinking: 0, input: 0, output: 0 },
@@ -307,6 +313,7 @@ export default function TracesView({ agentClass = null, embedded = false }) {
       }
       stats[trace.agent].count++;
       stats[trace.agent].totalDuration += trace.duration_ms || 0;
+      stats[trace.agent].cost += trace.estimated_cost || 0;
       if (trace.status === 'ERROR') stats[trace.agent].errors++;
       if (trace.tokens) {
         stats[trace.agent].tokens.thinking += trace.tokens.thinking || 0;
@@ -318,8 +325,21 @@ export default function TracesView({ agentClass = null, embedded = false }) {
       }
     });
 
-    return Object.values(stats).sort((a, b) => b.count - a.count);
-  }, [traces, throughputData, selectedTimeBucket]);
+    // Ranked by whichever dimension is selected. These cards are already an
+    // aggregate per agent, so "popular" is meaningful here in a way it is
+    // not on a list of individual executions.
+    const rank = {
+      popular: (s) => s.count,
+      longest: (s) => s.totalDuration / (s.count || 1),
+      cost: (s) => s.cost,
+      // Inlined rather than totalTokensOf(): this memo runs during render,
+      // before that const is initialized.
+      tokens: (s) => (s.tokens.input || 0) + (s.tokens.output || 0) + (s.tokens.thinking || 0),
+      errors: (s) => s.errors,
+    }[agentRank] || ((s) => s.count);
+
+    return Object.values(stats).sort((a, b) => rank(b) - rank(a) || b.count - a.count);
+  }, [traces, throughputData, selectedTimeBucket, agentRank]);
 
   // Aggregate action stats for selected time range (Agent#action level)
   const actionStats = useMemo(() => {
@@ -436,6 +456,81 @@ export default function TracesView({ agentClass = null, embedded = false }) {
 
   const totalTokensOf = (tokens) =>
     (tokens?.input || 0) + (tokens?.output || 0) + (tokens?.thinking || 0);
+
+  // Tiles for the shared agent card, in the same order as the Agents page
+  // so the two surfaces read alike.
+  const agentCardStats = (stat) => {
+    const errorRate = stat.count ? stat.errors / stat.count : 0;
+    return [
+      { label: `Calls ${timeWindow.label || ''}`.trim(), value: stat.count.toLocaleString() },
+      {
+        label: 'Errors',
+        value: `${(errorRate * 100).toFixed(1)}%`,
+        tone: stat.errors > 0 ? 'bad' : 'good',
+      },
+      { label: 'Avg time', value: `${Math.round(stat.totalDuration / (stat.count || 1))}ms` },
+      { label: 'Tokens', value: totalTokensOf(stat.tokens).toLocaleString() },
+      {
+        label: 'Cost',
+        value: formatCardCost(stat.cost),
+        title: 'Estimated from token counts at this model\'s published rates',
+        tone: stat.cost ? undefined : 'muted',
+      },
+      { label: 'Actions', value: (stat.agents?.length || 0).toLocaleString() },
+    ];
+  };
+
+  // Card totals, not single traces: dollars with a floor, where formatCost
+  // below shows a single trace's fraction of a cent at full precision.
+  const formatCardCost = (cost) => {
+    if (!cost) return '—';
+    if (cost < 0.01) return '<$0.01';
+    return `$${cost.toFixed(2)}`;
+  };
+
+  // Rendered by both agents-view layouts (this component keeps a dark and a
+  // light variant), so the control can't live in either one's markup.
+  const agentRankControl = (
+    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '8px', marginBottom: '12px' }}>
+      <span style={{ fontSize: '12px', color: darkMode ? 'rgba(255,255,255,0.5)' : '#6b7280' }}>Rank by</span>
+      <select
+        value={agentRank}
+        onChange={(e) => setAgentRank(e.target.value)}
+        style={{
+          fontSize: '12px',
+          padding: '4px 8px',
+          borderRadius: '6px',
+          border: `1px solid ${darkMode ? 'rgba(255,255,255,0.15)' : '#e5e7eb'}`,
+          background: darkMode ? 'rgba(255,255,255,0.05)' : '#ffffff',
+          color: darkMode ? '#f9fafb' : '#111827',
+        }}
+      >
+        <option value="popular">Most calls</option>
+        <option value="longest">Longest average</option>
+        <option value="cost">Highest cost</option>
+        <option value="tokens">Most tokens</option>
+        <option value="errors">Most errors</option>
+      </select>
+    </div>
+  );
+
+  const toggleAgentFilter = (agent) =>
+    setFilter((current) => ({ ...current, agent: current.agent === agent ? 'all' : agent }));
+
+  // Open the agent behind a trace class. Falls back to filtering in place
+  // when the traces aren't attributed to an Agent record (e.g. reported
+  // before auto-registration, or registration failed).
+  const openAgent = (agentClassName) => {
+    const id = agentIds[agentClassName];
+    if (!id) return toggleAgentFilter(agentClassName);
+
+    const path = `/dashboard/agents/${id}`;
+    window.history.pushState(window.history.state, '', path);
+    // A custom event, not a synthetic popstate: Inertia listens for popstate
+    // and reads event.state.component, so a hand-dispatched one (state null)
+    // throws inside Inertia before our own handler ever runs.
+    window.dispatchEvent(new CustomEvent('dashboard:navigate', { detail: { path } }));
+  };
 
   // Span attribute values: pretty-print embedded JSON (tool.arguments,
   // tool.result), pass everything else through as text.
@@ -1251,104 +1346,49 @@ export default function TracesView({ agentClass = null, embedded = false }) {
           </div>
         </div>
 
-        {/* Agent Breakdown View */}
         {viewMode === 'agents' && (
           <div style={{ padding: '0 24px', marginBottom: '24px' }}>
+            {agentRankControl}
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '16px' }}>
               {agentStats.map((stat) => (
-                <div
+                <AgentStatCard
                   key={stat.agent}
-                  style={{
-                    background: 'rgba(0,0,0,0.3)',
-                    borderRadius: '12px',
-                    padding: '16px',
-                    border: `1px solid ${agentColors[stat.agent]}40`,
-                    cursor: 'pointer',
-                  }}
-                  onClick={() => setFilter({ ...filter, agent: filter.agent === stat.agent ? 'all' : stat.agent })}
-                >
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '12px' }}>
-                    <div style={{
-                      width: '8px',
-                      height: '8px',
-                      borderRadius: '50%',
-                      background: agentColors[stat.agent]
-                    }} />
-                    <span style={{ fontSize: '15px', fontWeight: '600', color: 'white' }}>
-                      {stat.agent}
-                    </span>
+                  name={stat.agent}
+                  accentColor={agentColors[stat.agent]}
+                  subtitle={stat.agents?.length ? stat.agents.join(', ') : undefined}
+                  badge={
                     <span style={{
-                      marginLeft: 'auto',
-                      fontSize: '13px',
+                      fontSize: '12px',
                       padding: '2px 8px',
                       background: agentColors[stat.agent] + '30',
                       color: agentColors[stat.agent],
-                      borderRadius: '4px'
+                      borderRadius: '4px',
+                      whiteSpace: 'nowrap',
                     }}>
                       {stat.count} calls
                     </span>
-                  </div>
-
-                  {/* Agent Metrics */}
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', marginBottom: '12px' }}>
-                    <div>
-                      <div style={{ fontSize: '11px', color: 'rgba(255,255,255,0.5)' }}>Avg Latency</div>
-                      <div style={{ fontSize: '14px', color: 'white' }}>
-                        {Math.round(stat.totalDuration / stat.count)}ms
-                      </div>
-                    </div>
-                    <div>
-                      <div style={{ fontSize: '11px', color: 'rgba(255,255,255,0.5)' }}>Total Tokens</div>
-                      <div style={{ fontSize: '14px', color: 'white' }}>
-                        {totalTokensOf(stat.tokens).toLocaleString()}
-                      </div>
-                    </div>
-                    <div>
-                      <div style={{ fontSize: '11px', color: 'rgba(255,255,255,0.5)' }}>Error Rate</div>
-                      <div style={{ fontSize: '14px', color: stat.errors > 0 ? '#ef4444' : '#10b981' }}>
-                        {((stat.errors / stat.count) * 100).toFixed(1)}%
-                      </div>
-                    </div>
-                    <div>
-                      <div style={{ fontSize: '11px', color: 'rgba(255,255,255,0.5)' }}>Thinking Tokens</div>
-                      <div style={{ fontSize: '14px', color: 'white' }}>
-                        {stat.tokens.thinking.toLocaleString()}
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Actions Breakdown - clickable */}
-                  <div style={{ borderTop: '1px solid rgba(255,255,255,0.1)', paddingTop: '10px' }}>
-                    <div style={{ fontSize: '11px', color: 'rgba(255,255,255,0.5)', marginBottom: '6px' }}>Actions (click to filter)</div>
-                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
-                      {Object.entries(stat.actions).map(([action, count]) => {
-                        const actionKey = `${stat.agent}#${action}`;
-                        const isActive = filter.action === actionKey;
-                        return (
-                          <span
-                            key={action}
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setFilter({ ...filter, action: isActive ? 'all' : actionKey });
-                              setViewMode('timeline');
-                            }}
-                            style={{
-                              fontSize: '11px',
-                              padding: '3px 8px',
-                              background: isActive ? '#ef4444' : 'rgba(255,255,255,0.1)',
-                              borderRadius: '4px',
-                              color: isActive ? 'white' : 'rgba(255,255,255,0.8)',
-                              cursor: 'pointer',
-                              transition: 'all 0.15s'
-                            }}
-                          >
-                            {action} ({count})
-                          </span>
-                        );
-                      })}
-                    </div>
-                  </div>
-                </div>
+                  }
+                  onClick={() => openAgent(stat.agent)}
+                  stats={agentCardStats(stat)}
+                  footer={
+                    <>
+                      <span>{agentIds[stat.agent] ? 'Open agent →' : 'Not linked to an agent record'}</span>
+                      <button
+                        onClick={(e) => { e.stopPropagation(); toggleAgentFilter(stat.agent); }}
+                        style={{
+                          background: 'none',
+                          border: 'none',
+                          padding: 0,
+                          cursor: 'pointer',
+                          color: filter.agent === stat.agent ? '#ef4444' : 'inherit',
+                          font: 'inherit',
+                        }}
+                      >
+                        {filter.agent === stat.agent ? 'Clear filter' : 'Filter traces'}
+                      </button>
+                    </>
+                  }
+                />
               ))}
             </div>
           </div>
@@ -1822,69 +1862,39 @@ export default function TracesView({ agentClass = null, embedded = false }) {
 
       {/* Agent Breakdown View */}
       {viewMode === 'agents' && (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        <div>
+          {agentRankControl}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {agentStats.map((stat) => (
-            <div
+            <AgentStatCard
               key={stat.agent}
-              className="bg-white rounded-xl border border-gray-200 p-4 cursor-pointer hover:border-gray-300 transition-colors"
-              style={{ borderLeftColor: agentColors[stat.agent], borderLeftWidth: '4px' }}
-              onClick={() => setFilter({ ...filter, agent: filter.agent === stat.agent ? 'all' : stat.agent })}
-            >
-              <div className="flex items-center justify-between mb-3">
-                <span className="font-semibold text-gray-900">{stat.agent}</span>
+              name={stat.agent}
+              accentColor={agentColors[stat.agent]}
+              subtitle={stat.agents?.length ? stat.agents.join(', ') : undefined}
+              badge={
                 <span
                   className="text-sm px-2 py-0.5 rounded"
                   style={{ background: agentColors[stat.agent] + '20', color: agentColors[stat.agent] }}
                 >
                   {stat.count} calls
                 </span>
-              </div>
-              <div className="grid grid-cols-2 gap-2 text-sm mb-3">
-                <div>
-                  <div className="text-gray-500 text-xs">Avg Latency</div>
-                  <div className="font-medium">{Math.round(stat.totalDuration / stat.count)}ms</div>
-                </div>
-                <div>
-                  <div className="text-gray-500 text-xs">Total Tokens</div>
-                  <div className="font-medium">{totalTokensOf(stat.tokens).toLocaleString()}</div>
-                </div>
-                <div>
-                  <div className="text-gray-500 text-xs">Error Rate</div>
-                  <div className={`font-medium ${stat.errors > 0 ? 'text-red-600' : 'text-green-600'}`}>
-                    {((stat.errors / stat.count) * 100).toFixed(1)}%
-                  </div>
-                </div>
-                <div>
-                  <div className="text-gray-500 text-xs">Thinking Tokens</div>
-                  <div className="font-medium">{stat.tokens.thinking.toLocaleString()}</div>
-                </div>
-              </div>
-              <div className="border-t border-gray-100 pt-2">
-                <div className="text-xs text-gray-500 mb-1">Actions (click to filter)</div>
-                <div className="flex flex-wrap gap-1">
-                  {Object.entries(stat.actions).map(([action, count]) => {
-                    const actionKey = `${stat.agent}#${action}`;
-                    const isActive = filter.action === actionKey;
-                    return (
-                      <span
-                        key={action}
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setFilter({ ...filter, action: isActive ? 'all' : actionKey });
-                          setViewMode('timeline');
-                        }}
-                        className={`text-xs px-2 py-0.5 rounded cursor-pointer transition-colors ${
-                          isActive ? 'bg-red-500 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-                        }`}
-                      >
-                        {action} ({count})
-                      </span>
-                    );
-                  })}
-                </div>
-              </div>
-            </div>
+              }
+              onClick={() => openAgent(stat.agent)}
+              stats={agentCardStats(stat)}
+              footer={
+                <>
+                  <span>{agentIds[stat.agent] ? 'Open agent \u2192' : 'Not linked to an agent record'}</span>
+                  <button
+                    onClick={(e) => { e.stopPropagation(); toggleAgentFilter(stat.agent); }}
+                    className={filter.agent === stat.agent ? 'text-red-600' : 'hover:text-gray-700'}
+                  >
+                    {filter.agent === stat.agent ? 'Clear filter' : 'Filter traces'}
+                  </button>
+                </>
+              }
+            />
           ))}
+          </div>
         </div>
       )}
 

@@ -29,6 +29,10 @@ module Api
       render json: {
         traces: traces.map { |trace| TelemetryTraceSerializer.summary(trace) },
         agents: window_scope.distinct.pluck(:agent_class).compact.sort,
+        # agent_class => platform Agent id, so the Traces view can link a
+        # trace back to the agent it belongs to (AgentRegistrar attributes
+        # SDK-reported traces to an Agent record on ingest).
+        agent_ids: agent_ids_by_class(window_scope),
         window_minutes: window
       }
     end
@@ -46,6 +50,16 @@ module Api
 
     def traces_scope
       TelemetryTrace.for_account(current_account)
+    end
+
+    # One grouped query. A class can appear under several agent records
+    # (same class, different action); the most recently active one wins,
+    # since that's what the operator most likely means by "this agent".
+    def agent_ids_by_class(scope)
+      scope
+        .where.not(agent_id: nil, agent_class: nil)
+        .group(:agent_class)
+        .maximum(:agent_id)
     end
   end
 end

@@ -27,6 +27,8 @@ class ModelPricing
     [ /gemini.*flash/i, 0.10, 0.40 ],
     [ /gemini.*pro/i, 1.25, 10.00 ],
     [ /llama|mistral|mixtral|qwen|deepseek/i, 0.20, 0.60 ],
+    # Zero-prices "mock-*" traces recorded before the mock fallback was
+    # removed, so legacy rows never register as real spend.
     [ /mock/i, 0.0, 0.0 ]
   ].freeze
 

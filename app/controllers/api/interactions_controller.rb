@@ -79,7 +79,21 @@ module Api
     def reported_traces(limit)
       scope = current_account.telemetry_traces.where.not(agent_class: nil)
       scope = scope.where(timestamp: window_minutes.minutes.ago..) if window_minutes
+      # Honor the agent filter the persisted side already applies: without
+      # this, a per-agent view listed every agent's reported traffic, and an
+      # agent whose traces are all SDK-reported showed nothing of its own.
+      scope = scope.merge(traces_for_agent(params[:agent_id])) if params[:agent_id].present?
       scope.order(timestamp: :desc).limit(limit)
+    end
+
+    # Traces belong to an agent by foreign key once AgentRegistrar attributes
+    # them; older rows predate that, so fall back to the class name.
+    def traces_for_agent(agent_id)
+      agent = current_user.agents.find_by(id: agent_id)
+      return TelemetryTrace.none unless agent
+
+      TelemetryTrace.where(agent_id: agent.id)
+        .or(TelemetryTrace.where(agent_id: nil, agent_class: agent.telemetry_agent_class))
     end
 
     # The dashboard-wide time window, shared with Traces. Absent means "all".

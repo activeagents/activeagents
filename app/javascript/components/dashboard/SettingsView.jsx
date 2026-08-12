@@ -108,7 +108,7 @@ export default function SettingsView({ user, account }) {
   };
 
   const removeProviderKey = async (provider) => {
-    if (!window.confirm('Remove this provider credential? Runs will fall back to the platform default (or mock).')) return;
+    if (!window.confirm('Remove this provider credential? Runs will fall back to the platform default credentials, or fail until a key is configured.')) return;
     try {
       const res = await fetch(`/api/provider_keys/${provider}`, { method: 'DELETE' });
       if (!res.ok) throw new Error('delete failed');
