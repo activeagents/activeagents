@@ -13,6 +13,14 @@ export default function AgentInteractions({ agent, onBack }) {
   const [selectedSession, setSelectedSession] = useState(null); // {id, name}
   const [selectedMessages, setSelectedMessages] = useState([]);
   const [detailMode, setDetailMode] = useState('run'); // 'run' | 'all'
+  // Whether both lists have answered yet, so the default tab is chosen from
+  // real counts rather than from the empty initial state.
+  const [runsLoaded, setRunsLoaded] = useState(false);
+  const [sessionsLoaded, setSessionsLoaded] = useState(false);
+  // A level named in the URL, or a tab the operator clicked, both outrank
+  // the "open on whatever this agent actually has" default.
+  const urlPinnedMode = useRef(false);
+  const modeChosenByUser = useRef(false);
   const [reportSort, setReportSort] = useState('recent'); // 'recent' | 'longest'
   const [expandedCohorts, setExpandedCohorts] = useState({});
   const [isLoading, setIsLoading] = useState(true);
@@ -39,7 +47,8 @@ export default function AgentInteractions({ agent, onBack }) {
     fetch(`/api/interactions?agent_id=${agent.id}`)
       .then((response) => response.json())
       .then((data) => setSessions(data.interactions || []))
-      .catch(() => {});
+      .catch(() => {})
+      .finally(() => setSessionsLoaded(true));
   }, [agent.id]);
 
   // Sync drill-down state with the URL: deep links like
@@ -66,16 +75,31 @@ export default function AgentInteractions({ agent, onBack }) {
         setDetailMode('all');
         setSelectedSession(null);
       } else {
-        setDetailMode('run');
+        // No level in the URL: leave the default to the effect below, which
+        // waits until it knows whether this agent has any dashboard runs.
+        urlPinnedMode.current = false;
         setSelectedRun(null);
         setSelectedSession(null);
         setSelectedMessages([]);
+        return;
       }
+      urlPinnedMode.current = true;
     };
     applyLocation();
     window.addEventListener('popstate', applyLocation);
     return () => window.removeEventListener('popstate', applyLocation);
   }, [agent.id]);
+
+  // Agents observed purely from telemetry have interactions but no dashboard
+  // runs, and defaulting to the runs tab showed them "No runs yet" next to a
+  // scorecard reporting real traffic. Open on interactions in that case —
+  // unless the URL pinned a level or the operator picked a tab themselves.
+  useEffect(() => {
+    if (urlPinnedMode.current || modeChosenByUser.current) return;
+    if (!runsLoaded || !sessionsLoaded) return;
+
+    setDetailMode(runs.length === 0 && sessions.length > 0 ? 'all' : 'run');
+  }, [runsLoaded, sessionsLoaded, runs.length, sessions.length]);
 
   const loadRuns = async () => {
     setIsLoading(true);
@@ -101,6 +125,7 @@ export default function AgentInteractions({ agent, onBack }) {
       console.error('Failed to load runs:', error);
     } finally {
       setIsLoading(false);
+      setRunsLoaded(true);
     }
   };
 
@@ -143,6 +168,8 @@ export default function AgentInteractions({ agent, onBack }) {
   };
 
   const switchMode = (mode) => {
+    // An explicit choice sticks: don't let the auto-default override it.
+    modeChosenByUser.current = true;
     setDetailMode(mode);
     if (mode === 'all') {
       pushPath(selectedSession ? `${basePath}/sessions/${selectedSession.id}` : `${basePath}/sessions`);
@@ -327,6 +354,46 @@ export default function AgentInteractions({ agent, onBack }) {
                   {isLoading ? 'Loading...' : 'Load More'}
                 </button>
               )}
+            </>
+          ) : sessions.length > 0 ? (
+            /* No dashboard runs, but this agent has reported interactions —
+               list those instead of a dead end. Agents observed purely from
+               telemetry never produce AgentRun rows. */
+            <>
+              <div className="px-4 py-2 text-xs uppercase tracking-wide text-gray-400 border-b border-gray-100">
+                Interactions · reported
+              </div>
+              {sessions.map((session) => (
+                <div
+                  key={session.id}
+                  onClick={() => selectSession(session)}
+                  title="Open this interaction stream"
+                  className={`p-4 border-b border-gray-100 cursor-pointer transition-colors ${
+                    selectedSession?.id === session.id
+                      ? 'bg-red-50 border-l-4 border-l-red-500'
+                      : 'hover:bg-gray-50'
+                  }`}
+                >
+                  <div className="flex items-center justify-between gap-2 mb-1">
+                    <span className="text-sm font-medium text-gray-900 truncate">
+                      {session.agent?.name || session.agent_name}
+                    </span>
+                    {session.source === 'telemetry' && (
+                      <span className="px-1.5 py-0.5 text-[10px] uppercase tracking-wide bg-blue-100 text-blue-700 rounded flex-shrink-0">
+                        telemetry
+                      </span>
+                    )}
+                  </div>
+                  {session.action_name && (
+                    <div className="text-xs font-mono text-purple-700 mb-1">#{session.action_name}</div>
+                  )}
+                  <div className="flex items-center gap-3 text-xs text-gray-400">
+                    <span>{session.message_count || 0} messages</span>
+                    <span>{(session.tokens?.total || 0).toLocaleString()} tokens</span>
+                    <span>{formatDate(session.last_activity_at)}</span>
+                  </div>
+                </div>
+              ))}
             </>
           ) : (
             <div className="p-8 text-center text-gray-400">
