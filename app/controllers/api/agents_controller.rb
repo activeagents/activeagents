@@ -2,6 +2,18 @@
 
 module Api
   class AgentsController < BaseController
+    # Ranking for the agent cards. Every dimension except "recent" reads the
+    # scorecard, which is computed in Ruby over both execution sources, so
+    # the ordering is applied there rather than in the SQL scope.
+    LIST_SORTS = {
+      "recent" => "Recently updated",
+      "popular" => "Most runs",
+      "longest" => "Longest average",
+      "cost" => "Highest cost",
+      "tokens" => "Most tokens"
+    }.freeze
+    DEFAULT_LIST_SORT = "recent"
+
     before_action :set_agent, only: [ :show, :update, :destroy, :versions, :runs, :execute, :test, :restore, :duplicate, :export, :analytics ]
     before_action :require_account!, only: [ :execute, :test ]
     before_action :enforce_run_limit!, only: [ :execute, :test ]
@@ -20,11 +32,17 @@ module Api
       @agents = @agents.where("name ILIKE ?", "%#{params[:q]}%") if params[:q].present?
 
       scorecards = AgentScorecard.for_agents(@agents)
+      cards = sort_cards(
+        @agents.map { |agent| agent_json(agent).merge(stats: scorecards[agent.id]) },
+        params[:sort]
+      )
 
       render json: {
-        agents: @agents.map { |agent| agent_json(agent).merge(stats: scorecards[agent.id]) },
+        agents: cards,
         meta: {
-          total: @agents.count,
+          total: cards.size,
+          sorts: LIST_SORTS,
+          sort: list_sort(params[:sort]),
           providers: Agent::PROVIDERS,
           preset_types: Agent::PRESET_TYPES,
           instruction_sets: Agent::INSTRUCTION_SETS,
@@ -100,7 +118,8 @@ module Api
         account: current_account,
         window_minutes: minutes,
         source: params[:source],
-        status: params[:status]
+        status: params[:status],
+        sort: params[:sort]
       ).page(page: page, per_page: per_page)
 
       # One digest->version map for the page; labels each run's instructions
@@ -115,7 +134,8 @@ module Api
           page: page,
           per_page: per_page,
           total: executions[:total],
-          sources: AgentExecutions::SOURCES
+          sources: AgentExecutions::SOURCES,
+          sorts: AgentExecutions::SORTS
         }
       }
     end
@@ -239,6 +259,25 @@ module Api
 
     private
 
+    def list_sort(requested)
+      LIST_SORTS.key?(requested.to_s) ? requested.to_s : DEFAULT_LIST_SORT
+    end
+
+    # Descending on the chosen dimension. Agents with nothing to rank (no
+    # runs, no priced spend) sort last instead of interleaving as zeroes,
+    # and run count breaks ties.
+    def sort_cards(cards, requested)
+      sort = list_sort(requested)
+      return cards if sort == "recent"
+
+      key = { "popular" => :runs, "longest" => :avg_duration_ms, "cost" => :cost, "tokens" => :tokens }[sort]
+
+      cards.sort_by do |card|
+        value = card[:stats]&.dig(key)
+        [ value.nil? ? 1 : 0, -value.to_f, -card[:stats].to_h[:runs].to_i ]
+      end
+    end
+
     # Dashboard runs keep their full summary (logs, previews, instructions
     # version); reported executions carry only what a trace knows. `source`
     # tells the UI which it is holding.
@@ -248,6 +287,9 @@ module Api
       if run
         run.summary.merge(
           source: "dashboard",
+          # Priced here rather than on AgentRun so both sources use one
+          # estimator, and so a run and its trace never quote different costs.
+          cost: row.cost,
           instructions_version: digest_versions[run.instructions_digest]
         )
       else

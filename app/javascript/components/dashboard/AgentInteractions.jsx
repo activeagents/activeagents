@@ -28,13 +28,14 @@ export default function AgentInteractions({ agent, onBack }) {
   const [hasMore, setHasMore] = useState(true);
   const [filterStatus, setFilterStatus] = useState('');
   const [filterSource, setFilterSource] = useState(''); // '' | 'dashboard' | 'reported'
+  const [sort, setSort] = useState('recent'); // see AgentExecutions::SORTS
   const conversationRef = useRef(null);
 
   const basePath = `/dashboard/agents/${agent.id}/interactions`;
 
   useEffect(() => {
     loadRuns();
-  }, [agent.id, page, filterStatus, filterSource, timeWindow.minutes]);
+  }, [agent.id, page, filterStatus, filterSource, sort, timeWindow.minutes]);
 
   // The shared window is a different result set, not more of the same one.
   useEffect(() => {
@@ -112,6 +113,7 @@ export default function AgentInteractions({ agent, onBack }) {
       });
       if (filterStatus) params.append('status', filterStatus);
       if (filterSource) params.append('source', filterSource);
+      if (sort !== 'recent') params.append('sort', sort);
 
       const response = await fetch(`/api/agents/${agent.id}/runs?${params}`);
       const data = await response.json();
@@ -265,6 +267,15 @@ export default function AgentInteractions({ agent, onBack }) {
     return `${Math.floor(ms / 60000)}m ${Math.floor((ms % 60000) / 1000)}s`;
   };
 
+  // Single executions are usually fractions of a cent, so $0.00 would read
+  // as free for most rows; show enough precision to be meaningful instead.
+  const formatCost = (cost) => {
+    if (cost == null) return '—';
+    if (cost === 0) return '$0';
+    if (cost < 0.01) return `$${cost.toFixed(4)}`;
+    return `$${cost.toFixed(2)}`;
+  };
+
   const formatDate = (dateString) => {
     const date = new Date(dateString);
     const now = new Date();
@@ -349,6 +360,23 @@ export default function AgentInteractions({ agent, onBack }) {
             <option value="running">Running</option>
             <option value="cancelled">Cancelled</option>
           </select>
+
+          {/* Ranking. Server-side so it ranks the whole window, not the
+              twenty rows already loaded. */}
+          <select
+            value={sort}
+            onChange={(e) => {
+              setSort(e.target.value);
+              setPage(1);
+            }}
+            className="w-full mt-2 px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-red-500"
+            title="Rank these executions"
+          >
+            <option value="recent">Most recent</option>
+            <option value="longest">Longest running</option>
+            <option value="cost">Highest cost</option>
+            <option value="tokens">Most tokens</option>
+          </select>
         </div>
 
         {/* Run List */}
@@ -401,8 +429,22 @@ export default function AgentInteractions({ agent, onBack }) {
                       {execution.model && (
                         <span className="px-1.5 py-0.5 rounded bg-indigo-50 text-indigo-700 font-mono">{execution.model}</span>
                       )}
-                      <span>{formatDuration(execution.duration_ms)}</span>
-                      {!!execution.tokens && <span>{execution.tokens} tokens</span>}
+                      <span className={sort === 'longest' ? 'text-gray-700 font-medium' : undefined}>
+                        {formatDuration(execution.duration_ms)}
+                      </span>
+                      {!!execution.tokens && (
+                        <span className={sort === 'tokens' ? 'text-gray-700 font-medium' : undefined}>
+                          {execution.tokens} tokens
+                        </span>
+                      )}
+                      {execution.cost != null && (
+                        <span
+                          className={sort === 'cost' ? 'text-gray-700 font-medium' : undefined}
+                          title="Estimated from token counts at this model's published rates"
+                        >
+                          {formatCost(execution.cost)}
+                        </span>
+                      )}
                     </div>
                   </div>
                 );

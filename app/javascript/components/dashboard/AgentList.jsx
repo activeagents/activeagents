@@ -2,6 +2,16 @@ import React, { useState } from 'react';
 import AgentAvatar from '../AgentAvatar';
 import AgentStatCard, { rateTone } from './AgentStatCard';
 
+// Mirrors Api::AgentsController::LIST_SORTS. Ordering is applied server-side
+// over the scorecards, so these values are sent, not sorted on.
+const SORTS = [
+  { value: 'recent', label: 'Recently updated' },
+  { value: 'popular', label: 'Most runs' },
+  { value: 'longest', label: 'Longest average' },
+  { value: 'cost', label: 'Highest cost' },
+  { value: 'tokens', label: 'Most tokens' },
+];
+
 export default function AgentList({
   agents,
   meta,
@@ -11,6 +21,8 @@ export default function AgentList({
   onDuplicate,
   onDelete,
   onRefresh,
+  sort = 'recent',
+  onSortChange,
   isLoading
 }) {
   const [searchQuery, setSearchQuery] = useState('');
@@ -60,6 +72,14 @@ export default function AgentList({
     if (tokens >= 1_000_000) return `${(tokens / 1_000_000).toFixed(1)}M`;
     if (tokens >= 1_000) return `${(tokens / 1_000).toFixed(1)}k`;
     return `${tokens}`;
+  };
+
+  // nil cost means nothing priceable ran — "—", not "$0.00", which would
+  // read as free rather than unknown.
+  const formatCost = (cost) => {
+    if (cost == null) return '—';
+    if (cost > 0 && cost < 0.01) return '<$0.01';
+    return `$${cost.toFixed(2)}`;
   };
 
   const formatLastRun = (dateString) => {
@@ -112,6 +132,17 @@ export default function AgentList({
             <option value="active">Active</option>
             <option value="draft">Draft</option>
             <option value="archived">Archived</option>
+          </select>
+
+          <select
+            value={sort}
+            onChange={(e) => onSortChange?.(e.target.value)}
+            className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500"
+            title="Rank agents by their scorecard"
+          >
+            {SORTS.map((option) => (
+              <option key={option.value} value={option.value}>{option.label}</option>
+            ))}
           </select>
         </div>
 
@@ -186,7 +217,12 @@ export default function AgentList({
                     tone: rateTone(stats.eval_score),
                   },
                   { label: 'Tokens', value: formatTokens(stats.tokens) },
-                  { label: 'Last run', value: formatLastRun(stats.last_run_at) },
+                  {
+                    label: 'Cost',
+                    value: formatCost(stats.cost),
+                    title: 'Estimated from token counts at each model\'s published rates',
+                    tone: stats.cost == null ? 'muted' : undefined,
+                  },
                 ]}
                 footer={
                   <>
@@ -209,8 +245,15 @@ export default function AgentList({
                         {agent.model}
                       </span>
                     </span>
-                    <span style={{ whiteSpace: 'nowrap' }}>
-                      Updated {formatDate(agent.updatedAt || agent.updated_at)}
+                    {/* Last activity beats last edit on an observability
+                        card; the edit date stays in the tooltip. */}
+                    <span
+                      style={{ whiteSpace: 'nowrap' }}
+                      title={`Updated ${formatDate(agent.updatedAt || agent.updated_at)}`}
+                    >
+                      {stats.last_run_at
+                        ? `Last run ${formatLastRun(stats.last_run_at)}`
+                        : `Updated ${formatDate(agent.updatedAt || agent.updated_at)}`}
                     </span>
                   </>
                 }

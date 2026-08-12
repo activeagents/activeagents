@@ -35,6 +35,7 @@ class AgentScorecard
 
     trace_stats = telemetry_stats(ids, window_start)
     trace_last = unclaimed_traces(ids, nil).group(:agent_id).maximum(:timestamp)
+    costs = estimated_costs(ids, windowed, window_start)
 
     ids.index_with do |id|
       runs = run_counts[id].to_i
@@ -52,6 +53,7 @@ class AgentScorecard
         success_rate: total.positive? ? (succeeded * 100.0 / total).round(1) : nil,
         avg_duration_ms: blended_duration(avg_durations[id], runs, stats[:avg_duration], traced),
         tokens: token_sums[id].to_i + stats[:tokens].to_i,
+        cost: costs[id],
         eval_score: eval_run&.average_score,
         eval_samples_passed: eval_run&.samples_passed,
         eval_samples_evaluated: eval_run&.samples_evaluated,
@@ -81,6 +83,51 @@ class AgentScorecard
     end
   end
   private_class_method :telemetry_stats
+
+  # Estimated USD spend per agent over the window, across both sources.
+  # Rates are per model (ModelPricing), so the token columns are plucked
+  # alongside the model rather than summed in SQL — two queries, no payload
+  # loading: the trace's model lives in the spans jsonb and is extracted
+  # there, the run's in output_metadata.
+  def self.estimated_costs(agent_ids, windowed_runs, window_start)
+    costs = Hash.new(0.0)
+    priced = Set.new
+
+    windowed_runs.pluck(
+      :agent_id,
+      Arel.sql("output_metadata ->> 'model'"),
+      :input_tokens,
+      :output_tokens
+    ).each do |agent_id, model, input, output|
+      cost = ModelPricing.estimate(model: model, input_tokens: input, output_tokens: output)
+      next unless cost
+
+      costs[agent_id] += cost
+      priced << agent_id
+    end
+
+    unclaimed_traces(agent_ids, window_start).pluck(
+      Arel.sql("active_agent_telemetry_traces.agent_id"),
+      Arel.sql(
+        "(SELECT s.value -> 'attributes' ->> 'llm.model' " \
+        "FROM jsonb_array_elements(spans) AS s " \
+        "WHERE s.value ->> 'type' = 'llm' LIMIT 1)"
+      ),
+      Arel.sql("total_input_tokens"),
+      Arel.sql("total_output_tokens")
+    ).each do |agent_id, model, input, output|
+      cost = ModelPricing.estimate(model: model, input_tokens: input, output_tokens: output)
+      next unless cost
+
+      costs[agent_id] += cost
+      priced << agent_id
+    end
+
+    # nil, not 0.0, for agents with nothing to price — the card shows "—"
+    # rather than claiming a real $0.00 spend.
+    agent_ids.index_with { |id| priced.include?(id) ? costs[id].round(4) : nil }
+  end
+  private_class_method :estimated_costs
 
   # Traces attributed to these agents that no AgentRun already accounts for.
   # window_start nil scans all time (used for "last activity"). Shared with
