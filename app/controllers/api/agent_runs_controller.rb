@@ -25,33 +25,36 @@ module Api
 
     # GET /api/runs
     def index
-      @runs = AgentRun.includes(:agent).recent
+      # Scoped to the caller's own agents: this listed (and counted) every
+      # run in the database regardless of who owned it.
+      scope = AgentRun.includes(:agent).where(agent: current_user_agents).recent
 
-      # Filter by agent
-      @runs = @runs.where(agent_id: params[:agent_id]) if params[:agent_id].present?
+      scope = scope.where(agent_id: params[:agent_id]) if params[:agent_id].present?
+      scope = scope.where(status: params[:status]) if params[:status].present?
 
-      # Filter by status
-      @runs = @runs.where(status: params[:status]) if params[:status].present?
-
-      # Pagination
       page = (params[:page] || 1).to_i
       per_page = (params[:per_page] || 20).to_i
-      @runs = @runs.offset((page - 1) * per_page).limit(per_page)
+      total = scope.count
+      runs = scope.offset((page - 1) * per_page).limit(per_page)
 
       render json: {
-        runs: @runs.map { |run| run_json(run, include_agent: true) },
+        runs: runs.map { |run| run_json(run, include_agent: true) },
         meta: {
           page: page,
           per_page: per_page,
-          total: AgentRun.count
+          total: total
         }
       }
     end
 
     private
 
+    def current_user_agents
+      current_user ? current_user.agents : Agent.none
+    end
+
     def set_run
-      @run = AgentRun.find(params[:id])
+      @run = AgentRun.where(agent: current_user_agents).find(params[:id])
     end
 
     # The run's slice of its agent's conversation stream, for the shared

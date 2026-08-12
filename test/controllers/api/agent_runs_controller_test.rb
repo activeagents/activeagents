@@ -278,16 +278,32 @@ class Api::AgentRunsControllerTest < ActionDispatch::IntegrationTest
   # Multi-tenancy Tests
   # ===========================================
 
-  test "show returns run from any agent" do
-    # Note: The current implementation doesn't scope runs to user
-    # This test documents current behavior - runs are globally accessible
+  # This previously asserted the opposite, documenting that "runs are
+  # globally accessible" as current behavior. Reading another account's run
+  # (its prompts, outputs and errors) is a leak, not a feature.
+  test "show does not return a run belonging to another user" do
     other_user = create_user(email: "other@example.com")
     other_agent = create_agent(user: other_user, name: "Other Agent")
     other_run = create_run(agent: other_agent, input_prompt: "Other user prompt")
 
     get "/api/runs/#{other_run.id}"
 
-    # Current implementation allows access to any run
+    assert_response :not_found
+    assert_not_includes response.body, "Other user prompt"
+  end
+
+  test "index lists only the current user's runs" do
+    other_user = create_user(email: "stranger@example.com")
+    other_agent = create_agent(user: other_user, name: "Stranger Agent")
+    create_run(agent: other_agent, input_prompt: "Stranger prompt")
+    mine = create_run(agent: @agent, input_prompt: "My prompt")
+
+    get "/api/runs"
+
     assert_response :success
+    ids = json_response["runs"].map { |run| run["id"] }
+    assert_includes ids, mine.id
+    assert_not_includes response.body, "Stranger prompt"
+    assert_equal json_response["runs"].size, json_response.dig("meta", "total")
   end
 end
