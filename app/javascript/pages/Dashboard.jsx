@@ -3,7 +3,6 @@ import AgentList from '../components/dashboard/AgentList';
 import AgentBuilder from '../components/dashboard/AgentBuilder';
 import AgentEditor from '../components/dashboard/AgentEditor';
 import AgentRunner from '../components/dashboard/AgentRunner';
-import AgentAnalytics from '../components/dashboard/AgentAnalytics';
 import DashboardAnalytics from '../components/dashboard/DashboardAnalytics';
 import AgentInteractions from '../components/dashboard/AgentInteractions';
 import TemplateLibrary from '../components/dashboard/TemplateLibrary';
@@ -261,13 +260,14 @@ function DashboardContent({ user, initialAgents = [], meta = {}, account = null,
       case 'editor':
         return selectedAgent ? (
           <AgentEditor
+            key={`editor-${selectedAgent.id}`}
             agent={selectedAgent}
             meta={meta}
             onSave={(data) => handleUpdateAgent(selectedAgent.id, data)}
             onDelete={() => handleDeleteAgent(selectedAgent.id)}
             onRun={() => navigateTo('runner', selectedAgent)}
-            onAnalytics={() => navigateTo('agent-analytics', selectedAgent)}
-            onHistory={() => navigateTo('history', selectedAgent)}
+            onDuplicate={() => handleDuplicateAgent(selectedAgent.id)}
+            onRunReport={() => navigateTo('history', selectedAgent)}
             onBack={() => navigateTo('list')}
             isLoading={isLoading}
           />
@@ -279,11 +279,22 @@ function DashboardContent({ user, initialAgents = [], meta = {}, account = null,
             onBack={() => navigateTo('editor', selectedAgent)}
           />
         ) : null;
+      // Per-agent analytics is a tab on the agent page now, so the old
+      // /analytics deep link opens that page with the tab selected.
       case 'agent-analytics':
         return selectedAgent ? (
-          <AgentAnalytics
+          <AgentEditor
+            key={`agent-analytics-${selectedAgent.id}`}
             agent={selectedAgent}
-            onBack={() => navigateTo('editor', selectedAgent)}
+            meta={meta}
+            initialTab="metrics"
+            onSave={(data) => handleUpdateAgent(selectedAgent.id, data)}
+            onDelete={() => handleDeleteAgent(selectedAgent.id)}
+            onRun={() => navigateTo('runner', selectedAgent)}
+            onDuplicate={() => handleDuplicateAgent(selectedAgent.id)}
+            onRunReport={() => navigateTo('history', selectedAgent)}
+            onBack={() => navigateTo('list')}
+            isLoading={isLoading}
           />
         ) : null;
       case 'history':

@@ -32,7 +32,11 @@ const scoreStatus = (value) => {
   return 'low';
 };
 
-export default function EvaluationsView() {
+// embedded hides the page title when this renders inside the agent detail
+// page's Evals tab, which already carries the heading. agentId scopes every
+// number on the page to that agent — an account-wide average score under one
+// agent's name reads as that agent's score, which it is not.
+export default function EvaluationsView({ embedded = false, agentId = null }) {
   const { darkMode } = useTheme();
   const [evaluations, setEvaluations] = useState([]);
   const [agents, setAgents] = useState([]);
@@ -42,7 +46,7 @@ export default function EvaluationsView() {
   const [showForm, setShowForm] = useState(false);
   const [runningId, setRunningId] = useState(null);
   const [form, setForm] = useState({
-    agent_id: '', name: '', sample_size: 20,
+    agent_id: agentId ? String(agentId) : '', name: '', sample_size: 20,
     criteria: RULE_CRITERIA.map((c) => c.key),
     containsPattern: '', llmJudgePrompt: '',
     judgeKind: 'manual', judgeModel: '', compareModels: '',
@@ -52,7 +56,10 @@ export default function EvaluationsView() {
 
   const fetchEvaluations = useCallback(async () => {
     try {
-      const response = await fetch('/api/evaluations');
+      // Scoped server-side: the endpoint caps at the 50 most recent, so
+      // narrowing here rather than after the fetch is what makes an agent's
+      // older evaluations reachable at all.
+      const response = await fetch(`/api/evaluations${agentId ? `?agent_id=${encodeURIComponent(agentId)}` : ''}`);
       if (!response.ok) throw new Error(`Request failed (${response.status})`);
       const data = await response.json();
       setEvaluations(data.evaluations || []);
@@ -62,7 +69,7 @@ export default function EvaluationsView() {
     } finally {
       setIsLoading(false);
     }
-  }, []);
+  }, [agentId]);
 
   useEffect(() => {
     fetchEvaluations();
@@ -155,7 +162,13 @@ export default function EvaluationsView() {
     );
   }
 
-  const completedRuns = evaluations.map((e) => e.latest_run).filter((r) => r && r.status === 'complete');
+  // The request is already scoped; this is a belt-and-braces guard so the
+  // list, the summary cards, and the empty state can never disagree.
+  const shownEvaluations = agentId
+    ? evaluations.filter((e) => String(e.agent?.id) === String(agentId))
+    : evaluations;
+
+  const completedRuns = shownEvaluations.map((e) => e.latest_run).filter((r) => r && r.status === 'complete');
   const avgScore = completedRuns.length
     ? completedRuns.reduce((sum, r) => sum + (r.average_score || 0), 0) / completedRuns.length
     : null;
@@ -211,14 +224,16 @@ export default function EvaluationsView() {
 
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold" style={{ color: colors.textPrimary }}>Evaluations</h1>
-          <p className="text-sm mt-1" style={{ color: colors.textSecondary }}>
-            Score outputs with LLM-as-judge, rule-based checks, or custom criteria
-          </p>
-        </div>
+      {/* Header — embedded in the agent page, that page owns the heading. */}
+      <div className={`flex items-center ${embedded ? 'justify-end' : 'justify-between'}`}>
+        {!embedded && (
+          <div>
+            <h1 className="text-2xl font-bold" style={{ color: colors.textPrimary }}>Evaluations</h1>
+            <p className="text-sm mt-1" style={{ color: colors.textSecondary }}>
+              Score outputs with LLM-as-judge, rule-based checks, or custom criteria
+            </p>
+          </div>
+        )}
         <button
           onClick={() => setShowForm(!showForm)}
           className="px-4 py-2 bg-red-500 text-white rounded-lg text-sm font-medium hover:bg-red-600 transition-colors"
@@ -245,11 +260,12 @@ export default function EvaluationsView() {
               <label className="block text-xs uppercase tracking-wide mb-1" style={{ color: colors.textMuted }}>Agent</label>
               <select
                 required
+                disabled={!!agentId}
                 value={form.agent_id}
                 onChange={(e) => setForm({ ...form, agent_id: e.target.value })}
-                style={{ ...inputStyle, width: '100%' }}
+                style={{ ...inputStyle, width: '100%', opacity: agentId ? 0.7 : 1 }}
               >
-                <option value="">Select agent…</option>
+                {!agentId && <option value="">Select agent…</option>}
                 {agents.map((agent) => (
                   <option key={agent.id} value={agent.id}>{agent.name}</option>
                 ))}
@@ -406,7 +422,7 @@ export default function EvaluationsView() {
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <div className="rounded-xl p-5 border shadow-sm" style={{ backgroundColor: colors.cardBg, borderColor: colors.cardBorder }}>
           <div className="text-sm mb-1" style={{ color: colors.textSecondary }}>Total Evaluations</div>
-          <div className="text-3xl font-bold" style={{ color: colors.textPrimary }}>{evaluations.length}</div>
+          <div className="text-3xl font-bold" style={{ color: colors.textPrimary }}>{shownEvaluations.length}</div>
         </div>
         <div className="rounded-xl p-5 border shadow-sm" style={{ backgroundColor: colors.cardBg, borderColor: colors.cardBorder }}>
           <div className="text-sm mb-1" style={{ color: colors.textSecondary }}>Average Score</div>
@@ -422,7 +438,7 @@ export default function EvaluationsView() {
 
       {/* Evaluations List */}
       <div className="space-y-4">
-        {evaluations.map((evaluation) => {
+        {shownEvaluations.map((evaluation) => {
           const run = evaluation.latest_run;
           const isExpanded = expandedEval === evaluation.id;
           return (
@@ -524,7 +540,7 @@ export default function EvaluationsView() {
         })}
       </div>
 
-      {evaluations.length === 0 && !showForm && (
+      {shownEvaluations.length === 0 && !showForm && (
         <div className="text-center py-12 rounded-xl border" style={{ backgroundColor: colors.cardBg, borderColor: colors.cardBorder }}>
           <div className="text-lg" style={{ color: colors.textMuted }}>No evaluations yet</div>
           <p className="text-sm mt-2" style={{ color: colors.textSecondary }}>Create an evaluation to start scoring agent outputs</p>
