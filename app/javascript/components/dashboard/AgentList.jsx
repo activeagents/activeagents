@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import AgentAvatar from '../AgentAvatar';
+import AgentStatCard, { rateTone } from './AgentStatCard';
 
 export default function AgentList({
   agents,
@@ -69,20 +70,7 @@ export default function AgentList({
     return new Date(dateString).toLocaleDateString();
   };
 
-  // Green/yellow/red thresholds matching the Evaluations view.
-  const rateColor = (fraction) => {
-    if (fraction == null) return 'text-gray-400';
-    if (fraction >= 0.85) return 'text-green-600';
-    if (fraction >= 0.7) return 'text-yellow-600';
-    return 'text-red-600';
-  };
 
-  const StatCell = ({ label, value, valueClass = 'text-gray-900', title }) => (
-    <div className="rounded-lg bg-gray-50 px-2 py-1.5" title={title}>
-      <div className={`text-sm font-semibold leading-tight ${valueClass}`}>{value}</div>
-      <div className="text-[10px] uppercase tracking-wide text-gray-400 whitespace-nowrap">{label}</div>
-    </div>
-  );
 
   return (
     <div className="space-y-6">
@@ -163,70 +151,86 @@ export default function AgentList({
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
           {filteredAgents.map((agent) => {
             const stats = agent.stats || {};
+            const sources = stats.run_sources || [];
+            const runsTitle = sources.length
+              ? `Counted from ${sources.map((s) => (s === 'platform' ? 'dashboard runs' : 'reported telemetry')).join(' + ')}`
+              : undefined;
+
             return (
-              <div
+              <AgentStatCard
                 key={agent.id}
-                className="bg-white rounded-xl border border-gray-200 overflow-hidden hover:shadow-lg transition-all cursor-pointer group"
+                name={agent.name}
+                subtitle={agent.description || 'No description'}
+                badge={
+                  <span className={`px-2 py-0.5 text-xs font-medium rounded-full ${getStatusColor(agent.status)}`}>
+                    {agent.status}
+                  </span>
+                }
                 onClick={() => onSelect(agent)}
-              >
-                {/* Content */}
-                <div className="p-4">
-                  <div className="flex items-start justify-between gap-2">
-                    <h3 className="font-semibold text-gray-900 group-hover:text-red-600 transition-colors">
-                      {agent.name}
-                    </h3>
-                    <span className={`shrink-0 px-2 py-0.5 text-xs font-medium rounded-full ${getStatusColor(agent.status)}`}>
-                      {agent.status}
+                stats={[
+                  { label: `Runs ${stats.window_days || 30}d`, value: stats.runs ?? 0, title: runsTitle },
+                  {
+                    label: 'Success',
+                    value: stats.success_rate != null ? `${Math.round(stats.success_rate)}%` : '—',
+                    tone: rateTone(stats.success_rate != null ? stats.success_rate / 100 : null),
+                  },
+                  { label: 'Avg time', value: formatDuration(stats.avg_duration_ms) },
+                  {
+                    label: stats.eval_samples_evaluated
+                      ? `Eval ${stats.eval_samples_passed}/${stats.eval_samples_evaluated}`
+                      : 'Eval',
+                    title: stats.eval_samples_evaluated
+                      ? `Latest evaluation: ${stats.eval_samples_passed} of ${stats.eval_samples_evaluated} samples passed`
+                      : undefined,
+                    value: stats.eval_score != null ? `${Math.round(stats.eval_score * 100)}%` : '—',
+                    tone: rateTone(stats.eval_score),
+                  },
+                  { label: 'Tokens', value: formatTokens(stats.tokens) },
+                  { label: 'Last run', value: formatLastRun(stats.last_run_at) },
+                ]}
+                footer={
+                  <>
+                    <span style={{ display: 'flex', alignItems: 'center', gap: '6px', minWidth: 0 }}>
+                      <span style={{
+                        padding: '2px 6px',
+                        borderRadius: '4px',
+                        background: 'rgba(128,128,128,0.15)',
+                        whiteSpace: 'nowrap',
+                        flexShrink: 0,
+                      }}>
+                        {agent.provider}
+                      </span>
+                      {/* Model ids run long (meta-llama/llama-3.3-70b-instruct);
+                          truncate rather than wrap the card to three lines. */}
+                      <span
+                        title={agent.model}
+                        style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
+                      >
+                        {agent.model}
+                      </span>
                     </span>
+                    <span style={{ whiteSpace: 'nowrap' }}>
+                      Updated {formatDate(agent.updatedAt || agent.updated_at)}
+                    </span>
+                  </>
+                }
+                actions={
+                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px' }}>
+                    <button
+                      onClick={(e) => { e.stopPropagation(); onDuplicate(agent.id); }}
+                      className="text-gray-500 hover:text-red-600 transition-colors"
+                    >
+                      Duplicate
+                    </button>
+                    <button
+                      onClick={(e) => { e.stopPropagation(); onDelete(agent.id); }}
+                      className="text-red-500 hover:text-red-700 transition-colors"
+                    >
+                      Delete
+                    </button>
                   </div>
-                  <p className="text-sm text-gray-500 mt-1 line-clamp-2">
-                    {agent.description || 'No description'}
-                  </p>
-
-                  {/* Scorecard */}
-                  <div className="mt-3 grid grid-cols-3 gap-1.5 text-center">
-                    <StatCell label={`Runs ${stats.window_days || 30}d`} value={stats.runs ?? 0} />
-                    <StatCell
-                      label="Success"
-                      value={stats.success_rate != null ? `${Math.round(stats.success_rate)}%` : '—'}
-                      valueClass={rateColor(stats.success_rate != null ? stats.success_rate / 100 : null)}
-                    />
-                    <StatCell label="Avg time" value={formatDuration(stats.avg_duration_ms)} />
-                    <StatCell
-                      label={stats.eval_samples_evaluated ? `Eval ${stats.eval_samples_passed}/${stats.eval_samples_evaluated}` : 'Eval'}
-                      title={stats.eval_samples_evaluated ? `Latest evaluation: ${stats.eval_samples_passed} of ${stats.eval_samples_evaluated} samples passed` : undefined}
-                      value={stats.eval_score != null ? `${Math.round(stats.eval_score * 100)}%` : '—'}
-                      valueClass={rateColor(stats.eval_score)}
-                    />
-                    <StatCell label="Tokens" value={formatTokens(stats.tokens)} />
-                    <StatCell label="Last run" value={formatLastRun(stats.last_run_at)} />
-                  </div>
-
-                  <div className="mt-3 flex items-center justify-between text-xs text-gray-400">
-                    <div className="flex items-center space-x-2">
-                      <span className="px-2 py-1 bg-gray-100 rounded">{agent.provider}</span>
-                      <span>{agent.model}</span>
-                    </div>
-                    <span>Updated {formatDate(agent.updatedAt || agent.updated_at)}</span>
-                  </div>
-                </div>
-
-                {/* Actions */}
-                <div className="px-4 py-3 bg-gray-50 border-t border-gray-100 flex justify-between opacity-0 group-hover:opacity-100 transition-opacity">
-                  <button
-                    onClick={(e) => { e.stopPropagation(); onDuplicate(agent.id); }}
-                    className="text-sm text-gray-600 hover:text-red-600 transition-colors"
-                  >
-                    Duplicate
-                  </button>
-                  <button
-                    onClick={(e) => { e.stopPropagation(); onDelete(agent.id); }}
-                    className="text-sm text-red-500 hover:text-red-700 transition-colors"
-                  >
-                    Delete
-                  </button>
-                </div>
-              </div>
+                }
+              />
             );
           })}
         </div>
