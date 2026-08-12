@@ -19,9 +19,13 @@ export default defineConfig({
       : {},
   },
   projects: [
+    // Signs in once and stores the session; see e2e/auth.setup.ts for why
+    // (SessionsController rate-limits logins to 10 per 3 minutes).
+    { name: 'setup', testMatch: /auth\.setup\.ts/ },
     {
       name: 'chromium',
-      use: { ...devices['Desktop Chrome'] },
+      use: { ...devices['Desktop Chrome'], storageState: 'e2e/.auth/user.json' },
+      dependencies: ['setup'],
     },
   ],
   webServer: process.env.CI ? undefined : {
