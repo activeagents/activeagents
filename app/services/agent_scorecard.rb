@@ -83,17 +83,10 @@ class AgentScorecard
   private_class_method :telemetry_stats
 
   # Traces attributed to these agents that no AgentRun already accounts for.
-  # window_start nil scans all time (used for "last activity").
+  # window_start nil scans all time (used for "last activity"). Shared with
+  # AgentExecutions so the cards, the list and the counts never disagree.
   def self.unclaimed_traces(agent_ids, window_start)
-    scope = TelemetryTrace.where(agent_id: agent_ids)
-    scope = scope.where(timestamp: window_start..) if window_start
-    scope
-      .joins(<<~SQL.squish)
-        LEFT JOIN agent_runs
-          ON agent_runs.trace_id = active_agent_telemetry_traces.trace_id
-         AND agent_runs.agent_id = active_agent_telemetry_traces.agent_id
-      SQL
-      .where(agent_runs: { id: nil })
+    AgentExecutions.unclaimed_traces(agent_ids, since: window_start)
   end
   private_class_method :unclaimed_traces
 

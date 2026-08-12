@@ -86,33 +86,36 @@ module Api
     end
 
     # GET /api/agents/:id/runs
+    # Every execution of this agent, whoever ran it: dashboard runs and
+    # SDK-reported traces in one list, discriminated by `source`. Agents
+    # observed from telemetry have no AgentRun rows at all, so a runs-only
+    # list showed them as empty while their scorecard reported real traffic.
     def runs
-      @runs = @agent.agent_runs.recent
-
-      # Dashboard-wide time window, shared with Traces and Interactions
-      if params[:minutes].present?
-        minutes = params[:minutes].to_i.clamp(1, 60 * 24 * 90)
-        @runs = @runs.where(created_at: minutes.minutes.ago..)
-      end
-
-      # Filter by status
-      @runs = @runs.where(status: params[:status]) if params[:status].present?
-
-      # Pagination
+      minutes = params[:minutes].presence&.then { |m| m.to_i.clamp(1, 60 * 24 * 90) }
       page = (params[:page] || 1).to_i
       per_page = (params[:per_page] || 20).to_i
-      @runs = @runs.offset((page - 1) * per_page).limit(per_page)
+
+      executions = AgentExecutions.new(
+        agents: [ @agent ],
+        account: current_account,
+        window_minutes: minutes,
+        source: params[:source],
+        status: params[:status]
+      ).page(page: page, per_page: per_page)
 
       # One digest->version map for the page; labels each run's instructions
       # with the agent version that introduced them where one matches.
       digest_versions = @agent.instructions_digest_versions
+      runs_by_id = AgentRun.where(id: executions[:rows].select { |r| r.source == "dashboard" }.map(&:id))
+        .index_by(&:id)
 
       render json: {
-        runs: @runs.map { |run| run.summary.merge(instructions_version: digest_versions[run.instructions_digest]) },
+        runs: executions[:rows].map { |row| serialize_execution(row, runs_by_id, digest_versions) },
         meta: {
           page: page,
           per_page: per_page,
-          total: @agent.agent_runs.count
+          total: executions[:total],
+          sources: AgentExecutions::SOURCES
         }
       }
     end
@@ -235,6 +238,22 @@ module Api
     end
 
     private
+
+    # Dashboard runs keep their full summary (logs, previews, instructions
+    # version); reported executions carry only what a trace knows. `source`
+    # tells the UI which it is holding.
+    def serialize_execution(row, runs_by_id, digest_versions)
+      run = runs_by_id[row.id] if row.source == "dashboard"
+
+      if run
+        run.summary.merge(
+          source: "dashboard",
+          instructions_version: digest_versions[run.instructions_digest]
+        )
+      else
+        row.as_json.merge(id: row.to_param, record_id: row.id)
+      end
+    end
 
     # Same contract as Api::SandboxesController#run: 402 + usage stats so the
     # frontend can show the upgrade prompt.

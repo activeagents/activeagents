@@ -27,13 +27,14 @@ export default function AgentInteractions({ agent, onBack }) {
   const [page, setPage] = useState(1);
   const [hasMore, setHasMore] = useState(true);
   const [filterStatus, setFilterStatus] = useState('');
+  const [filterSource, setFilterSource] = useState(''); // '' | 'dashboard' | 'reported'
   const conversationRef = useRef(null);
 
   const basePath = `/dashboard/agents/${agent.id}/interactions`;
 
   useEffect(() => {
     loadRuns();
-  }, [agent.id, page, filterStatus, timeWindow.minutes]);
+  }, [agent.id, page, filterStatus, filterSource, timeWindow.minutes]);
 
   // The shared window is a different result set, not more of the same one.
   useEffect(() => {
@@ -110,6 +111,7 @@ export default function AgentInteractions({ agent, onBack }) {
         minutes: String(timeWindow.minutes)
       });
       if (filterStatus) params.append('status', filterStatus);
+      if (filterSource) params.append('source', filterSource);
 
       const response = await fetch(`/api/agents/${agent.id}/runs?${params}`);
       const data = await response.json();
@@ -145,6 +147,19 @@ export default function AgentInteractions({ agent, onBack }) {
     } catch (error) {
       console.error('Failed to load run details:', error);
     }
+  };
+
+  // One list, two kinds of row. A dashboard run has a record to open; a
+  // reported execution only exists as a trace, so it deep-links to Traces
+  // where its spans and reconstructed conversation live.
+  const openExecution = (execution) => {
+    if (execution.source === 'reported') {
+      const ref = execution.trace_id || String(execution.id).replace(/^trace-/, '');
+      window.history.pushState(window.history.state, '', `/dashboard/traces/${ref}`);
+      window.dispatchEvent(new CustomEvent('dashboard:navigate', { detail: { path: `/dashboard/traces/${ref}` } }));
+      return;
+    }
+    loadRunDetails(execution.record_id || execution.id);
   };
 
   const clearRunSelection = () => {
@@ -291,6 +306,34 @@ export default function AgentInteractions({ agent, onBack }) {
             <TimeWindowSelector compact />
           </div>
 
+          {/* Source — the one real difference between these executions:
+              did the dashboard run it, or did the customer's app report it?
+              Both are the same grain, so they share one list. */}
+          <div className="flex bg-gray-100 rounded-lg p-1 mb-2 text-sm">
+            {[
+              { value: '', label: 'All' },
+              { value: 'dashboard', label: 'Dashboard' },
+              { value: 'reported', label: 'Reported' },
+            ].map((option) => (
+              <button
+                key={option.value || 'all'}
+                onClick={() => { setFilterSource(option.value); setPage(1); }}
+                className={`flex-1 px-2 py-1 rounded-md transition-colors ${
+                  filterSource === option.value ? 'bg-white shadow text-gray-900' : 'text-gray-600'
+                }`}
+                title={
+                  option.value === 'dashboard'
+                    ? 'Executions started from this dashboard'
+                    : option.value === 'reported'
+                      ? 'Executions reported by your app via telemetry'
+                      : 'Every execution, however it started'
+                }
+              >
+                {option.label}
+              </button>
+            ))}
+          </div>
+
           {/* Filter */}
           <select
             value={filterStatus}
@@ -300,7 +343,7 @@ export default function AgentInteractions({ agent, onBack }) {
             }}
             className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-red-500"
           >
-            <option value="">All Runs</option>
+            <option value="">All statuses</option>
             <option value="complete">Completed</option>
             <option value="failed">Failed</option>
             <option value="running">Running</option>
@@ -316,34 +359,54 @@ export default function AgentInteractions({ agent, onBack }) {
             </div>
           ) : runs.length > 0 ? (
             <>
-              {runs.map(run => (
-                <div
-                  key={run.id}
-                  onClick={() => loadRunDetails(run.id)}
-                  className={`p-4 border-b border-gray-100 cursor-pointer transition-colors ${
-                    selectedRun?.id === run.id
-                      ? 'bg-red-50 border-l-4 border-l-red-500'
-                      : 'hover:bg-gray-50'
-                  }`}
-                >
-                  <div className="flex items-center justify-between mb-2">
-                    <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${getStatusColor(run.status)}`}>
-                      {run.status}
-                    </span>
-                    <span className="text-xs text-gray-400">{formatDate(run.created_at)}</span>
+              {runs.map(execution => {
+                const reported = execution.source === 'reported';
+                return (
+                  <div
+                    key={execution.id}
+                    onClick={() => openExecution(execution)}
+                    title={reported
+                      ? 'Reported by your app — opens its trace'
+                      : 'Started from this dashboard'}
+                    className={`p-4 border-b border-gray-100 cursor-pointer transition-colors ${
+                      !reported && selectedRun?.id === execution.id
+                        ? 'bg-red-50 border-l-4 border-l-red-500'
+                        : 'hover:bg-gray-50'
+                    }`}
+                  >
+                    <div className="flex items-center justify-between mb-2 gap-2">
+                      <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${getStatusColor(execution.status)}`}>
+                        {execution.status}
+                      </span>
+                      <div className="flex items-center gap-2">
+                        {/* The only real difference between these rows. */}
+                        <span className={`px-1.5 py-0.5 rounded text-[10px] uppercase tracking-wide ${
+                          reported ? 'bg-blue-100 text-blue-700' : 'bg-gray-100 text-gray-600'
+                        }`}>
+                          {reported ? 'reported' : 'dashboard'}
+                        </span>
+                        <span className="text-xs text-gray-400">
+                          {formatDate(execution.created_at || execution.occurred_at)}
+                        </span>
+                      </div>
+                    </div>
+                    <p className="text-sm text-gray-700 truncate">
+                      {execution.input_preview
+                        || execution.input_prompt?.substring(0, 60)
+                        || (reported
+                          ? `${execution.action_name || 'execution'} · trace ${String(execution.trace_id || '').slice(0, 8)}`
+                          : 'No input')}
+                    </p>
+                    <div className="flex items-center space-x-3 mt-2 text-xs text-gray-400 flex-wrap gap-y-1">
+                      {execution.model && (
+                        <span className="px-1.5 py-0.5 rounded bg-indigo-50 text-indigo-700 font-mono">{execution.model}</span>
+                      )}
+                      <span>{formatDuration(execution.duration_ms)}</span>
+                      {!!execution.tokens && <span>{execution.tokens} tokens</span>}
+                    </div>
                   </div>
-                  <p className="text-sm text-gray-700 truncate">
-                    {run.input_preview || run.input_prompt?.substring(0, 60) || 'No input'}
-                  </p>
-                  <div className="flex items-center space-x-3 mt-2 text-xs text-gray-400 flex-wrap gap-y-1">
-                    {run.model && (
-                      <span className="px-1.5 py-0.5 rounded bg-indigo-50 text-indigo-700 font-mono">{run.model}</span>
-                    )}
-                    <span>{formatDuration(run.duration_ms)}</span>
-                    {run.tokens && <span>{run.tokens} tokens</span>}
-                  </div>
-                </div>
-              ))}
+                );
+              })}
 
               {hasMore && (
                 <button
@@ -354,46 +417,6 @@ export default function AgentInteractions({ agent, onBack }) {
                   {isLoading ? 'Loading...' : 'Load More'}
                 </button>
               )}
-            </>
-          ) : sessions.length > 0 ? (
-            /* No dashboard runs, but this agent has reported interactions —
-               list those instead of a dead end. Agents observed purely from
-               telemetry never produce AgentRun rows. */
-            <>
-              <div className="px-4 py-2 text-xs uppercase tracking-wide text-gray-400 border-b border-gray-100">
-                Interactions · reported
-              </div>
-              {sessions.map((session) => (
-                <div
-                  key={session.id}
-                  onClick={() => selectSession(session)}
-                  title="Open this interaction stream"
-                  className={`p-4 border-b border-gray-100 cursor-pointer transition-colors ${
-                    selectedSession?.id === session.id
-                      ? 'bg-red-50 border-l-4 border-l-red-500'
-                      : 'hover:bg-gray-50'
-                  }`}
-                >
-                  <div className="flex items-center justify-between gap-2 mb-1">
-                    <span className="text-sm font-medium text-gray-900 truncate">
-                      {session.agent?.name || session.agent_name}
-                    </span>
-                    {session.source === 'telemetry' && (
-                      <span className="px-1.5 py-0.5 text-[10px] uppercase tracking-wide bg-blue-100 text-blue-700 rounded flex-shrink-0">
-                        telemetry
-                      </span>
-                    )}
-                  </div>
-                  {session.action_name && (
-                    <div className="text-xs font-mono text-purple-700 mb-1">#{session.action_name}</div>
-                  )}
-                  <div className="flex items-center gap-3 text-xs text-gray-400">
-                    <span>{session.message_count || 0} messages</span>
-                    <span>{(session.tokens?.total || 0).toLocaleString()} tokens</span>
-                    <span>{formatDate(session.last_activity_at)}</span>
-                  </div>
-                </div>
-              ))}
             </>
           ) : (
             <div className="p-8 text-center text-gray-400">
