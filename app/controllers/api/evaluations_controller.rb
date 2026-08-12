@@ -16,8 +16,15 @@ module Api
     ].freeze
 
     # GET /api/evaluations
+    # agent_id scopes to one agent. The filter has to happen before the limit:
+    # the agent page reads this endpoint, and filtering an account-wide page of
+    # 50 client-side hides an agent whose evaluations are not among the account's
+    # 50 most recent. The scope is already restricted to the current user's
+    # agents, so an id outside it simply returns nothing.
     def index
-      evaluations = evaluations_scope.includes(:agent, :evaluation_runs).recent.limit(50)
+      scope = evaluations_scope
+      scope = scope.where(agent_id: params[:agent_id]) if params[:agent_id].present?
+      evaluations = scope.includes(:agent, :evaluation_runs).recent.limit(50)
 
       render json: { evaluations: evaluations.map { |evaluation| serialize(evaluation) } }
     end

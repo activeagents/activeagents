@@ -1,1 +1,17 @@
 @import "tailwindcss";
+
+/* Dashboard form fields are styled inline from the theme palette, which cannot
+   express :focus. Keyboard focus still has to be visible, so the ring lives
+   here. focus-visible keeps it off mouse clicks, matching the accent the
+   controls already use. */
+.aa-field:focus-visible {
+  outline: 2px solid #ef4444;
+  outline-offset: 1px;
+}
+
+/* Hover affordance for the time-window zoom buttons. A neutral translucent
+   overlay reads on both the light and the dark surface, which a fixed
+   hover:bg-white did not. */
+.aa-zoom:hover:not(:disabled) {
+  background: rgba(127, 127, 127, 0.18);
+}

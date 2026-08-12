@@ -1,5 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useTimeWindow } from '../../contexts/TimeWindowContext';
+import { useTheme } from '../../contexts/ThemeContext';
+import { paletteFor } from '../../utils/dashboardTheme';
 import TimeWindowSelector from './TimeWindowSelector';
 import TracesView from './TracesView';
 import InteractionsView from './InteractionsView';
@@ -10,7 +12,14 @@ const TABS = [
   { id: 'interactions', label: 'Interactions' }
 ];
 
-export default function AgentAnalytics({ agent, onBack }) {
+// embedded drops the page header and the nested tab bar: when this renders
+// inside the agent detail page's Metrics tab, that page already owns the
+// heading and the tab row, and Traces/Interactions are siblings there.
+export default function AgentAnalytics({ agent, onBack, embedded = false }) {
+  // Embedded into the agent page, this renders inside a themed shell, so it
+  // resolves the same palette rather than staying light-only.
+  const { darkMode } = useTheme();
+  const colors = paletteFor(darkMode);
   const [analytics, setAnalytics] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
   // This endpoint takes whole days; the shared window rounds up so a
@@ -82,60 +91,80 @@ export default function AgentAnalytics({ agent, onBack }) {
     ? Math.max(...analytics.runs_by_day.map(d => d.count))
     : 1;
 
+  // Embedded, this is only ever the overview — the host page owns the tabs.
+  const shownTab = embedded ? 'overview' : activeTab;
+
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center space-x-4">
-          <button
-            onClick={onBack}
-            className="p-2 text-gray-400 hover:text-gray-600 transition-colors"
-          >
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-            </svg>
-          </button>
-          <div>
-            <h1 className="text-2xl font-bold text-gray-900">{agent.name} Analytics</h1>
-            <p className="text-sm text-gray-500">Performance metrics and usage data</p>
-          </div>
-        </div>
-
-        <div className="flex items-center gap-2">
+      {embedded ? (
+        <div className="flex items-center justify-end gap-2">
           {timeWindow.minutes < 1440 && (
-            <span className="text-xs text-gray-400" title="This view aggregates by day">
+            <span className="text-xs" style={{ color: colors.textMuted }} title="This view aggregates by day">
               showing 1 day
             </span>
           )}
           <TimeWindowSelector />
         </div>
-      </div>
+      ) : (
+        <div className="flex items-center justify-between">
+          <div className="flex items-center space-x-4">
+            <button
+              onClick={onBack}
+              className="p-2 transition-colors"
+              style={{ color: colors.textMuted }}
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+              </svg>
+            </button>
+            <div>
+              <h1 className="text-2xl font-bold" style={{ color: colors.textPrimary }}>{agent.name} Analytics</h1>
+              <p className="text-sm" style={{ color: colors.textSecondary }}>Performance metrics and usage data</p>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2">
+            {timeWindow.minutes < 1440 && (
+              <span className="text-xs" style={{ color: colors.textMuted }} title="This view aggregates by day">
+                showing 1 day
+              </span>
+            )}
+            <TimeWindowSelector />
+          </div>
+        </div>
+      )}
 
       {/* Shared-view tabs: Traces and Interactions are the same components
           as the global observability views, scoped to this agent. */}
-      <div className="flex bg-gray-100 rounded-lg p-1 w-fit">
-        {TABS.map(tab => (
-          <button
-            key={tab.id}
-            onClick={() => setActiveTab(tab.id)}
-            className={`px-4 py-1.5 text-sm rounded-md transition-colors ${
-              activeTab === tab.id ? 'bg-white shadow text-gray-900' : 'text-gray-600'
-            }`}
-          >
-            {tab.label}
-          </button>
-        ))}
-      </div>
+      {!embedded && (
+        <div className="flex rounded-lg p-1 w-fit" style={{ background: colors.mutedBg }}>
+          {TABS.map(tab => (
+            <button
+              key={tab.id}
+              onClick={() => setActiveTab(tab.id)}
+              className={`px-4 py-1.5 text-sm rounded-md transition-colors ${
+                activeTab === tab.id ? 'shadow' : ''
+              }`}
+              style={activeTab === tab.id
+                ? { background: colors.cardBg, color: colors.textPrimary }
+                : { color: colors.textSecondary }}
+            >
+              {tab.label}
+            </button>
+          ))}
+        </div>
+      )}
 
-      {activeTab === 'traces' && (
+      {shownTab === 'traces' && (
         <TracesView agentClass={telemetryAgentClass} embedded />
       )}
 
-      {activeTab === 'interactions' && (
+      {shownTab === 'interactions' && (
         <InteractionsView agentId={agent.id} embedded />
       )}
 
-      {activeTab === 'overview' && (<>
+      {shownTab === 'overview' && (<>
       {/* Stats Cards */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         <StatCard
@@ -147,6 +176,8 @@ export default function AgentAnalytics({ agent, onBack }) {
             </svg>
           }
           color="rose"
+          colors={colors}
+          darkMode={darkMode}
         />
         <StatCard
           title="Success Rate"
@@ -157,6 +188,8 @@ export default function AgentAnalytics({ agent, onBack }) {
             </svg>
           }
           color="green"
+          colors={colors}
+          darkMode={darkMode}
         />
         <StatCard
           title="Avg Duration"
@@ -167,6 +200,8 @@ export default function AgentAnalytics({ agent, onBack }) {
             </svg>
           }
           color="blue"
+          colors={colors}
+          darkMode={darkMode}
         />
         <StatCard
           title="Total Tokens"
@@ -177,13 +212,15 @@ export default function AgentAnalytics({ agent, onBack }) {
             </svg>
           }
           color="purple"
+          colors={colors}
+          darkMode={darkMode}
         />
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Runs Chart */}
-        <div className="lg:col-span-2 bg-white rounded-xl border border-gray-200 p-6">
-          <h3 className="font-semibold text-gray-900 mb-4">Runs Over Time</h3>
+        <div className="lg:col-span-2 rounded-xl border p-6" style={{ background: colors.cardBg, borderColor: colors.cardBorder }}>
+          <h3 className="font-semibold mb-4" style={{ color: colors.textPrimary }}>Runs Over Time</h3>
           {analytics?.runs_by_day?.length > 0 ? (
             <div className="h-48">
               <div className="flex items-end justify-between h-full space-x-1">
@@ -202,7 +239,7 @@ export default function AgentAnalytics({ agent, onBack }) {
                       </div>
                     </div>
                     {(i === 0 || i === analytics.runs_by_day.length - 1 || analytics.runs_by_day.length <= 7) && (
-                      <span className="text-xs text-gray-400 mt-2 transform -rotate-45 origin-left">
+                      <span className="text-xs mt-2 transform -rotate-45 origin-left" style={{ color: colors.textMuted }}>
                         {new Date(day.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
                       </span>
                     )}
@@ -211,15 +248,15 @@ export default function AgentAnalytics({ agent, onBack }) {
               </div>
             </div>
           ) : (
-            <div className="h-48 flex items-center justify-center text-gray-400">
+            <div className="h-48 flex items-center justify-center" style={{ color: colors.textMuted }}>
               No data for this period
             </div>
           )}
         </div>
 
         {/* Status Breakdown */}
-        <div className="bg-white rounded-xl border border-gray-200 p-6">
-          <h3 className="font-semibold text-gray-900 mb-4">Status Breakdown</h3>
+        <div className="rounded-xl border p-6" style={{ background: colors.cardBg, borderColor: colors.cardBorder }}>
+          <h3 className="font-semibold mb-4" style={{ color: colors.textPrimary }}>Status Breakdown</h3>
           {Object.keys(analytics?.status_breakdown || {}).length > 0 ? (
             <div className="space-y-3">
               {Object.entries(analytics.status_breakdown).map(([status, count]) => {
@@ -228,10 +265,10 @@ export default function AgentAnalytics({ agent, onBack }) {
                 return (
                   <div key={status}>
                     <div className="flex justify-between text-sm mb-1">
-                      <span className="capitalize text-gray-600">{status}</span>
-                      <span className="text-gray-900 font-medium">{count} ({percentage}%)</span>
+                      <span className="capitalize" style={{ color: colors.textSecondary }}>{status}</span>
+                      <span className="font-medium" style={{ color: colors.textPrimary }}>{count} ({percentage}%)</span>
                     </div>
-                    <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
+                    <div className="h-2 rounded-full overflow-hidden" style={{ background: colors.trackBg }}>
                       <div
                         className={`h-full ${getStatusColor(status)} rounded-full transition-all`}
                         style={{ width: `${percentage}%` }}
@@ -242,7 +279,7 @@ export default function AgentAnalytics({ agent, onBack }) {
               })}
             </div>
           ) : (
-            <div className="h-32 flex items-center justify-center text-gray-400">
+            <div className="h-32 flex items-center justify-center" style={{ color: colors.textMuted }}>
               No runs yet
             </div>
           )}
@@ -251,17 +288,18 @@ export default function AgentAnalytics({ agent, onBack }) {
 
       {/* Recent Errors */}
       {analytics?.recent_errors?.length > 0 && (
-        <div className="bg-white rounded-xl border border-gray-200 p-6">
-          <h3 className="font-semibold text-gray-900 mb-4">Recent Errors</h3>
+        <div className="rounded-xl border p-6" style={{ background: colors.cardBg, borderColor: colors.cardBorder }}>
+          <h3 className="font-semibold mb-4" style={{ color: colors.textPrimary }}>Recent Errors</h3>
           <div className="space-y-3">
             {analytics.recent_errors.map((error) => (
-              <div key={error.id} className="flex items-start space-x-3 p-3 bg-red-50 rounded-lg">
+              <div key={error.id} className="flex items-start space-x-3 p-3 rounded-lg"
+                style={{ background: darkMode ? 'rgba(220,38,38,0.12)' : '#fef2f2' }}>
                 <svg className="w-5 h-5 text-red-500 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                 </svg>
                 <div className="flex-1 min-w-0">
-                  <p className="text-sm text-red-700">{error.error || 'Unknown error'}</p>
-                  <p className="text-xs text-red-500 mt-1">
+                  <p className="text-sm" style={{ color: darkMode ? '#fca5a5' : '#991b1b' }}>{error.error || 'Unknown error'}</p>
+                  <p className="text-xs mt-1" style={{ color: darkMode ? '#f87171' : '#dc2626' }}>
                     {new Date(error.created_at).toLocaleString()}
                   </p>
                 </div>
@@ -273,21 +311,21 @@ export default function AgentAnalytics({ agent, onBack }) {
 
       {/* Quick Stats */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        <div className="bg-gray-50 rounded-lg p-4">
-          <p className="text-sm text-gray-500">Completed Runs</p>
-          <p className="text-2xl font-bold text-gray-900">{analytics?.summary?.completed_runs || 0}</p>
+        <div className="rounded-lg p-4" style={{ background: colors.innerBg }}>
+          <p className="text-sm" style={{ color: colors.textSecondary }}>Completed Runs</p>
+          <p className="text-2xl font-bold" style={{ color: colors.textPrimary }}>{analytics?.summary?.completed_runs || 0}</p>
         </div>
-        <div className="bg-gray-50 rounded-lg p-4">
-          <p className="text-sm text-gray-500">Failed Runs</p>
-          <p className="text-2xl font-bold text-gray-900">{analytics?.summary?.failed_runs || 0}</p>
+        <div className="rounded-lg p-4" style={{ background: colors.innerBg }}>
+          <p className="text-sm" style={{ color: colors.textSecondary }}>Failed Runs</p>
+          <p className="text-2xl font-bold" style={{ color: colors.textPrimary }}>{analytics?.summary?.failed_runs || 0}</p>
         </div>
-        <div className="bg-gray-50 rounded-lg p-4">
-          <p className="text-sm text-gray-500">Avg Tokens/Run</p>
-          <p className="text-2xl font-bold text-gray-900">{formatNumber(analytics?.summary?.avg_tokens_per_run)}</p>
+        <div className="rounded-lg p-4" style={{ background: colors.innerBg }}>
+          <p className="text-sm" style={{ color: colors.textSecondary }}>Avg Tokens/Run</p>
+          <p className="text-2xl font-bold" style={{ color: colors.textPrimary }}>{formatNumber(analytics?.summary?.avg_tokens_per_run)}</p>
         </div>
-        <div className="bg-gray-50 rounded-lg p-4">
-          <p className="text-sm text-gray-500">Period</p>
-          <p className="text-2xl font-bold text-gray-900">{analytics?.period_days || 30} days</p>
+        <div className="rounded-lg p-4" style={{ background: colors.innerBg }}>
+          <p className="text-sm" style={{ color: colors.textSecondary }}>Period</p>
+          <p className="text-2xl font-bold" style={{ color: colors.textPrimary }}>{analytics?.period_days || 30} days</p>
         </div>
       </div>
       </>)}
@@ -295,22 +333,26 @@ export default function AgentAnalytics({ agent, onBack }) {
   );
 }
 
-function StatCard({ title, value, icon, color }) {
-  const colors = {
-    rose: 'bg-red-100 text-red-600',
-    green: 'bg-green-100 text-green-600',
-    blue: 'bg-blue-100 text-blue-600',
-    purple: 'bg-purple-100 text-purple-600'
-  };
+// The icon tints stay hue-coded but resolve their surface per theme: a solid
+// -100 tint reads as a bright patch on a dark card.
+const STAT_TINTS = {
+  rose: ['#dc2626', 'rgba(220,38,38,0.18)', '#fee2e2'],
+  green: ['#16a34a', 'rgba(22,163,74,0.18)', '#dcfce7'],
+  blue: ['#2563eb', 'rgba(37,99,235,0.18)', '#dbeafe'],
+  purple: ['#7c3aed', 'rgba(124,58,237,0.18)', '#ede9fe']
+};
+
+function StatCard({ title, value, icon, color, colors, darkMode }) {
+  const [hue, darkTint, lightTint] = STAT_TINTS[color] || STAT_TINTS.rose;
 
   return (
-    <div className="bg-white rounded-xl border border-gray-200 p-4">
+    <div className="rounded-xl border p-4" style={{ background: colors.cardBg, borderColor: colors.cardBorder }}>
       <div className="flex items-center justify-between">
         <div>
-          <p className="text-sm text-gray-500">{title}</p>
-          <p className="text-2xl font-bold text-gray-900 mt-1">{value}</p>
+          <p className="text-sm" style={{ color: colors.textSecondary }}>{title}</p>
+          <p className="text-2xl font-bold mt-1" style={{ color: colors.textPrimary }}>{value}</p>
         </div>
-        <div className={`p-3 rounded-lg ${colors[color]}`}>
+        <div className="p-3 rounded-lg" style={{ background: darkMode ? darkTint : lightTint, color: hue }}>
           {icon}
         </div>
       </div>
