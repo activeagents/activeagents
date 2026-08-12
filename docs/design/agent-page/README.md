@@ -16,6 +16,9 @@ Reference shots for the agent detail page rebuild against
 | `07-after-instructions.png` | Instructions tab |
 | `08-after-feedback.png` | Feedback tab empty state |
 | `09-after-versions.png` | Versions tab empty state |
+| `10-after-metrics.png` | Metrics tab, themed (review fix) |
+| `11-after-metrics-dark.png` | Metrics tab, dark theme — previously light-only |
+| `12-after-focus-ring-dark.png` | Keyboard focus ring restored on form fields |
 
 Captured from the real components in a Playwright harness at 1320px with the
 app's Tailwind build loaded — not from a booted Rails app. The mock agent has
