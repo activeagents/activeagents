@@ -36,8 +36,11 @@ function DashboardContent({ user, initialAgents = [], meta = {}, account = null,
   const [notification, setNotification] = useState(null);
   const [showTemplateLibrary, setShowTemplateLibrary] = useState(false);
 
-  // Parse URL to determine initial view
+  // Parse the URL into a view. Runs on mount and on popstate, so browser
+  // back/forward and in-app pushState navigation (e.g. a Traces agent card
+  // opening its agent) both land on the right view.
   useEffect(() => {
+    const applyPath = () => {
     const path = window.location.pathname;
     if (path.includes('/traces')) {
       setCurrentView('traces');
@@ -68,6 +71,12 @@ function DashboardContent({ user, initialAgents = [], meta = {}, account = null,
     } else if (path.match(/\/agents\/\d+\/run/)) {
       const id = path.match(/\/agents\/(\d+)/)?.[1];
       if (id) loadAgent(id, 'runner');
+    } else if (path.match(/\/agents\/\d+\/?$/)) {
+      // Bare /dashboard/agents/:id — previously fell through to the agent
+      // list. Its detail view is the interactions/runs stream, which drills
+      // down into individual traces.
+      const id = path.match(/\/agents\/(\d+)/)?.[1];
+      if (id) loadAgent(id, 'history');
     } else if (path.includes('/benchmarks')) {
       setCurrentView('benchmarks');
     } else if (path.includes('/replay')) {
@@ -78,7 +87,21 @@ function DashboardContent({ user, initialAgents = [], meta = {}, account = null,
       setCurrentView('organization');
     } else if (path.includes('/settings')) {
       setCurrentView('settings');
+    } else {
+      setCurrentView('list');
     }
+    };
+
+    applyPath();
+    // popstate: browser back/forward. dashboard:navigate: in-app pushState
+    // (e.g. a Traces agent card opening its agent) — a custom event because
+    // Inertia's own popstate handler rejects synthetic ones.
+    window.addEventListener('popstate', applyPath);
+    window.addEventListener('dashboard:navigate', applyPath);
+    return () => {
+      window.removeEventListener('popstate', applyPath);
+      window.removeEventListener('dashboard:navigate', applyPath);
+    };
   }, []);
 
   const loadAgent = async (id, view) => {

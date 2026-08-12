@@ -9,6 +9,22 @@ class AgentScorecardTest < ActiveSupport::TestCase
     @agent = create_agent(user: @user, name: "Scored Bot")
   end
 
+  # Mirrors what AgentRegistrar writes for an SDK-reported execution:
+  # a trace attributed to the Agent record.
+  def ingest_trace(agent:, status: "OK", duration_ms: 500, input: 0, output: 0, trace_id: nil)
+    TelemetryTrace.create!(
+      account: @account,
+      agent: agent,
+      trace_id: trace_id || SecureRandom.hex(16),
+      agent_class: agent.telemetry_agent_class,
+      status: status,
+      timestamp: Time.current,
+      total_duration_ms: duration_ms,
+      total_input_tokens: input,
+      total_output_tokens: output
+    )
+  end
+
   test "aggregates runs, success rate, latency and tokens over the window" do
     create_run(agent: @agent, status: :complete, duration_ms: 1000, total_tokens: 100)
     create_run(agent: @agent, status: :complete, duration_ms: 3000, total_tokens: 200)
@@ -22,6 +38,51 @@ class AgentScorecardTest < ActiveSupport::TestCase
     assert_equal 300, stats[:tokens]
     assert stats[:last_run_at].present?
     assert_nil stats[:eval_score]
+  end
+
+  # An agent registered by observation (AgentRegistrar) has traces but no
+  # AgentRun rows — the case that made every tile read zero.
+  test "counts SDK-reported traces for agents the platform never executed" do
+    observed = create_agent(user: @user, name: "Observed Bot", status: :observed)
+    ingest_trace(agent: observed, duration_ms: 400, input: 60, output: 40)
+    ingest_trace(agent: observed, duration_ms: 600, input: 40, output: 60)
+    ingest_trace(agent: observed, status: "ERROR", duration_ms: 200)
+
+    stats = AgentScorecard.for_agents([ observed ])[observed.id]
+
+    assert_equal 3, stats[:runs]
+    assert_in_delta 66.7, stats[:success_rate], 0.1
+    assert_equal 400, stats[:avg_duration_ms]
+    assert_equal 200, stats[:tokens]
+    assert stats[:last_run_at].present?
+    assert_equal [ "telemetry" ], stats[:run_sources]
+  end
+
+  # A platform execution writes an AgentRun *and* a trace sharing a trace_id;
+  # counting both would double every platform agent's volume.
+  test "does not double-count platform runs that also recorded a trace" do
+    run = create_run(agent: @agent, status: :complete, duration_ms: 1000, total_tokens: 100)
+    run.update!(trace_id: SecureRandom.hex(16))
+    ingest_trace(agent: @agent, trace_id: run.trace_id, duration_ms: 1000, input: 60, output: 40)
+
+    stats = AgentScorecard.for_agents([ @agent ])[@agent.id]
+
+    assert_equal 1, stats[:runs], "trace sharing the run's trace_id must not count twice"
+    assert_equal 100, stats[:tokens]
+    assert_equal [ "platform" ], stats[:run_sources]
+  end
+
+  test "blends platform runs with unmatched telemetry traces" do
+    create_run(agent: @agent, status: :complete, duration_ms: 1000, total_tokens: 100)
+    ingest_trace(agent: @agent, duration_ms: 500, input: 30, output: 20)
+
+    stats = AgentScorecard.for_agents([ @agent ])[@agent.id]
+
+    assert_equal 2, stats[:runs]
+    assert_equal 100.0, stats[:success_rate]
+    assert_equal 750, stats[:avg_duration_ms]
+    assert_equal 150, stats[:tokens]
+    assert_equal %w[platform telemetry], stats[:run_sources]
   end
 
   test "runs outside the window are excluded from windowed stats" do
