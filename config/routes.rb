@@ -32,7 +32,7 @@ Rails.application.routes.draw do
   # config/initializers/active_agent_dashboard.rb. Its own /api routes live
   # under the mount (/dashboard/api/...).
   # Named :dashboard so the app's existing dashboard_path links keep working.
-  mount ActiveAgent::Dashboard::Engine => "/dashboard", as: :dashboard
+  mount ActionAgent::Engine => "/dashboard", as: :dashboard
 
   # Plans
   resources :plans, only: [ :index ]
@@ -65,7 +65,7 @@ Rails.application.routes.draw do
   #
   # The engine serves the same controller under its mount; this keeps the
   # documented root-level endpoint clients are already configured against.
-  post "mcp", to: "active_agent/dashboard/api/mcp#create"
+  post "mcp", to: "action_agent/api/mcp#create"
 
   # Telemetry ingestion — the activeagent gem's telemetry reporter POSTs
   # batched traces here (Configuration::DEFAULT_ENDPOINT is

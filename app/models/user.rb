@@ -6,7 +6,7 @@ class User < ApplicationRecord
   # Lives in the dashboard engine now, so the association names it explicitly:
   # Rails resolves a bare :agents to a class literally named Agent, and the
   # app-level constant is an alias rather than a class of its own.
-  has_many :agents, class_name: "ActiveAgent::Dashboard::Agent", dependent: :destroy
+  has_many :agents, class_name: "ActionAgent::Agent", dependent: :destroy
 
   has_many :account_memberships, dependent: :destroy
   has_many :accounts, through: :account_memberships

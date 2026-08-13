@@ -10,7 +10,7 @@
 # Everything below is a seam the engine exposes for exactly that purpose. A
 # self-hosted install leaves all of it unset and gets the same dashboard,
 # single-user and unmetered.
-ActiveAgent::Dashboard.configure do |config|
+ActionAgent.configure do |config|
   # --- Tenancy ------------------------------------------------------------
   # Traces belong to accounts; ingest authenticates a per-account key.
   config.multi_tenant = true
@@ -65,7 +65,7 @@ ActiveAgent::Dashboard.configure do |config|
   config.quota_checker = lambda do |owner, kind|
     next nil unless kind == :execution
 
-    account = ActiveAgent::Dashboard.tenant_for(owner)
+    account = ActionAgent.tenant_for(owner)
     next nil if account.nil? || account.can_run_agent?
 
     {
@@ -75,7 +75,7 @@ ActiveAgent::Dashboard.configure do |config|
   end
 
   config.usage_recorder = lambda do |owner, kind|
-    account = ActiveAgent::Dashboard.tenant_for(owner)
+    account = ActionAgent.tenant_for(owner)
     account.increment_agent_runs! if kind == :execution && account.respond_to?(:increment_agent_runs!)
   end
 
@@ -90,7 +90,7 @@ ActiveAgent::Dashboard.configure do |config|
   # people can run agents on their own OpenAI/Anthropic accounts, or point
   # ollama at a host of their own.
   config.provider_credentials_resolver = lambda do |owner, provider|
-    ActiveAgent::Dashboard.tenant_for(owner)&.provider_key_for(provider)&.generation_options
+    ActionAgent.tenant_for(owner)&.provider_key_for(provider)&.generation_options
   end
 
   # --- Attribution --------------------------------------------------------

@@ -1,6 +1,6 @@
 GIT
   remote: https://github.com/activeagents/activeagent.git
-  revision: 1e54af669b43bb592797d702991774da4d02da46
+  revision: b45c6d8c893e8dd2a4a5c72d8a0b123b132669f0
   branch: claude/activeagents-local-engine-ky54n7
   specs:
     activeagent (1.1.0)
@@ -10,6 +10,19 @@ GIT
       activejob (>= 7.2, <= 9.0)
       activemodel (>= 7.2, <= 9.0)
       activesupport (>= 7.2, <= 9.0)
+      railties (>= 7.2, <= 9.0)
+
+GIT
+  remote: https://github.com/activeagents/activeagent.git
+  revision: b45c6d8c893e8dd2a4a5c72d8a0b123b132669f0
+  branch: claude/activeagents-local-engine-ky54n7
+  glob: actionagent/*.gemspec
+  specs:
+    actionagent (1.1.0)
+      activeagent (>= 1.1, < 2)
+      activerecord (>= 7.2, <= 9.0)
+      railties (>= 7.2, <= 9.0)
+      solid_agent (>= 0.1)
 
 GIT
   remote: https://github.com/activeagents/solid_agent.git
@@ -554,6 +567,7 @@ PLATFORMS
   x86_64-linux-musl
 
 DEPENDENCIES
+  actionagent!
   activeagent!
   anthropic
   bcrypt (~> 3.1.7)

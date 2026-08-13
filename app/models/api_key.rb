@@ -4,4 +4,4 @@
 # configures (config/initializers/active_agent_dashboard.rb). The name stays
 # so the rest of the app — and anything referring to it from outside — keeps
 # working.
-ApiKey = ActiveAgent::Dashboard::ApiKey
+ApiKey = ActionAgent::ApiKey
