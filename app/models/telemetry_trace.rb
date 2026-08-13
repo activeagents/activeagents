@@ -20,7 +20,7 @@ class TelemetryTrace < ActiveAgent::TelemetryTrace
   belongs_to :account
   # Set by AgentRegistrar on ingest; nullable because a trace must still
   # ingest when its agent can't be resolved.
-  belongs_to :agent, optional: true
+  belongs_to :agent, class_name: "ActiveAgent::Dashboard::Agent", optional: true
 
   validates :trace_id, uniqueness: { scope: :account_id }
 

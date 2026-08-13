@@ -9,14 +9,16 @@ class Api::ApiKeysControllerTest < ActionDispatch::IntegrationTest
   end
 
   test "requires an authenticated account" do
-    get "/api/api_keys"
-    assert_redirected_to "/session/new"
+    get "/dashboard/api/api_keys"
+
+    # A JSON endpoint says unauthorized rather than redirecting to a form.
+    assert_response :unauthorized
   end
 
   test "create returns the full token exactly once" do
     sign_in_as(@user)
 
-    post "/api/api_keys", params: { name: "staging" }, as: :json
+    post "/dashboard/api/api_keys", params: { name: "staging" }, as: :json
     assert_response :created
 
     token = json_response.dig("api_key", "token")
@@ -24,7 +26,7 @@ class Api::ApiKeysControllerTest < ActionDispatch::IntegrationTest
     assert_equal "staging", json_response.dig("api_key", "name")
 
     # The index never exposes the token again.
-    get "/api/api_keys"
+    get "/dashboard/api/api_keys"
     assert_response :success
     listed = json_response["api_keys"].first
     assert_nil listed["token"]
@@ -36,7 +38,7 @@ class Api::ApiKeysControllerTest < ActionDispatch::IntegrationTest
     sign_in_as(@user)
     key = @account.api_keys.create!(name: "old")
 
-    delete "/api/api_keys/#{key.id}"
+    delete "/dashboard/api/api_keys/#{key.id}"
     assert_response :no_content
     assert_not ApiKey.exists?(key.id)
   end
@@ -46,7 +48,7 @@ class Api::ApiKeysControllerTest < ActionDispatch::IntegrationTest
     foreign_key = other.api_keys.create!(name: "theirs")
 
     sign_in_as(@user)
-    delete "/api/api_keys/#{foreign_key.id}"
+    delete "/dashboard/api/api_keys/#{foreign_key.id}"
 
     assert_response :not_found
     assert ApiKey.exists?(foreign_key.id)

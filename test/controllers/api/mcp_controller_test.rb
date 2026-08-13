@@ -77,7 +77,7 @@ class Api::McpControllerTest < ActionDispatch::IntegrationTest
 
     rpc("tools/call", { name: "run_#{@agent.slug}", arguments: { message: "Hello" } })
 
-    assert json_response["error"]["message"].include?("quota"), json_response.inspect
+    assert json_response["error"]["message"].include?("agent runs this month"), json_response.inspect
     assert_equal 0, @agent.agent_runs.count
   end
 

@@ -1,12 +1,7 @@
 # frozen_string_literal: true
 
-# One agent-authored summary note in an AgentMemory.
-class AgentMemoryEntry < ApplicationRecord
-  belongs_to :agent_memory
-
-  validates :content, presence: true
-
-  scope :chronological, -> { order(:created_at) }
-  scope :by_category, ->(category) { where(category: category) }
-  scope :from_agent, ->(agent_name) { where(source_agent: agent_name) }
-end
+# Moved to the activeagent gem's dashboard engine, which this app mounts and
+# configures (config/initializers/active_agent_dashboard.rb). The name stays
+# so the rest of the app — and anything referring to it from outside — keeps
+# working.
+AgentMemoryEntry = ActiveAgent::Dashboard::AgentMemoryEntry
