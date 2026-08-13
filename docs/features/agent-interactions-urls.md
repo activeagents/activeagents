@@ -29,7 +29,7 @@ app for all of them, so deep links and reloads work.
 
 A "session" is a solid_agent `AgentContext`: one persisted conversation
 stream per agent action (e.g. `DocsNavigatorAgent#ask`) that **every run
-appends to** (`ActiveAgent::Dashboard::Api::InteractionsController`, served
+appends to** (`ActionAgent::Api::InteractionsController`, served
 at `/dashboard/api/interactions`). That's why an agent typically
 shows a single session spanning many runs. Sessions are therefore a
 top-level drill-down entry on the Agent Report ("Sessions — grouped
@@ -68,8 +68,9 @@ single-run header also names the agent ("Docs Navigator — Run #81").
 
 ## Files Changed
 
-The React dashboard now lives in the activeagent gem at
-`lib/active_agent/dashboard/frontend/`; paths below are relative to that.
+The React dashboard now lives in the `actionagent` gem at
+`actionagent/frontend/` in the gem repo (github.com/activeagents/activeagent);
+paths below are relative to that directory, not to this repo.
 
 - `components/dashboard/AgentInteractions.jsx` — renamed from
   `ConversationHistory.jsx`; URL sync (`pushPath`, `popstate` listener,

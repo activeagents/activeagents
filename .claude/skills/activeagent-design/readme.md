@@ -1,20 +1,20 @@
 # ActiveAgents Design System
 
-Design system for **Active Agent** (activeagents.ai) — a Rails framework for AI agents plus a hosted observability platform (agent management, monitoring, traces, metrics, evaluations). Business model mirrors PostHog: free MIT gem with a Rails-engine dashboard, plus hosted/self-hosted Pro & Enterprise platform.
+Design system for **Active Agent** (activeagents.ai) — a Rails framework for AI agents plus a hosted observability platform (agent management, monitoring, traces, metrics, evaluations). Business model mirrors PostHog: free MIT gems — `activeagent` (the framework) and `actionagent` (the Rails-engine dashboard, added separately) — plus a hosted/self-hosted Pro & Enterprise platform.
 
 ## Sources
 - GitHub: github.com/activeagents/activeagents (lander, brand assets, the hosted platform)
   - `DESIGN_SPEC.md` — canonical design spec (colors, dark mode, observability UX)
   - `public/landing/css/index.css` — marketing site CSS (OKLCH theme system)
-- GitHub: github.com/activeagents/activeagent (the gem — ships the dashboard as a mountable Rails engine the platform mounts)
-  - `lib/active_agent/dashboard/frontend/utils/designTokens.js` — dashboard tokens (TUI philosophy)
-  - `lib/active_agent/dashboard/frontend/components/dashboard/*.jsx` — product screens
+- GitHub: github.com/activeagents/activeagent (two gems in one repo: `activeagent`, the framework, under `lib/`; and `actionagent`, the dashboard as a mountable Rails engine, under `actionagent/` — that engine is what the platform mounts)
+  - `actionagent/frontend/utils/designTokens.js` — dashboard tokens (TUI philosophy)
+  - `actionagent/frontend/components/dashboard/*.jsx` — product screens
 - Industry competitor to position against: mastra.ai. Liked reference: Laravel Nightwatch (lander + product).
 
 ## Naming
 - **Active Agent** — product brand name (two words, both capitalized). Never "Active Agents" in UI copy.
 - **ActiveAgent** — Ruby gem / code references (`class TranslationAgent < ApplicationAgent`)
-- **activeagents.ai** — domain. Gems: ActiveAgent (free/MIT), Solid Agent, Active Instrumentation.
+- **activeagents.ai** — domain. Gems: `activeagent` (free/MIT framework), `actionagent` (free/MIT dashboard engine, namespaced `ActionAgent`), Solid Agent, Active Instrumentation.
 
 ## The two surfaces
 1. **Product dashboard** (dense, data-first): sidebar nav (Agents / Observability / Workspace), traces, metrics, evaluations, interactions, session replay. Dark & light from day one.

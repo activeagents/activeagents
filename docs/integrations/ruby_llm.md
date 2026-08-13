@@ -2,7 +2,7 @@
 
 Apps built directly on [RubyLLM](https://github.com/crmne/ruby_llm) — without
 ActiveAgent — can still ship traces to the ActiveAgents platform (or a
-self-hosted ActiveAgent dashboard). The ingest endpoint (`POST /v1/traces`)
+self-hosted `actionagent` dashboard). The ingest endpoint (`POST /v1/traces`)
 speaks a plain JSON wire format, and RubyLLM ≥ 1.4 has a built-in
 instrumentation bus that exposes everything a trace needs.
 
@@ -11,9 +11,10 @@ Two integration paths, in order of preference:
 ## Option 1: adopt ActiveAgent's RubyLLM provider
 
 If you can wrap your calls in an agent class, ActiveAgent ships a `ruby_llm`
-provider that drives RubyLLM under the hood — and you get telemetry, the
-free local dashboard, and solid_agent conversation persistence with zero
-extra code:
+provider that drives RubyLLM under the hood, and telemetry comes with it at
+no extra code. The free local dashboard is a second gem — add `actionagent`
+alongside `activeagent` and run `rails generate action_agent:install` — and
+solid_agent conversation persistence comes with that gem:
 
 ```ruby
 class SupportAgent < ActiveAgent::Base
@@ -164,7 +165,7 @@ Notes:
 ## Local / self-hosted dashboards
 
 The endpoint is just a parameter — point it at any deployment of this app or
-of the gem's dashboard:
+of the `actionagent` dashboard engine:
 
 ```ruby
 ActiveAgents::Telemetry::RubyLLM.subscribe!(
@@ -184,20 +185,20 @@ The Bearer token is either a platform API key generated from Settings → API
 Keys (`aa_…` keys) or the account's legacy `telemetry_api_key` from the
 Organization page — `Api::V1::TracesController` accepts both.
 
-For an **enterprise self-hosted mount** of the gem's dashboard engine
-(customer's own Rails app, e.g. `activeagents.combinaut.com` — see the
-gem's `docs/framework/self-hosted-observability.md`), the endpoint shape
-is `<mount>/api/traces`, e.g.
-`https://activeagents.combinaut.com/api/traces`, and the Bearer token is
-that install's `ActiveAgent::Dashboard.ingest_api_key` (single-tenant) or
-an account `telemetry_api_key` (multi-tenant).
+For an **enterprise self-hosted mount** of the `actionagent` dashboard engine
+(customer's own Rails app, e.g. `activeagents.combinaut.com` — see
+`docs/framework/self-hosted-observability.md` in the gem repo,
+github.com/activeagents/activeagent), the endpoint shape is
+`<mount>/api/traces`, e.g. `https://activeagents.combinaut.com/api/traces`,
+and the Bearer token is that install's `ActionAgent.ingest_api_key`
+(single-tenant) or an account `telemetry_api_key` (multi-tenant).
 
 ## Wire format reference
 
 The endpoint accepts what `ActiveAgent::Telemetry::Reporter` sends —
 `{ "traces": [...], "sdk": {...} }` with `Authorization: Bearer
 <telemetry_api_key>` (find your key on the dashboard's Organization page).
-Full payload spec: activeagent's `docs/framework/telemetry.md`
+Full payload spec: the gem repo's `docs/framework/telemetry.md`
 ("self-hosting endpoint requirements"). Anything that speaks this format —
 Python sidecars, edge functions, other frameworks — can feed the same
 dashboard.

@@ -7,8 +7,8 @@ a context-pressure meter on every trace, and trace refs that deep-link.
 Design direction comes from the Active Agent design system package installed
 at `.claude/skills/activeagent-design/` (markdown committed; prototype
 HTML/JS/CSS payloads gitignored). The components named below live in the
-activeagent gem, under
-`lib/active_agent/dashboard/frontend/components/dashboard/`.
+`actionagent` gem, under
+`actionagent/frontend/components/dashboard/` in the gem repo.
 
 ## What changed
 

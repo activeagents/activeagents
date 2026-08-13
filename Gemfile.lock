@@ -1,6 +1,6 @@
 GIT
   remote: https://github.com/activeagents/activeagent.git
-  revision: b45c6d8c893e8dd2a4a5c72d8a0b123b132669f0
+  revision: 9eb389f8a3c0b36214306d493c8ac2b54f46d3aa
   branch: claude/activeagents-local-engine-ky54n7
   specs:
     activeagent (1.1.0)
@@ -14,7 +14,7 @@ GIT
 
 GIT
   remote: https://github.com/activeagents/activeagent.git
-  revision: b45c6d8c893e8dd2a4a5c72d8a0b123b132669f0
+  revision: 9eb389f8a3c0b36214306d493c8ac2b54f46d3aa
   branch: claude/activeagents-local-engine-ky54n7
   glob: actionagent/*.gemspec
   specs:

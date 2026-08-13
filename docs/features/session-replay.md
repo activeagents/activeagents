@@ -5,7 +5,7 @@
 Session Replay records browser interactions from AI agents using browser automation (Playwright MCP, Selenium, etc.) and provides VCR-style playback for debugging, verification, and compliance.
 
 **Tier:** Pro ($995/yr) and Enterprise — what the plan buys is retention and
-quota. Recording and playback themselves ship in the activeagent gem's dashboard
+quota. Recording and playback themselves ship in the `actionagent` dashboard
 engine, so a self-hosted install has them too.
 
 ## Core Concept
@@ -46,7 +46,7 @@ Agent Action (Playwright MCP)
 ### Data Model
 
 ```ruby
-# The shape `rails generate active_agent:dashboard:install` creates (as part of
+# The shape `rails generate action_agent:install` creates (as part of
 # one CreateActiveAgentDashboardTables migration). Engine tables are prefixed
 # active_agent_* by default; this platform sets table_name_prefix = "" to keep
 # the unprefixed names it already had.
@@ -171,7 +171,7 @@ Drawn by the engine, so every path below sits under the mount — `/dashboard/ap
 on this platform, `<mount>/api/...` in a self-hosted install:
 
 ```ruby
-# activeagent: lib/active_agent/dashboard/config/routes.rb
+# gem repo: actionagent/config/routes.rb
 namespace :api do
   resources :session_recordings, only: [:index, :show, :destroy] do
     member do
@@ -234,30 +234,32 @@ The lander preview (`_product_preview.html.erb :session_replay`) already shows t
 
 ### Completed
 
-Recording now ships in the activeagent gem's dashboard engine, which this app
-mounts and configures (`config/initializers/active_agent_dashboard.rb`). Paths
-below are relative to `lib/active_agent/dashboard/` in that gem. The app keeps
+Recording now ships in the `actionagent` dashboard engine, which this app
+mounts and configures (`config/initializers/action_agent.rb`). Paths
+below are relative to `actionagent/` in the gem repo
+(github.com/activeagents/activeagent), not to this one — except the
+`db/migrate/` and `app/javascript/` paths, which are this app's. The app keeps
 one-line aliases (`app/models/session_recording.rb` reads
-`SessionRecording = ActiveAgent::Dashboard::SessionRecording`), so bare constant
+`SessionRecording = ActionAgent::SessionRecording`), so bare constant
 names still resolve here.
 
 **Phase 1: Recording Infrastructure**
-- Database migrations — written by `rails generate active_agent:dashboard:install`;
+- Database migrations — written by `rails generate action_agent:install`;
   this app's own copy predates the engine (`db/migrate/20260324000005_create_session_recordings.rb`,
   plus `db/migrate/20260812200000_add_owner_columns_for_dashboard_engine.rb` for
   `account_id`/`user_id`)
   - `session_recordings` - Main recording model
   - `recording_actions` - Individual browser actions
   - `recording_snapshots` - Screenshots and DOM snapshots
-- `ActiveAgent::Dashboard::SessionRecording` model (`app/models/active_agent/dashboard/session_recording.rb`)
-- `ActiveAgent::Dashboard::RecordingAction` model (`app/models/active_agent/dashboard/recording_action.rb`)
-- `ActiveAgent::Dashboard::RecordingSnapshot` model with ActiveStorage (`app/models/active_agent/dashboard/recording_snapshot.rb`)
-- `ActiveAgent::Dashboard::SessionRecordingService` (`app/services/active_agent/dashboard/session_recording_service.rb`)
-- `ActiveAgent::Dashboard::McpRecordingMiddleware` for Playwright MCP integration (`app/services/active_agent/dashboard/mcp_recording_middleware.rb`)
-- `SessionRecordable` concern for models (`app/models/concerns/active_agent/dashboard/session_recordable.rb`)
+- `ActionAgent::SessionRecording` model (`app/models/action_agent/session_recording.rb`)
+- `ActionAgent::RecordingAction` model (`app/models/action_agent/recording_action.rb`)
+- `ActionAgent::RecordingSnapshot` model with ActiveStorage (`app/models/action_agent/recording_snapshot.rb`)
+- `ActionAgent::SessionRecordingService` (`app/services/action_agent/session_recording_service.rb`)
+- `ActionAgent::McpRecordingMiddleware` for Playwright MCP integration (`app/services/action_agent/mcp_recording_middleware.rb`)
+- `SessionRecordable` concern for models (`app/models/concerns/action_agent/session_recordable.rb`)
 
 **Phase 2: API & Playback UI**
-- API Controller (`app/controllers/active_agent/dashboard/api/session_recordings_controller.rb`),
+- API Controller (`app/controllers/action_agent/api/session_recordings_controller.rb`),
   served under the engine's mount — `/dashboard/api/...` here, `<mount>/api/...` self-hosted
   - `GET /dashboard/api/session_recordings` - List recordings (the caller's own, plus the shared demo)
   - `GET /dashboard/api/session_recordings/recent` - Recent recordings

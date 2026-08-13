@@ -18,19 +18,19 @@ The session replay feature demonstrates Active Agent's browser automation capabi
 
 ### Backend
 
-Recording lives in the activeagent gem's dashboard engine, which this app mounts
-and configures (`config/initializers/active_agent_dashboard.rb`). The app keeps
+Recording lives in the `actionagent` dashboard engine, which this app mounts
+and configures (`config/initializers/action_agent.rb`). The app keeps
 one-line aliases for the bare names, so `SessionRecording` and friends still
 resolve here.
 
-- **`ActiveAgent::Dashboard::SessionRecording`** model - Stores recordings with actions and screenshots
-- **`ActiveAgent::Dashboard::SessionRecordingService`** - Service for recording browser actions
-- **`ActiveAgent::Dashboard::McpRecordingMiddleware`** - Intercepts Playwright MCP calls to record them
+- **`ActionAgent::SessionRecording`** model - Stores recordings with actions and screenshots
+- **`ActionAgent::SessionRecordingService`** - Service for recording browser actions
+- **`ActionAgent::McpRecordingMiddleware`** - Intercepts Playwright MCP calls to record them
 - **`IncusSandboxService`** - Manages Incus container sandboxes; this app's own, registered with the engine via `config.sandbox_backends`
 
 ### API
 
-Served by the engine under its mount (`mount ActiveAgent::Dashboard::Engine => "/dashboard"`):
+Served by the engine under its mount (`mount ActionAgent::Engine => "/dashboard"`):
 
 - **`GET /dashboard/api/session_recordings/demo`** - Fetches the demo recording for playback
 - **`POST /dashboard/api/session_recordings/:id/handoff`** - Gets handoff state for session continuation

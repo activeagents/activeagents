@@ -3,11 +3,11 @@
 module Api
   module V1
     # Telemetry ingestion endpoint for the hosted platform
-    # (POST /v1/traces — the activeagent gem reporter's default endpoint).
+    # (POST /v1/traces — the activeagent reporter's default endpoint).
     #
     # Authentication (Bearer Account#telemetry_api_key), payload handling and
-    # async processing via ActiveAgent::ProcessTelemetryTracesJob are all
-    # inherited from the gem's ingest controller; this subclass only layers
+    # async processing via ActionAgent::ProcessTelemetryTracesJob are all
+    # inherited from the engine's ingest controller; this subclass only layers
     # plan-based trace quotas on top.
     class TracesController < ActionAgent::Api::TracesController
       before_action :enforce_trace_quota
