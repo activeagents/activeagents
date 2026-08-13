@@ -16,34 +16,43 @@ Positioning — the same engine runs in three contexts:
   database; the richer React suite below stays platform-only.
 - **Hosted platform** (this app): the paid, multi-tenant product at
   activeagents.ai. Free workspaces get a deliberately low-volume trial
-  (see Quotas). Note the platform does **not** mount the engine — it
-  subclasses the gem's trace model and ingest controller and layers its
-  own React read path on top.
+  (see Quotas). The platform **mounts** the engine at `/dashboard` and
+  configures it (`config/initializers/active_agent_dashboard.rb`); what
+  lives here is the hosted business around it — accounts and sessions,
+  plans and billing, cloud sandbox backends — not a second copy of the
+  dashboard.
 
 ## Architecture
 
 ```
-                     ┌────────────────────────────────────────────┐
- customer Rails app  │            activeagents platform           │
- ┌────────────────┐  │                                            │
- │ activeagent gem│  │  POST /v1/traces                           │
- │   Telemetry::  │──┼─▶ Api::V1::TracesController                │
- │   Reporter     │  │    (subclass of the gem's                  │
- └────────────────┘  │     ActiveAgent::Dashboard::Api::Traces-   │
-                     │     Controller; adds plan quotas)          │
-                     │        │                                   │
- platform-run agents │        ▼                                   │
- ┌────────────────┐  │  ActiveAgent::ProcessTelemetryTracesJob    │
- │ AgentExecution-│  │        │                                   │
- │ Service        │──┼──▶ TelemetryTrace (< ActiveAgent::         │
- └────────────────┘  │       TelemetryTrace, table                │
-                     │       active_agent_telemetry_traces)       │
-                     │        │                                   │
-                     │        ▼                                   │
-                     │  GET /api/traces, /api/metrics             │
-                     │  → dashboard Traces & Metrics views        │
-                     └────────────────────────────────────────────┘
+ customer Rails app        activeagents platform
+ ┌────────────────┐        ┌──────────────────────────────────────┐
+ │ activeagent gem│        │ POST /v1/traces                      │
+ │   Telemetry::  │───────▶│   Api::V1::TracesController          │
+ │   Reporter     │        │   (the engine's ingest controller,   │
+ └────────────────┘        │    plus plan quotas)                 │
+                           │        │                             │
+                           │        ▼                             │
+                           │   ProcessTelemetryTracesJob          │
+                           │        │                             │
+                           │        ▼                             │
+                           │   TelemetryTrace                     │
+                           │   (active_agent_telemetry_traces)    │
+                           │        │                             │
+                           │        ▼                             │
+                           │ mount ActiveAgent::Dashboard::Engine │
+                           │   => "/dashboard"                    │
+                           │   the dashboard, its JSON API and    │
+                           │   its React app, multi-tenant        │
+                           └──────────────────────────────────────┘
 ```
+
+The platform mounts the engine at `/dashboard` and configures it in
+`config/initializers/active_agent_dashboard.rb`. Agent execution,
+conversations, evaluations, scorecards, traces and metrics are all the
+engine's; this app supplies tenancy (accounts and sessions), plan quotas
+and usage counters, per-account provider credentials, and the cloud
+sandbox backends.
 
 ### What comes from the gem
 
