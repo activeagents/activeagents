@@ -1,81 +1,112 @@
 # Observability (Traces & Metrics)
 
 The platform's observability stack is the **hosted, multi-tenant deployment of
-the activeagent gem's own dashboard/telemetry implementation** — the same
-pipeline behind the gem's local dev console. Metric definitions match the
-gem's dashboard (`ActiveAgent::Dashboard`), and the hosted code reuses the
-gem's classes rather than reimplementing them.
+the `actionagent` dashboard engine** — the same pipeline a developer gets
+locally. Metric definitions match the engine's (`ActionAgent`), and the hosted
+code reuses its classes rather than reimplementing them.
+
+Two gems are involved, and the split matters when reading the rest of this
+document. Both live in the same repo,
+[activeagents/activeagent](https://github.com/activeagents/activeagent):
+
+- **`activeagent`** — the framework. Agents, providers, generation, and the
+  telemetry *reporter* that emits traces (`ActiveAgent::Telemetry::Reporter`,
+  `ActiveAgent::Telemetry::Span`). Source under `lib/`. Deliberately does not
+  depend on activerecord.
+- **`actionagent`** — the dashboard, a mountable Rails engine that stores and
+  displays those traces. Source under `actionagent/` in the same repo. Depends
+  on activeagent, activerecord, railties and solid_agent.
+
+Below, "the framework" means the first and "the engine" means the second;
+paths beginning `lib/` or `actionagent/` are relative to that repo's checkout,
+not this one.
 
 Positioning — the same engine runs in three contexts:
 
-- **Dev console** (free, in the gem): local traces while you build.
+- **Dev console** (free): add `actionagent` alongside `activeagent` and mount
+  it for local traces while you build.
 - **Self-hosted enterprise**: a customer mounts the engine in their own
   Rails app (e.g. `activeagents.combinaut.com`) as a production trace
-  sink for their fleet — see the gem's
-  `docs/framework/self-hosted-observability.md`. Data stays in their
-  database; the richer React suite below stays platform-only.
+  sink for their fleet — see `docs/framework/self-hosted-observability.md`
+  in the gem repo. Data stays in their database, and it is the same
+  dashboard, not a traces-only cut of it: agents, interactions, evaluations,
+  scorecards, cost estimates, the agent builder, sandboxes, session
+  recordings and the agents-as-MCP-server endpoint all ship in the engine.
 - **Hosted platform** (this app): the paid, multi-tenant product at
   activeagents.ai. Free workspaces get a deliberately low-volume trial
-  (see Quotas). Note the platform does **not** mount the engine — it
-  subclasses the gem's trace model and ingest controller and layers its
-  own React read path on top.
+  (see Quotas). The platform **mounts** `ActionAgent::Engine` at `/dashboard`
+  and configures it (`config/initializers/action_agent.rb`); what lives here
+  is the hosted business around it — accounts and sessions, plans and
+  billing, cloud sandbox backends — not a second copy of the dashboard.
 
 ## Architecture
 
 ```
-                     ┌────────────────────────────────────────────┐
- customer Rails app  │            activeagents platform           │
- ┌────────────────┐  │                                            │
- │ activeagent gem│  │  POST /v1/traces                           │
- │   Telemetry::  │──┼─▶ Api::V1::TracesController                │
- │   Reporter     │  │    (subclass of the gem's                  │
- └────────────────┘  │     ActiveAgent::Dashboard::Api::Traces-   │
-                     │     Controller; adds plan quotas)          │
-                     │        │                                   │
- platform-run agents │        ▼                                   │
- ┌────────────────┐  │  ActiveAgent::ProcessTelemetryTracesJob    │
- │ AgentExecution-│  │        │                                   │
- │ Service        │──┼──▶ TelemetryTrace (< ActiveAgent::         │
- └────────────────┘  │       TelemetryTrace, table                │
-                     │       active_agent_telemetry_traces)       │
-                     │        │                                   │
-                     │        ▼                                   │
-                     │  GET /api/traces, /api/metrics             │
-                     │  → dashboard Traces & Metrics views        │
-                     └────────────────────────────────────────────┘
+ customer Rails app        activeagents platform (this repo)
+ ┌────────────────┐        ┌──────────────────────────────────────┐
+ │ activeagent    │        │ POST /v1/traces                      │
+ │   Telemetry::  │───────▶│   Api::V1::TracesController          │
+ │   Reporter     │        │   (subclasses the engine's ingest    │
+ └────────────────┘        │    controller, adds plan quotas)     │
+   the framework gem       │        │                             │
+                           │        ▼                             │
+                           │   ActionAgent::                      │
+                           │     ProcessTelemetryTracesJob        │
+                           │        │                             │
+                           │        ▼                             │
+                           │   TelemetryTrace                     │
+                           │   (active_agent_telemetry_traces)    │
+                           │        │                             │
+                           │        ▼                             │
+                           │   mount ActionAgent::Engine          │
+                           │     => "/dashboard"                  │
+                           │   the dashboard, its JSON API and    │
+                           │   its React app, multi-tenant        │
+                           └──────────────────────────────────────┘
+                             the ActionAgent:: classes are the
+                             actionagent gem, mounted by this app
 ```
 
-### What comes from the gem
+The platform mounts the engine at `/dashboard` and configures it in
+`config/initializers/action_agent.rb`. Agent execution, conversations,
+evaluations, scorecards, traces and metrics are all the engine's; this app
+supplies tenancy (accounts and sessions), plan quotas and usage counters,
+per-account provider credentials, and the cloud sandbox backends.
 
-- **Trace model & schema** — `TelemetryTrace < ActiveAgent::TelemetryTrace`
+### What comes from the gems
+
+- **Trace model & schema** — `TelemetryTrace < ActionAgent::TelemetryTrace`
   (`app/models/telemetry_trace.rb`). Table name, scopes (`recent`,
   `with_errors`, `for_agent`, `for_service`, `for_date_range`,
   `for_account`), the `create_from_payload` normalizer and instance helpers
   (`display_name`, `provider`, `model`, `llm_spans`, …) are all inherited.
-  The table (`active_agent_telemetry_traces`) matches the gem's
-  `--multi_tenant` install-generator migration.
+  The table (`active_agent_telemetry_traces`) matches the migration written by
+  `rails generate action_agent:install --multi_tenant`.
 - **Ingestion** — `POST /v1/traces` routes to
-  `Api::V1::TracesController`, a subclass of the gem's
-  `ActiveAgent::Dashboard::Api::TracesController`. Bearer-token auth against
+  `Api::V1::TracesController`, a subclass of the engine's
+  `ActionAgent::Api::TracesController`. Bearer-token auth against
   `Account#telemetry_api_key`, idempotency by `trace_id`, and async
-  processing via the gem's `ActiveAgent::ProcessTelemetryTracesJob` are all
-  gem behavior; the subclass only adds plan-based trace quotas (HTTP 429).
-- **Span format** — platform-executed agent runs build traces with the gem's
-  `ActiveAgent::Telemetry::Span` and persist through the same
+  processing via the engine's `ActionAgent::ProcessTelemetryTracesJob` are all
+  engine behavior; the subclass widens the auth to also accept dashboard API
+  keys (Settings → API Keys) and adds plan-based trace quotas (HTTP 429).
+- **Span format** — platform-executed agent runs build traces with the
+  framework's `ActiveAgent::Telemetry::Span` and persist through the same
   `create_from_payload` normalizer, so platform runs and SDK-reported runs
   are indistinguishable downstream.
-- **Metric definitions** — `Api::MetricsController` mirrors the gem
-  dashboard's `calculate_metrics` / `agent_statistics` queries (trace count,
-  token totals, average duration, error rate, active agents, per-agent
-  stats).
+- **Metric definitions** — the engine's
+  `ActionAgent::Api::MetricsController` (served at
+  `/dashboard/api/metrics`) exposes the same aggregates as the engine's own
+  server-rendered console page (`<mount>/console/traces/metrics`): trace
+  count, token totals, average duration, error rate, active agents and
+  per-agent stats, account-scoped and with previous-period deltas.
 
 ### Multi-tenant configuration
 
-`config/initializers/active_agent_dashboard.rb` configures the gem in
+`config/initializers/action_agent.rb` configures the engine in
 multi-tenant mode:
 
 ```ruby
-ActiveAgent::Dashboard.configure do |config|
+ActionAgent.configure do |config|
   config.multi_tenant = true
   config.account_class = "Account"
   config.trace_model_class = "TelemetryTrace"
@@ -85,6 +116,13 @@ end
 Every trace belongs to an `Account`. Accounts get a `telemetry_api_key`
 (generated via `has_secure_token`) shown on the dashboard's Organization
 page.
+
+It also sets `config.table_name_prefix = ""`. The dashboard's other tables
+(agents, runs, evaluations, …) predate the engine here and are unprefixed,
+where a fresh install gets `active_agent_*`; the traces table is
+`active_agent_telemetry_traces` either way. The remaining seams — quotas,
+usage counters, provider credentials, agent scoping, sandbox backends — are
+documented inline in the initializer.
 
 ## Customer setup (dev console → hosted)
 
@@ -98,18 +136,32 @@ telemetry:
   api_key: <%= ENV["ACTIVEAGENTS_API_KEY"] %>
 ```
 
-During development the gem's own dev console
-(`rails g active_agent:dashboard:install` + `local_storage: true`) shows the
-same Traces/Metrics views against local data — same pipeline, so what a
-developer sees locally is what the platform shows in production.
+During development the same dashboard runs locally, against local data — same
+pipeline and same code, so what a developer sees locally is what the platform
+shows in production. It needs the dashboard gem alongside the framework:
+
+```ruby
+# Gemfile
+gem "activeagent"
+gem "actionagent"
+```
+
+then `rails generate action_agent:install` and `local_storage: true` under
+`telemetry:` in `config/active_agent.yml`. `local_storage` writes through the
+engine's trace model, so it reports that it has nowhere to write if
+`actionagent` is not installed. The generator writes two migrations, the
+traces table and the rest of the dashboard's tables; `--traces_only` skips the
+second for an app that only wants to be a trace sink.
 
 ## Platform-executed agents
 
-`AgentExecutionService` (used by `AgentExecutionJob` and
-`Agent#test_execute`) executes dashboard-built agents through the gem:
+`ActionAgent::AgentExecutionService` (used by `AgentExecutionJob` and
+`Agent#test_execute`) executes dashboard-built agents through the framework:
 
-- The agent's configured provider is used when its credentials are present
-  in `config/active_agent.yml` (e.g. `OPENAI_API_KEY`,
+- The agent's configured provider is used when its credentials are present:
+  the account's own provider key first (Settings → Provider API Keys,
+  resolved through `config.provider_credentials_resolver`), else the platform
+  keys in `config/active_agent.yml` (e.g. `OPENAI_API_KEY`,
   `ANTHROPIC_API_KEY`). Otherwise execution raises
   `AgentExecutionService::ProviderNotConfiguredError` and the run is marked
   failed with that message. There is no mock fallback outside the test
@@ -124,15 +176,23 @@ developer sees locally is what the platform shows in production.
 Trace ingestion is limited per plan (`Account::TRACE_LIMITS`): free 250
 traces/month (trial-sized), pro 25,000/month, enterprise unlimited. Agent
 executions follow `Account::USAGE_LIMITS` (free 25/month trial, pro 10,000).
-Retention is plan-based too (`TraceRetentionJob::RETENTION`: 3 days free,
-14 days pro, 400 days enterprise — job not yet scheduled). Quotas are
-enforced at the ingest endpoint (429 when exhausted) and the execution API
-(402), and surfaced in `Account#usage_stats`.
+Retention is plan-based too: `Account::TRACE_RETENTION` (3 days free, 14 days
+pro, 400 days enterprise) is handed to the engine as a per-account callable
+via `config.trace_retention`, which the engine's
+`ActionAgent::TraceRetentionJob` reads — the job is not yet scheduled. Trace
+quotas are enforced at this app's ingest endpoint (429 when
+exhausted); execution quotas run inside the engine through
+`config.quota_checker`, which returns 402 with `Account#usage_stats`.
 
 ## Conversation persistence (solid_agent)
 
 Alongside span-level traces, every platform execution persists the
-conversation itself through the solid_agent gem's `HasContext` concern:
+conversation itself through the solid_agent gem's `HasContext` concern.
+`ActionAgent::AgentExecutionService` mixes `SolidAgent::HasContext` into the
+class it builds for a run, so `actionagent` declares solid_agent as a hard
+dependency — one `activeagent` could never declare, since solid_agent depends
+on it. The three record classes are the engine's (`ActionAgent::AgentContext`
+and friends), aliased here so the bare names still resolve:
 
 - `AgentContext` — one row per (agent, action): the agent's interaction
   stream (contextable = the dashboard Agent record)
@@ -145,7 +205,8 @@ conversation itself through the solid_agent gem's `HasContext` concern:
 `AgentExecutionService` threads the run's trace_id through
 `prompt_options[:trace_id]`; `AgentContext#record_generation_with_provenance!`
 (solid_agent's documented extension point) stores it per generation. The
-dashboard's Interactions view reads these via `GET /api/interactions`.
+dashboard's Interactions view reads these via
+`GET /dashboard/api/interactions`.
 
 Upstream PR making trace correlation first-class in solid_agent's
 generators (plus fixes for silently-dropped generations):
@@ -164,16 +225,19 @@ against configurable criteria — matching the lander's Evaluations preview:
   *skipped* — never faked — without them
 
 Models: `Evaluation` (per-agent definition) and `EvaluationRun` (scores
-per criterion with min/max/passed counts). API: `/api/evaluations`
-(index/show/create/run/destroy). Runner: `EvaluationRunnerService`.
+per criterion with min/max/passed counts). API:
+`/dashboard/api/evaluations` (index/show/create/run/destroy). Runner:
+`EvaluationRunnerService`. All three are the engine's classes, so a
+self-hosted install gets evaluations too.
 
 ## Cost estimation
 
-The gem's telemetry records tokens only; the platform layers pricing on
-top via `ModelPricing` (per-model $/1M token table with a blended
-fallback). Estimated costs appear per trace (`estimated_cost` in
-`/api/traces`), and in `/api/metrics` as `summary.total_cost` plus a
-per-agent `cost` — always labeled as estimates.
+The framework's telemetry records tokens only; the engine layers pricing on
+top via `ModelPricing` (RubyLLM's model registry where the model is known,
+otherwise a per-model $/1M token table with a blended fallback). Estimated
+costs appear per trace (`estimated_cost` in `/dashboard/api/traces`), and in
+`/dashboard/api/metrics` as `summary.total_cost` plus a per-agent `cost` —
+always labeled as estimates.
 
 ## Non-ActiveAgent clients (RubyLLM, others)
 
@@ -186,18 +250,19 @@ events to `/v1/traces`.
 
 ## Gem-side gaps: current status
 
-Earlier platform workarounds have been fixed upstream in the activeagent
-gem:
+Earlier platform workarounds have been fixed upstream (paths below are in the
+gem repo, github.com/activeagents/activeagent):
 
-- ~~Engine `app/` classes not autoloadable in a host app~~ — fixed:
-  `Engine.find_root` points at the dashboard directory before load paths
-  are computed, and the gem's `test/dashboard/engine_integration_test.rb`
-  asserts autoloadability. No manual requires needed.
+- ~~Engine `app/` classes not autoloadable in a host app~~ — fixed. The
+  dashboard is now its own gem, so `actionagent/` is the engine root and
+  `app/` sits directly under it, where Rails already looks. The engine's
+  `actionagent/test/engine_integration_test.rb` asserts both autoloadability
+  and that every class eager loads. No manual requires needed.
 - ~~Reporter local-storage symbol-key payloads dropped by the
-  normalizer~~ — fixed upstream; the reporter stringifies before
+  normalizer~~ — fixed in `activeagent`; the reporter stringifies before
   persisting.
-- Token double-counting on root+llm spans — fixed upstream
-  (`create_from_payload` treats child spans as authoritative). The
-  platform's `TelemetryTrace.dedupe_token_totals!` is therefore redundant
-  and kept only as belt-and-braces for old SDKs; it can be removed once
-  pre-fix SDK versions are out of the wild.
+- Token double-counting on root+llm spans — fixed in `actionagent`
+  (`ActionAgent::TelemetryTrace.create_from_payload` treats child spans as
+  authoritative). The platform's `TelemetryTrace.dedupe_token_totals!` is
+  therefore redundant and kept only as belt-and-braces for old SDKs; it can be
+  removed once pre-fix SDK versions are out of the wild.

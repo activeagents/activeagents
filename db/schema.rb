@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.2].define(version: 2026_07_31_000001) do
+ActiveRecord::Schema[8.2].define(version: 2026_08_12_200000) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
 
@@ -248,6 +248,7 @@ ActiveRecord::Schema[8.2].define(version: 2026_07_31_000001) do
   end
 
   create_table "agents", force: :cascade do |t|
+    t.bigint "account_id"
     t.string "action_name"
     t.jsonb "action_prompts", default: [], null: false
     t.string "agent_class_name"
@@ -272,6 +273,7 @@ ActiveRecord::Schema[8.2].define(version: 2026_07_31_000001) do
     t.jsonb "tools", default: []
     t.datetime "updated_at", null: false
     t.bigint "user_id"
+    t.index ["account_id"], name: "index_agents_on_account_id"
     t.index ["provider"], name: "index_agents_on_provider"
     t.index ["slug"], name: "index_agents_on_slug", unique: true
     t.index ["status"], name: "index_agents_on_status"
@@ -288,6 +290,7 @@ ActiveRecord::Schema[8.2].define(version: 2026_07_31_000001) do
     t.string "token", null: false
     t.string "token_prefix", null: false
     t.datetime "updated_at", null: false
+    t.bigint "user_id"
     t.index ["account_id"], name: "index_api_keys_on_account_id"
     t.index ["token"], name: "index_api_keys_on_token", unique: true
   end
@@ -536,6 +539,7 @@ ActiveRecord::Schema[8.2].define(version: 2026_07_31_000001) do
     t.string "credential", null: false
     t.string "provider", null: false
     t.datetime "updated_at", null: false
+    t.bigint "user_id"
     t.index ["account_id", "provider"], name: "index_provider_keys_on_account_id_and_provider", unique: true
     t.index ["account_id"], name: "index_provider_keys_on_account_id"
   end
@@ -644,6 +648,7 @@ ActiveRecord::Schema[8.2].define(version: 2026_07_31_000001) do
   end
 
   create_table "session_recordings", force: :cascade do |t|
+    t.bigint "account_id"
     t.integer "action_count", default: 0
     t.bigint "agent_run_id"
     t.datetime "created_at", null: false
@@ -653,8 +658,11 @@ ActiveRecord::Schema[8.2].define(version: 2026_07_31_000001) do
     t.bigint "sandbox_session_id"
     t.integer "status", default: 0, null: false
     t.datetime "updated_at", null: false
+    t.bigint "user_id"
+    t.index ["account_id"], name: "index_session_recordings_on_account_id"
     t.index ["agent_run_id"], name: "index_session_recordings_on_agent_run_id"
     t.index ["sandbox_session_id"], name: "index_session_recordings_on_sandbox_session_id"
+    t.index ["user_id"], name: "index_session_recordings_on_user_id"
   end
 
   create_table "sessions", force: :cascade do |t|

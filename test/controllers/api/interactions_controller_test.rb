@@ -35,7 +35,7 @@ class Api::InteractionsControllerTest < ActionDispatch::IntegrationTest
   test "index lists the user's interaction streams with counts" do
     create_interaction
 
-    get "/api/interactions"
+    get "/dashboard/api/interactions"
 
     assert_response :success
     interactions = json_response["interactions"]
@@ -54,7 +54,7 @@ class Api::InteractionsControllerTest < ActionDispatch::IntegrationTest
     create_account(owner: other_user)
     create_interaction(agent: create_agent(user: other_user, name: "Other Agent"))
 
-    get "/api/interactions"
+    get "/dashboard/api/interactions"
 
     assert_response :success
     assert_empty json_response["interactions"]
@@ -63,7 +63,7 @@ class Api::InteractionsControllerTest < ActionDispatch::IntegrationTest
   test "show returns messages and generations with trace correlation" do
     context = create_interaction
 
-    get "/api/interactions/#{context.id}"
+    get "/dashboard/api/interactions/#{context.id}"
 
     assert_response :success
     interaction = json_response["interaction"]
@@ -79,7 +79,7 @@ class Api::InteractionsControllerTest < ActionDispatch::IntegrationTest
     other_user = create_user
     context = create_interaction(agent: create_agent(user: other_user, name: "Other Agent"))
 
-    get "/api/interactions/#{context.id}"
+    get "/dashboard/api/interactions/#{context.id}"
 
     assert_response :not_found
   end
