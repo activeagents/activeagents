@@ -26,6 +26,9 @@ gem "rouge"
 gem "inertia_rails"
 # Active Agent - AI agent framework for Rails [https://github.com/activeagents/activeagent]
 gem "activeagent", github: "activeagents/activeagent", branch: "claude/activeagents-local-engine-ky54n7"
+# Action Agent - the dashboard, a mountable Rails engine. Lives in the same
+# repo as a sibling gem, hence the glob.
+gem "actionagent", github: "activeagents/activeagent", branch: "claude/activeagents-local-engine-ky54n7", glob: "actionagent/*.gemspec"
 # Solid Agent - Persistence and context management for ActiveAgent
 gem "solid_agent", github: "activeagents/solid_agent", branch: "main"
 # RubyLLM - model registry (token pricing data) and unified provider API

@@ -4,4 +4,4 @@
 # configures (config/initializers/active_agent_dashboard.rb). The name stays
 # so the rest of the app — and anything referring to it from outside — keeps
 # working.
-TraceInteractionSerializer = ActiveAgent::Dashboard::TraceInteractionSerializer
+TraceInteractionSerializer = ActionAgent::TraceInteractionSerializer

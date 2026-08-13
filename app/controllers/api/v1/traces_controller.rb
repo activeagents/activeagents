@@ -9,7 +9,7 @@ module Api
     # async processing via ActiveAgent::ProcessTelemetryTracesJob are all
     # inherited from the gem's ingest controller; this subclass only layers
     # plan-based trace quotas on top.
-    class TracesController < ActiveAgent::Dashboard::Api::TracesController
+    class TracesController < ActionAgent::Api::TracesController
       before_action :enforce_trace_quota
 
       private

@@ -4,4 +4,4 @@
 # configures (config/initializers/active_agent_dashboard.rb). The name stays
 # so the rest of the app — and anything referring to it from outside — keeps
 # working.
-AgentContext = ActiveAgent::Dashboard::AgentContext
+AgentContext = ActionAgent::AgentContext
