@@ -1,11 +1,12 @@
 GIT
   remote: https://github.com/activeagents/activeagent.git
-  revision: 26440278002a39cd2c3e82607e81b9a30a7323f0
-  branch: main
+  revision: 06d64f3f9767ab17dbd0cb2006d0c1a270976690
+  branch: claude/activeagents-local-engine-ky54n7
   specs:
-    activeagent (1.0.3)
+    activeagent (1.1.0)
       actionpack (>= 7.2, <= 9.0)
       actionview (>= 7.2, <= 9.0)
+      activeagents-telemetry (~> 0.1)
       activejob (>= 7.2, <= 9.0)
       activemodel (>= 7.2, <= 9.0)
       activesupport (>= 7.2, <= 9.0)
@@ -133,6 +134,7 @@ GEM
   specs:
     action_text-trix (2.1.16)
       railties
+    activeagents-telemetry (0.1.0)
     addressable (2.8.9)
       public_suffix (>= 2.0.2, < 8.0)
     anthropic (1.25.0)

@@ -2,15 +2,15 @@ import React from 'react'
 import { createInertiaApp } from '@inertiajs/react'
 import { createRoot } from 'react-dom/client'
 
-// Explicitly import pages since we're using esbuild (not Vite)
-import Dashboard from './pages/Dashboard'
+// Explicitly import pages since we're using esbuild (not Vite).
+// The dashboard is not here: it ships in the activeagent gem's engine, which
+// serves and bundles it under its own mount.
 import PlansIndex from './pages/Plans/Index'
 import SubscriptionsIndex from './pages/Subscriptions/Index'
 import AdminSpacesIndex from './pages/Admin/Spaces/Index'
 import AdminSpacesShow from './pages/Admin/Spaces/Show'
 
 const pages = {
-  'Dashboard': Dashboard,
   'Plans/Index': PlansIndex,
   'Subscriptions/Index': SubscriptionsIndex,
   'Admin/Spaces/Index': AdminSpacesIndex,

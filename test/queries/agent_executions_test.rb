@@ -28,7 +28,7 @@ class AgentExecutionsTest < ActiveSupport::TestCase
   end
 
   def executions(**options)
-    AgentExecutions.new(agents: [ @agent ], account: @account, **options)
+    AgentExecutions.new(agents: [ @agent ], owner: @account, **options)
   end
 
   test "lists dashboard runs and reported traces as one stream of executions" do

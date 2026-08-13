@@ -26,9 +26,13 @@ Rails.application.routes.draw do
   root to: "pages#home"
   get "pricing", to: "pages#pricing"
 
-  # App dashboard (Inertia) - all dashboard routes render React app
-  get "dashboard", to: "dashboard#index"
-  get "dashboard/*path", to: "dashboard#index"
+  # The dashboard itself: agents, runs, conversations, evaluations, traces,
+  # metrics, sandboxes and recordings all come from the activeagent gem's
+  # engine, configured for this platform in
+  # config/initializers/active_agent_dashboard.rb. Its own /api routes live
+  # under the mount (/dashboard/api/...).
+  # Named :dashboard so the app's existing dashboard_path links keep working.
+  mount ActiveAgent::Dashboard::Engine => "/dashboard", as: :dashboard
 
   # Plans
   resources :plans, only: [ :index ]
@@ -58,7 +62,10 @@ Rails.application.routes.draw do
   # MCP service — the account's agents presented as an authenticated MCP
   # server (tools + agent:// resources) over Streamable HTTP JSON-RPC.
   # Authenticated with a platform API key (Settings -> API Keys).
-  post "mcp", to: "api/mcp#create"
+  #
+  # The engine serves the same controller under its mount; this keeps the
+  # documented root-level endpoint clients are already configured against.
+  post "mcp", to: "active_agent/dashboard/api/mcp#create"
 
   # Telemetry ingestion — the activeagent gem's telemetry reporter POSTs
   # batched traces here (Configuration::DEFAULT_ENDPOINT is
@@ -70,111 +77,21 @@ Rails.application.routes.draw do
     end
   end
 
-  # API endpoints
+  # API endpoints this platform owns. Everything the dashboard reads is
+  # served by the engine under its mount.
   namespace :api do
-    # Usage tracking
+    # Plan usage and limits — billing, so ours.
     resource :usage, only: [ :show ], controller: "usage" do
       post :check
     end
 
-    # Sandbox-mode endpoints (only available in sandbox containers)
+    # Sandbox-mode endpoints (only available inside sandbox containers).
     namespace :sandbox do
       get :status, to: "runs#status"
       resources :runs, only: [ :index, :show, :create ]
     end
-    resources :agents do
-      member do
-        get :versions
-        post :restore
-        get :runs
-        post :execute
-        post :test
-        post :duplicate
-        get :export
-        get :analytics
-      end
-      collection do
-        get :presets
-      end
-    end
 
-    resources :templates, only: [ :index, :show ] do
-      member do
-        post :use
-      end
-    end
-
-    resources :runs, controller: "agent_runs", only: [ :index, :show ] do
-      member do
-        post :cancel
-      end
-    end
-
-    # Sandbox sessions (free tier demo runners)
-    resources :sandboxes, param: :id, only: [ :index, :create, :show, :destroy ] do
-      collection do
-        post :compare
-      end
-      member do
-        post :run
-      end
-    end
-
-    # Instance tiers (hardware selection like Colab/HuggingFace)
-    resources :instance_tiers, only: [ :index, :show ] do
-      collection do
-        get :recommend
-        get :pricing
-      end
-    end
-
-    # Session recordings (playback and handoff)
-    resources :session_recordings, only: [ :index, :show, :destroy ] do
-      member do
-        get :actions
-        get "snapshot/:action_id", action: :snapshot, as: :snapshot
-        post :export
-        post :handoff
-        post :record_action
-        post :complete, action: :complete_session
-      end
-      collection do
-        get :recent
-        get :demo
-        post :start_user_session
-      end
-    end
-
-    resource :analytics, only: [ :show ], controller: "analytics", action: :index
-
-    # Settings -> API Keys: platform keys (token shown once on create) and
-    # per-account LLM provider credentials, both encrypted at rest.
-    resources :api_keys, only: [ :index, :create, :destroy ]
-    resources :provider_keys, only: [ :index, :create, :destroy ], param: :provider
-
-    # Model catalogs for the agent builder/editor (Ollama queried live from
-    # the account's configured host; hosted providers curated server-side).
-    resources :provider_models, only: [ :index ]
-
-    # Observability read APIs (dashboard Traces & Metrics views).
-    # Backed by the activeagent gem's TelemetryTrace scopes, account-scoped.
-    resources :traces, only: [ :index, :show ]
-    resource :metrics, only: [ :show ], controller: "metrics"
-
-    # Conversation contexts persisted by solid_agent (Interactions view)
-    resources :interactions, only: [ :index, :show ]
-
-    # Agent output evaluations (Evaluations view)
-    resources :evaluations, only: [ :index, :show, :create, :destroy ] do
-      member do
-        post :run
-      end
-    end
-
-    # Ragents benchmark results — accepts POSTed JSON from bin/bench
-    # GET  /api/benchmarks     — list recent runs
-    # POST /api/benchmarks     — ingest a new benchmark run from bin/bench
-    # POST /api/benchmarks/run — trigger a benchmark run in the cloud
+    # Ragents benchmark results — accepts POSTed JSON from bin/bench.
     resources :benchmarks, only: [ :index, :create ] do
       collection do
         post :run
