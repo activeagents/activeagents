@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.2].define(version: 2026_08_12_200000) do
+ActiveRecord::Schema[8.2].define(version: 2026_08_13_000001) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
 
@@ -620,6 +620,7 @@ ActiveRecord::Schema[8.2].define(version: 2026_08_12_200000) do
   end
 
   create_table "sandbox_sessions", force: :cascade do |t|
+    t.bigint "account_id"
     t.bigint "agent_template_id"
     t.string "cloud_run_job_id"
     t.string "cloud_run_url"
@@ -628,6 +629,7 @@ ActiveRecord::Schema[8.2].define(version: 2026_08_12_200000) do
     t.datetime "expires_at"
     t.datetime "last_activity_at"
     t.integer "max_runs", default: 10
+    t.jsonb "mcp_servers", default: []
     t.jsonb "runs", default: []
     t.integer "runs_count", default: 0
     t.string "sandbox_type", default: "playwright_mcp"
@@ -638,9 +640,11 @@ ActiveRecord::Schema[8.2].define(version: 2026_08_12_200000) do
     t.integer "total_tokens", default: 0
     t.datetime "updated_at", null: false
     t.bigint "user_id"
+    t.index ["account_id"], name: "index_sandbox_sessions_on_account_id"
     t.index ["agent_template_id"], name: "index_sandbox_sessions_on_agent_template_id"
     t.index ["cloud_run_job_id"], name: "index_sandbox_sessions_on_cloud_run_job_id"
     t.index ["expires_at"], name: "index_sandbox_sessions_on_expires_at"
+    t.index ["mcp_servers"], name: "index_sandbox_sessions_on_mcp_servers", using: :gin
     t.index ["sandbox_type"], name: "index_sandbox_sessions_on_sandbox_type"
     t.index ["session_id"], name: "index_sandbox_sessions_on_session_id", unique: true
     t.index ["status"], name: "index_sandbox_sessions_on_status"
