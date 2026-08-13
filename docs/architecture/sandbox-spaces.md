@@ -2,14 +2,17 @@
 
 Sandbox spaces provide ephemeral, isolated execution environments for free-tier users to run sample agents. Each sandbox is a containerized instance of the ActiveAgents application running in sandbox mode.
 
+The sandbox surface — models, API, orchestrator and jobs — lives in the activeagent gem's dashboard engine (`ActiveAgent::Dashboard`), which this app mounts at `/dashboard` and configures in `config/initializers/active_agent_dashboard.rb`. What stays here is the infrastructure: the services that talk to Incus, Kubernetes and Cloud Run, and the admin interface over them.
+
 ## Overview
 
 ```
 ┌─────────────────────────────────────────────────────────────────────┐
 │                    Active Agents Platform                            │
 │  ┌────────────────┐    ┌─────────────────┐    ┌──────────────────┐  │
-│  │   React UI     │───▶│   Rails API     │───▶│   Cloud Run      │  │
-│  │  (Dashboard)   │    │  (Main App)     │    │   (Sandbox)      │  │
+│  │   React UI     │───▶│  Sandboxes API  │───▶│  Sandbox backend │  │
+│  │   (engine)     │    │  + Orchestrator │    │  incus / k8s /   │  │
+│  │                │    │    (engine)     │    │  cloud_run (app) │  │
 │  └────────────────┘    └─────────────────┘    └──────────────────┘  │
 │                               │                       │              │
 │                               ▼                       ▼              │
@@ -40,9 +43,32 @@ Sandbox containers use SQLite instead of PostgreSQL:
 - Ephemeral by design - data is lost when container terminates
 - Faster startup time
 
-### 3. Cloud Run Jobs
+### 3. Pluggable Backends
 
-Sandboxes are provisioned as Cloud Run Jobs (not Services):
+`SandboxOrchestrator` dispatches to a backend **registry** rather than a hardcoded switch. The engine ships only `ActiveAgent::Dashboard::MockSandboxBackend` (in-memory, so the sandbox surface is exercisable in development and tests without a container runtime); the backends that talk to real infrastructure are registered by the app that operates them — here, in `config/initializers/active_agent_dashboard.rb`:
+
+```ruby
+config.sandbox_backends = {
+  "incus" => "IncusSandboxService",
+  "kubernetes" => "KubernetesSandboxService",
+  "cloud_run" => "CloudRunService"
+}
+config.sandbox_service = ENV.fetch("SANDBOX_BACKEND", "incus")
+```
+
+Dispatch is capability-based. For each verb the orchestrator calls the first method the backend responds to, so a registered class needs no adapter of its own:
+
+| Verb | Candidates, in order |
+|---|---|
+| create | `create_sandbox`, `create_sandbox_pod`, `create_sandbox_job` |
+| status | `status`, `container_status`, `pod_status`, `job_status` |
+| terminate | `terminate`, `terminate_pod`, `cancel_job` |
+| list | `list_sandboxes`, `list_sandbox_pods`, `list_jobs` |
+| cleanup | `cleanup_expired`, `cleanup_expired_pods`, `cleanup_expired_jobs` |
+
+`instance_tier:` is only passed to backends whose create method accepts it, and the orchestrator normalizes the response (`container_name` / `pod_name` / `job_name` → `sandbox_id`, and so on). Choosing a backend: `SandboxOrchestrator.new(backend: "kubernetes")` names one explicitly, and an unregistered name there raises `UnsupportedBackendError`. With no argument it reads `ENV["SANDBOX_BACKEND"]`, then `config.sandbox_service`, and falls back to `mock` if neither names a registered backend.
+
+When the `cloud_run` backend is selected, sandboxes are provisioned as Cloud Run Jobs (not Services):
 
 - Automatic scaling to zero when idle
 - Built-in timeout enforcement
@@ -51,38 +77,44 @@ Sandboxes are provisioned as Cloud Run Jobs (not Services):
 
 ## Components
 
+Everything under `ActiveAgent::Dashboard::` lives in the activeagent gem, under `lib/active_agent/dashboard/app/`. This app keeps one-line alias files at the old paths (`app/models/sandbox_session.rb` is now `SandboxSession = ActiveAgent::Dashboard::SandboxSession`), so bare constant names still resolve here — but the behaviour is in the engine.
+
 ### Models
 
-#### `SandboxSession` (app/models/sandbox_session.rb)
+#### `ActiveAgent::Dashboard::SandboxSession`
 Tracks sandbox sessions in the main application database:
 - Session ID, status, type
 - Run count and token usage
-- Cloud Run job references
-- User association (optional for anonymous)
+- Backend container/job references (`cloud_run_url`, `cloud_run_job_id`)
+- Owner association (user or account, both optional for anonymous)
 
-#### `SandboxRun` (app/models/sandbox_run.rb)
+#### `ActiveAgent::Dashboard::SandboxRun`
 Tracks individual task executions within a sandbox container:
-- Only exists in sandbox SQLite database
+- Only written inside the sandbox container, where the database is SQLite
 - Contains task, result, screenshots
 - Used for the sandbox's own run history
 
 ### Controllers
 
-#### `Api::SandboxesController` (app/controllers/api/sandboxes_controller.rb)
-Main API for creating and managing sandbox sessions:
-- POST /api/sandboxes - Create new sandbox
-- GET /api/sandboxes/:id - Get sandbox status
-- POST /api/sandboxes/:id/run - Execute a task
-- DELETE /api/sandboxes/:id - Terminate sandbox
+#### `ActiveAgent::Dashboard::Api::SandboxesController`
+Main API for creating and managing sandbox sessions. Served under the engine mount, so on this platform the paths are prefixed with `/dashboard`:
+- GET /dashboard/api/sandboxes - Sandbox types, free-tier limits, templates, sample tasks
+- POST /dashboard/api/sandboxes - Create new sandbox
+- GET /dashboard/api/sandboxes/:id - Get sandbox status and run history
+- POST /dashboard/api/sandboxes/:id/run - Execute a task
+- POST /dashboard/api/sandboxes/compare - Run one task across several providers in one sandbox
+- DELETE /dashboard/api/sandboxes/:id - Terminate sandbox
+
+Anonymous access is allowed (free tier). Running a task goes through the engine's quota seam, which this app points at the account's plan.
 
 #### `Api::Sandbox::RunsController` (app/controllers/api/sandbox/runs_controller.rb)
-Sandbox-internal API (only available in sandbox mode):
+Sandbox-internal API (only available in sandbox mode). Owned by this app and still at the root paths:
 - GET /api/sandbox/status - Container status
-- POST /api/sandbox/run - Execute task locally
+- POST /api/sandbox/runs - Execute task locally
 - GET /api/sandbox/runs - Run history
 
 #### `Admin::SpacesController` (app/controllers/admin/spaces_controller.rb)
-Admin interface for managing all sandbox spaces:
+Admin interface for managing all sandbox spaces. Owned by this app, and calls `CloudRunService` directly rather than going through the orchestrator:
 - List all sandbox sessions
 - View Cloud Run container details
 - Terminate running containers
@@ -90,32 +122,41 @@ Admin interface for managing all sandbox spaces:
 
 ### Services
 
+#### `ActiveAgent::Dashboard::SandboxOrchestrator`
+The single entry point the engine's controllers and jobs use — `create_sandbox`, `status`, `terminate`, `list_sandboxes`, `cleanup_expired`, plus `backend_info` and the instance-tier helpers. It owns the backend registry described above and normalizes each backend's response shape.
+
 #### `CloudRunService` (app/services/cloud_run_service.rb)
-Handles all Cloud Run API interactions:
+Handles Cloud Run API interactions. Stays in this app, which is where the Google Cloud SDK dependency belongs:
 - Create sandbox jobs
 - Query job status
 - Fetch container logs
 - Terminate jobs
 
+#### `IncusSandboxService` (app/services/incus_sandbox_service.rb) and `KubernetesSandboxService` (app/services/kubernetes_sandbox_service.rb)
+The other two backends this app registers — Incus containers on any Linux host (the default, per `SANDBOX_BACKEND`) and Kubernetes pods.
+
 ### Jobs
 
-#### `SandboxProvisionJob` (app/jobs/sandbox_provision_job.rb)
+#### `ActiveAgent::Dashboard::SandboxProvisionJob`
 Background job to provision new sandbox containers:
-- Creates Cloud Run job with sandbox config
+- Asks `SandboxOrchestrator` for a sandbox from the configured backend
 - Updates SandboxSession with container URL
 - Broadcasts status via ActionCable
+- Simulates provisioning in development and test rather than hitting a backend
 
-#### `SandboxRunJob` (app/jobs/sandbox_run_job.rb)
+#### `ActiveAgent::Dashboard::SandboxRunJob`
 Executes tasks in provisioned sandboxes:
-- Calls sandbox container API
+- Runs the task through ActiveAgent for the requested provider
 - Records results back to SandboxSession
 
-#### `SandboxCleanupJob` (app/jobs/sandbox_cleanup_job.rb)
+#### `ActiveAgent::Dashboard::SandboxCleanupJob`
 Cleans up expired sandbox resources:
-- Terminates Cloud Run jobs
+- Deletes the session's Cloud Run job directly, not through the orchestrator — only when `cloud_run_job_id` is set
 - Updates session status
 
 ## Free Tier Limits
+
+From `ActiveAgent::Dashboard::SandboxSession::FREE_TIER_LIMITS`:
 
 | Limit | Value |
 |-------|-------|
@@ -143,9 +184,21 @@ ANTHROPIC_API_KEY=<from_secret>
 ### Main Application Environment
 
 ```bash
+SANDBOX_BACKEND=cloud_run          # incus (default) | kubernetes | cloud_run
+
+# cloud_run backend
 GOOGLE_CLOUD_PROJECT=activeagents-prod
 CLOUD_RUN_REGION=us-central1
 SANDBOX_IMAGE=gcr.io/activeagents-prod/activeagents:sandbox
+
+# incus backend
+INCUS_HOST=unix:///var/lib/incus/unix.socket
+INCUS_PROJECT=agent-sandboxes
+INCUS_CERT_PATH=                   # for remote Incus over HTTPS
+INCUS_KEY_PATH=
+
+# kubernetes backend
+KUBECONFIG=~/.kube/config
 ```
 
 ## Building the Sandbox Image

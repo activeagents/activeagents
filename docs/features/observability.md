@@ -13,7 +13,10 @@ Positioning — the same engine runs in three contexts:
   Rails app (e.g. `activeagents.combinaut.com`) as a production trace
   sink for their fleet — see the gem's
   `docs/framework/self-hosted-observability.md`. Data stays in their
-  database; the richer React suite below stays platform-only.
+  database, and it is the same dashboard, not a traces-only cut of it:
+  agents, interactions, evaluations, scorecards, cost estimates, the agent
+  builder, sandboxes, session recordings and the agents-as-MCP-server
+  endpoint all ship in the engine.
 - **Hosted platform** (this app): the paid, multi-tenant product at
   activeagents.ai. Free workspaces get a deliberately low-volume trial
   (see Quotas). The platform **mounts** the engine at `/dashboard` and
@@ -68,15 +71,18 @@ sandbox backends.
   `ActiveAgent::Dashboard::Api::TracesController`. Bearer-token auth against
   `Account#telemetry_api_key`, idempotency by `trace_id`, and async
   processing via the gem's `ActiveAgent::ProcessTelemetryTracesJob` are all
-  gem behavior; the subclass only adds plan-based trace quotas (HTTP 429).
+  gem behavior; the subclass widens the auth to also accept dashboard API
+  keys (Settings → API Keys) and adds plan-based trace quotas (HTTP 429).
 - **Span format** — platform-executed agent runs build traces with the gem's
   `ActiveAgent::Telemetry::Span` and persist through the same
   `create_from_payload` normalizer, so platform runs and SDK-reported runs
   are indistinguishable downstream.
-- **Metric definitions** — `Api::MetricsController` mirrors the gem
-  dashboard's `calculate_metrics` / `agent_statistics` queries (trace count,
-  token totals, average duration, error rate, active agents, per-agent
-  stats).
+- **Metric definitions** — the engine's
+  `ActiveAgent::Dashboard::Api::MetricsController` (served at
+  `/dashboard/api/metrics`) exposes the same aggregates as the gem's
+  server-rendered metrics page: trace count, token totals, average duration,
+  error rate, active agents and per-agent stats, account-scoped and with
+  previous-period deltas.
 
 ### Multi-tenant configuration
 
@@ -95,6 +101,13 @@ Every trace belongs to an `Account`. Accounts get a `telemetry_api_key`
 (generated via `has_secure_token`) shown on the dashboard's Organization
 page.
 
+It also sets `config.table_name_prefix = ""`. The dashboard's other tables
+(agents, runs, evaluations, …) predate the engine here and are unprefixed,
+where a fresh install gets `active_agent_*`; the traces table is
+`active_agent_telemetry_traces` either way. The remaining seams — quotas,
+usage counters, provider credentials, agent scoping, sandbox backends — are
+documented inline in the initializer.
+
 ## Customer setup (dev console → hosted)
 
 A customer app using the activeagent gem sends traces here with:
@@ -109,16 +122,22 @@ telemetry:
 
 During development the gem's own dev console
 (`rails g active_agent:dashboard:install` + `local_storage: true`) shows the
-same Traces/Metrics views against local data — same pipeline, so what a
-developer sees locally is what the platform shows in production.
+same views against local data — same pipeline and same code, so what a
+developer sees locally is what the platform shows in production. The
+generator writes two migrations, the traces table and the rest of the
+dashboard's tables; `--traces_only` skips the second for an app that only
+wants to be a trace sink.
 
 ## Platform-executed agents
 
-`AgentExecutionService` (used by `AgentExecutionJob` and
-`Agent#test_execute`) executes dashboard-built agents through the gem:
+`ActiveAgent::Dashboard::AgentExecutionService` (used by
+`AgentExecutionJob` and `Agent#test_execute`) executes dashboard-built agents
+through the gem:
 
-- The agent's configured provider is used when its credentials are present
-  in `config/active_agent.yml` (e.g. `OPENAI_API_KEY`,
+- The agent's configured provider is used when its credentials are present:
+  the account's own provider key first (Settings → Provider API Keys,
+  resolved through `config.provider_credentials_resolver`), else the platform
+  keys in `config/active_agent.yml` (e.g. `OPENAI_API_KEY`,
   `ANTHROPIC_API_KEY`). Otherwise execution raises
   `AgentExecutionService::ProviderNotConfiguredError` and the run is marked
   failed with that message. There is no mock fallback outside the test
@@ -133,15 +152,20 @@ developer sees locally is what the platform shows in production.
 Trace ingestion is limited per plan (`Account::TRACE_LIMITS`): free 250
 traces/month (trial-sized), pro 25,000/month, enterprise unlimited. Agent
 executions follow `Account::USAGE_LIMITS` (free 25/month trial, pro 10,000).
-Retention is plan-based too (`TraceRetentionJob::RETENTION`: 3 days free,
-14 days pro, 400 days enterprise — job not yet scheduled). Quotas are
-enforced at the ingest endpoint (429 when exhausted) and the execution API
-(402), and surfaced in `Account#usage_stats`.
+Retention is plan-based too: `Account::TRACE_RETENTION` (3 days free, 14 days
+pro, 400 days enterprise) is handed to the engine as a per-account callable
+via `config.trace_retention`, which the engine's
+`ActiveAgent::Dashboard::TraceRetentionJob` reads — the job is not yet
+scheduled. Trace quotas are enforced at this app's ingest endpoint (429 when
+exhausted); execution quotas run inside the engine through
+`config.quota_checker`, which returns 402 with `Account#usage_stats`.
 
 ## Conversation persistence (solid_agent)
 
 Alongside span-level traces, every platform execution persists the
-conversation itself through the solid_agent gem's `HasContext` concern:
+conversation itself through the solid_agent gem's `HasContext` concern. The
+three record classes are the engine's (`ActiveAgent::Dashboard::AgentContext`
+and friends), aliased here so the bare names still resolve:
 
 - `AgentContext` — one row per (agent, action): the agent's interaction
   stream (contextable = the dashboard Agent record)
@@ -154,7 +178,8 @@ conversation itself through the solid_agent gem's `HasContext` concern:
 `AgentExecutionService` threads the run's trace_id through
 `prompt_options[:trace_id]`; `AgentContext#record_generation_with_provenance!`
 (solid_agent's documented extension point) stores it per generation. The
-dashboard's Interactions view reads these via `GET /api/interactions`.
+dashboard's Interactions view reads these via
+`GET /dashboard/api/interactions`.
 
 Upstream PR making trace correlation first-class in solid_agent's
 generators (plus fixes for silently-dropped generations):
@@ -173,16 +198,19 @@ against configurable criteria — matching the lander's Evaluations preview:
   *skipped* — never faked — without them
 
 Models: `Evaluation` (per-agent definition) and `EvaluationRun` (scores
-per criterion with min/max/passed counts). API: `/api/evaluations`
-(index/show/create/run/destroy). Runner: `EvaluationRunnerService`.
+per criterion with min/max/passed counts). API:
+`/dashboard/api/evaluations` (index/show/create/run/destroy). Runner:
+`EvaluationRunnerService`. All three are the engine's classes, so a
+self-hosted install gets evaluations too.
 
 ## Cost estimation
 
-The gem's telemetry records tokens only; the platform layers pricing on
-top via `ModelPricing` (per-model $/1M token table with a blended
-fallback). Estimated costs appear per trace (`estimated_cost` in
-`/api/traces`), and in `/api/metrics` as `summary.total_cost` plus a
-per-agent `cost` — always labeled as estimates.
+The gem's telemetry records tokens only; the dashboard layers pricing on
+top via `ModelPricing` (RubyLLM's model registry where the model is known,
+otherwise a per-model $/1M token table with a blended fallback). Estimated
+costs appear per trace (`estimated_cost` in `/dashboard/api/traces`), and in
+`/dashboard/api/metrics` as `summary.total_cost` plus a per-agent `cost` —
+always labeled as estimates.
 
 ## Non-ActiveAgent clients (RubyLLM, others)
 

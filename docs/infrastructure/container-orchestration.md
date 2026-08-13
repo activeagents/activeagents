@@ -29,7 +29,9 @@ User Request
 **Files:**
 - `scripts/setup-incus-host.sh` - Host setup script
 - `app/services/incus_sandbox_service.rb` - Incus API client
-- `app/services/sandbox_orchestrator.rb` - Unified orchestrator
+- `ActiveAgent::Dashboard::SandboxOrchestrator` - Unified orchestrator, in the
+  activeagent gem's dashboard engine (`app/services/sandbox_orchestrator.rb`
+  here is an alias of it)
 
 **Pros:**
 - Cloud-agnostic: runs on any Linux host
@@ -71,7 +73,8 @@ User Request
 **Files:**
 - `terraform/modules/sandbox/` - Infrastructure
 - `app/services/cloud_run_service.rb` - Service wrapper
-- `app/jobs/sandbox_provision_job.rb` - Background provisioning
+- `ActiveAgent::Dashboard::SandboxProvisionJob` - Background provisioning, in
+  the engine (`app/jobs/sandbox_provision_job.rb` here is an alias of it)
 
 **Pros:**
 - Serverless - no cluster management
@@ -201,10 +204,16 @@ export INCUS_HOST=https://your-server:8443
 export INCUS_PROJECT=agent-sandboxes
 ```
 
+`SANDBOX_BACKEND` picks among the backends registered with the dashboard
+engine. This app registers `incus`, `kubernetes` and `cloud_run` in
+`config/initializers/active_agent_dashboard.rb` (`config.sandbox_backends`);
+the engine ships only the in-memory `mock` backend, and an unregistered name
+falls back to it rather than failing.
+
 ### 3. Use the Orchestrator
 
 ```ruby
-# app/jobs/sandbox_provision_job.rb
+# ActiveAgent::Dashboard::SandboxProvisionJob
 orchestrator = SandboxOrchestrator.new
 result = orchestrator.create_sandbox(sandbox_session)
 # => { sandbox_id: "sandbox-abc123", url: "http://10.100.0.42:8080", ... }
@@ -312,11 +321,17 @@ KUBECONFIG=/path/to/kubeconfig
 ## Files Reference
 
 ```
-app/services/
-  sandbox_orchestrator.rb      # Unified orchestrator (backend-agnostic)
+app/services/                  # the backends this app operates
   incus_sandbox_service.rb     # Incus backend
   kubernetes_sandbox_service.rb # Kubernetes backend
   cloud_run_service.rb         # Cloud Run backend
+
+config/initializers/
+  active_agent_dashboard.rb    # registers the three backends with the engine
+
+# In the activeagent gem (dashboard engine):
+#   ActiveAgent::Dashboard::SandboxOrchestrator  # backend-agnostic orchestrator
+#   ActiveAgent::Dashboard::MockSandboxBackend   # in-memory backend it ships with
 
 scripts/
   setup-incus-host.sh          # One-command Incus host setup

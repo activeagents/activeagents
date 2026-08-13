@@ -26,10 +26,10 @@ end
 production:
   ruby_llm:
     service: "RubyLLM"
-telemetry:
-  enabled: true
-  endpoint: https://api.activeagents.ai/v1/traces
-  api_key: <%= ENV["ACTIVEAGENTS_API_KEY"] %>
+  telemetry:
+    enabled: true
+    endpoint: https://api.activeagents.ai/v1/traces
+    api_key: <%= ENV["ACTIVEAGENTS_API_KEY"] %>
 ```
 
 ## Option 2: instrument RubyLLM directly (no ActiveAgent dependency)
@@ -178,11 +178,11 @@ ActiveAgents::Telemetry::RubyLLM.subscribe!(
 For a dashboard running locally (e.g. via `docker-compose.dev.yml` under
 OrbStack/Docker Desktop — see `docs/local-mac-llm.md`), set
 `ACTIVEAGENTS_TELEMETRY_ENDPOINT=http://localhost:3000/v1/traces` (or the
-container's `*.orb.local` hostname) in the reporting app. The Bearer token
-is either a platform API key generated from Settings → API Keys (`aa_…`
-keys, once PR
-[#96](https://github.com/activeagents/activeagents/pull/96) lands) or the
-account's legacy `telemetry_api_key` from the Organization page.
+container's `*.orb.local` hostname) in the reporting app. Ingest stays at
+the root here even though the dashboard itself is mounted at `/dashboard`.
+The Bearer token is either a platform API key generated from Settings → API
+Keys (`aa_…` keys) or the account's legacy `telemetry_api_key` from the
+Organization page — `Api::V1::TracesController` accepts both.
 
 For an **enterprise self-hosted mount** of the gem's dashboard engine
 (customer's own Rails app, e.g. `activeagents.combinaut.com` — see the

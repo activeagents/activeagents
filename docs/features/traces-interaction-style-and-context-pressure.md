@@ -6,7 +6,9 @@ One conversation renderer everywhere, tool calls that read as in/out pairs,
 a context-pressure meter on every trace, and trace refs that deep-link.
 Design direction comes from the Active Agent design system package installed
 at `.claude/skills/activeagent-design/` (markdown committed; prototype
-HTML/JS/CSS payloads gitignored).
+HTML/JS/CSS payloads gitignored). The components named below live in the
+activeagent gem, under
+`lib/active_agent/dashboard/frontend/components/dashboard/`.
 
 ## What changed
 
@@ -53,8 +55,9 @@ HTML/JS/CSS payloads gitignored).
 - `trace:xxxxxxxx` refs in Interactions, Conversation History, and Agent
   Runner are links to the trace deep link.
 - Sidebar: Interactions moved back under Observability (top-level).
-- `Api::TracesController#show` accepts trace_id / short-id prefix, not
-  just the record id.
+- `Api::TraceReportsController#show` (the dashboard's read API — the engine
+  keeps `Api::TracesController` for token-authenticated ingest on the same
+  path) accepts trace_id / short-id prefix, not just the record id.
 
 ## Domain model (from Justin, guiding future work)
 - **Interaction** = a set of traces (each trace one turn/step).
