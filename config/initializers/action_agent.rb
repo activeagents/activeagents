@@ -1,6 +1,6 @@
 # frozen_string_literal: true
 
-# The hosted platform is the multi-tenant deployment of the activeagent gem's
+# The hosted platform is the multi-tenant deployment of the actionagent gem's
 # dashboard engine. The engine owns the product surface — agents, runs,
 # conversations, evaluations, traces, metrics, sandboxes, recordings — and
 # this app supplies the things a hosted product has and a self-hosted install

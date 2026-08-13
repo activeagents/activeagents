@@ -1,7 +1,7 @@
 # frozen_string_literal: true
 
-# Hosted-platform trace store, backed by the activeagent gem's telemetry
-# implementation.
+# Hosted-platform trace store, backed by the actionagent gem's dashboard
+# engine.
 #
 # All scopes (recent, with_errors, for_agent, for_service, for_date_range,
 # for_account), the payload normalizer (.create_from_payload) and the
@@ -9,8 +9,7 @@
 # display_name, ...) are inherited from ActionAgent::TelemetryTrace.
 #
 # The table (active_agent_telemetry_traces) is the same one a self-hosted
-# install gets from the gem's dashboard install generator with
-# --multi_tenant; the platform only layers on the mandatory account
+# install gets from `rails generate action_agent:install --multi_tenant`; the platform only layers on the mandatory account
 # association and token-total dedup.
 #
 # Interactions for observed agents are served straight from traces

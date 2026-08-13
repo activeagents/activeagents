@@ -5,10 +5,11 @@ the landing page, backend dashboard, Stripe checkout flow, and any future produc
 
 All implementations should reference this spec to ensure visual consistency.
 
-The dashboard's React components ship in the activeagent gem's dashboard engine
-(`lib/active_agent/dashboard/frontend/`), which this app mounts. This app's own
+The dashboard's React components live in the `actionagent` gem — the dashboard
+engine this app mounts — at `actionagent/frontend/` in the gem repo
+(github.com/activeagents/activeagent), not in this one. This app's own
 JavaScript — landing page, plans, subscriptions, admin — is under
-`app/javascript/`.
+`app/javascript/` here.
 
 ---
 

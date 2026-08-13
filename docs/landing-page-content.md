@@ -343,11 +343,12 @@ that need more traces, retention, and features.
 
 #### Q: Can I self-host the platform?
 ```
-The gems can be used anywhere, and the dashboard ships in the
-activeagent gem as a mountable Rails engine — traces, metrics,
-agents, evaluations, interactions, and session replay all run on
-your own infrastructure. The managed service runs that same engine
-and adds hosted ingestion, retention, team accounts, and billing.
+The gems can be used anywhere. Add the actionagent gem
+alongside activeagent and you get the whole dashboard as a
+mountable Rails engine — traces, metrics, agents, evaluations,
+interactions, and session replay all run on your own
+infrastructure. The managed service runs that same engine and
+adds hosted ingestion, retention, team accounts, and billing.
 ```
 
 #### Q: Do you offer professional services?

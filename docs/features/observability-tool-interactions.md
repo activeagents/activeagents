@@ -16,7 +16,7 @@
   `tool_arguments`, and `duration_ms` (`AgentContext#add_tool_message`
   extended; provider messages without names fall back to the service's
   invocation record).
-- `ActiveAgent::Dashboard::Api::AgentRunsController#show` returns the run's
+- `ActionAgent::Api::AgentRunsController#show` returns the run's
   `messages` slice — correlated via the user message's `provenance.trace_id`
   — so run history can show the full interaction stream.
 - `AgentMessageSerializer` shared by Interactions and run detail.

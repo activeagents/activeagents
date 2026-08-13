@@ -27,10 +27,10 @@ Rails.application.routes.draw do
   get "pricing", to: "pages#pricing"
 
   # The dashboard itself: agents, runs, conversations, evaluations, traces,
-  # metrics, sandboxes and recordings all come from the activeagent gem's
+  # metrics, sandboxes and recordings all come from the actionagent gem's
   # engine, configured for this platform in
-  # config/initializers/active_agent_dashboard.rb. Its own /api routes live
-  # under the mount (/dashboard/api/...).
+  # config/initializers/action_agent.rb. Its own /api routes live under the
+  # mount (/dashboard/api/...).
   # Named :dashboard so the app's existing dashboard_path links keep working.
   mount ActionAgent::Engine => "/dashboard", as: :dashboard
 
