@@ -73,15 +73,55 @@ export function ObjectCard({ darkMode, id, children, style, className = '' }) {
   );
 }
 
-// The `input:` / `output:` lines under an object's header. One line each,
-// clipped rather than wrapped: the collapsed row's job is to say what this was
-// about, not to reproduce it. Labels carry the role colour (blue user input,
-// red agent output, amber tool result) so the same content reads the same way
-// on a trace, a span, and an interaction.
-export function PreviewLines({ lines, darkMode, onClick, indent = 0, size = '12px', style }) {
+// The block an expanded value opens into. JSON keeps its indentation and
+// scrolls sideways; prose wraps. Either way it is capped and scrolls, because
+// a captured message history can run to thousands of lines and would otherwise
+// push everything below it off the screen.
+export const preBlockStyle = (darkMode, { wrap = true, maxHeight = 320 } = {}) => ({
+  background: telemetryColors(darkMode).preBg,
+  borderRadius: '6px',
+  padding: '6px 8px',
+  margin: '2px 0 4px 0',
+  overflowX: 'auto',
+  overflowY: 'auto',
+  maxHeight: `${maxHeight}px`,
+  whiteSpace: wrap ? 'pre-wrap' : 'pre',
+});
+
+// A value that may be a JSON string, an object, or plain prose. JSON is
+// indented so an expanded tool payload reads as a structure; prose is left
+// exactly as it was written.
+export const prettyValue = (value) => {
+  if (value == null) return { text: '', json: false };
+  if (typeof value === 'object') return { text: JSON.stringify(value, null, 2), json: true };
+
+  const text = String(value);
+  if (!/^[[{]/.test(text.trim())) return { text, json: false };
+  try {
+    return { text: JSON.stringify(JSON.parse(text), null, 2), json: true };
+  } catch {
+    return { text, json: false };
+  }
+};
+
+// The `input:` / `output:` lines under an object's header, and the `in:` /
+// `out:` lines under a span. Collapsed they are one clipped line each: the
+// row's job is to say what this was about, not to reproduce it. Each opens in
+// place, though — the value you are already reading is the one you want in
+// full, and making you open the whole span to get at it was a detour.
+//
+// Labels carry the role colour (blue user input, red agent output, amber tool
+// result) so the same content reads the same way on a trace, a span, and an
+// interaction.
+// `onClick` opens the object these lines belong to. It still fires for a line
+// with nothing more to show, and for the padding around them — only a line
+// that can actually open keeps the click for itself.
+export function PreviewLines({ lines, darkMode, onClick, indent = 0, size = '12px', style, max = 200 }) {
+  const [isOpen, toggle] = useDisclosureSet();
   const colors = telemetryColors(darkMode);
   const visible = (lines || []).filter((line) => line && line.text);
   if (visible.length === 0) return null;
+
   return (
     <div
       onClick={onClick}
@@ -97,15 +137,58 @@ export function PreviewLines({ lines, darkMode, onClick, indent = 0, size = '12p
         ...style,
       }}
     >
-      {visible.map((line, index) => (
-        <div
-          key={`${line.label}-${index}`}
-          style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}
-        >
-          <span style={{ color: line.color || colors.textMuted }}>{line.label}</span>{' '}
-          {previewText(line.text, line.max || 200)}
-        </div>
-      ))}
+      {visible.map((line, index) => {
+        const key = `${line.label}-${index}`;
+        const open = isOpen(key);
+        const limit = line.max || max;
+        const squished = String(line.text).replace(/\s+/g, ' ').trim();
+        const pretty = prettyValue(line.text);
+        // These rows are a single clipped line, so what actually fits depends
+        // on the window — a character count can't tell you. The rule errs
+        // toward offering the marker: a short value keeps its plain line, and
+        // anything beyond that opens, because a marker on a line that happened
+        // to fit costs nothing next to a clipped line with no way in. JSON
+        // always opens — its indented form is the readable one at any width.
+        const expandable =
+          pretty.json || squished.length > 60 || squished !== String(line.text).trim();
+
+        return (
+          <div key={key}>
+            <div
+              onClick={expandable
+                ? (event) => {
+                    // The row behind these lines toggles the whole object;
+                    // opening one value is a smaller thing than that.
+                    event.stopPropagation();
+                    toggle(key);
+                  }
+                : undefined}
+              title={expandable ? (open ? 'Collapse' : 'Expand') : undefined}
+              style={{
+                cursor: expandable ? 'pointer' : 'default',
+                whiteSpace: 'nowrap',
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+              }}
+            >
+              {/* The marker keeps its column even when a line can't open, so
+                  input: and output: stay aligned with each other. */}
+              <span style={{ color: line.color || colors.textMuted }}>
+                {expandable ? (open ? '▾' : '▸') : '\u00A0'} {line.label}:
+              </span>{' '}
+              {!open && previewText(squished, limit)}
+            </div>
+            {open && (
+              <pre
+                onClick={(event) => event.stopPropagation()}
+                style={preBlockStyle(darkMode, { wrap: !pretty.json })}
+              >
+                {pretty.text}
+              </pre>
+            )}
+          </div>
+        );
+      })}
     </div>
   );
 }
@@ -170,17 +253,7 @@ export function DisclosureLine({ label, body, open, onToggle, darkMode, prose = 
         {!open && <span style={{ color: colors.textMuted }}>{previewText(body, max)}</span>}
       </div>
       {open && (
-        <pre
-          onClick={(event) => event.stopPropagation()}
-          style={{
-            background: colors.preBg,
-            borderRadius: '6px',
-            padding: '6px 8px',
-            margin: '2px 0 4px 0',
-            overflowX: 'auto',
-            whiteSpace: prose ? 'pre-wrap' : 'pre',
-          }}
-        >
+        <pre onClick={(event) => event.stopPropagation()} style={preBlockStyle(darkMode, { wrap: prose })}>
           {body}
         </pre>
       )}

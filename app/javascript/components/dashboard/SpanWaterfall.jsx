@@ -143,7 +143,7 @@ export const traceContentPreview = (trace) => {
 export const spanContentPreview = (span) => {
   const attrs = span.attributes || {};
   let input = null;
-  let inputLabel = 'input:';
+  let inputLabel = 'input';
   let inputTone = 'user';
   if (attrs['prompt.input.messages']) {
     try {
@@ -158,17 +158,17 @@ export const spanContentPreview = (span) => {
   if (!input && (attrs['tool.input.args'] || attrs['tool.arguments'])) {
     const args = attrs['tool.input.args'] || attrs['tool.arguments'];
     input = typeof args === 'string' ? args : JSON.stringify(args);
-    inputLabel = 'in:';
+    inputLabel = 'in';
     inputTone = 'assistant';
   }
   let output = null;
-  let outputLabel = 'output:';
+  let outputLabel = 'output';
   let outputTone = 'assistant';
   if (attrs['llm.output.message'] || attrs['llm.completion']) {
     output = attrs['llm.output.message'] || attrs['llm.completion'];
   } else if (attrs['tool.output.result'] || attrs['tool.result']) {
     output = attrs['tool.output.result'] || attrs['tool.result'];
-    outputLabel = 'out:';
+    outputLabel = 'out';
     outputTone = 'tool';
   }
   if (output != null && typeof output !== 'string') output = JSON.stringify(output);

@@ -615,8 +615,8 @@ export default function InteractionsView({ agentId = null, embedded = false }) {
                     onClick={() => toggleSession(session.id)}
                     style={{ padding: '0 16px 12px' }}
                     lines={[
-                      { label: 'input:', text: session.preview?.input, color: roleBubble('user', darkMode).color },
-                      { label: 'output:', text: session.preview?.output, color: roleBubble('assistant', darkMode).color },
+                      { label: 'input', text: session.preview?.input, color: roleBubble('user', darkMode).color },
+                      { label: 'output', text: session.preview?.output, color: roleBubble('assistant', darkMode).color },
                     ]}
                   />
                 )}
