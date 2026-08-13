@@ -91,8 +91,8 @@ export default function TraceCard({ trace, darkMode, expanded, onToggle }) {
           onClick={onToggle}
           style={{ padding: '0 16px 12px' }}
           lines={[
-            { label: 'input:', text: preview.input, color: roleBubble('user', darkMode).color },
-            { label: 'output:', text: preview.output, color: roleBubble('assistant', darkMode).color },
+            { label: 'input', text: preview.input, color: roleBubble('user', darkMode).color },
+            { label: 'output', text: preview.output, color: roleBubble('assistant', darkMode).color },
           ]}
         />
       )}
