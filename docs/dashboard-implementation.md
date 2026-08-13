@@ -2,12 +2,19 @@
 
 > **See also:** [features/observability.md](features/observability.md) for the
 > observability stack (traces, metrics, interactions, evaluations, telemetry
-> ingest) — the platform runs the activeagent gem's dashboard/telemetry
+> ingest) — the platform mounts the activeagent gem's dashboard/telemetry
 > engine in multi-tenant mode and persists conversations via solid_agent.
 
 ## Overview
 
 The Agent Builder Dashboard provides a visual interface for creating, configuring, and testing AI agents built with ActiveAgent.
+
+It ships in the activeagent gem as `ActiveAgent::Dashboard::Engine`. This app
+mounts it (`mount ActiveAgent::Dashboard::Engine => "/dashboard", as: :dashboard`
+in `config/routes.rb`) and configures it in
+`config/initializers/active_agent_dashboard.rb`; the models, services, jobs,
+controllers and React app below live in the gem. Paths that start with
+`lib/active_agent/dashboard/` are relative to the activeagent gem checkout.
 
 ## Setup
 
@@ -32,15 +39,31 @@ bin/rails db:migrate
 bin/dev
 ```
 
+`npm install` / `bin/dev` build this app's own assets (landing page, Inertia
+pages). The dashboard bundle is not built here — it ships prebuilt in the gem
+at `lib/active_agent/dashboard/app/assets/builds/active_agent_dashboard.{js,css}`,
+which the engine adds to the host app's asset paths.
+
 ### Access
 
-Navigate to `http://localhost:3000/dashboard` to access the Agent Builder.
+Navigate to `http://localhost:3000/dashboard` — the engine's mount point — to
+access the Agent Builder.
 
 ## Architecture
 
 ### Database Models
 
-#### Agent (`app/models/agent.rb`)
+The models live in the gem's engine under
+`lib/active_agent/dashboard/app/models/active_agent/dashboard/`, namespaced
+`ActiveAgent::Dashboard::`. Their counterparts under this app's `app/models/`
+are one-line aliases (`Agent = ActiveAgent::Dashboard::Agent`), so bare
+constant names keep resolving in platform code; the models this app owns
+(`Account`, `User`, `Plan`, `Session`, `TelemetryTrace`) are still real files
+here. The tables stay in this app's database and stay unprefixed — the
+initializer sets `config.table_name_prefix = ""`, where a fresh self-hosted
+install would get `active_agent_*`.
+
+#### Agent (`ActiveAgent::Dashboard::Agent`)
 The core model representing an AI agent configuration.
 
 | Field | Type | Description |
@@ -56,9 +79,12 @@ The core model representing an AI agent configuration.
 | instruction_sets | jsonb | Selected instruction categories |
 | tools | jsonb | Enabled tools/MCPs |
 | model_config | jsonb | Temperature, max_tokens, etc. |
-| status | integer | draft (0), active (1), archived (2) |
+| status | integer | draft (0), active (1), archived (2), observed (3) |
 
-#### AgentVersion (`app/models/agent_version.rb`)
+`observed` agents were discovered from reported telemetry rather than authored
+here, so they are read-only until forked.
+
+#### AgentVersion (`ActiveAgent::Dashboard::AgentVersion`)
 Tracks configuration changes for versioning and rollback.
 
 | Field | Type | Description |
@@ -68,7 +94,7 @@ Tracks configuration changes for versioning and rollback.
 | change_summary | string | Description of changes |
 | configuration_snapshot | jsonb | Full config at this version |
 
-#### AgentRun (`app/models/agent_run.rb`)
+#### AgentRun (`ActiveAgent::Dashboard::AgentRun`)
 Records each agent execution for debugging and analytics.
 
 | Field | Type | Description |
@@ -76,7 +102,7 @@ Records each agent execution for debugging and analytics.
 | agent_id | reference | Parent agent |
 | input_prompt | text | User input |
 | output | text | Agent response |
-| status | integer | pending/running/complete/failed |
+| status | integer | pending/running/complete/failed/cancelled |
 | duration_ms | integer | Execution time |
 | input_tokens | integer | Tokens consumed |
 | output_tokens | integer | Tokens generated |
@@ -85,59 +111,87 @@ Records each agent execution for debugging and analytics.
 
 ### API Endpoints
 
+The dashboard's JSON API is defined by the engine
+(`lib/active_agent/dashboard/config/routes.rb`) and served under the mount, so
+every path below sits at `/dashboard/api/...` on this platform. A self-hosted
+install mounting the engine elsewhere gets the same paths under its own mount.
+
 #### Agents
 
 | Method | Path | Description |
 |--------|------|-------------|
-| GET | /api/agents | List all agents |
-| POST | /api/agents | Create new agent |
-| GET | /api/agents/:id | Get agent details |
-| PATCH | /api/agents/:id | Update agent |
-| DELETE | /api/agents/:id | Delete agent |
-| GET | /api/agents/:id/versions | Get version history |
-| POST | /api/agents/:id/restore | Restore a version |
-| GET | /api/agents/:id/runs | Get execution history |
-| POST | /api/agents/:id/execute | Queue async execution |
-| POST | /api/agents/:id/test | Sync test execution |
-| POST | /api/agents/:id/duplicate | Clone agent |
-| GET | /api/agents/:id/export | Export agent config/code |
-| GET | /api/agents/presets | Get available presets |
+| GET | /dashboard/api/agents | List all agents |
+| POST | /dashboard/api/agents | Create new agent |
+| GET | /dashboard/api/agents/:id | Get agent details |
+| PATCH | /dashboard/api/agents/:id | Update agent |
+| DELETE | /dashboard/api/agents/:id | Delete agent |
+| GET | /dashboard/api/agents/:id/versions | Get version history |
+| POST | /dashboard/api/agents/:id/restore | Restore a version |
+| GET | /dashboard/api/agents/:id/runs | Get execution history |
+| POST | /dashboard/api/agents/:id/execute | Queue async execution |
+| POST | /dashboard/api/agents/:id/test | Sync test execution |
+| POST | /dashboard/api/agents/:id/duplicate | Clone agent |
+| GET | /dashboard/api/agents/:id/export | Export agent config/code |
+| GET | /dashboard/api/agents/:id/analytics | Per-agent analytics |
+| GET | /dashboard/api/agents/presets | Get available presets |
 
 #### Runs
 
 | Method | Path | Description |
 |--------|------|-------------|
-| GET | /api/runs | List all runs |
-| GET | /api/runs/:id | Get run details |
-| POST | /api/runs/:id/cancel | Cancel running execution |
+| GET | /dashboard/api/runs | List all runs |
+| GET | /dashboard/api/runs/:id | Get run details |
+| POST | /dashboard/api/runs/:id/cancel | Cancel running execution |
 
 #### Observability
 
 | Method | Path | Description |
 |--------|------|-------------|
-| GET | /api/traces | Telemetry traces (account-scoped) |
-| GET | /api/metrics | 24h metrics, per-agent stats, cost estimates |
-| GET | /api/interactions | Conversation streams (solid_agent) |
-| GET/POST | /api/evaluations | Evaluations + runs |
+| GET | /dashboard/api/traces | Telemetry traces (account-scoped) |
+| GET | /dashboard/api/metrics | 24h metrics, per-agent stats, cost estimates |
+| GET | /dashboard/api/interactions | Conversation streams (solid_agent) |
+| GET/POST | /dashboard/api/evaluations | Evaluations + runs |
 | POST | /v1/traces | Telemetry ingest (Bearer telemetry_api_key) |
+
+`POST /v1/traces` stays at the root, routed by this app to
+`Api::V1::TracesController` (a subclass of the engine's ingest controller), so
+SDKs already configured against it keep working. `POST /mcp` is kept at the
+root for the same reason, pointed at the engine's MCP controller — which the
+engine also serves under its own mount. The remaining root-level API routes
+this app owns are `/api/usage`, `/api/benchmarks`, `/api/v1/*` and
+`/api/sandbox/*`.
 
 ### React Components
 
-#### Dashboard (`app/javascript/pages/Dashboard.jsx`)
+The React dashboard lives in the gem at
+`lib/active_agent/dashboard/frontend/` and ships prebuilt. It no longer runs on
+Inertia: the engine's `DashboardController` renders one page and hands initial
+state over as a JSON `data-props` attribute, which `frontend/index.jsx` reads
+before mounting.
+
+#### Dashboard (`lib/active_agent/dashboard/frontend/pages/Dashboard.jsx`)
 Main application component with routing and state management.
 
 **Props:**
 - `user` - Current user info
+- `account` - Current account, including its telemetry API key
 - `initialAgents` - Pre-loaded agent list
 - `meta` - Configuration metadata (providers, tools, etc.)
+- `subscription` - Billing state for the Organization view; the engine passes
+  `null`, since billing belongs to the host app
 
-#### Sidebar (`app/javascript/components/dashboard/Sidebar.jsx`)
+The same payload also carries `mountPath`, which `index.jsx` publishes on
+`window.ACTIVE_AGENT_DASHBOARD` so `utils/dashboardPath.js` and the `fetch`
+shim resolve client-side routes and `/api/...` calls against the mount rather
+than assuming `/dashboard`.
+
+#### Sidebar (`frontend/components/dashboard/Sidebar.jsx`)
 Navigation sidebar with agent count and resource links.
 
-#### Header (`app/javascript/components/dashboard/Header.jsx`)
+#### Header (`frontend/components/dashboard/Header.jsx`)
 Context-aware header showing current view and agent info.
 
-#### AgentList (`app/javascript/components/dashboard/AgentList.jsx`)
+#### AgentList (`frontend/components/dashboard/AgentList.jsx`)
 Grid view of all agents with search and filtering.
 
 **Features:**
@@ -148,7 +202,7 @@ Grid view of all agents with search and filtering.
   (no mascot — removed so the metrics carry the space)
 - Quick actions (duplicate, delete)
 
-#### AgentBuilder (`app/javascript/components/dashboard/AgentBuilder.jsx`)
+#### AgentBuilder (`frontend/components/dashboard/AgentBuilder.jsx`)
 Step-by-step wizard for creating new agents.
 
 **Steps:**
@@ -157,7 +211,7 @@ Step-by-step wizard for creating new agents.
 3. **Capabilities** - Instructions, tools, MCPs
 4. **Review** - Final configuration preview
 
-#### AgentEditor (`app/javascript/components/dashboard/AgentEditor.jsx`)
+#### AgentEditor (`frontend/components/dashboard/AgentEditor.jsx`)
 Full editor for existing agents with tabbed interface.
 
 **Tabs:**
@@ -167,7 +221,7 @@ Full editor for existing agents with tabbed interface.
 - **Versions** - Version history with restore
 - **Code** - Generated Ruby code preview
 
-#### AgentRunner (`app/javascript/components/dashboard/AgentRunner.jsx`)
+#### AgentRunner (`frontend/components/dashboard/AgentRunner.jsx`)
 Interactive testing interface for agents.
 
 **Features:**
@@ -179,14 +233,16 @@ Interactive testing interface for agents.
 
 ### Background Jobs
 
-#### AgentExecutionJob (`app/jobs/agent_execution_job.rb`)
+#### AgentExecutionJob (`ActiveAgent::Dashboard::AgentExecutionJob`)
 Async agent execution via SolidQueue.
 
 **Features:**
 - Executes through AgentExecutionService: real provider generation when
-  credentials are configured (config/active_agent.yml); without them the run
-  fails with `ProviderNotConfiguredError` rather than falling back to the
-  gem's mock provider, which is accepted in the test environment only
+  credentials are configured — the account's own provider key first (resolved
+  through `config.provider_credentials_resolver`), else the platform keys in
+  config/active_agent.yml; without either the run fails with
+  `ProviderNotConfiguredError` rather than falling back to the gem's mock
+  provider, which is accepted in the test environment only
 - Records a telemetry trace and persists the conversation (solid_agent)
   per run, correlated on trace_id
 - Error handling and logging
@@ -223,7 +279,7 @@ Async agent execution via SolidQueue.
 1. Open an agent
 2. Click "Code" tab
 3. Copy the generated Ruby code
-4. Or use `/api/agents/:id/export` for full config
+4. Or use `/dashboard/api/agents/:id/export` for full config
 
 ## Integration with ActiveAgent
 
@@ -256,59 +312,100 @@ response = DynamicAgent
 
 ## Customization
 
+These all live in the gem now, so changing them means changing the engine.
+
 ### Adding New Providers
 
-1. Update `PROVIDER_MODELS` in `AgentBuilder.jsx` and `AgentEditor.jsx`
+1. Add the model list to `Api::ProviderModelsController` (the source of truth
+   the builder fetches) and to `FALLBACK_PROVIDER_MODELS` in
+   `frontend/utils/providerModels.js`, which only covers a failed fetch
 2. Add provider constant to `Agent::PROVIDERS`
-3. Configure in `config/active_agent.yml`
+3. Configure credentials in `config/active_agent.yml` here, or per-account via
+   Settings → Provider API Keys
 
 ### Adding New Tools
 
 1. Add to `Agent::AVAILABLE_TOOLS`
-2. Add icon mapping in component `getToolIcon()` functions
-3. Implement tool in ActiveAgent
+2. Add icon mapping in `AgentEditor.jsx`'s `getToolIcon()`
+3. Give it a server-side implementation in `AgentToolbox` (`DEFINITIONS` +
+   `FUNCTIONS`), or it is ignored during platform execution
 
 ### Adding New Presets
 
-1. Add to `AGENT_PRESETS` in `AgentAvatar.jsx`
+1. Add to `AGENT_PRESETS` in `frontend/components/AgentAvatar.jsx`
 2. Add to `Agent::PRESET_TYPES`
-3. Configure appearance defaults in API controller
+3. Configure appearance defaults in `Api::AgentsController#presets`
 
 ## File Structure
+
+The implementation, in the activeagent gem:
+
+```
+activeagent/
+└── lib/active_agent/dashboard/
+    ├── config/
+    │   └── routes.rb              # the engine's own /api routes + catch-all
+    ├── app/
+    │   ├── controllers/active_agent/dashboard/
+    │   │   ├── dashboard_controller.rb   # renders the React app
+    │   │   ├── traces_controller.rb      # server-rendered <mount>/console/traces
+    │   │   └── api/
+    │   │       ├── base_controller.rb
+    │   │       ├── agents_controller.rb
+    │   │       ├── agent_runs_controller.rb
+    │   │       └── ...                   # traces, metrics, interactions,
+    │   │                                 # evaluations, sandboxes, mcp, ...
+    │   ├── jobs/active_agent/dashboard/
+    │   │   └── agent_execution_job.rb
+    │   ├── models/active_agent/dashboard/
+    │   │   ├── agent.rb
+    │   │   ├── agent_version.rb
+    │   │   └── agent_run.rb
+    │   ├── services/active_agent/dashboard/
+    │   │   ├── agent_execution_service.rb
+    │   │   ├── agent_toolbox.rb
+    │   │   └── ...
+    │   └── assets/builds/
+    │       └── active_agent_dashboard.{js,css}   # prebuilt, shipped in the gem
+    └── frontend/
+        ├── index.jsx                     # mounts from the data-props payload
+        ├── pages/
+        │   └── Dashboard.jsx
+        └── components/
+            ├── AgentAvatar.jsx
+            └── dashboard/
+                ├── index.js
+                ├── Sidebar.jsx
+                ├── Header.jsx
+                ├── AgentList.jsx
+                ├── AgentBuilder.jsx
+                ├── AgentEditor.jsx
+                └── AgentRunner.jsx
+```
+
+What stays here, on the platform:
 
 ```
 activeagents/
 ├── app/
-│   ├── controllers/
-│   │   ├── api/
-│   │   │   ├── base_controller.rb
-│   │   │   ├── agents_controller.rb
-│   │   │   └── agent_runs_controller.rb
-│   │   └── dashboard_controller.rb
-│   ├── jobs/
-│   │   └── agent_execution_job.rb
-│   ├── models/
-│   │   ├── agent.rb
-│   │   ├── agent_version.rb
-│   │   └── agent_run.rb
-│   └── javascript/
-│       ├── pages/
-│       │   └── Dashboard.jsx
-│       └── components/
-│           ├── AgentAvatar.jsx
-│           └── dashboard/
-│               ├── index.js
-│               ├── Sidebar.jsx
-│               ├── Header.jsx
-│               ├── AgentList.jsx
-│               ├── AgentBuilder.jsx
-│               ├── AgentEditor.jsx
-│               └── AgentRunner.jsx
+│   └── models/
+│       ├── agent.rb               # Agent = ActiveAgent::Dashboard::Agent
+│       ├── agent_version.rb       # (alias)
+│       └── agent_run.rb           # (alias)
 ├── db/
 │   └── migrate/
 │       ├── 20260216000001_create_agents.rb
 │       ├── 20260216000002_create_agent_versions.rb
-│       └── 20260216000003_create_agent_runs.rb
+│       ├── 20260216000003_create_agent_runs.rb
+│       └── 20260812200000_add_owner_columns_for_dashboard_engine.rb
 └── config/
-    └── routes.rb (updated with API routes)
+    ├── routes.rb                  # mounts the engine at /dashboard
+    └── initializers/
+        └── active_agent_dashboard.rb   # tenancy, quotas, credentials, sandboxes
 ```
+
+The same one-line aliasing covers the moved services, jobs, queries and
+serializers (`app/services/agent_execution_service.rb`,
+`app/jobs/agent_execution_job.rb`, `app/queries/agent_executions.rb`, the three
+serializers). This app's own sandbox backends, benchmark runner and
+`app/agents/` classes are still real files alongside them.

@@ -16,9 +16,9 @@
   `tool_arguments`, and `duration_ms` (`AgentContext#add_tool_message`
   extended; provider messages without names fall back to the service's
   invocation record).
-- `Api::AgentRunsController#show` returns the run's `messages` slice —
-  correlated via the user message's `provenance.trace_id` — so run history
-  can show the full interaction stream.
+- `ActiveAgent::Dashboard::Api::AgentRunsController#show` returns the run's
+  `messages` slice — correlated via the user message's `provenance.trace_id`
+  — so run history can show the full interaction stream.
 - `AgentMessageSerializer` shared by Interactions and run detail.
 
 ### Backend — new tools
@@ -64,8 +64,9 @@
   execution thread.
 - `AgentExecutionService` emits events around the LLM call and every
   tool/`call_agent` execution (label, args detail, duration, error).
-- `AgentRunner` now POSTs `/api/agents/:id/execute` (async job — dev uses
-  the in-process `:async` adapter) and polls `/api/runs/:id` every 1.2s,
+- `AgentRunner` now POSTs `/dashboard/api/agents/:id/execute` (async job —
+  dev uses the in-process `:async` adapter) and polls
+  `/dashboard/api/runs/:id` every 1.2s,
   rendering a live activity feed: `∿ ollama/qwen3:8b generating running…`,
   `[] browse_page ✓ 153ms`, `@ call_agent → local-qwen-assistant ✓ 9.7s`.
   The feed persists after completion as a run timeline. MCP-initiated runs

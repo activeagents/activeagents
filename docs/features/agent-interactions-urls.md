@@ -11,6 +11,11 @@ drill-down level is reflected in the URL with breadcrumb links back up.
 
 ## URL Scheme
 
+These are client-side routes, resolved against wherever the dashboard engine
+is mounted — `/dashboard` on this platform, whatever the host app chose in a
+self-hosted install. The engine's catch-all (`get "*path"`) renders the React
+app for all of them, so deep links and reloads work.
+
 | URL | View |
 |-----|------|
 | `/dashboard/agents/:id/interactions` | Agent Report — sessions list + cohorts by instructions × model |
@@ -24,7 +29,8 @@ drill-down level is reflected in the URL with breadcrumb links back up.
 
 A "session" is a solid_agent `AgentContext`: one persisted conversation
 stream per agent action (e.g. `DocsNavigatorAgent#ask`) that **every run
-appends to** (`Api::InteractionsController`). That's why an agent typically
+appends to** (`ActiveAgent::Dashboard::Api::InteractionsController`, served
+at `/dashboard/api/interactions`). That's why an agent typically
 shows a single session spanning many runs. Sessions are therefore a
 top-level drill-down entry on the Agent Report ("Sessions — grouped
 interaction streams"), alongside the instructions × model cohorts. The
@@ -49,28 +55,31 @@ single-run header also names the agent ("Docs Navigator — Run #81").
 
 - **Drilling in updates `window.location`** — selecting a run from the run list
   or from an expanded report cohort pushes `/interactions/runs/:runId`; the
-  "All interactions" toggle pushes `/interactions/all`.
+  "Sessions" toggle pushes `/interactions/sessions`.
 - **Deep links restore state** — a full page load on `/interactions/runs/81`
   fetches and renders Run #81; `popstate` (browser back/forward) re-applies
   whatever level the URL points at.
 - **Breadcrumbs** in the detail pane mirror the URL:
-  `{Agent name} / Interactions / Run #N` (or `All interactions`). Agent name
-  links back to the editor; "Interactions" clears the run selection and
-  returns to the base URL.
+  `{Agent name} / Interactions / Run #N` (or `Sessions`, then the session
+  name when one is open). Agent name links back to the editor;
+  "Interactions" clears the run selection and returns to the base URL.
 - Duplicate history entries are avoided (`pushPath` no-ops when the path is
   already current).
 
 ## Files Changed
 
-- `app/javascript/components/dashboard/AgentInteractions.jsx` — renamed from
+The React dashboard now lives in the activeagent gem at
+`lib/active_agent/dashboard/frontend/`; paths below are relative to that.
+
+- `components/dashboard/AgentInteractions.jsx` — renamed from
   `ConversationHistory.jsx`; URL sync (`pushPath`, `popstate` listener,
   deep-link parse on mount), breadcrumb bar, heading now "Agent Interactions".
-- `app/javascript/pages/Dashboard.jsx` — routes `/agents/:id/interactions`
-  (and legacy `/history`) to the view; the global `/dashboard/interactions`
-  check now excludes agent-scoped paths; `navigateTo('history')` pushes the
-  new URL.
-- `app/javascript/components/dashboard/AgentEditor.jsx` — toolbar button
-  label "History" → "Interactions".
+- `pages/Dashboard.jsx` — routes `/agents/:id/interactions` (and legacy
+  `/history`) to the view; the global `/interactions` check now excludes
+  agent-scoped paths; `navigateTo('history')` pushes the new URL. Paths are
+  built through `utils/dashboardPath.js` so they resolve against the mount.
+- `components/dashboard/AgentEditor.jsx` — toolbar button label "History" →
+  "Interactions".
 
 The internal Dashboard view key remains `'history'`; only URLs, labels, and
 the component name changed.
@@ -82,7 +91,7 @@ the component name changed.
    `Docs Navigator / Interactions / Run #81`.
 3. Browser back → returns to `/interactions`, report view restored.
 4. Hard reload on `/interactions/runs/81` → run stream restored.
-5. "All interactions" toggle → `/interactions/all`; breadcrumb "Interactions"
+5. "Sessions" toggle → `/interactions/sessions`; breadcrumb "Interactions"
    link → back to base.
 
 Screenshot: `tmp/playwright/agent-interactions-drilldown.png` (gitignored).

@@ -3,11 +3,12 @@
 Design system for **Active Agent** (activeagents.ai) — a Rails framework for AI agents plus a hosted observability platform (agent management, monitoring, traces, metrics, evaluations). Business model mirrors PostHog: free MIT gem with a Rails-engine dashboard, plus hosted/self-hosted Pro & Enterprise platform.
 
 ## Sources
-- GitHub: github.com/activeagents/activeagents (lander, brand assets, prototype Rails+React dashboard)
+- GitHub: github.com/activeagents/activeagents (lander, brand assets, the hosted platform)
   - `DESIGN_SPEC.md` — canonical design spec (colors, dark mode, observability UX)
   - `public/landing/css/index.css` — marketing site CSS (OKLCH theme system)
-  - `app/javascript/utils/designTokens.js` — dashboard tokens (TUI philosophy)
-  - `app/javascript/components/dashboard/*.jsx` — product screens
+- GitHub: github.com/activeagents/activeagent (the gem — ships the dashboard as a mountable Rails engine the platform mounts)
+  - `lib/active_agent/dashboard/frontend/utils/designTokens.js` — dashboard tokens (TUI philosophy)
+  - `lib/active_agent/dashboard/frontend/components/dashboard/*.jsx` — product screens
 - Industry competitor to position against: mastra.ai. Liked reference: Laravel Nightwatch (lander + product).
 
 ## Naming
