@@ -16,11 +16,14 @@
 # end
 
 # Acronyms for Zeitwerk autoloading
-# This ensures class names like MCPRecordingMiddleware and UIGeneratorAgent
-# are correctly matched to their file names (mcp_recording_middleware.rb, ui_generator_agent.rb)
+# This ensures class names like UIGeneratorAgent are correctly matched to
+# their file names (ui_generator_agent.rb).
+#
+# These apply to every autoloader, the dashboard engine's included, so keep
+# them to names this app actually owns — an entry here for a file the engine
+# ships would make the gem unloadable in any app without the same entry.
 Rails.autoloaders.each do |autoloader|
   autoloader.inflector.inflect(
-    "mcp_recording_middleware" => "MCPRecordingMiddleware",
     "ui_generator_agent" => "UIGeneratorAgent"
   )
 end
