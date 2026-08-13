@@ -1,6 +1,6 @@
 GIT
   remote: https://github.com/activeagents/activeagent.git
-  revision: c9a6ff3e8af085f340649b87f71560935b9cabfa
+  revision: f224c15a99bec4949ef78f17f12e7792286e8be6
   branch: claude/dashboard-tools-mcp-views-pdieob
   specs:
     activeagent (1.1.0)
@@ -14,7 +14,7 @@ GIT
 
 GIT
   remote: https://github.com/activeagents/activeagent.git
-  revision: c9a6ff3e8af085f340649b87f71560935b9cabfa
+  revision: f224c15a99bec4949ef78f17f12e7792286e8be6
   branch: claude/dashboard-tools-mcp-views-pdieob
   glob: actionagent/*.gemspec
   specs:
