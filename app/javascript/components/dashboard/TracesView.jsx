@@ -6,7 +6,7 @@ import {
 import { ICONS, TYPOGRAPHY } from '../../utils/designTokens';
 import InteractionStream, { roleBubble } from './InteractionStream';
 import ToolRoster from './ToolRoster';
-import ContextMeter, { contextWindowFor, estimateTokens } from './ContextMeter';
+import ContextMeter, { contextWindowFor, estimateContentTokens, messageSegments } from './ContextMeter';
 import { useTimeWindow } from '../../contexts/TimeWindowContext';
 import AgentStatCard from './AgentStatCard';
 import TimeWindowSelector from './TimeWindowSelector';
@@ -15,6 +15,44 @@ import TimeWindowSelector from './TimeWindowSelector';
 const AGENT_PALETTE = ['#6366f1', '#10b981', '#f59e0b', '#ec4899', '#3b82f6', '#8b5cf6', '#14b8a6', '#f97316'];
 
 const REFRESH_INTERVAL_MS = 30000;
+
+// The message history a prompt span recorded, as an array. Anything that
+// isn't a JSON array of messages (an older capture, a provider that stores
+// markup) reads as no history rather than as garbage.
+const parsePromptMessages = (raw) => {
+  if (!raw) return [];
+  try {
+    const parsed = typeof raw === 'string' ? JSON.parse(raw) : raw;
+    return Array.isArray(parsed) ? parsed.filter(Boolean) : [];
+  } catch {
+    return [];
+  }
+};
+
+// When a trace was captured, as a list row should say it. The wall clock
+// leads, because the question a list of runs answers is "what was going on at
+// 14:22" and "2m ago" can't answer it; the relative age and the full date stay
+// on hover. Anything not from today carries its date inline, so a list that
+// spans midnight can't read as one afternoon.
+const capturedAtLabel = (value) => {
+  if (!value) return null;
+  const at = new Date(value);
+  if (Number.isNaN(at.getTime())) return null;
+
+  const seconds = Math.max(Math.floor((Date.now() - at.getTime()) / 1000), 0);
+  const age =
+    seconds < 60 ? 'just now'
+      : seconds < 3600 ? `${Math.floor(seconds / 60)}m ago`
+        : seconds < 86400 ? `${Math.floor(seconds / 3600)}h ago`
+          : `${Math.floor(seconds / 86400)}d ago`;
+  const time = at.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+  const today = at.toDateString() === new Date().toDateString();
+
+  return {
+    short: today ? time : `${at.toLocaleDateString([], { month: 'short', day: 'numeric' })} ${time}`,
+    full: `Captured ${at.toLocaleString()} · ${age}`,
+  };
+};
 
 // Bar width on a log scale, for comparing durations that span orders of
 // magnitude. A 5ms tool beside a 13.58s generation is a 2700x range; linearly
@@ -705,29 +743,38 @@ export default function TracesView({ agentClass = null, embedded = false }) {
     // Both telemetry shapes: ActiveAgent SDK (prompt.input.*, tool.input/
     // output.*) and the RubyLLM adapter (llm.instructions/tools,
     // tool.arguments/result).
-    const instructions = estimateTokens(attr('prompt.input.instructions') || attr('llm.instructions'));
-    const toolSchemas = estimateTokens(attr('prompt.input.tools') || attr('llm.tools'));
-    const mcpSchemas = estimateTokens(attr('prompt.input.mcp_tools'));
+    // Sizes come from the captured text, which the SDK truncates — so they
+    // read through the truncation marker rather than measuring the excerpt.
+    const instructions = estimateContentTokens(attr('prompt.input.instructions') || attr('llm.instructions'));
+    const toolSchemas = estimateContentTokens(attr('prompt.input.tools') || attr('llm.tools'));
+    const mcpSchemas = estimateContentTokens(attr('prompt.input.mcp_tools'));
     let toolResults = 0;
     for (const span of spans) {
       const attrs = span.attributes || {};
       const result = attrs['tool.output.result'] || attrs['tool.result'];
       const args = attrs['tool.input.args'] || attrs['tool.arguments'];
-      if (result) toolResults += estimateTokens(result);
-      if (args) toolResults += estimateTokens(args);
+      if (result) toolResults += estimateContentTokens(result);
+      if (args) toolResults += estimateContentTokens(args);
     }
     toolResults = Math.min(toolResults, peak.input);
     const messages = Math.max(peak.input - instructions - toolSchemas - mcpSchemas - toolResults, 0);
+    // The recorded prompt splits the conversation by role, so the bar can say
+    // whose turns are filling the window. Without it (an adapter that doesn't
+    // capture messages) the conversation stays one segment.
+    const byRole = messageSegments(messages, parsePromptMessages(attr('prompt.input.messages')));
 
     return {
       used: peak.total,
       limit: contextWindowFor(trace.model),
       cached: peak.cached,
       thinking: peak.thinking,
+      // Ordered so the bar groups by colour as well as by meaning: the prompt
+      // in conversation order (violet, blue, red), then everything the tools
+      // account for (amber, green), then the generation itself.
       segments: [
-        { key: 'messages', label: 'Messages', tokens: messages },
-        { key: 'tool_results', label: 'Tool results', tokens: toolResults },
         { key: 'instructions', label: 'Instructions', tokens: instructions },
+        ...(byRole.length ? byRole : [{ key: 'messages', label: 'Messages', tokens: messages }]),
+        { key: 'tool_results', label: 'Tool results', tokens: toolResults },
         { key: 'tool_schemas', label: 'Tool schemas', tokens: toolSchemas },
         { key: 'mcp_schemas', label: 'MCP tool schemas', tokens: mcpSchemas },
         { key: 'output', label: 'Generated output', tokens: peak.output },
@@ -1505,6 +1552,14 @@ export default function TracesView({ agentClass = null, embedded = false }) {
                   </span>
                 </div>
                 <div className="trace-meta">
+                  {(() => {
+                    const when = capturedAtLabel(trace.timestamp);
+                    return when ? (
+                      <span className="meta-item" title={when.full} style={{ fontFamily: TYPOGRAPHY.mono, color: 'rgba(255,255,255,0.5)' }}>
+                        {when.short}
+                      </span>
+                    ) : null;
+                  })()}
                   {trace.model && (
                     <span
                       className="meta-item"
@@ -2053,6 +2108,14 @@ export default function TracesView({ agentClass = null, embedded = false }) {
                 </span>
               </div>
               <div className="flex items-center space-x-4">
+                {(() => {
+                  const when = capturedAtLabel(trace.timestamp);
+                  return when ? (
+                    <span className="text-xs text-gray-400" title={when.full} style={{ fontFamily: TYPOGRAPHY.mono }}>
+                      {when.short}
+                    </span>
+                  ) : null;
+                })()}
                 {trace.model && (
                   <span
                     className="text-xs px-2 py-0.5 rounded bg-indigo-50 text-indigo-700"
