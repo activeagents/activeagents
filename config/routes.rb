@@ -26,6 +26,31 @@ Rails.application.routes.draw do
   root to: "pages#home"
   get "pricing", to: "pages#pricing"
 
+  # Two endpoints the engine's mount would otherwise swallow. Both are drawn
+  # BEFORE it on purpose: top-level routes are matched first, so these win
+  # over anything the engine serves at the same path.
+  scope "/dashboard" do
+    # The dashboard bundle installs a fetch shim that rewrites every "/api/…"
+    # it issues to "<mount>/api/…". Two of its components read plan usage from
+    # /api/usage, which this app serves and the engine does not — so under the
+    # mount that call became /dashboard/api/usage and 404ed. Both call sites
+    # swallow the error and render with no usage at all, which is why it is
+    # invisible rather than loud. Serve it here too.
+    namespace :api do
+      resource :usage, only: [ :show ], controller: "usage" do
+        post :check
+      end
+    end
+
+    # The engine ships its own trace ingest at <mount>/api/traces. It
+    # authenticates, but with the account's legacy telemetry key only, and it
+    # never consults the plan's trace quota — so it is a second door into
+    # ingestion that walks straight past the limit /v1/traces enforces. Point
+    # it at the same quota-enforcing controller, which also widens it to
+    # accept dashboard-issued API keys.
+    post "/api/traces", to: "api/v1/traces#create"
+  end
+
   # The dashboard itself: agents, runs, conversations, evaluations, traces,
   # metrics, sandboxes and recordings all come from the actionagent gem's
   # engine, configured for this platform in

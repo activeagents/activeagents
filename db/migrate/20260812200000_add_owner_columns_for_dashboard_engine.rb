@@ -26,23 +26,40 @@ class AddOwnerColumnsForDashboardEngine < ActiveRecord::Migration[8.0]
       add_column :session_recordings, :user_id, :bigint
       add_index :session_recordings, :account_id
       add_index :session_recordings, :user_id
-
-      # metadata is a json column, not jsonb, so the ? containment operator
-      # is unavailable; ->> already yields NULL for a missing key.
-      execute <<~SQL.squish
-        UPDATE session_recordings
-           SET account_id = NULLIF(metadata->>'account_id', '')::bigint
-      SQL
-
-      # Recordings made inside a sandbox belong to whoever opened it.
-      execute <<~SQL.squish
-        UPDATE session_recordings
-           SET user_id = sandbox_sessions.user_id
-          FROM sandbox_sessions
-         WHERE sandbox_sessions.id = session_recordings.sandbox_session_id
-           AND session_recordings.user_id IS NULL
-      SQL
     end
+
+    # metadata is a json column, not jsonb, so the ? containment operator
+    # is unavailable; ->> already yields NULL for a missing key.
+    execute <<~SQL.squish
+      UPDATE session_recordings
+         SET account_id = NULLIF(metadata->>'account_id', '')::bigint
+       WHERE account_id IS NULL
+    SQL
+
+    # user_id is the column that decides whether a recording is visible at
+    # all. ActionAgent::SessionRecording declares `owned_by :user, :account`
+    # and the engine takes the first of those whose class this app configured
+    # — both are, so it scopes by user_id and never looks at account_id.
+    #
+    # Both backfills below are needed because recordings arrive two ways:
+    # UserSessionClaimer stamps metadata["user_id"] on a lander recording when
+    # the visitor signs up, and those have no sandbox_session to inherit from.
+    # Without this one, every recording claimed that way survives the
+    # migration with a NULL owner and drops out of the Recordings view.
+    execute <<~SQL.squish
+      UPDATE session_recordings
+         SET user_id = NULLIF(metadata->>'user_id', '')::bigint
+       WHERE user_id IS NULL
+    SQL
+
+    # Recordings made inside a sandbox belong to whoever opened it.
+    execute <<~SQL.squish
+      UPDATE session_recordings
+         SET user_id = sandbox_sessions.user_id
+        FROM sandbox_sessions
+       WHERE sandbox_sessions.id = session_recordings.sandbox_session_id
+         AND session_recordings.user_id IS NULL
+    SQL
   end
 
   def down
