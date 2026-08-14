@@ -32,27 +32,16 @@ gem "activeagent", "~> 1.2"
 # Action Agent - the dashboard, a mountable Rails engine, split out of
 # activeagent in 1.2.0. This app mounts it instead of shipping a copy.
 #
-# Pinned to the 1.2.1 fix rather than the released 1.2.0, because 1.2.0
-# cannot run an agent against the solid_agent this app installs: it calls
-# solid_agent's has_context with the keyword the RubyGems copy declares
-# (contextable:) and the repository copy renamed (contextual:), so every run
-# raises ArgumentError. See activeagent@c095649.
-#
-# Flip to `gem "actionagent", "~> 1.2", ">= 1.2.1"` once 1.2.1 is on
-# RubyGems; nothing else here changes.
-gem "actionagent", github: "activeagents/activeagent",
-  ref: "c09564984838deeb19d6dc3ee8ad0907e734184a",
-  glob: "actionagent/*.gemspec"
+gem "actionagent", "~> 1.2"
 # Solid Agent - Persistence and context management for ActiveAgent.
-# Pinned to a revision rather than a branch or the released 0.1.1, and both
-# halves of that matter:
-#   * The released 0.1.1 predates solid_agent#3, so AgentGeneration never
-#     records a trace_id and the conversation stops correlating with the
-#     telemetry this platform exists to show.
-#   * `branch: "main"` would silently carry staging to 0.2.0 on the next
-#     resolve, which changes tool-cache key behaviour. That upgrade is its
-#     own change; a redeploy is not the place to make it.
-gem "solid_agent", github: "activeagents/solid_agent", ref: "41fd2fe2a31e24994baf2ff8017dad7c3795deac"
+#
+# Released, and it has to be the released one: solid_agent renamed
+# has_context's owner keyword from contextable: to contextual: without
+# changing its version number, so the gem published as 0.1.1 and the
+# repository at 0.1.1 are different code. actionagent 1.2.0 calls the
+# published spelling, and passing the other is an ArgumentError on every
+# agent run — so the published pair is the pair that works.
+gem "solid_agent", "~> 0.1.1"
 # RubyLLM - model registry (token pricing data) and unified provider API
 gem "ruby_llm"
 # Ragents - Ractor-based AI agents for benchmarking (Ruby 4.0+)
