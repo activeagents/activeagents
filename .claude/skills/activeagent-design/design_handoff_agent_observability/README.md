@@ -92,21 +92,29 @@ label?: string          // default "Context window"
 compactAt?: number      // default 0.9
 ```
 
-**Segment order and colors** (largest source first; each color is
-`color-mix(in oklch, var(--color-token-in) N%, var(--color-card))`). The ramp is
-**blue on purpose** — `--color-warning` and `--color-error` must be the only warm
-colors in this component or the threshold states stop reading as alarms. Do not
-rebuild it on `--color-accent-ui`:
+**Segment order and colors.** Segments carry the colors the rest of the
+dashboard already gives those things — the span waterfall's types and the
+conversation's role bubbles — so the meter and the trace above it say the same
+thing in the same hues: the prompt is blue in both, the generation red in both,
+tool traffic amber and green in both. The order runs prompt-in-conversation-
+order, then the tool accounting, then the generation, which also groups the
+palette:
 
-| key | label | N% | resolved (light) |
+| key | label | color | keys to |
 | --- | --- | --- | --- |
-| `messages` | Messages | 100 | `#2563eb` |
-| `tool_results` | Tool results | 74 | mix |
-| `instructions` | Instructions | 54 | mix |
-| `tool_schemas` | Tool schemas | 38 | mix |
-| `mcp_schemas` | MCP tool schemas | 24 | mix |
-| `memory` | Memory files | 14 | mix |
-| `__free` | Free space | — | `var(--color-muted)` |
+| `instructions` | Instructions | `#8b5cf6` | system role |
+| `messages_system` | System messages | `#a78bfa` | system role, one step back |
+| `messages_user` | User messages | `#3b82f6` | user role / `prompt` span |
+| `messages_assistant` | Assistant messages | `#f87171` | assistant role |
+| `tool_results` | Tool results | `#f59e0b` | tool role |
+| `tool_schemas` | Tool schemas | `#22c55e` | `tool` span |
+| `mcp_schemas` | MCP tool schemas | `#4ade80` | `tool` span |
+| `memory` | Memory files | `#14b8a6` | developer role |
+| `output` | Generated output | `#ef4444` | `llm` span |
+| `__free` | Free space | `var(--color-muted)` | — |
+
+`messages` (`#3b82f6`, the user blue) is the fallback for callers that can't
+split the conversation by role — an adapter that records no message history.
 
 Zero-token segments are filtered out. Callers pass only `{ key, label, tokens }`
 — the component resolves each color from `CONTEXT_SEGMENTS` by `key`, so a
@@ -130,14 +138,16 @@ white).
   `--color-text-cell`) · tokens (mono 12px, `--color-text-secondary`, 56px right)
   · percent to one decimal (mono 12px, `--color-text-muted`, 46px right).
 - Footnotes, separated by a `--color-border-light` top border, mono 11px:
-  `[=] cached prefix 38.4k` where `[=]` is `--color-token-in`; `[~] thinking 2.4k`
-  where `[~]` is `--color-token-out`.
+  `[=] cached prefix 38.4k` where `[=]` is the user blue `#3b82f6`;
+  `[~] thinking 2.4k` where `[~]` is the amber `#fbbf24` that thinking carries
+  in the waterfall and in the token line.
 
 **Thresholds** (semantic, not decorative)
 
-- `>= 0.75` — the header value, percentage, and the `messages` segment turn
-  `--color-warning`; container border follows. **The `messages` legend swatch
-  recolors with it** — the legend must always key the bar.
+- `>= 0.75` — the header value, percentage and container border turn
+  `--color-warning`. **Segments never recolor with the threshold**: their color
+  says what the tokens are, and that has to hold at 95% as much as at 5%. The
+  alarm reads off the frame instead.
 - `>= compactAt` (0.9) — the same turn `--color-error`, and a mono 11px line
   appears below the bar:
   `[!] compaction imminent — next turn may drop the oldest messages`

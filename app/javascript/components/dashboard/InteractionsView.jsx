@@ -6,7 +6,7 @@ import { useTheme } from '../../contexts/ThemeContext';
 import { useTimeWindow } from '../../contexts/TimeWindowContext';
 import TimeWindowSelector from './TimeWindowSelector';
 import InteractionStream from './InteractionStream';
-import ContextMeter, { contextWindowFor, estimateTokens } from './ContextMeter';
+import ContextMeter, { contextWindowFor, estimateContentTokens, messageSegments } from './ContextMeter';
 import TraceSpanPills from './TraceSpanPills';
 
 // Context pressure for one interaction: the biggest generation's real token
@@ -30,24 +30,29 @@ const interactionContext = (detail) => {
   });
   if (!peak) return null;
 
-  const instructions = estimateTokens(detail?.instructions);
+  // A trace serialized as an interaction carries the SDK's truncated content,
+  // so sizes read through the truncation marker where there is one.
+  const instructions = estimateContentTokens(detail?.instructions);
   let toolResults = 0;
   (detail?.messages || []).forEach((message) => {
     if (message.role !== 'tool') return;
-    toolResults += estimateTokens(message.content) + estimateTokens(message.tool_arguments);
+    toolResults += estimateContentTokens(message.content) + estimateContentTokens(message.tool_arguments);
   });
   toolResults = Math.min(toolResults, peak.input);
   const conversation = Math.max(peak.input - instructions - toolResults, 0);
+  const byRole = messageSegments(conversation, detail?.messages);
 
   return {
     used: peak.total,
     limit: contextWindowFor(peak.model),
     cached: peak.cached,
     thinking: peak.thinking,
+    // Same order and the same colours as a trace's meter: instructions, the
+    // conversation by role, tool traffic, then the generation.
     segments: [
-      { key: 'messages', label: 'Messages', tokens: conversation },
-      { key: 'tool_results', label: 'Tool results', tokens: toolResults },
       { key: 'instructions', label: 'Instructions', tokens: instructions },
+      ...(byRole.length ? byRole : [{ key: 'messages', label: 'Messages', tokens: conversation }]),
+      { key: 'tool_results', label: 'Tool results', tokens: toolResults },
       { key: 'output', label: 'Generated output', tokens: peak.output },
     ],
   };
@@ -74,13 +79,29 @@ const formatNumber = (num) => {
   return num.toString();
 };
 
-const timeAgo = (iso) => {
-  if (!iso) return '';
-  const seconds = Math.floor((Date.now() - new Date(iso).getTime()) / 1000);
-  if (seconds < 60) return 'just now';
-  if (seconds < 3600) return `${Math.floor(seconds / 60)}m ago`;
-  if (seconds < 86400) return `${Math.floor(seconds / 3600)}h ago`;
-  return `${Math.floor(seconds / 86400)}d ago`;
+// When a captured object happened, as a list row should say it. The wall
+// clock leads, because the question a list of runs answers is "what was going
+// on at 14:22" and "2m ago" can't answer it; the relative age and the full
+// date stay on hover. Anything not from today carries its date inline, so a
+// list that spans midnight can't read as one afternoon.
+const capturedAtLabel = (value, verb = 'Captured') => {
+  if (!value) return null;
+  const at = new Date(value);
+  if (Number.isNaN(at.getTime())) return null;
+
+  const seconds = Math.max(Math.floor((Date.now() - at.getTime()) / 1000), 0);
+  const age =
+    seconds < 60 ? 'just now'
+      : seconds < 3600 ? `${Math.floor(seconds / 60)}m ago`
+        : seconds < 86400 ? `${Math.floor(seconds / 3600)}h ago`
+          : `${Math.floor(seconds / 86400)}d ago`;
+  const time = at.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+  const today = at.toDateString() === new Date().toDateString();
+
+  return {
+    short: today ? time : `${at.toLocaleDateString([], { month: 'short', day: 'numeric' })} ${time}`,
+    full: `${verb} ${at.toLocaleString()} · ${age}`,
+  };
 };
 
 
@@ -509,7 +530,16 @@ export default function InteractionsView({ agentId = null, embedded = false }) {
                         segments={[{ key: 'messages', label: 'Context', tokens: (session.tokens?.input || 0) + (session.tokens?.output || 0) || session.tokens?.total }]}
                       />
                     )}
-                    <span style={{ color: colors.textMuted }}>{timeAgo(session.last_activity_at)}</span>
+                    {/* Last activity, not capture time — an interaction spans
+                        many runs — but dated the way a trace row is. */}
+                    {(() => {
+                      const when = capturedAtLabel(session.last_activity_at, 'Last activity');
+                      return when ? (
+                        <span className="font-mono text-xs" title={when.full} style={{ color: colors.textMuted }}>
+                          {when.short}
+                        </span>
+                      ) : null;
+                    })()}
                     <svg
                       className={`w-4 h-4 transition-transform ${isExpanded ? 'rotate-180' : ''}`}
                       fill="none" stroke="currentColor" viewBox="0 0 24 24"
@@ -569,6 +599,12 @@ export default function InteractionsView({ agentId = null, embedded = false }) {
                                 return (
                               <div key={generation.id}>
                                 <div className="flex flex-wrap items-center gap-3 text-xs font-mono" style={{ color: colors.textSecondary }}>
+                                  {(() => {
+                                    const when = capturedAtLabel(generation.created_at);
+                                    return when ? (
+                                      <span title={when.full} style={{ color: colors.textMuted }}>{when.short}</span>
+                                    ) : null;
+                                  })()}
                                   <span
                                     title={generation.cache_hit ? `${formatNumber(generation.tokens.cached)} cached prompt tokens` : 'No prompt cache hit'}
                                     className={generation.cache_hit ? 'text-green-600' : ''}
