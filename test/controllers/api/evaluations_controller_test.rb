@@ -16,7 +16,7 @@ class Api::EvaluationsControllerTest < ActionDispatch::IntegrationTest
   end
 
   test "create builds an evaluation with default criteria and runs it" do
-    post "/api/evaluations", params: { evaluation: { agent_id: @agent.id, name: "Quality Check" } }, as: :json
+    post "/dashboard/api/evaluations", params: { evaluation: { agent_id: @agent.id, name: "Quality Check" } }, as: :json
 
     assert_response :created
     evaluation = json_response["evaluation"]
@@ -31,7 +31,7 @@ class Api::EvaluationsControllerTest < ActionDispatch::IntegrationTest
   end
 
   test "create with custom criteria" do
-    post "/api/evaluations", params: {
+    post "/dashboard/api/evaluations", params: {
       evaluation: {
         agent_id: @agent.id, name: "Contains Check",
         criteria: [ { key: "mentions_detail", type: "contains", config: { pattern: "detail" } } ]
@@ -43,7 +43,7 @@ class Api::EvaluationsControllerTest < ActionDispatch::IntegrationTest
   end
 
   test "create rejects invalid criteria types" do
-    post "/api/evaluations", params: {
+    post "/dashboard/api/evaluations", params: {
       evaluation: { agent_id: @agent.id, name: "Bad", criteria: [ { key: "x", type: "bogus" } ] }
     }, as: :json
 
@@ -51,13 +51,13 @@ class Api::EvaluationsControllerTest < ActionDispatch::IntegrationTest
   end
 
   test "index and run rescore" do
-    post "/api/evaluations", params: { evaluation: { agent_id: @agent.id, name: "Quality" } }, as: :json
+    post "/dashboard/api/evaluations", params: { evaluation: { agent_id: @agent.id, name: "Quality" } }, as: :json
     evaluation_id = json_response.dig("evaluation", "id")
 
-    get "/api/evaluations"
+    get "/dashboard/api/evaluations"
     assert_equal [ "Quality" ], json_response["evaluations"].map { |e| e["name"] }
 
-    post "/api/evaluations/#{evaluation_id}/run"
+    post "/dashboard/api/evaluations/#{evaluation_id}/run"
     assert_response :success
     assert_equal "complete", json_response.dig("run", "status")
     assert_equal 2, Evaluation.find(evaluation_id).evaluation_runs.count
@@ -66,7 +66,7 @@ class Api::EvaluationsControllerTest < ActionDispatch::IntegrationTest
   test "cannot create evaluations for other users' agents" do
     other_agent = create_agent(user: create_user, name: "Not Mine")
 
-    post "/api/evaluations", params: { evaluation: { agent_id: other_agent.id, name: "Nope" } }, as: :json
+    post "/dashboard/api/evaluations", params: { evaluation: { agent_id: other_agent.id, name: "Nope" } }, as: :json
 
     assert_response :not_found
   end

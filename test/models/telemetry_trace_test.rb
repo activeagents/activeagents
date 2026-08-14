@@ -43,7 +43,7 @@ class TelemetryTraceTest < ActiveSupport::TestCase
 
   test "inherits the gem's table and scopes" do
     assert_equal "active_agent_telemetry_traces", TelemetryTrace.table_name
-    assert_operator TelemetryTrace.ancestors, :include?, ActiveAgent::TelemetryTrace
+    assert_operator TelemetryTrace.ancestors, :include?, ActionAgent::TelemetryTrace
   end
 
   test "create_from_payload normalizes the gem payload" do

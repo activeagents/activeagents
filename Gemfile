@@ -25,9 +25,23 @@ gem "rouge"
 # Inertia adapter for Rails [https://inertia-rails.dev]
 gem "inertia_rails"
 # Active Agent - AI agent framework for Rails [https://github.com/activeagents/activeagent]
-gem "activeagent", github: "activeagents/activeagent", branch: "main"
-# Solid Agent - Persistence and context management for ActiveAgent
-gem "solid_agent", github: "activeagents/solid_agent", branch: "main"
+# Released versions rather than a branch: staging redeploys on every push to
+# main, and a moving branch means two deploys of the same commit can install
+# different code. 1.2.0 is the release that split the dashboard out.
+gem "activeagent", "~> 1.2"
+# Action Agent - the dashboard, a mountable Rails engine, split out of
+# activeagent in 1.2.0. This app mounts it instead of shipping a copy.
+#
+gem "actionagent", "~> 1.2"
+# Solid Agent - Persistence and context management for ActiveAgent.
+#
+# Released, and it has to be the released one: solid_agent renamed
+# has_context's owner keyword from contextable: to contextual: without
+# changing its version number, so the gem published as 0.1.1 and the
+# repository at 0.1.1 are different code. actionagent 1.2.0 calls the
+# published spelling, and passing the other is an ArgumentError on every
+# agent run — so the published pair is the pair that works.
+gem "solid_agent", "~> 0.1.1"
 # RubyLLM - model registry (token pricing data) and unified provider API
 gem "ruby_llm"
 # Ragents - Ractor-based AI agents for benchmarking (Ruby 4.0+)

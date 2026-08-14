@@ -41,7 +41,7 @@ class Api::TracesControllerTest < ActionDispatch::IntegrationTest
   test "index returns account traces with serialized spans" do
     create_trace
 
-    get "/api/traces", params: { minutes: 30 }
+    get "/dashboard/api/traces", params: { minutes: 30 }
 
     assert_response :success
     data = json_response
@@ -65,7 +65,7 @@ class Api::TracesControllerTest < ActionDispatch::IntegrationTest
   test "index does not leak other accounts' traces" do
     create_trace(account: create_account(owner: create_user))
 
-    get "/api/traces"
+    get "/dashboard/api/traces"
 
     assert_response :success
     assert_empty json_response["traces"]
@@ -75,17 +75,17 @@ class Api::TracesControllerTest < ActionDispatch::IntegrationTest
     create_trace(agent_class: "SupportAgent")
     create_trace(agent_class: "BillingAgent", status: "ERROR")
 
-    get "/api/traces", params: { agent: "BillingAgent" }
+    get "/dashboard/api/traces", params: { agent: "BillingAgent" }
     assert_equal [ "BillingAgent" ], json_response["traces"].map { |t| t["agent"] }.uniq
 
-    get "/api/traces", params: { status: "error" }
+    get "/dashboard/api/traces", params: { status: "error" }
     assert_equal [ "ERROR" ], json_response["traces"].map { |t| t["status"] }.uniq
   end
 
   test "index excludes traces outside the window" do
     create_trace(timestamp: 2.hours.ago)
 
-    get "/api/traces", params: { minutes: 30 }
+    get "/dashboard/api/traces", params: { minutes: 30 }
 
     assert_empty json_response["traces"]
   end
@@ -93,7 +93,7 @@ class Api::TracesControllerTest < ActionDispatch::IntegrationTest
   test "show returns trace detail" do
     trace = create_trace
 
-    get "/api/traces/#{trace.id}"
+    get "/dashboard/api/traces/#{trace.id}"
 
     assert_response :success
     assert_equal trace.trace_id, json_response["trace"]["trace_id"]
@@ -103,15 +103,16 @@ class Api::TracesControllerTest < ActionDispatch::IntegrationTest
   test "show 404s for other accounts' traces" do
     other = create_trace(account: create_account(owner: create_user))
 
-    get "/api/traces/#{other.id}"
+    get "/dashboard/api/traces/#{other.id}"
 
     assert_response :not_found
   end
 
   test "requires authentication" do
     delete "/session"
-    get "/api/traces"
+    get "/dashboard/api/traces"
 
-    assert_response :redirect
+    # A JSON endpoint says unauthorized rather than redirecting to a form.
+    assert_response :unauthorized
   end
 end

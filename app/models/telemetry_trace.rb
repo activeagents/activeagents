@@ -1,26 +1,25 @@
 # frozen_string_literal: true
 
-# Hosted-platform trace store, backed by the activeagent gem's telemetry
-# implementation.
+# Hosted-platform trace store, backed by the actionagent gem's dashboard
+# engine.
 #
 # All scopes (recent, with_errors, for_agent, for_service, for_date_range,
 # for_account), the payload normalizer (.create_from_payload) and the
 # instance helpers (root_span, llm_spans, tool_spans, provider, model,
-# display_name, ...) are inherited from ActiveAgent::TelemetryTrace.
+# display_name, ...) are inherited from ActionAgent::TelemetryTrace.
 #
 # The table (active_agent_telemetry_traces) is the same one a self-hosted
-# install gets from the gem's dashboard install generator with
-# --multi_tenant; the platform only layers on the mandatory account
+# install gets from `rails generate action_agent:install --multi_tenant`; the platform only layers on the mandatory account
 # association and token-total dedup.
 #
 # Interactions for observed agents are served straight from traces
 # (TraceInteractionSerializer) — nothing is materialized into the
 # solid_agent tables at ingest.
-class TelemetryTrace < ActiveAgent::TelemetryTrace
+class TelemetryTrace < ActionAgent::TelemetryTrace
   belongs_to :account
   # Set by AgentRegistrar on ingest; nullable because a trace must still
   # ingest when its agent can't be resolved.
-  belongs_to :agent, optional: true
+  belongs_to :agent, class_name: "ActionAgent::Agent", optional: true
 
   validates :trace_id, uniqueness: { scope: :account_id }
 

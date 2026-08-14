@@ -17,7 +17,7 @@ class Api::AgentsControllerTest < ActionDispatch::IntegrationTest
   test "index returns user's agents" do
     create_agent(user: @user, name: "Second Agent")
 
-    get "/api/agents"
+    get "/dashboard/api/agents"
 
     assert_response :success
     data = json_response
@@ -32,7 +32,7 @@ class Api::AgentsControllerTest < ActionDispatch::IntegrationTest
     2.times { create_run(agent: busy) }
     create_run(agent: @agent)
 
-    get "/api/agents", params: { sort: "popular" }
+    get "/dashboard/api/agents", params: { sort: "popular" }
 
     assert_response :success
     assert_equal [ busy.id, @agent.id ], json_response["agents"].map { |a| a["id"] }
@@ -46,7 +46,7 @@ class Api::AgentsControllerTest < ActionDispatch::IntegrationTest
     create_run(agent: @agent, input_tokens: 1_000, output_tokens: 1_000,
                output_metadata: { "model" => "claude-3-opus-20240229" })
 
-    get "/api/agents", params: { sort: "cost" }
+    get "/dashboard/api/agents", params: { sort: "cost" }
 
     assert_equal [ @agent.id, cheap.id ], json_response["agents"].map { |a| a["id"] }
   end
@@ -58,13 +58,13 @@ class Api::AgentsControllerTest < ActionDispatch::IntegrationTest
     create_run(agent: @agent, input_tokens: 1_000, output_tokens: 1_000,
                output_metadata: { "model" => "gpt-4o" })
 
-    get "/api/agents", params: { sort: "cost" }
+    get "/dashboard/api/agents", params: { sort: "cost" }
 
     assert_equal [ @agent.id, unpriced.id ], json_response["agents"].map { |a| a["id"] }
   end
 
   test "index falls back to recently-updated for an unknown sort" do
-    get "/api/agents", params: { sort: "; drop table" }
+    get "/dashboard/api/agents", params: { sort: "; drop table" }
 
     assert_response :success
     assert_equal "recent", json_response.dig("meta", "sort")
@@ -73,7 +73,7 @@ class Api::AgentsControllerTest < ActionDispatch::IntegrationTest
   test "index filters by status" do
     draft_agent = create_agent(user: @user, name: "Draft Agent", status: :draft)
 
-    get "/api/agents", params: { status: "draft" }
+    get "/dashboard/api/agents", params: { status: "draft" }
 
     assert_response :success
     data = json_response
@@ -85,7 +85,7 @@ class Api::AgentsControllerTest < ActionDispatch::IntegrationTest
   test "index filters by provider" do
     anthropic_agent = create_agent(user: @user, name: "Anthropic Agent", provider: "anthropic")
 
-    get "/api/agents", params: { provider: "anthropic" }
+    get "/dashboard/api/agents", params: { provider: "anthropic" }
 
     assert_response :success
     data = json_response
@@ -97,7 +97,7 @@ class Api::AgentsControllerTest < ActionDispatch::IntegrationTest
   test "index searches by name" do
     create_agent(user: @user, name: "Code Review Bot")
 
-    get "/api/agents", params: { q: "code" }
+    get "/dashboard/api/agents", params: { q: "code" }
 
     assert_response :success
     data = json_response
@@ -110,7 +110,7 @@ class Api::AgentsControllerTest < ActionDispatch::IntegrationTest
     other_user = create_user(email: "other@example.com")
     create_agent(user: other_user, name: "Other User Agent")
 
-    get "/api/agents"
+    get "/dashboard/api/agents"
 
     assert_response :success
     data = json_response
@@ -124,7 +124,7 @@ class Api::AgentsControllerTest < ActionDispatch::IntegrationTest
   # ===========================================
 
   test "show returns agent details" do
-    get "/api/agents/#{@agent.id}"
+    get "/dashboard/api/agents/#{@agent.id}"
 
     assert_response :success
     data = json_response
@@ -137,7 +137,7 @@ class Api::AgentsControllerTest < ActionDispatch::IntegrationTest
   end
 
   test "show returns 404 for nonexistent agent" do
-    get "/api/agents/99999"
+    get "/dashboard/api/agents/99999"
 
     assert_response :not_found
   end
@@ -146,7 +146,7 @@ class Api::AgentsControllerTest < ActionDispatch::IntegrationTest
     other_user = create_user(email: "other@example.com")
     other_agent = create_agent(user: other_user)
 
-    get "/api/agents/#{other_agent.id}"
+    get "/dashboard/api/agents/#{other_agent.id}"
 
     assert_response :not_found
   end
@@ -157,7 +157,7 @@ class Api::AgentsControllerTest < ActionDispatch::IntegrationTest
 
   test "create creates agent with valid params" do
     assert_difference "Agent.count", 1 do
-      post "/api/agents", params: {
+      post "/dashboard/api/agents", params: {
         agent: {
           name: "New Agent",
           description: "A new test agent",
@@ -175,7 +175,7 @@ class Api::AgentsControllerTest < ActionDispatch::IntegrationTest
   end
 
   test "create associates agent with current user" do
-    post "/api/agents", params: {
+    post "/dashboard/api/agents", params: {
       agent: {
         name: "My Agent",
         provider: "anthropic",
@@ -190,7 +190,7 @@ class Api::AgentsControllerTest < ActionDispatch::IntegrationTest
   end
 
   test "create returns errors for invalid params" do
-    post "/api/agents", params: {
+    post "/dashboard/api/agents", params: {
       agent: {
         name: "",
         provider: "openai",
@@ -206,7 +206,7 @@ class Api::AgentsControllerTest < ActionDispatch::IntegrationTest
   end
 
   test "create with full configuration" do
-    post "/api/agents", params: {
+    post "/dashboard/api/agents", params: {
       agent: {
         name: "Full Config Agent",
         description: "Agent with all options",
@@ -234,7 +234,7 @@ class Api::AgentsControllerTest < ActionDispatch::IntegrationTest
   # ===========================================
 
   test "update modifies agent" do
-    patch "/api/agents/#{@agent.id}", params: {
+    patch "/dashboard/api/agents/#{@agent.id}", params: {
       agent: {
         name: "Updated Name",
         instructions: "New instructions"
@@ -249,7 +249,7 @@ class Api::AgentsControllerTest < ActionDispatch::IntegrationTest
   end
 
   test "update returns errors for invalid params" do
-    patch "/api/agents/#{@agent.id}", params: {
+    patch "/dashboard/api/agents/#{@agent.id}", params: {
       agent: { name: "" }
     }
 
@@ -260,7 +260,7 @@ class Api::AgentsControllerTest < ActionDispatch::IntegrationTest
     other_user = create_user(email: "other@example.com")
     other_agent = create_agent(user: other_user)
 
-    patch "/api/agents/#{other_agent.id}", params: {
+    patch "/dashboard/api/agents/#{other_agent.id}", params: {
       agent: { name: "Hacked" }
     }
 
@@ -274,7 +274,7 @@ class Api::AgentsControllerTest < ActionDispatch::IntegrationTest
 
   test "destroy deletes agent" do
     assert_difference "Agent.count", -1 do
-      delete "/api/agents/#{@agent.id}"
+      delete "/dashboard/api/agents/#{@agent.id}"
     end
 
     assert_response :success
@@ -288,7 +288,7 @@ class Api::AgentsControllerTest < ActionDispatch::IntegrationTest
     other_agent = create_agent(user: other_user)
 
     assert_no_difference "Agent.count" do
-      delete "/api/agents/#{other_agent.id}"
+      delete "/dashboard/api/agents/#{other_agent.id}"
     end
 
     assert_response :not_found
@@ -302,7 +302,7 @@ class Api::AgentsControllerTest < ActionDispatch::IntegrationTest
     @agent.update!(instructions: "Updated v2")
     @agent.update!(instructions: "Updated v3")
 
-    get "/api/agents/#{@agent.id}/versions"
+    get "/dashboard/api/agents/#{@agent.id}/versions"
 
     assert_response :success
     data = json_response
@@ -323,7 +323,7 @@ class Api::AgentsControllerTest < ActionDispatch::IntegrationTest
     @agent.update!(instructions: "Updated")
     assert_equal "Updated", @agent.instructions
 
-    post "/api/agents/#{@agent.id}/restore", params: { version_id: original_version.id }
+    post "/dashboard/api/agents/#{@agent.id}/restore", params: { version_id: original_version.id }
 
     assert_response :success
     data = json_response
@@ -339,7 +339,7 @@ class Api::AgentsControllerTest < ActionDispatch::IntegrationTest
     create_run(agent: @agent, input_prompt: "Prompt 1")
     create_run(agent: @agent, input_prompt: "Prompt 2")
 
-    get "/api/agents/#{@agent.id}/runs"
+    get "/dashboard/api/agents/#{@agent.id}/runs"
 
     assert_response :success
     data = json_response
@@ -352,7 +352,7 @@ class Api::AgentsControllerTest < ActionDispatch::IntegrationTest
     create_run(agent: @agent, status: :complete)
     create_run(agent: @agent, status: :failed)
 
-    get "/api/agents/#{@agent.id}/runs", params: { status: "complete" }
+    get "/dashboard/api/agents/#{@agent.id}/runs", params: { status: "complete" }
 
     assert_response :success
     data = json_response
@@ -364,7 +364,7 @@ class Api::AgentsControllerTest < ActionDispatch::IntegrationTest
   test "runs supports pagination" do
     5.times { create_run(agent: @agent) }
 
-    get "/api/agents/#{@agent.id}/runs", params: { page: 1, per_page: 2 }
+    get "/dashboard/api/agents/#{@agent.id}/runs", params: { page: 1, per_page: 2 }
 
     assert_response :success
     data = json_response
@@ -381,7 +381,7 @@ class Api::AgentsControllerTest < ActionDispatch::IntegrationTest
 
   test "execute creates pending run and queues job" do
     assert_difference "AgentRun.count", 1 do
-      post "/api/agents/#{@agent.id}/execute", params: {
+      post "/dashboard/api/agents/#{@agent.id}/execute", params: {
         prompt: "Review this code"
       }
     end
@@ -395,7 +395,7 @@ class Api::AgentsControllerTest < ActionDispatch::IntegrationTest
 
   test "execute counts against the account's monthly usage" do
     assert_difference -> { @account.reload.agent_runs_this_period }, 1 do
-      post "/api/agents/#{@agent.id}/execute", params: { prompt: "Hello" }
+      post "/dashboard/api/agents/#{@agent.id}/execute", params: { prompt: "Hello" }
     end
 
     assert_response :accepted
@@ -408,7 +408,7 @@ class Api::AgentsControllerTest < ActionDispatch::IntegrationTest
     )
 
     assert_no_difference "AgentRun.count" do
-      post "/api/agents/#{@agent.id}/execute", params: { prompt: "Hello" }
+      post "/dashboard/api/agents/#{@agent.id}/execute", params: { prompt: "Hello" }
     end
 
     assert_response :payment_required
@@ -424,7 +424,7 @@ class Api::AgentsControllerTest < ActionDispatch::IntegrationTest
     agent = create_agent(user: user_without_account, status: :active)
     sign_in_as(user_without_account)
 
-    post "/api/agents/#{agent.id}/execute", params: { prompt: "Hello" }
+    post "/dashboard/api/agents/#{agent.id}/execute", params: { prompt: "Hello" }
 
     assert_response :unauthorized
   end
@@ -438,7 +438,7 @@ class Api::AgentsControllerTest < ActionDispatch::IntegrationTest
     # without credentials real providers now fail instead of falling back.
     @agent.update!(provider: "mock")
 
-    post "/api/agents/#{@agent.id}/test", params: {
+    post "/dashboard/api/agents/#{@agent.id}/test", params: {
       prompt: "What is 2+2?"
     }
 
@@ -451,7 +451,7 @@ class Api::AgentsControllerTest < ActionDispatch::IntegrationTest
 
   test "test counts against the account's monthly usage" do
     assert_difference -> { @account.reload.agent_runs_this_period }, 1 do
-      post "/api/agents/#{@agent.id}/test", params: { prompt: "Hello" }
+      post "/dashboard/api/agents/#{@agent.id}/test", params: { prompt: "Hello" }
     end
 
     assert_response :success
@@ -463,7 +463,7 @@ class Api::AgentsControllerTest < ActionDispatch::IntegrationTest
       usage_period_start: Time.current
     )
 
-    post "/api/agents/#{@agent.id}/test", params: { prompt: "Hello" }
+    post "/dashboard/api/agents/#{@agent.id}/test", params: { prompt: "Hello" }
 
     assert_response :payment_required
     assert json_response["upgrade_required"]
@@ -475,7 +475,7 @@ class Api::AgentsControllerTest < ActionDispatch::IntegrationTest
 
   test "duplicate creates copy of agent" do
     assert_difference "Agent.count", 1 do
-      post "/api/agents/#{@agent.id}/duplicate"
+      post "/dashboard/api/agents/#{@agent.id}/duplicate"
     end
 
     assert_response :created
@@ -492,7 +492,7 @@ class Api::AgentsControllerTest < ActionDispatch::IntegrationTest
   # ===========================================
 
   test "export returns agent configuration and code" do
-    get "/api/agents/#{@agent.id}/export"
+    get "/dashboard/api/agents/#{@agent.id}/export"
 
     assert_response :success
     data = json_response
@@ -515,7 +515,7 @@ class Api::AgentsControllerTest < ActionDispatch::IntegrationTest
     create_run(agent: analytics_agent, status: :complete, total_tokens: 200, duration_ms: 2000)
     create_run(agent: analytics_agent, status: :failed, total_tokens: 0, error_message: "API Error")
 
-    get "/api/agents/#{analytics_agent.id}/analytics"
+    get "/dashboard/api/agents/#{analytics_agent.id}/analytics"
 
     assert_response :success
     data = json_response
@@ -532,7 +532,7 @@ class Api::AgentsControllerTest < ActionDispatch::IntegrationTest
   end
 
   test "analytics filters by days parameter" do
-    get "/api/agents/#{@agent.id}/analytics", params: { days: 7 }
+    get "/dashboard/api/agents/#{@agent.id}/analytics", params: { days: 7 }
 
     assert_response :success
     data = json_response

@@ -4,7 +4,9 @@
 
 Session Replay records browser interactions from AI agents using browser automation (Playwright MCP, Selenium, etc.) and provides VCR-style playback for debugging, verification, and compliance.
 
-**Tier:** Pro ($995/yr) and Enterprise
+**Tier:** Pro ($995/yr) and Enterprise — what the plan buys is retention and
+quota. Recording and playback themselves ship in the `actionagent` dashboard
+engine, so a self-hosted install has them too.
 
 ## Core Concept
 
@@ -44,16 +46,22 @@ Agent Action (Playwright MCP)
 ### Data Model
 
 ```ruby
-# db/migrate/XXXX_create_session_recordings.rb
+# The shape `rails generate action_agent:install` creates (as part of
+# one CreateActiveAgentDashboardTables migration). Engine tables are prefixed
+# active_agent_* by default; this platform sets table_name_prefix = "" to keep
+# the unprefixed names it already had.
 class CreateSessionRecordings < ActiveRecord::Migration[7.2]
   def change
     create_table :session_recordings do |t|
-      t.references :agent_execution, null: false
+      t.bigint :agent_run_id       # the run being recorded...
+      t.bigint :sandbox_session_id # ...or the sandbox it ran in
       t.string :name # e.g., "checkout_flow"
-      t.string :status # recording, completed, failed
+      t.integer :status, default: 0, null: false # recording, completed, failed
       t.integer :duration_ms
       t.integer :action_count
       t.json :metadata
+      t.bigint :user_id    # ownership is a real column, not a metadata key,
+      t.bigint :account_id # so scoping works on every adapter
       t.timestamps
     end
 
@@ -88,7 +96,7 @@ end
 
 - **Screenshots:** Store in cloud storage (S3/GCS) with signed URLs for playback
 - **DOM Snapshots:** Compressed HTML stored in cloud storage
-- **Metadata:** PostgreSQL for fast querying
+- **Metadata:** the application database — the engine's queries are adapter-portable, and this platform runs PostgreSQL
 - **Retention:**
   - Pro: 14 days (matches trace retention)
   - Enterprise: 400 days
@@ -159,17 +167,25 @@ end
 
 ## API Endpoints
 
+Drawn by the engine, so every path below sits under the mount — `/dashboard/api/...`
+on this platform, `<mount>/api/...` in a self-hosted install:
+
 ```ruby
-# config/routes.rb
+# gem repo: actionagent/config/routes.rb
 namespace :api do
   resources :session_recordings, only: [:index, :show, :destroy] do
     member do
       get :actions
-      get :snapshot/:action_id, action: :snapshot
+      get "snapshot/:action_id", action: :snapshot, as: :snapshot
       post :export
+      post :handoff
+      post :record_action
+      post :complete, action: :complete_session
     end
     collection do
       get :recent
+      get :demo
+      post :start_user_session
     end
   end
 end
@@ -196,7 +212,10 @@ The lander preview (`_product_preview.html.erb :session_replay`) already shows t
 - Auto-redact known sensitive fields (credit card, SSN patterns)
 - Encryption at rest (AES-256)
 - Signed URLs with short expiry (15 min)
-- Access control: Only workspace members can view recordings
+- Access control: recordings carry real `user_id` / `account_id` columns, and
+  listings are scoped through whichever the install owns them by (users, here);
+  deleting one is limited to its owner, or to whoever opened the sandbox it was
+  recorded in
 
 ## Dependencies
 
@@ -215,35 +234,52 @@ The lander preview (`_product_preview.html.erb :session_replay`) already shows t
 
 ### Completed
 
+Recording now ships in the `actionagent` dashboard engine, which this app
+mounts and configures (`config/initializers/action_agent.rb`). Paths
+below are relative to `actionagent/` in the gem repo
+(github.com/activeagents/activeagent), not to this one — except the
+`db/migrate/` and `app/javascript/` paths, which are this app's. The app keeps
+one-line aliases (`app/models/session_recording.rb` reads
+`SessionRecording = ActionAgent::SessionRecording`), so bare constant
+names still resolve here.
+
 **Phase 1: Recording Infrastructure**
-- Database migrations (`db/migrate/20260324000005_create_session_recordings.rb`)
+- Database migrations — written by `rails generate action_agent:install`;
+  this app's own copy predates the engine (`db/migrate/20260324000005_create_session_recordings.rb`,
+  plus `db/migrate/20260812200000_add_owner_columns_for_dashboard_engine.rb` for
+  `account_id`/`user_id`)
   - `session_recordings` - Main recording model
   - `recording_actions` - Individual browser actions
   - `recording_snapshots` - Screenshots and DOM snapshots
-- `SessionRecording` model (`app/models/session_recording.rb`)
-- `RecordingAction` model (`app/models/recording_action.rb`)
-- `RecordingSnapshot` model with ActiveStorage (`app/models/recording_snapshot.rb`)
-- `SessionRecordingService` (`app/services/session_recording_service.rb`)
-- `MCPRecordingMiddleware` for Playwright MCP integration (`app/services/mcp_recording_middleware.rb`)
-- `SessionRecordable` concern for models (`app/models/concerns/session_recordable.rb`)
+- `ActionAgent::SessionRecording` model (`app/models/action_agent/session_recording.rb`)
+- `ActionAgent::RecordingAction` model (`app/models/action_agent/recording_action.rb`)
+- `ActionAgent::RecordingSnapshot` model with ActiveStorage (`app/models/action_agent/recording_snapshot.rb`)
+- `ActionAgent::SessionRecordingService` (`app/services/action_agent/session_recording_service.rb`)
+- `ActionAgent::McpRecordingMiddleware` for Playwright MCP integration (`app/services/action_agent/mcp_recording_middleware.rb`)
+- `SessionRecordable` concern for models (`app/models/concerns/action_agent/session_recordable.rb`)
 
 **Phase 2: API & Playback UI**
-- API Controller (`app/controllers/api/session_recordings_controller.rb`)
-  - `GET /api/session_recordings` - List recordings
-  - `GET /api/session_recordings/recent` - Recent recordings
-  - `GET /api/session_recordings/demo` - Demo recording for lander
-  - `GET /api/session_recordings/:id` - Recording details
-  - `GET /api/session_recordings/:id/actions` - Action timeline
-  - `GET /api/session_recordings/:id/snapshot/:action_id` - Get screenshot/DOM
-  - `POST /api/session_recordings/:id/export` - Export as VCR cassette
-  - `POST /api/session_recordings/:id/handoff` - Get handoff state
-- Dashboard components:
+- API Controller (`app/controllers/action_agent/api/session_recordings_controller.rb`),
+  served under the engine's mount — `/dashboard/api/...` here, `<mount>/api/...` self-hosted
+  - `GET /dashboard/api/session_recordings` - List recordings (the caller's own, plus the shared demo)
+  - `GET /dashboard/api/session_recordings/recent` - Recent recordings
+  - `GET /dashboard/api/session_recordings/demo` - Demo recording for lander
+  - `GET /dashboard/api/session_recordings/:id` - Recording details
+  - `GET /dashboard/api/session_recordings/:id/actions` - Action timeline
+  - `GET /dashboard/api/session_recordings/:id/snapshot/:action_id` - Get screenshot/DOM
+  - `POST /dashboard/api/session_recordings/:id/export` - Export as VCR cassette
+  - `POST /dashboard/api/session_recordings/:id/handoff` - Get handoff state
+  - `POST /dashboard/api/session_recordings/start_user_session` - Open a user takeover session
+  - `POST /dashboard/api/session_recordings/:id/record_action` - Append a user action
+  - `POST /dashboard/api/session_recordings/:id/complete` - Close a user takeover session
+- Dashboard components (`frontend/components/dashboard/`):
   - `SessionReplayView.jsx` - Full playback UI with timeline
   - Navigation added to sidebar
   - Route `/dashboard/replay` configured
 
 **Phase 3: Lander Demo with Handoff**
-- `SessionReplayDemo.jsx` - Interactive demo component for landing page
+- `SessionReplayDemo.jsx` - Interactive demo component for landing page, this app's
+  own (`app/javascript/components/lander/SessionReplayDemo.jsx`)
 - Shows pre-recorded agent session
 - Handoff prompt when agent pauses
 - User interactions tracked in trace log
@@ -261,12 +297,12 @@ The lander preview (`_product_preview.html.erb :session_replay`) already shows t
 ### Usage
 
 ```ruby
-# Start recording
-recording = SessionRecordingService.start(sandbox_session: session)
+# Start recording — returns a service wrapping the new SessionRecording
+service = SessionRecordingService.start(sandbox_session: session)
 
-# Record actions (via MCPRecordingMiddleware)
-middleware = MCPRecordingMiddleware.new(session_recording: recording)
-middleware.intercept(tool_name: "browser_click", parameters: { ref: "#submit" }) do
+# Record actions (via McpRecordingMiddleware)
+middleware = McpRecordingMiddleware.new(session_recording: service.recording)
+middleware.intercept(tool_name: "browser_click", parameters: { "ref" => "#submit" }) do
   # Execute actual MCP tool
 end
 
@@ -278,7 +314,7 @@ middleware.capture_for_handoff(
 )
 
 # Complete recording
-recording.complete!
+middleware.complete!
 ```
 
 ### Next Steps

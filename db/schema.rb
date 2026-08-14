@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.2].define(version: 2026_07_31_000001) do
+ActiveRecord::Schema[8.2].define(version: 2026_08_13_000001) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
 
@@ -248,6 +248,7 @@ ActiveRecord::Schema[8.2].define(version: 2026_07_31_000001) do
   end
 
   create_table "agents", force: :cascade do |t|
+    t.bigint "account_id"
     t.string "action_name"
     t.jsonb "action_prompts", default: [], null: false
     t.string "agent_class_name"
@@ -272,6 +273,7 @@ ActiveRecord::Schema[8.2].define(version: 2026_07_31_000001) do
     t.jsonb "tools", default: []
     t.datetime "updated_at", null: false
     t.bigint "user_id"
+    t.index ["account_id"], name: "index_agents_on_account_id"
     t.index ["provider"], name: "index_agents_on_provider"
     t.index ["slug"], name: "index_agents_on_slug", unique: true
     t.index ["status"], name: "index_agents_on_status"
@@ -288,6 +290,7 @@ ActiveRecord::Schema[8.2].define(version: 2026_07_31_000001) do
     t.string "token", null: false
     t.string "token_prefix", null: false
     t.datetime "updated_at", null: false
+    t.bigint "user_id"
     t.index ["account_id"], name: "index_api_keys_on_account_id"
     t.index ["token"], name: "index_api_keys_on_token", unique: true
   end
@@ -536,6 +539,7 @@ ActiveRecord::Schema[8.2].define(version: 2026_07_31_000001) do
     t.string "credential", null: false
     t.string "provider", null: false
     t.datetime "updated_at", null: false
+    t.bigint "user_id"
     t.index ["account_id", "provider"], name: "index_provider_keys_on_account_id_and_provider", unique: true
     t.index ["account_id"], name: "index_provider_keys_on_account_id"
   end
@@ -616,6 +620,7 @@ ActiveRecord::Schema[8.2].define(version: 2026_07_31_000001) do
   end
 
   create_table "sandbox_sessions", force: :cascade do |t|
+    t.bigint "account_id"
     t.bigint "agent_template_id"
     t.string "cloud_run_job_id"
     t.string "cloud_run_url"
@@ -624,6 +629,7 @@ ActiveRecord::Schema[8.2].define(version: 2026_07_31_000001) do
     t.datetime "expires_at"
     t.datetime "last_activity_at"
     t.integer "max_runs", default: 10
+    t.jsonb "mcp_servers", default: []
     t.jsonb "runs", default: []
     t.integer "runs_count", default: 0
     t.string "sandbox_type", default: "playwright_mcp"
@@ -634,9 +640,11 @@ ActiveRecord::Schema[8.2].define(version: 2026_07_31_000001) do
     t.integer "total_tokens", default: 0
     t.datetime "updated_at", null: false
     t.bigint "user_id"
+    t.index ["account_id"], name: "index_sandbox_sessions_on_account_id"
     t.index ["agent_template_id"], name: "index_sandbox_sessions_on_agent_template_id"
     t.index ["cloud_run_job_id"], name: "index_sandbox_sessions_on_cloud_run_job_id"
     t.index ["expires_at"], name: "index_sandbox_sessions_on_expires_at"
+    t.index ["mcp_servers"], name: "index_sandbox_sessions_on_mcp_servers", using: :gin
     t.index ["sandbox_type"], name: "index_sandbox_sessions_on_sandbox_type"
     t.index ["session_id"], name: "index_sandbox_sessions_on_session_id", unique: true
     t.index ["status"], name: "index_sandbox_sessions_on_status"
@@ -644,6 +652,7 @@ ActiveRecord::Schema[8.2].define(version: 2026_07_31_000001) do
   end
 
   create_table "session_recordings", force: :cascade do |t|
+    t.bigint "account_id"
     t.integer "action_count", default: 0
     t.bigint "agent_run_id"
     t.datetime "created_at", null: false
@@ -653,8 +662,11 @@ ActiveRecord::Schema[8.2].define(version: 2026_07_31_000001) do
     t.bigint "sandbox_session_id"
     t.integer "status", default: 0, null: false
     t.datetime "updated_at", null: false
+    t.bigint "user_id"
+    t.index ["account_id"], name: "index_session_recordings_on_account_id"
     t.index ["agent_run_id"], name: "index_session_recordings_on_agent_run_id"
     t.index ["sandbox_session_id"], name: "index_session_recordings_on_sandbox_session_id"
+    t.index ["user_id"], name: "index_session_recordings_on_user_id"
   end
 
   create_table "sessions", force: :cascade do |t|

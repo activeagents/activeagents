@@ -9,15 +9,17 @@ class Api::ProviderKeysControllerTest < ActionDispatch::IntegrationTest
   end
 
   test "requires an authenticated account" do
-    get "/api/provider_keys"
-    assert_redirected_to "/session/new"
+    get "/dashboard/api/provider_keys"
+
+    # A JSON endpoint says unauthorized rather than redirecting to a form.
+    assert_response :unauthorized
   end
 
   test "index lists every supported provider without exposing credentials" do
     @account.provider_keys.create!(provider: "openai", credential: "sk-secret-abc123")
     sign_in_as(@user)
 
-    get "/api/provider_keys"
+    get "/dashboard/api/provider_keys"
     assert_response :success
 
     rows = json_response["provider_keys"]
@@ -35,10 +37,10 @@ class Api::ProviderKeysControllerTest < ActionDispatch::IntegrationTest
   test "create upserts the credential for a provider" do
     sign_in_as(@user)
 
-    post "/api/provider_keys", params: { provider: "anthropic", credential: "sk-ant-first" }, as: :json
+    post "/dashboard/api/provider_keys", params: { provider: "anthropic", credential: "sk-ant-first" }, as: :json
     assert_response :created
 
-    post "/api/provider_keys", params: { provider: "anthropic", credential: "sk-ant-second" }, as: :json
+    post "/dashboard/api/provider_keys", params: { provider: "anthropic", credential: "sk-ant-second" }, as: :json
     assert_response :created
 
     assert_equal 1, @account.provider_keys.where(provider: "anthropic").count
@@ -48,18 +50,18 @@ class Api::ProviderKeysControllerTest < ActionDispatch::IntegrationTest
   test "create accepts an ollama host URL and rejects a non-URL" do
     sign_in_as(@user)
 
-    post "/api/provider_keys", params: { provider: "ollama", credential: "http://localhost:11434/v1" }, as: :json
+    post "/dashboard/api/provider_keys", params: { provider: "ollama", credential: "http://localhost:11434/v1" }, as: :json
     assert_response :created
     assert_equal "http://localhost:11434/v1", json_response.dig("provider_key", "hint")
 
-    post "/api/provider_keys", params: { provider: "ollama", credential: "localhost:11434" }, as: :json
+    post "/dashboard/api/provider_keys", params: { provider: "ollama", credential: "localhost:11434" }, as: :json
     assert_response :unprocessable_entity
   end
 
   test "rejects unknown providers" do
     sign_in_as(@user)
 
-    post "/api/provider_keys", params: { provider: "skynet", credential: "sk-x" }, as: :json
+    post "/dashboard/api/provider_keys", params: { provider: "skynet", credential: "sk-x" }, as: :json
     assert_response :unprocessable_entity
   end
 
@@ -67,7 +69,7 @@ class Api::ProviderKeysControllerTest < ActionDispatch::IntegrationTest
     @account.provider_keys.create!(provider: "openai", credential: "sk-old")
     sign_in_as(@user)
 
-    delete "/api/provider_keys/openai"
+    delete "/dashboard/api/provider_keys/openai"
     assert_response :no_content
     assert_nil @account.provider_key_for(:openai)
   end
