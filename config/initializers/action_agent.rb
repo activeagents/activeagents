@@ -19,20 +19,33 @@ ActionAgent.configure do |config|
   # The engine's controllers are their own base class, so our Authentication
   # concern isn't on them — session lookup and actor resolution are supplied
   # here instead of named as methods to call.
+  # The engine renders `head :unauthorized` whenever this returns falsy. That
+  # is the right answer for the dashboard's JSON API and a dead end for its
+  # pages: a signed-out person following a link to /dashboard — from the
+  # lander's "Sign In" button, or a link in a mailer — would get a blank 401
+  # instead of the sign-in form they get everywhere else in this app.
+  #
+  # So this lambda answers for the pages itself: it redirects and returns
+  # true, which stops the engine from rendering a second time (returning
+  # false after a redirect raises DoubleRenderError). Returning true here
+  # never grants access — the redirect has already halted the filter chain.
+  #
+  # The JSON API keeps its 401, decided by controller class rather than by
+  # request format: a request that omits Accept is HTML as far as Rails is
+  # concerned, so a JSON client that simply did not set the header would
+  # otherwise be handed a 302 to a login page.
   config.authentication_method = lambda do |controller|
     Current.session ||= Session.find_by(id: controller.send(:cookies).signed[:session_id])
-    Current.session.present?
-  end
+    next true if Current.session.present?
 
-  # A signed-out person following a link to /dashboard should land on the
-  # sign-in form and come back afterwards — what Authentication#
-  # request_authentication does for every other page in this app. Without
-  # this the engine answers a bare 401, which is correct for its API and a
-  # dead end for its pages. Stash the return-to first, exactly as the
-  # concern does, so signing in resumes where they were headed.
-  config.sign_in_path = lambda do |controller|
+    next false if controller.is_a?(ActionAgent::Api::BaseController)
+    next false unless controller.request.get? && controller.request.format.html?
+
+    # Stash the return-to exactly as Authentication#request_authentication
+    # does, so signing in resumes where they were headed.
     controller.session[:return_to_after_authenticating] = controller.request.url
-    Rails.application.routes.url_helpers.new_session_path
+    controller.send(:redirect_to, Rails.application.routes.url_helpers.new_session_path)
+    true
   end
 
   config.current_user_resolver = ->(_controller) { Current.session&.user }
