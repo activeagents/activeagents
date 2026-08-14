@@ -15,7 +15,6 @@ class PagesController < ApplicationController
 
   def home
     @sections = load_sections
-    @demo_mode = params[:demo_mode].present?
 
     render :home_oss if oss_site?
   end

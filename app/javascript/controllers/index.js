@@ -22,9 +22,6 @@ application.register("flip-card", FlipCardController)
 import AgentBuilderController from "./agent_builder_controller"
 application.register("agent-builder", AgentBuilderController)
 
-import SessionReplayController from "./session_replay_controller"
-application.register("session-replay", SessionReplayController)
-
 import GitHubStarsController from "./github_stars_controller"
 application.register("github-stars", GitHubStarsController)
 
