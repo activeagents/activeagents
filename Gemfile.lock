@@ -1,7 +1,7 @@
 GIT
   remote: https://github.com/activeagents/activeagent.git
-  revision: 28bace26c7de03800e0a1daa2cb23947a52b44b0
-  ref: 28bace26c7de03800e0a1daa2cb23947a52b44b0
+  revision: c09564984838deeb19d6dc3ee8ad0907e734184a
+  ref: c09564984838deeb19d6dc3ee8ad0907e734184a
   glob: actionagent/*.gemspec
   specs:
     actionagent (1.2.1)

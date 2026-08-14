@@ -24,6 +24,17 @@ ActionAgent.configure do |config|
     Current.session.present?
   end
 
+  # A signed-out person following a link to /dashboard should land on the
+  # sign-in form and come back afterwards — what Authentication#
+  # request_authentication does for every other page in this app. Without
+  # this the engine answers a bare 401, which is correct for its API and a
+  # dead end for its pages. Stash the return-to first, exactly as the
+  # concern does, so signing in resumes where they were headed.
+  config.sign_in_path = lambda do |controller|
+    controller.session[:return_to_after_authenticating] = controller.request.url
+    Rails.application.routes.url_helpers.new_session_path
+  end
+
   config.current_user_resolver = ->(_controller) { Current.session&.user }
   config.current_account_resolver = ->(_controller) { Current.session&.user&.primary_account }
 
