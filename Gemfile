@@ -25,12 +25,34 @@ gem "rouge"
 # Inertia adapter for Rails [https://inertia-rails.dev]
 gem "inertia_rails"
 # Active Agent - AI agent framework for Rails [https://github.com/activeagents/activeagent]
-gem "activeagent", github: "activeagents/activeagent", branch: "claude/dashboard-tools-mcp-views-pdieob"
-# Action Agent - the dashboard, a mountable Rails engine. Lives in the same
-# repo as a sibling gem, hence the glob.
-gem "actionagent", github: "activeagents/activeagent", branch: "claude/dashboard-tools-mcp-views-pdieob", glob: "actionagent/*.gemspec"
-# Solid Agent - Persistence and context management for ActiveAgent
-gem "solid_agent", github: "activeagents/solid_agent", branch: "main"
+# Released versions rather than a branch: staging redeploys on every push to
+# main, and a moving branch means two deploys of the same commit can install
+# different code. 1.2.0 is the release that split the dashboard out.
+gem "activeagent", "~> 1.2"
+# Action Agent - the dashboard, a mountable Rails engine, split out of
+# activeagent in 1.2.0. This app mounts it instead of shipping a copy.
+#
+# Pinned to the 1.2.1 fix rather than the released 1.2.0, because 1.2.0
+# cannot run an agent against the solid_agent this app installs: it calls
+# solid_agent's has_context with the keyword the RubyGems copy declares
+# (contextable:) and the repository copy renamed (contextual:), so every run
+# raises ArgumentError. See activeagent@28bace2.
+#
+# Flip to `gem "actionagent", "~> 1.2", ">= 1.2.1"` once 1.2.1 is on
+# RubyGems; nothing else here changes.
+gem "actionagent", github: "activeagents/activeagent",
+  ref: "28bace26c7de03800e0a1daa2cb23947a52b44b0",
+  glob: "actionagent/*.gemspec"
+# Solid Agent - Persistence and context management for ActiveAgent.
+# Pinned to a revision rather than a branch or the released 0.1.1, and both
+# halves of that matter:
+#   * The released 0.1.1 predates solid_agent#3, so AgentGeneration never
+#     records a trace_id and the conversation stops correlating with the
+#     telemetry this platform exists to show.
+#   * `branch: "main"` would silently carry staging to 0.2.0 on the next
+#     resolve, which changes tool-cache key behaviour. That upgrade is its
+#     own change; a redeploy is not the place to make it.
+gem "solid_agent", github: "activeagents/solid_agent", ref: "41fd2fe2a31e24994baf2ff8017dad7c3795deac"
 # RubyLLM - model registry (token pricing data) and unified provider API
 gem "ruby_llm"
 # Ragents - Ractor-based AI agents for benchmarking (Ruby 4.0+)
