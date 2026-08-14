@@ -36,12 +36,12 @@ gem "activeagent", "~> 1.2"
 # cannot run an agent against the solid_agent this app installs: it calls
 # solid_agent's has_context with the keyword the RubyGems copy declares
 # (contextable:) and the repository copy renamed (contextual:), so every run
-# raises ArgumentError. See activeagent@28bace2.
+# raises ArgumentError. See activeagent@c095649.
 #
 # Flip to `gem "actionagent", "~> 1.2", ">= 1.2.1"` once 1.2.1 is on
 # RubyGems; nothing else here changes.
 gem "actionagent", github: "activeagents/activeagent",
-  ref: "28bace26c7de03800e0a1daa2cb23947a52b44b0",
+  ref: "c09564984838deeb19d6dc3ee8ad0907e734184a",
   glob: "actionagent/*.gemspec"
 # Solid Agent - Persistence and context management for ActiveAgent.
 # Pinned to a revision rather than a branch or the released 0.1.1, and both
