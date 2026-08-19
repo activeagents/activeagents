@@ -210,5 +210,4 @@ and was extracted to
 (`adapters/ruby_llm`, on the shared telemetry core) and published as
 `activeagents-telemetry-ruby_llm` — the namespace moved from
 `ActiveAgents::RubyLLMTelemetry` to `ActiveAgents::Telemetry::RubyLLM` in
-the process. First production consumer: the client app's Assistant admin chat
-(`the-client/app`).
+the process. First production consumer: a customer CMS's admin chat agent.

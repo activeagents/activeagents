@@ -20,15 +20,15 @@ by a form.** Saving is a promotion, not a creation.
 `active_agent_telemetry_traces.agent_class` is a bare **string** (schema.rb:44)
 with no foreign key to `agents`. Assistant appears in Traces and (since the
 Interactions work) in Interactions, but owns nothing — you can't click through
-to her config, version her instructions, evaluate her, or compare models,
-because as far as the platform is concerned she is a label on some rows.
+to its config, version its instructions, evaluate it, or compare models,
+because as far as the platform is concerned it is a label on some rows.
 
 Meanwhile `AgentRun` *does* carry `trace_id` (agent_run.rb:10, validated
 present), so platform-executed agents already have the link. The asymmetry is
 the whole problem: agents we ran are first-class, agents we merely observed are
 not.
 
-Locally right now: 9 traces from `client-app`, 0 agent records.
+Locally right now: 9 traces from `cms-acme`, 0 agent records.
 
 ## Part 1 — auto-registration on ingest
 
@@ -38,22 +38,22 @@ Reported traces carry exactly the dimensions needed. Observed today:
 
 | service_name | environment | agent_class | agent_action | sdk |
 |---|---|---|---|---|
-| `client-app` | development | Assistant | respond | `active_agents-ruby_llm` |
-| `client-app` | development | Assistant | title | `active_agents-ruby_llm` |
+| `cms-acme` | development | Assistant | respond | `active_agents-ruby_llm` |
+| `cms-acme` | development | Assistant | title | `active_agents-ruby_llm` |
 
 Natural key: **`account_id` + `service_name` + `agent_class` + `agent_action`**.
 
 An earlier draft of this doc keyed on `agent_class` alone, treating
-`agent_action` as behavior *within* one agent. That is wrong, and the client app is
-the counterexample. `Assistant.respond` and `Assistant.title` share a name and nothing
-else:
+`agent_action` as behavior *within* one agent. That is wrong, and the customer
+CMS is the counterexample. `Assistant.respond` and `Assistant.title` share a
+name and nothing else:
 
 | | `Assistant.respond` | `Assistant.title` |
 |---|---|---|
-| Instructions | `admin_instructions(tools)` — "You are Assistant, an admin-only assistant…" | `TITLE_INSTRUCTIONS` — "Generate a short, specific chat title… 3 to 7 words" |
+| Instructions | `admin_instructions(tools)` — "You are an admin-only assistant…" | `TITLE_INSTRUCTIONS` — "Generate a short, specific chat title… 3 to 7 words" |
 | Tools | every MCP diagnostic tool | none |
 | Temperature | default | 0.2 |
-| Chat object | the persisted `ClientAppAI::Chat` | a throwaway `RubyLLM.context.chat` |
+| Chat object | the persisted `CmsAI::Chat` | a throwaway `RubyLLM.context.chat` |
 | Observed cost/run | $0.0247 – $0.0530 | $0.0003 – $0.0005 |
 
 Different system prompt, different tools, different sampling, different chat
@@ -66,7 +66,7 @@ one blended cost-per-run averaging a $0.03 tool-using agent with a $0.0004
 one-shot, one latency figure mixing 13s against 2s, and evaluations that can't
 target either independently. Model comparison would be meaningless — you'd be
 asking "is Haiku good for Assistant?" when the honest answer differs sharply
-between her two jobs.
+between its two jobs.
 
 So: **one agent per observed `Agent.action`.** `Assistant` becomes a *group* in the
 UI, not a record. That grouping already exists in the traces filter
@@ -106,7 +106,7 @@ An auto-registered agent is:
 
 - `name` — `Agent.action` (`Assistant.respond`), so the two are distinguishable
   wherever a bare name is shown
-- `slug` — service + class + action (`client-app-assistant-respond`), unique
+- `slug` — service + class + action (`cms-acme-assistant-respond`), unique
   per user (schema.rb:247)
 - `provider` / `model` — from the llm span's `llm.provider` / `llm.model`
   attributes, i.e. what it actually ran with
@@ -135,9 +135,10 @@ being told. This matters for three reasons:
 - Usage limits and billing likely count authored agents differently from
   discovered ones.
 
-Fork is the interesting affordance: "you've been observing Assistant for a month —
-create an editable copy seeded with her real instructions, tools, and model."
-That's a genuinely good onboarding path from monitoring into the platform.
+Fork is the interesting affordance: "you've been observing an agent for a
+month — create an editable copy seeded with its real instructions, tools, and
+model." That's a genuinely good onboarding path from monitoring into the
+platform.
 
 ### Schema
 
