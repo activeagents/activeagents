@@ -93,8 +93,8 @@ specs mock the provider, so CI never hits this.
 
 ## Environment notes
 
-- A stale `sparkle` Puma server (running since 7/13) was occupying port 3000
-  and answering with an https redirect; it was killed. Restart it with
-  `bin/dev` in `~/GitHub/sparkle` if needed.
+- A stale Puma server from another local app (running since 7/13) was occupying
+  port 3000 and answering with an https redirect; it was killed. Restart it with
+  `bin/dev` in that app's checkout if needed.
 - Pre-checkout WIP from `feature/agent-builder-hero` is stashed:
   `WIP on feature/agent-builder-hero before PR-96 checkout`.

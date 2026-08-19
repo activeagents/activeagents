@@ -14,8 +14,8 @@ anything else — and wants to ship traces to an ActiveAgents dashboard. It will
 never subclass `ActiveAgent::Base`. Making it take `gem "activeagent"` means
 taking **actionpack, actionview, activemodel, and activejob** for a ~300-line
 trace shipper: the runtime dependencies weigh more than the thing being
-installed. That is the reason this got hand-vendored into Sparkle in the first
-place, and a subpath require would not have fixed it — it avoids the *load*
+installed. That is the reason this got hand-vendored into the first customer
+app, and a subpath require would not have fixed it — it avoids the *load*
 cost, not the *install* cost.
 
 A standalone gem also gives the integration story a name to point at. "Add
@@ -64,7 +64,7 @@ Lifted from `activeagent/lib/active_agent/telemetry/`:
 - `telemetry/reporter.rb` — buffering + batched background HTTP delivery
 - `telemetry/tracer.rb` — trace envelope assembly
 
-Plus the new adapter, ported from Sparkle's vendored file:
+Plus the new adapter, ported from the customer app's vendored file:
 
 - `telemetry/adapters/ruby_llm.rb` — `ActiveAgent::Telemetry::Adapters::RubyLLM`
 
@@ -107,13 +107,13 @@ Its `telemetry/instrumentation.rb` — the `ActiveSupport::Concern` that prepend
 
 This is not an optional follow-up. While both gems define
 `ActiveAgent::Telemetry`, the constant an app gets depends on load order (see
-the hazard above). The new gem can ship first — Sparkle doesn't install
-`activeagent` at all, so it is unaffected — but converging the two should land
-before any app is asked to run both.
+the hazard above). The new gem can ship first — the vendoring customer app
+doesn't install `activeagent` at all, so it is unaffected — but converging the
+two should land before any app is asked to run both.
 
 ## API
 
-Mirror what Sparkle already runs in production shape:
+Mirror what the customer app already runs in production shape:
 
 ```ruby
 ActiveAgent::Telemetry::Adapters::RubyLLM.subscribe!(
@@ -121,11 +121,11 @@ ActiveAgent::Telemetry::Adapters::RubyLLM.subscribe!(
   endpoint:        ENV.fetch("ACTIVEAGENTS_TELEMETRY_ENDPOINT", DEFAULT_ENDPOINT),
   service_name:    "my-app",
   environment:     Rails.env,
-  agent_resolver:  ->(payload) { { name: "Clara", action: ... } },
+  agent_resolver:  ->(payload) { { name: "Assistant", action: ... } },
   capture_content: false
 )
 ActiveAgent::Telemetry::Adapters::RubyLLM.unsubscribe!
-ActiveAgent::Telemetry::Adapters::RubyLLM.with_agent("Clara", action: "respond") { ... }
+ActiveAgent::Telemetry::Adapters::RubyLLM.with_agent("Assistant", action: "respond") { ... }
 ```
 
 Requires `RubyLLM.config.instrumenter = ActiveSupport::Notifications`.
@@ -182,10 +182,11 @@ adapter is not redundant with it.
    `activesupport`, `ruby_llm` in development only.
 2. **Move the five telemetry files**, fix the two leaks above (`local_storage`
    AR reference, `ActiveAgent::VERSION`), add `Telemetry::VERSION`.
-3. **Port the adapter** from `sparkle/lib/active_agents/ruby_llm_telemetry.rb`,
-   swapping hand-built hashes for `Span` and Net::HTTP for `Reporter`.
-4. **Port the spec** (Sparkle's is 211 lines / 11 examples and now actually
-   runs). Note the gem has **no telemetry tests at all** today, so this is the
+3. **Port the adapter** from the customer app's vendored
+   `lib/active_agents/ruby_llm_telemetry.rb`, swapping hand-built hashes for
+   `Span` and Net::HTTP for `Reporter`.
+4. **Port the spec** (the vendored spec is 211 lines / 11 examples and now
+   actually runs). Note the gem has **no telemetry tests at all** today, so this is the
    first. Prefer WebMock `stub_request`/`assert_requested` over VCR — you are
    asserting outbound shape, not replaying a third party. Watch the timing
    hazard: `Reporter#flush_buffer` spawns an unjoined delivery thread per flush
@@ -195,14 +196,14 @@ adapter is not redundant with it.
 5. **Add a load-isolation test** asserting the gem requires with no Rails and no
    `ActiveAgent::Base`. That guarantee is the entire premise and will rot
    silently without a test.
-6. **Publish 0.1.0**, then replace Sparkle's vendored file with the gem and keep
-   its initializer.
+6. **Publish 0.1.0**, then replace the customer app's vendored file with the
+   gem and keep its initializer.
 7. **Rewrite** activeagents `docs/integrations/ruby_llm.md` Option 2 to point at
    the gem instead of inlining a copy that has already drifted (the documented
    copy predates `agent_resolver` and `capture_content`).
 8. **Follow-up**: make `activeagent` depend on the new gem and delete its
    duplicate telemetry, keeping `instrumentation.rb`.
 
-Sequencing note: Sparkle keeps its vendored copy until the gem is published and
-verified against the same local stack, so there is never a window where neither
-copy is authoritative.
+Sequencing note: the customer app keeps its vendored copy until the gem is
+published and verified against the same local stack, so there is never a
+window where neither copy is authoritative.

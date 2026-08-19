@@ -185,10 +185,10 @@ keys, once PR
 account's legacy `telemetry_api_key` from the Organization page.
 
 For an **enterprise self-hosted mount** of the gem's dashboard engine
-(customer's own Rails app, e.g. `activeagents.combinaut.com` — see the
+(customer's own Rails app, e.g. `activeagents.example.com` — see the
 gem's `docs/framework/self-hosted-observability.md`), the endpoint shape
 is `<mount>/api/traces`, e.g.
-`https://activeagents.combinaut.com/api/traces`, and the Bearer token is
+`https://activeagents.example.com/api/traces`, and the Bearer token is
 that install's `ActiveAgent::Dashboard.ingest_api_key` (single-tenant) or
 an account `telemetry_api_key` (multi-tenant).
 
@@ -210,5 +210,4 @@ and was extracted to
 (`adapters/ruby_llm`, on the shared telemetry core) and published as
 `activeagents-telemetry-ruby_llm` — the namespace moved from
 `ActiveAgents::RubyLLMTelemetry` to `ActiveAgents::Telemetry::RubyLLM` in
-the process. First production consumer: Sparkle's Clara admin chat
-(`combinaut/sparkle`).
+the process. First production consumer: a customer CMS's admin chat agent.
