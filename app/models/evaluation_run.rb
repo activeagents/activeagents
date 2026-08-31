@@ -32,7 +32,7 @@ class EvaluationRun < ApplicationRecord
       .select { |stats| stats.is_a?(Hash) }
       .flat_map do |stats|
         if stats.key?("score")
-          [stats["score"]]
+          [ stats["score"] ]
         else
           stats.values.filter_map { |cohort| cohort["score"] if cohort.is_a?(Hash) }
         end
