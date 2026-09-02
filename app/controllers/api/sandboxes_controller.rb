@@ -29,6 +29,15 @@ module Api
       invalid = providers - %w[anthropic openai ollama]
       return render json: { error: "Invalid providers: #{invalid.join(', ')}" }, status: :bad_request if invalid.any?
 
+      # Check account-level usage limits for authenticated users, same as #run.
+      # Compare spawns a provider job per provider, so leaving it unmetered made
+      # it a way to run agents without touching the plan's execution budget.
+      # Checked before the sandbox lookup so an over-limit caller costs no
+      # container provisioning.
+      if (denial = plan_limit_denial)
+        return render json: denial, status: :payment_required
+      end
+
       # Use existing sandbox or create a new one (single container per user).
       # Scoped to the caller so a leaked/observed session_id can't be used to
       # run against someone else's sandbox.
@@ -49,13 +58,6 @@ module Api
           error: sandbox.expired? ? "Session expired" : "Maximum runs exceeded",
           sandbox: sandbox.summary
         }, status: :unprocessable_entity
-      end
-
-      # Check account-level usage limits for authenticated users, same as #run.
-      # Compare spawns a provider job per provider, so leaving it unmetered made
-      # it a way to run agents without touching the plan's execution budget.
-      if (denial = plan_limit_denial)
-        return render json: denial, status: :payment_required
       end
 
       # Increment usage for authenticated users
