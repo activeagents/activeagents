@@ -302,16 +302,18 @@ module Api
       @recording = SessionRecording.find(params[:id])
       return if can_manage_recording?(@recording)
 
+      # The lander demo is deliberately public (see #demo, which serves it
+      # unauthenticated) and #index lists it for every account, so keep it
+      # readable rather than 404ing a recording the dashboard just linked.
+      # The carve-out lives here, not in can_manage_recording?, so destroy
+      # still requires real ownership of it.
+      return if @recording.name == "lander_demo"
+
       not_found
     end
 
     def can_manage_recording?(recording)
       return true if current_user&.admin?
-
-      # The lander demo is deliberately public (see #demo, which serves it
-      # unauthenticated) and #index lists it for every account, so keep it
-      # readable rather than 404ing a recording the dashboard just linked.
-      return true if recording.name == "lander_demo"
 
       # Check if recording belongs to user's account via metadata
       if current_user&.primary_account
