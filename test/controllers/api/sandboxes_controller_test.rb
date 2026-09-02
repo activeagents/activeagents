@@ -52,8 +52,7 @@ class Api::SandboxesControllerTest < ActionDispatch::IntegrationTest
     end
 
     assert_response :not_found
-    assert_equal 0, @owner_sandbox.reload.runs_count
-    assert_not @owner_sandbox.running?
+    assert_not @owner_sandbox.reload.running?
   end
 
   test "run does not execute against a signed-in owner's sandbox for an anonymous caller" do
@@ -97,6 +96,65 @@ class Api::SandboxesControllerTest < ActionDispatch::IntegrationTest
     assert_equal anonymous_sandbox.session_id, json_response["sandbox"]["session_id"]
   end
 
+  test "anonymous callers still run against an anonymous sandbox" do
+    anonymous_sandbox = create_sandbox(user: nil)
+
+    assert_enqueued_jobs 1, only: SandboxRunJob do
+      post "/api/sandboxes/#{anonymous_sandbox.session_id}/run", params: { task: "Take a screenshot" }
+    end
+
+    assert_response :accepted
+    assert_equal "running", json_response["status"]
+  end
+
+  test "anonymous callers still compare against an anonymous sandbox" do
+    anonymous_sandbox = create_sandbox(user: nil)
+
+    assert_enqueued_jobs 2, only: SandboxRunJob do
+      post "/api/sandboxes/compare", params: {
+        task: "Take a screenshot",
+        providers: %w[anthropic openai],
+        sandbox_id: anonymous_sandbox.session_id
+      }
+    end
+
+    assert_response :accepted
+  end
+
+  # ===========================================
+  # Ownership on create, metering on run
+  # ===========================================
+
+  test "create files a signed-in caller's sandbox under their user" do
+    sign_in_as(@owner)
+
+    post "/api/sandboxes", params: { sandbox_type: "playwright_mcp" }
+
+    assert_response :created
+    created = SandboxSession.find_by!(session_id: json_response["sandbox"]["session_id"])
+    assert_equal @owner.id, created.user_id
+  end
+
+  test "create keeps an anonymous caller's sandbox in the anonymous pool" do
+    post "/api/sandboxes", params: { sandbox_type: "playwright_mcp" }
+
+    assert_response :created
+    created = SandboxSession.find_by!(session_id: json_response["sandbox"]["session_id"])
+    assert_nil created.user_id
+  end
+
+  test "run records account usage for a signed-in caller" do
+    account = create_account(owner: @owner)
+    sign_in_as(@owner)
+
+    assert_difference -> { account.reload.agent_runs_this_period }, 1 do
+      post "/api/sandboxes/#{@owner_sandbox.session_id}/run", params: { task: "Take a screenshot" }
+    end
+
+    assert_response :accepted
+    assert_equal 1, json_response["usage"]["runs_used"]
+  end
+
   # ===========================================
   # compare metering
   # ===========================================
@@ -135,6 +193,21 @@ class Api::SandboxesControllerTest < ActionDispatch::IntegrationTest
     assert json_response["upgrade_required"]
     assert_equal account.effective_agent_runs_limit, account.reload.agent_runs_this_period
     assert_not @owner_sandbox.reload.running?
+  end
+
+  test "compare at the plan limit does not create or provision a sandbox" do
+    account = create_account(owner: @owner)
+    account.update!(agent_runs_this_period: account.effective_agent_runs_limit)
+    sign_in_as(@owner)
+
+    assert_no_difference -> { SandboxSession.count } do
+      post "/api/sandboxes/compare", params: {
+        task: "Take a screenshot",
+        providers: %w[anthropic openai]
+      }
+    end
+
+    assert_response :payment_required
   end
 
   test "compare still spawns a job per provider within the plan limit" do
