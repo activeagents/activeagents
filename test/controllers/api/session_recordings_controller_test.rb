@@ -121,6 +121,26 @@ class Api::SessionRecordingsControllerTest < ActionDispatch::IntegrationTest
     assert json_response["continuation_recording_id"].present?
   end
 
+  test "handoff returns the full handoff_state to the owner, unscrubbed" do
+    sign_in_as(@owner)
+
+    post "/api/session_recordings/#{@recording.id}/handoff"
+
+    assert_response :success
+    handoff_state = json_response["handoff_state"]
+    assert_equal "sekrit-cookie", handoff_state["cookies"].first["value"]
+    assert_equal "lst-secret", handoff_state["local_storage"]["auth_token"]
+  end
+
+  test "snapshot still returns 200 for the owning account" do
+    sign_in_as(@owner)
+
+    get "/api/session_recordings/#{@recording.id}/snapshot/#{@action.id}"
+
+    assert_response :success
+    assert_equal "screenshot", json_response["type"]
+  end
+
   test "admins may still read another account's recording" do
     admin = create_user(email: "recording-admin-#{SecureRandom.hex(4)}@example.com")
     admin.update!(admin: true)
@@ -129,6 +149,31 @@ class Api::SessionRecordingsControllerTest < ActionDispatch::IntegrationTest
     get "/api/session_recordings/#{@recording.id}"
 
     assert_response :success
+  end
+
+  # ===========================================
+  # lander_demo — public to read, not to delete
+  # ===========================================
+
+  test "any signed-in user may read the lander demo recording" do
+    demo = SessionRecording.create!(name: "lander_demo", status: :completed, metadata: {})
+    sign_in_as(@intruder)
+
+    get "/api/session_recordings/#{demo.id}"
+
+    assert_response :success
+    assert_equal demo.id, json_response["recording"]["id"]
+  end
+
+  test "non-admins cannot delete the lander demo recording" do
+    demo = SessionRecording.create!(name: "lander_demo", status: :completed, metadata: {})
+    sign_in_as(@intruder)
+
+    assert_no_difference -> { SessionRecording.count } do
+      delete "/api/session_recordings/#{demo.id}"
+    end
+
+    assert_response :forbidden
   end
 
   # ===========================================
