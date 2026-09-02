@@ -28,6 +28,12 @@ module Api
     # blocking the Puma worker.
     SYNC_REQUEST_LIMIT = 10
 
+    # The only provider whose work the clamps above actually bound.
+    # BenchmarkRunnerService's other providers do work no knob here caps:
+    # "realistic" carries its own multi-second latency model that ignores
+    # io_ms, and "openai"/"anthropic" spend the deployment's real API keys.
+    ALLOWED_PROVIDERS = %w[ mock ].freeze
+
     # GET /api/benchmarks
     # Returns the last MAX_RETAINED benchmark runs, newest first.
     def index
@@ -54,11 +60,17 @@ module Api
                           ractor_default
       end
 
+      provider = params[:provider].presence || "mock"
+      unless ALLOWED_PROVIDERS.include?(provider)
+        return render json: { error: "provider must be one of: #{ALLOWED_PROVIDERS.join(', ')}" },
+                      status: :unprocessable_entity
+      end
+
       options = {
         requests: clamped_param(:requests, default: 5, min: 1, max: MAX_REQUESTS),
         io_ms: clamped_param(:io_ms, default: 100, min: 0, max: MAX_IO_MS),
         cpu_iters: clamped_param(:cpu_iters, default: 50_000, min: 0, max: MAX_CPU_ITERS),
-        provider: params[:provider] || "mock",
+        provider: provider,
         include_ractors: include_ractors
       }
 

@@ -8,11 +8,16 @@ class Api::BenchmarksControllerTest < ActionDispatch::IntegrationTest
   setup do
     @user = create_user
     @account = create_account(owner: @user)
-    Rails.cache.delete(Api::BenchmarksController::CACHE_KEY)
+
+    # The test environment's cache is :null_store, under which reads are nil
+    # even after a write — every "nothing reached the cache" assertion would
+    # pass vacuously. Swap in a real store so those assertions can fail.
+    @original_cache = Rails.cache
+    Rails.cache = ActiveSupport::Cache::MemoryStore.new
   end
 
   teardown do
-    Rails.cache.delete(Api::BenchmarksController::CACHE_KEY)
+    Rails.cache = @original_cache
   end
 
   # --- authentication -------------------------------------------------------
@@ -58,6 +63,22 @@ class Api::BenchmarksControllerTest < ActionDispatch::IntegrationTest
     assert_equal [], json_response["runs"]
   end
 
+  test "create still ingests for an authenticated session and index serves the run back" do
+    sign_in_as(@user)
+
+    post "/api/benchmarks",
+      params: { run_at: Time.now.iso8601, hardware: { cpu_model: "M1 Pro" }, strategies: [] }.to_json,
+      headers: { "Content-Type" => "application/json" }
+
+    assert_response :created
+    assert json_response["ok"]
+
+    get "/api/benchmarks"
+
+    assert_response :success
+    assert_equal "M1 Pro", json_response["runs"].first.dig("hardware", "cpu_model")
+  end
+
   # --- parameter clamping ---------------------------------------------------
 
   test "run clamps oversized knobs before handing work to the background job" do
@@ -91,6 +112,24 @@ class Api::BenchmarksControllerTest < ActionDispatch::IntegrationTest
     config = json_response.dig("results", "config")
     assert_equal 100_000, config["cpu_iterations"]
     assert_equal 2, config["n_requests"]
+  end
+
+  # The clamps bound only Ragents::Providers::SimulatedProvider's work:
+  # "realistic" ships its own multi-second latency model that ignores io_ms,
+  # and "openai"/"anthropic" spend the deployment's real API keys.
+  test "run rejects providers whose work the clamps cannot bound" do
+    sign_in_as(@user)
+
+    %w[realistic openai anthropic definitely-not-a-provider].each do |provider|
+      assert_no_enqueued_jobs(only: BenchmarkRunJob) do
+        post "/api/benchmarks/run",
+          params: { requests: 2, io_ms: 0, cpu_iters: 1, provider: provider, include_ractors: "false" }.to_json,
+          headers: { "Content-Type" => "application/json" }
+      end
+
+      assert_response :unprocessable_entity, "provider #{provider.inspect} was not rejected"
+      assert_nil json_response["results"], "provider #{provider.inspect} executed a benchmark"
+    end
   end
 
   test "run floors non-positive request counts instead of running zero requests" do
