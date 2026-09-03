@@ -33,12 +33,15 @@ module Api
         .order("agent_context_id, created_at DESC")
         .to_h { |generation| [ generation.agent_context_id, generation.model ] }
 
+      previews = message_previews(contexts.map(&:id))
+
       persisted = contexts.map do |context|
         serialize_context(context).merge(
           source: "platform",
           model: latest_models[context.id],
           message_count: message_counts[context.id] || 0,
-          generation_count: generation_counts[context.id] || 0
+          generation_count: generation_counts[context.id] || 0,
+          preview: previews[context.id] || { input: nil, output: nil }
         )
       end
 
@@ -69,6 +72,36 @@ module Api
     end
 
     private
+
+    # What each stream opened with and what it finally answered, so a
+    # collapsed interaction row says what it was about — the same two lines a
+    # collapsed trace row shows. Two grouped queries rather than loading
+    # every message: the list is fifty streams deep and only needs the ends
+    # of each.
+    def message_previews(context_ids)
+      return {} if context_ids.empty?
+
+      first_input = edge_messages(context_ids, "user", :minimum)
+      last_output = edge_messages(context_ids, "assistant", :maximum)
+
+      context_ids.index_with do |id|
+        {
+          input: InteractionPreview.line(first_input[id]),
+          output: InteractionPreview.line(last_output[id])
+        }
+      end
+    end
+
+    # The first or last message of a role per context. Messages are only ever
+    # appended, so the smallest and largest ids are the ends of the stream.
+    def edge_messages(context_ids, role, edge)
+      scope = AgentMessage
+        .where(agent_context_id: context_ids, role: role)
+        .where.not(content: [ nil, "" ])
+
+      ids = scope.group(:agent_context_id).public_send(edge, :id)
+      AgentMessage.where(id: ids.values).pluck(:agent_context_id, :content).to_h
+    end
 
     # Agents executing outside the platform never write solid_agent contexts —
     # they only report traces. Every reported trace is an interaction: one run
