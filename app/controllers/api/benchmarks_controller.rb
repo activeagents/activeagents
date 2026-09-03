@@ -103,7 +103,14 @@ module Api
         render json: { ok: true, status: "queued", message: "Benchmark queued for async execution" }
       end
     rescue => e
-      render json: { error: e.message, backtrace: e.backtrace.first(5) }, status: :internal_server_error
+      # The exception is logged in full server-side; the response carries
+      # only a generic message. Backtrace frames expose absolute filesystem
+      # paths, gem versions and internal structure, none of which a client
+      # needs to learn that a benchmark failed.
+      Rails.logger.error(
+        "[Benchmarks] run failed: #{e.class}: #{e.message}\n#{e.backtrace&.first(20)&.join("\n")}"
+      )
+      render json: { error: "Benchmark run failed" }, status: :internal_server_error
     end
 
     # POST /api/benchmarks
