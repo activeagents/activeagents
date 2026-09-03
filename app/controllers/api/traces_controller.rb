@@ -15,7 +15,7 @@ module Api
 
     # GET /api/traces
     def index
-      window = params.fetch(:minutes, DEFAULT_WINDOW_MINUTES).to_i.clamp(1, MAX_WINDOW_MINUTES)
+      window = clamped_param(:minutes, default: DEFAULT_WINDOW_MINUTES, min: 1, max: MAX_WINDOW_MINUTES)
       window_scope = traces_scope.for_date_range(window.minutes.ago, Time.current)
 
       scope = window_scope
@@ -23,7 +23,7 @@ module Api
       scope = scope.for_service(params[:service]) if params[:service].present?
       scope = scope.with_errors if params[:status] == "error"
 
-      limit = params.fetch(:limit, DEFAULT_LIMIT).to_i.clamp(1, 1000)
+      limit = clamped_param(:limit, default: DEFAULT_LIMIT, min: 1, max: 1000)
       traces = scope.recent.limit(limit)
 
       render json: {

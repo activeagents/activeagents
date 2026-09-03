@@ -141,21 +141,6 @@ module Api
       render json: { error: "Authentication required" }, status: :unauthorized
     end
 
-    # Reads an integer knob from params, falling back to `default` when absent
-    # and clamping whatever arrives into [min, max]. Non-numeric input becomes
-    # 0 via to_i and is then clamped up to `min`.
-    #
-    # The value is coerced through `to_s` first because a knob can arrive as a
-    # container rather than a scalar (`requests[]=1&requests[]=2`, or a JSON
-    # object): Array and ActionController::Parameters do not respond to `to_i`,
-    # so reading them directly raised NoMethodError and returned a 500 instead
-    # of the documented clamp.
-    def clamped_param(name, default:, min:, max:)
-      raw = params[name]
-      value = raw.presence ? raw.to_s.to_i : default
-      value.clamp(min, max)
-    end
-
     def parse_payload
       body = request.body.read
       return nil if body.blank?

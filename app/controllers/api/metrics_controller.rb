@@ -28,7 +28,7 @@ module Api
 
     # GET /api/metrics
     def show
-      hours = params.fetch(:hours, DEFAULT_WINDOW_HOURS).to_i.clamp(1, MAX_WINDOW_HOURS)
+      hours = clamped_param(:hours, default: DEFAULT_WINDOW_HOURS, min: 1, max: MAX_WINDOW_HOURS)
       now = Time.current
 
       current = traces_scope.for_date_range(hours.hours.ago(now), now)

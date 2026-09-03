@@ -109,9 +109,9 @@ module Api
     # observed from telemetry have no AgentRun rows at all, so a runs-only
     # list showed them as empty while their scorecard reported real traffic.
     def runs
-      minutes = params[:minutes].presence&.then { |m| m.to_i.clamp(1, 60 * 24 * 90) }
-      page = (params[:page] || 1).to_i
-      per_page = (params[:per_page] || 20).to_i
+      minutes = integer_param(:minutes)&.clamp(1, 60 * 24 * 90)
+      page = clamped_param(:page, default: 1, min: 1, max: 1_000_000)
+      per_page = clamped_param(:per_page, default: 20, min: 1, max: 100)
 
       executions = AgentExecutions.new(
         agents: [ @agent ],
@@ -194,7 +194,7 @@ module Api
 
     # GET /api/agents/:id/analytics
     def analytics
-      days = (params[:days] || 30).to_i
+      days = integer_param(:days, default: 30)
       start_date = days.days.ago.beginning_of_day
 
       runs = @agent.agent_runs.where("created_at >= ?", start_date)
