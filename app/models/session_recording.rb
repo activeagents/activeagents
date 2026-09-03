@@ -108,7 +108,13 @@ class SessionRecording < ApplicationRecord
     )
   end
 
-  # Get timeline data for playback
+  # Get timeline data for playback.
+  #
+  # Values and per-action metadata go through the same redaction as
+  # RecordingAction#as_json_for_api (the /actions endpoint): the timeline is
+  # shipped in every `show` response and in the export cassette, and the player
+  # falls back to it when /actions fails, so emitting raw values here would
+  # leak passwords/PII that /actions is careful to strip.
   def timeline
     recording_actions.order(:sequence).map do |action|
       {
@@ -117,9 +123,9 @@ class SessionRecording < ApplicationRecord
         sequence: action.sequence,
         timestamp_ms: action.timestamp_ms,
         selector: action.selector,
-        value: action.value,
+        value: action.redacted_value,
         screenshot_key: action.screenshot_key,
-        metadata: action.metadata
+        metadata: action.safe_metadata
       }
     end
   end
