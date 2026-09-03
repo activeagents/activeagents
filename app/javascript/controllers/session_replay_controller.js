@@ -593,6 +593,9 @@ export default class extends Controller {
       if (response.ok) {
         const data = await response.json()
         this.userSessionId = data.recording_id
+        // Proves to record_action/complete that this browser started the
+        // recording; without it anonymous writes to the recording are refused.
+        this.userSessionToken = data.recording_token
         console.log('User session started:', this.userSessionId)
       } else {
         console.error('Failed to start user session:', response.status)
@@ -621,7 +624,8 @@ export default class extends Controller {
           action_type: actionType,
           selector: selector,
           value: value,
-          metadata: metadata
+          metadata: metadata,
+          recording_token: this.userSessionToken
         })
       })
     } catch (error) {
@@ -643,7 +647,8 @@ export default class extends Controller {
         body: JSON.stringify({
           completion_type: completionType,
           email_submitted: emailSubmitted,
-          success: success
+          success: success,
+          recording_token: this.userSessionToken
         })
       })
 

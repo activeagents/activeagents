@@ -318,6 +318,138 @@ class Api::SessionRecordingsControllerTest < ActionDispatch::IntegrationTest
     assert_response :forbidden
   end
 
+  # ==================================================
+  # Anonymous writes — record_action and complete
+  # must be bound to the session that started the
+  # recording (#125)
+  # ==================================================
+
+  test "record_action refuses an anonymous caller who only knows the id" do
+    assert_no_difference -> { @recording.recording_actions.count } do
+      post "/api/session_recordings/#{@recording.id}/record_action",
+           params: { action_type: "type", selector: "input[name=card]", value: "4111" }.to_json,
+           headers: { "Content-Type" => "application/json" }
+    end
+
+    assert_response :not_found
+  end
+
+  test "complete refuses an anonymous caller who only knows the id" do
+    post "/api/session_recordings/#{@recording.id}/complete",
+         params: { completion_type: "session_end" }.to_json,
+         headers: { "Content-Type" => "application/json" }
+
+    assert_response :not_found
+    assert @recording.reload.recording?, "the recording must not have been force-completed"
+  end
+
+  test "an unknown id and someone else's id answer identically to anonymous writers" do
+    post "/api/session_recordings/#{@recording.id}/record_action", params: { action_type: "click" }
+    real = [ response.status, response.body ]
+
+    post "/api/session_recordings/999999999/record_action", params: { action_type: "click" }
+    bogus = [ response.status, response.body ]
+
+    assert_equal bogus, real, "a real id must not be distinguishable from a bogus one"
+  end
+
+  test "start_user_session issues a token that authorizes writes to that recording only" do
+    post "/api/session_recordings/start_user_session",
+         params: { page_url: "https://example.com/", step: 4 }.to_json,
+         headers: { "Content-Type" => "application/json" }
+    assert_response :created
+    recording_id = json_response["recording_id"]
+    token = json_response["recording_token"]
+    assert token.present?
+
+    post "/api/session_recordings/#{recording_id}/record_action",
+         params: { action_type: "click", selector: "button.cta", recording_token: token }.to_json,
+         headers: { "Content-Type" => "application/json" }
+    assert_response :success
+    assert json_response["action_id"].present?
+
+    # The token names one recording; it opens no other.
+    assert_no_difference -> { @recording.recording_actions.count } do
+      post "/api/session_recordings/#{@recording.id}/record_action",
+           params: { action_type: "click", recording_token: token }.to_json,
+           headers: { "Content-Type" => "application/json" }
+    end
+    assert_response :not_found
+
+    post "/api/session_recordings/#{recording_id}/complete",
+         params: { completion_type: "session_end", recording_token: token }.to_json,
+         headers: { "Content-Type" => "application/json" }
+    assert_response :success
+    assert_equal "completed", json_response["status"]
+  end
+
+  test "the write token is also accepted as a header" do
+    post "/api/session_recordings/start_user_session", params: { page_url: "https://example.com/" }
+    recording_id = json_response["recording_id"]
+    token = json_response["recording_token"]
+
+    post "/api/session_recordings/#{recording_id}/record_action",
+         params: { action_type: "scroll" }, headers: { "X-Recording-Token" => token }
+
+    assert_response :success
+  end
+
+  test "a forged or tampered token does not authorize writes" do
+    post "/api/session_recordings/start_user_session", params: { page_url: "https://example.com/" }
+    recording_id = json_response["recording_id"]
+    token = json_response["recording_token"]
+
+    post "/api/session_recordings/#{recording_id}/record_action",
+         params: { action_type: "click", recording_token: "#{token}x" }
+
+    assert_response :not_found
+  end
+
+  test "the owning account may still write to its recording without a token" do
+    sign_in_as(@owner)
+
+    assert_difference -> { @recording.recording_actions.count }, 1 do
+      post "/api/session_recordings/#{@recording.id}/record_action",
+           params: { action_type: "click", selector: "button.cta" }
+    end
+
+    assert_response :success
+  end
+
+  test "another signed-in account may not write to the recording" do
+    sign_in_as(@intruder)
+
+    assert_no_difference -> { @recording.recording_actions.count } do
+      post "/api/session_recordings/#{@recording.id}/record_action",
+           params: { action_type: "click", selector: "button.cta" }
+    end
+
+    assert_response :not_found
+  end
+
+  test "a token holder still learns when the recording is already complete" do
+    post "/api/session_recordings/start_user_session", params: { page_url: "https://example.com/" }
+    recording_id = json_response["recording_id"]
+    token = json_response["recording_token"]
+    SessionRecording.find(recording_id).complete!
+
+    post "/api/session_recordings/#{recording_id}/record_action",
+         params: { action_type: "click", recording_token: token }
+
+    assert_response :unprocessable_entity
+    assert_equal "Recording already completed", json_response["error"]
+  end
+
+  test "a signed-in visitor's user session is stamped with their account" do
+    sign_in_as(@owner)
+
+    post "/api/session_recordings/start_user_session", params: { page_url: "https://example.com/" }
+
+    assert_response :created
+    recording = SessionRecording.find(json_response["recording_id"])
+    assert_equal @owner_account.id.to_s, recording.metadata["account_id"]
+  end
+
   # ===========================================
   # Redaction — show/export must not leak (#110)
   # ===========================================
