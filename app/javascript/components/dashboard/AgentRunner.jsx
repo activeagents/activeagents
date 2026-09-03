@@ -179,6 +179,23 @@ export default function AgentRunner({ agent, onBack }) {
     return `${(ms / 1000).toFixed(2)}s`;
   };
 
+  // The Recent Runs rows are list summaries (input/output previews, no
+  // output, error_message or logs), while the Output panel reads the detail
+  // shape — so a clicked historical run showed "No output" and hid its
+  // error. Show the summary at once, then replace it with the detail.
+  const openRun = async (run) => {
+    setCurrentRun({ ...run, output: run.output ?? run.output_preview, error_message: run.error_message ?? run.error });
+    try {
+      const response = await fetch(`/api/runs/${run.id}`);
+      if (response.ok) {
+        const data = await response.json();
+        setCurrentRun(data.run);
+      }
+    } catch (err) {
+      console.error('Failed to load run details:', err);
+    }
+  };
+
   const handleUpgrade = async () => {
     setIsUpgrading(true);
     setUpgradeError(null);
@@ -496,7 +513,7 @@ export default function AgentRunner({ agent, onBack }) {
                   <div
                     key={run.id}
                     className="px-4 py-3 hover:bg-gray-50 cursor-pointer"
-                    onClick={() => setCurrentRun(run)}
+                    onClick={() => openRun(run)}
                   >
                     <div className="flex items-center justify-between mb-1">
                       <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${getStatusColor(run.status)}`}>
