@@ -132,6 +132,39 @@ class Api::SessionRecordingsControllerTest < ActionDispatch::IntegrationTest
     assert_equal "lst-secret", handoff_state["local_storage"]["auth_token"]
   end
 
+  # ==================================================
+  # The handoff continuation must stay readable by
+  # the account that created it (#119)
+  # ==================================================
+
+  test "the creating account can read back the recording handoff returns" do
+    assert_nil @recording.sandbox_session,
+               "this test exists for the no-sandbox_session case, where account_id is the only owner signal"
+    sign_in_as(@owner)
+
+    post "/api/session_recordings/#{@recording.id}/handoff"
+    assert_response :success
+    continuation_id = json_response["continuation_recording_id"]
+
+    get "/api/session_recordings/#{continuation_id}"
+
+    assert_response :success
+    assert_equal continuation_id, json_response["recording"]["id"]
+  end
+
+  test "another account still cannot read the handoff continuation" do
+    sign_in_as(@owner)
+
+    post "/api/session_recordings/#{@recording.id}/handoff"
+    assert_response :success
+    continuation_id = json_response["continuation_recording_id"]
+
+    sign_in_as(@intruder)
+    get "/api/session_recordings/#{continuation_id}"
+
+    assert_response :not_found
+  end
+
   test "snapshot still returns 200 for the owning account" do
     sign_in_as(@owner)
 

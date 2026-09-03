@@ -267,12 +267,7 @@ module Api
         agent_run: @recording.agent_run,
         name: "#{@recording.name}_continuation",
         status: :recording,
-        metadata: {
-          parent_recording_id: @recording.id,
-          handoff_from: @recording.action_count,
-          started_at: Time.current.iso8601,
-          user_id: current_user&.id
-        }
+        metadata: continuation_metadata
       )
 
       render json: {
@@ -323,6 +318,25 @@ module Api
     # non-owner may do just because the recording is publicly viewable.
     def public_demo_read?
       PUBLIC_DEMO_ACTIONS.include?(action_name) && @recording.name == "lander_demo"
+    end
+
+    # The continuation records the caller's own session, so stamp it with the
+    # caller's account the same way can_manage_recording? resolves ownership.
+    # Without it a continuation inherits no owner at all whenever the parent has
+    # no sandbox_session, and the user who just created it is 404ed out of
+    # reading it back. account_id is omitted rather than stored as nil when the
+    # caller has no account (an admin acting outside one), leaving the
+    # continuation admin-only, which is the only caller who can get there.
+    def continuation_metadata
+      metadata = {
+        parent_recording_id: @recording.id,
+        handoff_from: @recording.action_count,
+        started_at: Time.current.iso8601,
+        user_id: current_user&.id
+      }
+
+      account = current_user&.primary_account
+      account ? metadata.merge(account_id: account.id.to_s) : metadata
     end
 
     def can_manage_recording?(recording)
