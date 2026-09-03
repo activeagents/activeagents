@@ -71,4 +71,17 @@ class EvaluationRunTest < ActiveSupport::TestCase
 
     assert_nil run.average_score
   end
+
+  # Regression: the scores column is nullable (`t.jsonb "scores", default: {}`
+  # with no `null: false`), so a row can hold NULL. Calling Hash#reject on nil
+  # raised NoMethodError, permanently 500ing GET /api/evaluations.
+  test "average_score is nil when scores is NULL" do
+    run = create_evaluation_run(scores: {})
+    run.update_column(:scores, nil)
+    run.reload
+
+    assert_nil run.scores, "expected the scores column to be NULL, not {}"
+    assert_nothing_raised { run.average_score }
+    assert_nil run.average_score
+  end
 end

@@ -24,9 +24,10 @@ class EvaluationRun < ApplicationRecord
 
   # Every recorded criterion score, flattening comparison runs' per-model
   # cohort maps. Skips metadata keys and any non-stat value so a payload like
-  # scores["_missing_models"] = ["gpt-4o"] cannot raise.
+  # scores["_missing_models"] = ["gpt-4o"] cannot raise. The scores column is
+  # nullable, so a NULL row falls back to an empty payload.
   def criterion_scores
-    scores
+    (scores || {})
       .reject { |key, _| key.to_s.start_with?("_") }
       .values
       .select { |stats| stats.is_a?(Hash) }
