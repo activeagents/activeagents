@@ -10,6 +10,10 @@ module Api
     # Browser state that must never leave the server in a read/export response.
     SENSITIVE_STATE_KEYS = %w[cookies session_storage local_storage].freeze
 
+    # The only actions the public lander_demo carve-out in #set_recording may
+    # cover. Read-only, and they render through the scrubbers above.
+    PUBLIC_DEMO_ACTIONS = %w[show actions snapshot].freeze
+
     # GET /api/session_recordings
     # List recordings with optional filters
     def index
@@ -301,15 +305,24 @@ module Api
     def set_recording
       @recording = SessionRecording.find(params[:id])
       return if can_manage_recording?(@recording)
-
-      # The lander demo is deliberately public (see #demo, which serves it
-      # unauthenticated) and #index lists it for every account, so keep it
-      # readable rather than 404ing a recording the dashboard just linked.
-      # The carve-out lives here, not in can_manage_recording?, so destroy
-      # still requires real ownership of it.
-      return if @recording.name == "lander_demo"
+      return if public_demo_read?
 
       not_found
+    end
+
+    # The lander demo is deliberately public (see #demo, which serves it
+    # unauthenticated) and #index lists it for every account, so keep it
+    # readable rather than 404ing a recording the dashboard just linked.
+    #
+    # The carve-out is read-only and lives here, not in can_manage_recording?,
+    # so destroy still requires real ownership. #export and #handoff are
+    # excluded on purpose: #handoff returns the raw handoff_state (cookies,
+    # session_storage, local_storage) that every read path scrubs and creates a
+    # continuation recording as a side effect, and #export dumps the whole
+    # cassette (screenshots included on request). Neither is something a
+    # non-owner may do just because the recording is publicly viewable.
+    def public_demo_read?
+      PUBLIC_DEMO_ACTIONS.include?(action_name) && @recording.name == "lander_demo"
     end
 
     def can_manage_recording?(recording)

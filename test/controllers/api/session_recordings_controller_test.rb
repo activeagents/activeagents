@@ -151,9 +151,10 @@ class Api::SessionRecordingsControllerTest < ActionDispatch::IntegrationTest
     assert_response :success
   end
 
-  # ===========================================
-  # lander_demo — public to read, not to delete
-  # ===========================================
+  # ==================================================
+  # lander_demo — public to READ only. The carve-out
+  # must not reach export, handoff or destroy (#119)
+  # ==================================================
 
   test "any signed-in user may read the lander demo recording" do
     demo = SessionRecording.create!(name: "lander_demo", status: :completed, metadata: {})
@@ -163,6 +164,90 @@ class Api::SessionRecordingsControllerTest < ActionDispatch::IntegrationTest
 
     assert_response :success
     assert_equal demo.id, json_response["recording"]["id"]
+  end
+
+  test "any signed-in user may read the lander demo action timeline" do
+    demo = create_lander_demo
+    sign_in_as(@intruder)
+
+    get "/api/session_recordings/#{demo.id}/actions"
+
+    assert_response :success
+    assert_equal 1, json_response["actions"].size
+  end
+
+  test "any signed-in user may read a lander demo snapshot" do
+    demo = create_lander_demo
+    sign_in_as(@intruder)
+
+    get "/api/session_recordings/#{demo.id}/snapshot/#{demo.recording_actions.first.id}"
+
+    assert_response :success
+    assert_equal "screenshot", json_response["type"]
+  end
+
+  test "reading the lander demo still scrubs its handoff secrets" do
+    demo = create_lander_demo
+    sign_in_as(@intruder)
+
+    get "/api/session_recordings/#{demo.id}"
+
+    assert_response :success
+    assert_not_includes response.body, "demo-sekrit-cookie"
+    assert_not_includes response.body, "demo-lst-secret"
+    assert_not_includes response.body, "demo-sst-secret"
+  end
+
+  test "non-owners cannot export the lander demo recording" do
+    demo = create_lander_demo
+    sign_in_as(@intruder)
+
+    post "/api/session_recordings/#{demo.id}/export"
+
+    assert_response :not_found
+    assert_nil json_response["cassette"]
+  end
+
+  test "non-owners cannot hand off the lander demo recording" do
+    demo = create_lander_demo
+    sign_in_as(@intruder)
+    recording_count = SessionRecording.count
+
+    post "/api/session_recordings/#{demo.id}/handoff"
+
+    assert_response :not_found
+    assert_nil json_response["handoff_state"]
+    assert_not_includes response.body, "demo-sekrit-cookie"
+    assert_not_includes response.body, "demo-lst-secret"
+    assert_not_includes response.body, "demo-sst-secret"
+    assert_equal recording_count, SessionRecording.count,
+                 "handoff must not create a continuation recording for a non-owner"
+  end
+
+  test "the owning account may still export and hand off the lander demo" do
+    demo = create_lander_demo
+    sign_in_as(@owner)
+
+    post "/api/session_recordings/#{demo.id}/export"
+    assert_response :success
+    assert_equal 1, json_response["cassette"]["actions"].size
+
+    post "/api/session_recordings/#{demo.id}/handoff"
+    assert_response :success
+    assert_equal "demo-sekrit-cookie", json_response["handoff_state"]["cookies"].first["value"]
+  end
+
+  test "admins may still export and hand off the lander demo" do
+    demo = create_lander_demo
+    admin = create_user(email: "recording-admin-#{SecureRandom.hex(4)}@example.com")
+    admin.update!(admin: true)
+    sign_in_as(admin)
+
+    post "/api/session_recordings/#{demo.id}/export"
+    assert_response :success
+
+    post "/api/session_recordings/#{demo.id}/handoff"
+    assert_response :success
   end
 
   test "non-admins cannot delete the lander demo recording" do
@@ -223,5 +308,35 @@ class Api::SessionRecordingsControllerTest < ActionDispatch::IntegrationTest
     assert_not_includes response.body, "sekrit-cookie"
     assert_not_includes response.body, "lst-secret"
     assert_not_includes response.body, "sst-secret"
+  end
+
+  private
+
+  # A lander demo that carries the same class of secrets as any other
+  # recording, owned by @owner_account so @intruder exercises the carve-out.
+  def create_lander_demo
+    demo = SessionRecording.create!(
+      name: "lander_demo",
+      status: :recording,
+      metadata: {
+        "account_id" => @owner_account.id.to_s,
+        "handoff_state" => {
+          "url" => "https://example.com/demo",
+          "cookies" => [ { "name" => "_session", "value" => "demo-sekrit-cookie" } ],
+          "local_storage" => { "auth_token" => "demo-lst-secret" },
+          "session_storage" => { "csrf" => "demo-sst-secret" }
+        }
+      }
+    )
+
+    demo.record_action!(
+      action_type: "click",
+      selector: "button.cta",
+      value: "Start the demo",
+      metadata: { "url" => "https://example.com/demo" }
+    )
+
+    demo.complete!
+    demo.reload
   end
 end
