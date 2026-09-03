@@ -7,10 +7,32 @@ module Api
   # Results are stored in the Rails cache (not the database) so no migration
   # is needed.  The cache key is shared between all processes via Solid Cache.
   # The last 20 benchmark runs are retained.
+  #
+  # Every action requires an authenticated session (inherited from
+  # ApplicationController's Authentication concern).  The endpoints both
+  # trigger real CPU/IO work and write into a process-shared cache that the
+  # authenticated dashboard renders, so neither the read nor the writes may be
+  # reachable anonymously.
   class BenchmarksController < BaseController
-    skip_before_action :require_authentication, raise: false
     CACHE_KEY    = "ragents:benchmarks:runs"
     MAX_RETAINED = 20
+
+    # Upper bounds for the knobs that drive real work in the request/job.
+    # `cpu_iters` in particular feeds Ragents::Providers::SimulatedProvider's
+    # busy loop, so an unclamped value pins a CPU core for as long as it runs.
+    MAX_REQUESTS  = 25
+    MAX_IO_MS     = 1_000
+    MAX_CPU_ITERS = 100_000
+
+    # Above this many requests the run is handed to a background job instead of
+    # blocking the Puma worker.
+    SYNC_REQUEST_LIMIT = 10
+
+    # The only provider whose work the clamps above actually bound.
+    # BenchmarkRunnerService's other providers do work no knob here caps:
+    # "realistic" carries its own multi-second latency model that ignores
+    # io_ms, and "openai"/"anthropic" spend the deployment's real API keys.
+    ALLOWED_PROVIDERS = %w[ mock ].freeze
 
     # GET /api/benchmarks
     # Returns the last MAX_RETAINED benchmark runs, newest first.
@@ -38,16 +60,22 @@ module Api
                           ractor_default
       end
 
+      provider = params[:provider].presence || "mock"
+      unless ALLOWED_PROVIDERS.include?(provider)
+        return render json: { error: "provider must be one of: #{ALLOWED_PROVIDERS.join(', ')}" },
+                      status: :unprocessable_entity
+      end
+
       options = {
-        requests: params[:requests]&.to_i || 5,
-        io_ms: params[:io_ms]&.to_i || 100,
-        cpu_iters: params[:cpu_iters]&.to_i || 50_000,
-        provider: params[:provider] || "mock",
+        requests: clamped_param(:requests, default: 5, min: 1, max: MAX_REQUESTS),
+        io_ms: clamped_param(:io_ms, default: 100, min: 0, max: MAX_IO_MS),
+        cpu_iters: clamped_param(:cpu_iters, default: 50_000, min: 0, max: MAX_CPU_ITERS),
+        provider: provider,
         include_ractors: include_ractors
       }
 
       # Run benchmarks (synchronous for small N, async for larger)
-      if options[:requests] <= 10
+      if options[:requests] <= SYNC_REQUEST_LIMIT
         service = BenchmarkRunnerService.new(**options)
         results = service.run
 
@@ -80,7 +108,9 @@ module Api
 
     # POST /api/benchmarks
     # Accepts JSON body from ragents/bin/bench.
-    # No authentication required so bin/bench works without a session cookie.
+    # Requires an authenticated session: the records written here are served
+    # verbatim to the authenticated dashboard, so anonymous ingest would let
+    # any client inject trusted-looking benchmark content.
     def create
       payload = parse_payload
       return render json: { error: "Invalid payload" }, status: :unprocessable_entity if payload.nil?
@@ -104,6 +134,27 @@ module Api
     end
 
     private
+
+    # This is a JSON API, so answer an unauthenticated request with 401 rather
+    # than the HTML sign-in redirect the Authentication concern defaults to.
+    def request_authentication
+      render json: { error: "Authentication required" }, status: :unauthorized
+    end
+
+    # Reads an integer knob from params, falling back to `default` when absent
+    # and clamping whatever arrives into [min, max]. Non-numeric input becomes
+    # 0 via to_i and is then clamped up to `min`.
+    #
+    # The value is coerced through `to_s` first because a knob can arrive as a
+    # container rather than a scalar (`requests[]=1&requests[]=2`, or a JSON
+    # object): Array and ActionController::Parameters do not respond to `to_i`,
+    # so reading them directly raised NoMethodError and returned a 500 instead
+    # of the documented clamp.
+    def clamped_param(name, default:, min:, max:)
+      raw = params[name]
+      value = raw.presence ? raw.to_s.to_i : default
+      value.clamp(min, max)
+    end
 
     def parse_payload
       body = request.body.read
