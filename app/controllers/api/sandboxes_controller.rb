@@ -18,7 +18,7 @@ module Api
     # POST /api/sandboxes/compare
     # Run multiple providers in a single sandbox using parallel generation jobs
     def compare
-      providers = params[:providers] || %w[anthropic openai ollama]
+      providers = compare_providers
       task = params[:task]
       sandbox_id = params[:sandbox_id]
 
@@ -205,6 +205,21 @@ module Api
         usage: account.usage_stats,
         message: "You've used all #{account.effective_agent_runs_limit} agent runs this month. Upgrade to continue."
       }
+    end
+
+    # The providers a #compare caller asked for, always as an array of strings.
+    # params[:providers] carries whatever the request sent: an array, a bare
+    # String ("providers=anthropic", or {"providers": "anthropic"} in a JSON
+    # body), or a nested hash, which Rails hands over as
+    # ActionController::Parameters. Both guards in #compare assume an array --
+    # a String passed the "at least 2" check on its character count and then
+    # raised NoMethodError on String#-, answering 500 where 400 belongs.
+    # Anything that is not a string is dropped here so those guards answer for
+    # it instead.
+    def compare_providers
+      return %w[anthropic openai ollama] if params[:providers].nil?
+
+      Array.wrap(params[:providers]).grep(String)
     end
 
     def sandbox_params

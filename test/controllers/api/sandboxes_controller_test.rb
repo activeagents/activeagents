@@ -226,6 +226,89 @@ class Api::SandboxesControllerTest < ActionDispatch::IntegrationTest
     assert_equal 2, json_response["runs"].size
   end
 
+  # ===========================================
+  # compare provider params
+  # ===========================================
+
+  test "compare rejects a single provider sent as a bare string" do
+    sign_in_as(@owner)
+
+    assert_no_enqueued_jobs only: SandboxRunJob do
+      post "/api/sandboxes/compare", params: {
+        task: "Take a screenshot",
+        providers: "anthropic",
+        sandbox_id: @owner_sandbox.session_id
+      }
+    end
+
+    assert_response :bad_request
+    assert_equal "At least 2 providers required", json_response["error"]
+    assert_not @owner_sandbox.reload.running?
+  end
+
+  test "compare rejects a single provider sent as a bare string in a json body" do
+    sign_in_as(@owner)
+
+    assert_no_enqueued_jobs only: SandboxRunJob do
+      post "/api/sandboxes/compare",
+        params: {
+          task: "Take a screenshot",
+          providers: "anthropic",
+          sandbox_id: @owner_sandbox.session_id
+        },
+        as: :json
+    end
+
+    assert_response :bad_request
+    assert_equal "At least 2 providers required", json_response["error"]
+  end
+
+  test "compare rejects a nested providers value without raising" do
+    sign_in_as(@owner)
+
+    assert_no_enqueued_jobs only: SandboxRunJob do
+      post "/api/sandboxes/compare", params: {
+        task: "Take a screenshot",
+        providers: { first: "anthropic", second: "openai" },
+        sandbox_id: @owner_sandbox.session_id
+      }
+    end
+
+    assert_response :bad_request
+    assert json_response["error"].present?
+    assert_not @owner_sandbox.reload.running?
+  end
+
+  test "compare still rejects an unknown provider name in an array" do
+    sign_in_as(@owner)
+
+    assert_no_enqueued_jobs only: SandboxRunJob do
+      post "/api/sandboxes/compare", params: {
+        task: "Take a screenshot",
+        providers: %w[anthropic bogus],
+        sandbox_id: @owner_sandbox.session_id
+      }
+    end
+
+    assert_response :bad_request
+    assert_equal "Invalid providers: bogus", json_response["error"]
+  end
+
+  test "compare runs every provider of a valid array" do
+    sign_in_as(@owner)
+
+    assert_enqueued_jobs 2, only: SandboxRunJob do
+      post "/api/sandboxes/compare", params: {
+        task: "Take a screenshot",
+        providers: %w[anthropic openai],
+        sandbox_id: @owner_sandbox.session_id
+      }
+    end
+
+    assert_response :accepted
+    assert_equal %w[anthropic openai], json_response["runs"].map { |run| run["provider"] }
+  end
+
   private
 
   def create_sandbox(user:, **attrs)
