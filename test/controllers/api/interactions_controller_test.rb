@@ -49,6 +49,18 @@ class Api::InteractionsControllerTest < ActionDispatch::IntegrationTest
     assert_equal 100, interaction.dig("tokens", "total")
   end
 
+  # Array and ActionController::Parameters do not respond to `to_i`, so a
+  # container-valued query (`minutes[]=60`) raised NoMethodError and 500ed
+  # the whole Interactions list (#126).
+  test "index coerces container-valued minutes and limit instead of raising" do
+    create_interaction
+
+    get "/api/interactions", params: { minutes: [ 60, 120 ], limit: { n: 10 } }
+
+    assert_response :success, "container-valued params were not coerced: #{response.body}"
+    assert_equal 1, json_response["interactions"].length
+  end
+
   test "index does not leak other users' interactions" do
     other_user = create_user
     create_account(owner: other_user)

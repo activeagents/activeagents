@@ -183,6 +183,32 @@ class Api::BenchmarksControllerTest < ActionDispatch::IntegrationTest
     assert_equal 0, config["cpu_iterations"]
   end
 
+  # --- error shape ----------------------------------------------------------
+
+  # Backtrace frames carry absolute server paths, gem versions and internal
+  # class structure. The exception is logged server-side; the client gets a
+  # generic message and nothing else (#123).
+  test "run does not return exception details or backtraces to the client" do
+    sign_in_as(@user)
+
+    # minitest 6 ships stubbing in a separate gem, so replace the constructor
+    # by hand for the duration of the request.
+    BenchmarkRunnerService.define_singleton_method(:new) { |**| raise "boom from /srv/app/lib/very_private.rb" }
+    begin
+      post "/api/benchmarks/run",
+        params: { requests: 2, io_ms: 0, cpu_iters: 1, include_ractors: "false" }.to_json,
+        headers: { "Content-Type" => "application/json" }
+    ensure
+      BenchmarkRunnerService.singleton_class.remove_method(:new)
+    end
+
+    assert_response :internal_server_error
+    assert_equal "Benchmark run failed", json_response["error"]
+    assert_nil json_response["backtrace"]
+    assert_not_includes response.body, "very_private"
+    assert_not_includes response.body, "boom"
+  end
+
   # Positive control for the coercion above: ordinary scalars must still be
   # read as numbers and still be clamped, so a coercion that silently zeroed
   # every knob could not pass the two tests above unnoticed.

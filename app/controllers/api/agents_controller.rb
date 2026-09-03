@@ -2,6 +2,8 @@
 
 module Api
   class AgentsController < BaseController
+    include AgentSerialization
+
     # Ranking for the agent cards. Every dimension except "recent" reads the
     # scorecard, which is computed in Ruby over both execution sources, so
     # the ordering is applied there rather than in the SQL scope.
@@ -109,9 +111,9 @@ module Api
     # observed from telemetry have no AgentRun rows at all, so a runs-only
     # list showed them as empty while their scorecard reported real traffic.
     def runs
-      minutes = params[:minutes].presence&.then { |m| m.to_i.clamp(1, 60 * 24 * 90) }
-      page = (params[:page] || 1).to_i
-      per_page = (params[:per_page] || 20).to_i
+      minutes = integer_param(:minutes)&.clamp(1, 60 * 24 * 90)
+      page = clamped_param(:page, default: 1, min: 1, max: 1_000_000)
+      per_page = clamped_param(:per_page, default: 20, min: 1, max: 100)
 
       executions = AgentExecutions.new(
         agents: [ @agent ],
@@ -194,7 +196,7 @@ module Api
 
     # GET /api/agents/:id/analytics
     def analytics
-      days = (params[:days] || 30).to_i
+      days = integer_param(:days, default: 30)
       start_date = days.days.ago.beginning_of_day
 
       runs = @agent.agent_runs.where("created_at >= ?", start_date)
@@ -330,39 +332,6 @@ module Api
         model_config: {},
         response_format: {}
       )
-    end
-
-    def agent_json(agent, include_details: false)
-      json = {
-        id: agent.id,
-        name: agent.name,
-        slug: agent.slug,
-        description: agent.description,
-        provider: agent.provider,
-        model: agent.model,
-        status: agent.status,
-        preset_type: agent.preset_type,
-        appearance: agent.appearance,
-        version_count: agent.version_count,
-        created_at: agent.created_at,
-        updated_at: agent.updated_at
-      }
-
-      if include_details
-        json.merge!(
-          instructions: agent.instructions,
-          action_prompts: agent.action_prompts,
-          instruction_sets: agent.instruction_sets,
-          tools: agent.tools,
-          mcp_servers: agent.mcp_servers,
-          model_config: agent.model_config,
-          response_format: agent.response_format,
-          agent_class_name: agent.agent_class_name,
-          telemetry_agent_class: agent.telemetry_agent_class
-        )
-      end
-
-      json
     end
 
     def version_json(version, include_diff: false)

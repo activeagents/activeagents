@@ -90,6 +90,33 @@ class Api::TemplatesControllerTest < ActionDispatch::IntegrationTest
     assert_equal "My Copy", json_response["agent"]["name"]
   end
 
+  # The dashboard opens the new agent in the editor straight from this
+  # response. A summary (no instructions/tools/model_config) seeded the editor
+  # with empty fields, and its first Save persisted those over the template's
+  # real configuration (#113).
+  test "use returns the full agent detail the editor initializes from" do
+    sign_in_as(@user)
+    template = create_template(
+      name: "Configured",
+      slug: "configured-#{SecureRandom.hex(4)}",
+      tools: %w[terminal code],
+      mcp_servers: [ { "name" => "playwright", "command" => "npx" } ],
+      model_config: { "temperature" => 0.2, "max_tokens" => 4096 }
+    )
+
+    post "/api/templates/#{template.id}/use", params: { name: "From Template" }
+
+    assert_response :created
+    agent = json_response["agent"]
+    assert_equal "You are a helpful assistant.", agent["instructions"]
+    assert_equal %w[terminal code], agent["tools"]
+    assert_equal [ "rails" ], agent["instruction_sets"]
+    assert_equal [ { "name" => "playwright", "command" => "npx" } ], agent["mcp_servers"]
+    assert_equal({ "temperature" => 0.2, "max_tokens" => 4096 }, agent["model_config"])
+    assert agent.key?("action_prompts"), "detail shape must carry action_prompts"
+    assert agent.key?("response_format"), "detail shape must carry response_format"
+  end
+
   private
 
   def create_template(**attrs)
