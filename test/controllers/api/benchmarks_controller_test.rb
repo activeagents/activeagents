@@ -7,7 +7,6 @@ class Api::BenchmarksControllerTest < ActionDispatch::IntegrationTest
 
   setup do
     @user = create_user
-    @account = create_account(owner: @user)
 
     # The test environment's cache is :null_store, under which reads are nil
     # even after a write — every "nothing reached the cache" assertion would
@@ -143,5 +142,61 @@ class Api::BenchmarksControllerTest < ActionDispatch::IntegrationTest
     config = json_response.dig("results", "config")
     assert_equal 1, config["n_requests"]
     assert_equal 0, config["io_latency_ms"]
+  end
+
+  # A knob can arrive as a container rather than a scalar — `requests[]=1&requests[]=2`
+  # from a query string, or a JSON object in the body. Array and
+  # ActionController::Parameters do not respond to `to_i`, so reading them
+  # directly raised NoMethodError and the action's rescue turned it into a 500.
+  # The documented contract is the same for containers as for any other
+  # non-numeric input: coerce to 0, then clamp up to the floor of the range.
+
+  test "run coerces array-valued knobs instead of raising" do
+    sign_in_as(@user)
+
+    post "/api/benchmarks/run",
+      params: { requests: [ 1, 2 ], io_ms: 0, cpu_iters: 1, include_ractors: "false" }.to_json,
+      headers: { "Content-Type" => "application/json" }
+
+    assert_response :success, "array-valued knob was not coerced: #{response.body}"
+    assert_nil json_response["error"]
+
+    # Literals, not the controller constants: this must fail loudly if the
+    # floors are removed, not quietly track whatever the controller allows.
+    config = json_response.dig("results", "config")
+    assert_equal 1, config["n_requests"]
+  end
+
+  test "run coerces nested-hash knob values instead of raising" do
+    sign_in_as(@user)
+
+    post "/api/benchmarks/run",
+      params: { requests: { n: 2 }, io_ms: { ms: 5 }, cpu_iters: { iters: 9 }, include_ractors: "false" }.to_json,
+      headers: { "Content-Type" => "application/json" }
+
+    assert_response :success, "nested-hash knob was not coerced: #{response.body}"
+    assert_nil json_response["error"]
+
+    config = json_response.dig("results", "config")
+    assert_equal 1, config["n_requests"]
+    assert_equal 0, config["io_latency_ms"]
+    assert_equal 0, config["cpu_iterations"]
+  end
+
+  # Positive control for the coercion above: ordinary scalars must still be
+  # read as numbers and still be clamped, so a coercion that silently zeroed
+  # every knob could not pass the two tests above unnoticed.
+  test "run still reads ordinary scalar knobs and clamps them to the caps" do
+    sign_in_as(@user)
+
+    post "/api/benchmarks/run",
+      params: { requests: 2, io_ms: 3, cpu_iters: 500_000, include_ractors: "false" }.to_json,
+      headers: { "Content-Type" => "application/json" }
+
+    assert_response :success
+    config = json_response.dig("results", "config")
+    assert_equal 2, config["n_requests"]
+    assert_equal 3, config["io_latency_ms"]
+    assert_equal 100_000, config["cpu_iterations"]
   end
 end
