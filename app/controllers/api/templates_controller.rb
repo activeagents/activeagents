@@ -2,6 +2,8 @@
 
 module Api
   class TemplatesController < BaseController
+    include AgentSerialization
+
     # No anonymous exemption: #show looks a template up by bare id, so the
     # exemption served unpublished drafts and private prompt libraries to
     # anyone walking the id space. #index was already limited to public
@@ -38,8 +40,12 @@ module Api
         name: params[:name] || @template.name
       )
 
+      # The detail shape, not a summary: the dashboard opens the new agent in
+      # the editor straight from this response. Seeded from a summary, the
+      # editor showed the agent as unconfigured and its first Save persisted
+      # empty instructions/tools/model_config over the template's real ones.
       if agent.persisted?
-        render json: { agent: agent_json(agent) }, status: :created
+        render json: { agent: agent_json(agent, include_details: true) }, status: :created
       else
         render json: { errors: agent.errors.full_messages }, status: :unprocessable_entity
       end
@@ -73,20 +79,6 @@ module Api
       end
 
       json
-    end
-
-    def agent_json(agent)
-      {
-        id: agent.id,
-        name: agent.name,
-        slug: agent.slug,
-        description: agent.description,
-        provider: agent.provider,
-        model: agent.model,
-        status: agent.status,
-        preset_type: agent.preset_type,
-        appearance: agent.appearance
-      }
     end
   end
 end
