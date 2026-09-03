@@ -25,15 +25,19 @@ module Api
     # Reads an integer from params, falling back to `default` when the value
     # is absent or blank. Non-numeric input becomes 0 via to_i.
     #
-    # The value is coerced through `to_s` first because a param can arrive
-    # as a container rather than a scalar (`page[]=1&page[]=2` from a query
-    # string, or a JSON object in the body). Array and
+    # A param can arrive as a container rather than a scalar (`page[]=1&page[]=2`
+    # from a query string, or a JSON object in the body). Array and
     # ActionController::Parameters do not respond to `to_i`, so reading them
     # directly raised NoMethodError and returned a 500 where a default or a
-    # clamped value was intended.
+    # clamped value was intended. A multi-valued param means its first value
+    # (Array#to_s would concatenate them, turning [1, 2] into 12); a nested
+    # object is malformed and becomes 0 like any other non-numeric input.
     def integer_param(name, default: nil)
       raw = params[name]
-      raw.presence ? raw.to_s.to_i : default
+      raw = raw.first if raw.is_a?(Array)
+      return default if raw.blank?
+
+      raw.to_s.to_i
     end
 
     # integer_param, then clamped into [min, max]. Non-numeric input becomes
