@@ -7,6 +7,13 @@ module Api
 
     before_action :set_recording, only: [ :show, :actions, :snapshot, :export, :handoff ]
 
+    # Browser state that must never leave the server in a read/export response.
+    SENSITIVE_STATE_KEYS = %w[cookies session_storage local_storage].freeze
+
+    # The only actions the public lander_demo carve-out in #set_recording may
+    # cover. Read-only, and they render through the scrubbers above.
+    PUBLIC_DEMO_ACTIONS = %w[show actions snapshot].freeze
+
     # GET /api/session_recordings
     # List recordings with optional filters
     def index
@@ -260,12 +267,7 @@ module Api
         agent_run: @recording.agent_run,
         name: "#{@recording.name}_continuation",
         status: :recording,
-        metadata: {
-          parent_recording_id: @recording.id,
-          handoff_from: @recording.action_count,
-          started_at: Time.current.iso8601,
-          user_id: current_user&.id
-        }
+        metadata: continuation_metadata
       )
 
       render json: {
@@ -292,8 +294,49 @@ module Api
 
     private
 
+    # Gated through can_manage_recording? so show/actions/snapshot/export/handoff
+    # cannot be walked by id across accounts. 404 rather than 403 so recording
+    # ids stay unenumerable.
     def set_recording
       @recording = SessionRecording.find(params[:id])
+      return if can_manage_recording?(@recording)
+      return if public_demo_read?
+
+      not_found
+    end
+
+    # The lander demo is deliberately public (see #demo, which serves it
+    # unauthenticated) and #index lists it for every account, so keep it
+    # readable rather than 404ing a recording the dashboard just linked.
+    #
+    # The carve-out is read-only and lives here, not in can_manage_recording?,
+    # so destroy still requires real ownership. #export and #handoff are
+    # excluded on purpose: #handoff returns the raw handoff_state (cookies,
+    # session_storage, local_storage) that every read path scrubs and creates a
+    # continuation recording as a side effect, and #export dumps the whole
+    # cassette (screenshots included on request). Neither is something a
+    # non-owner may do just because the recording is publicly viewable.
+    def public_demo_read?
+      PUBLIC_DEMO_ACTIONS.include?(action_name) && @recording.name == "lander_demo"
+    end
+
+    # The continuation records the caller's own session, so stamp it with the
+    # caller's account the same way can_manage_recording? resolves ownership.
+    # Without it a continuation inherits no owner at all whenever the parent has
+    # no sandbox_session, and the user who just created it is 404ed out of
+    # reading it back. account_id is omitted rather than stored as nil when the
+    # caller has no account (an admin acting outside one), leaving the
+    # continuation admin-only, which is the only caller who can get there.
+    def continuation_metadata
+      metadata = {
+        parent_recording_id: @recording.id,
+        handoff_from: @recording.action_count,
+        started_at: Time.current.iso8601,
+        user_id: current_user&.id
+      }
+
+      account = current_user&.primary_account
+      account ? metadata.merge(account_id: account.id.to_s) : metadata
     end
 
     def can_manage_recording?(recording)
@@ -338,7 +381,7 @@ module Api
         created_at: recording.created_at.iso8601,
         updated_at: recording.updated_at.iso8601,
         timeline: recording.timeline,
-        handoff_state: recording.metadata["handoff_state"],
+        handoff_state: safe_handoff_state(recording.metadata["handoff_state"]),
         agent: recording.agent_run&.agent&.slice(:id, :name),
         sandbox_session: recording.sandbox_session&.summary
       }
@@ -350,8 +393,21 @@ module Api
     end
 
     def safe_metadata(metadata)
-      # Remove sensitive data from metadata
-      metadata.except("cookies", "session_storage", "local_storage")
+      # Remove sensitive data from metadata, including the nested handoff_state
+      # copy of the browser's cookies/localStorage/sessionStorage — stripping
+      # only the top level left the same secrets readable one key down.
+      safe = metadata.except(*SENSITIVE_STATE_KEYS)
+      return safe unless safe.key?("handoff_state")
+
+      safe.merge("handoff_state" => safe_handoff_state(safe["handoff_state"]))
+    end
+
+    # The handoff_state is also returned as its own top-level key, so scrub it
+    # with the same rules wherever it is surfaced.
+    def safe_handoff_state(handoff_state)
+      return handoff_state unless handoff_state.is_a?(Hash)
+
+      handoff_state.except(*SENSITIVE_STATE_KEYS)
     end
 
     def generate_visitor_id
@@ -372,8 +428,8 @@ module Api
             sequence: action.sequence,
             timestamp_ms: action.timestamp_ms,
             selector: action.selector,
-            value: action.value,
-            metadata: action.metadata
+            value: action.redacted_value,
+            metadata: action.safe_metadata
           }
         end
       }

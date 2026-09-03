@@ -74,13 +74,21 @@ class RecordingAction < ApplicationRecord
     }
   end
 
-  private
-
+  # Public so every serializer of an action (as_json_for_api, the recording
+  # timeline, the export cassette) redacts the same way. Anything that emits a
+  # raw `value`/`metadata` bypasses password/PII redaction.
   def redacted_value
     return value unless should_redact?
 
     "[REDACTED]"
   end
+
+  def safe_metadata
+    # Remove any sensitive data from metadata
+    metadata.except("password", "credit_card", "cvv", "ssn")
+  end
+
+  private
 
   def should_redact?
     return false unless value.present?
@@ -99,11 +107,6 @@ class RecordingAction < ApplicationRecord
     value_is_sensitive = sensitive_patterns.any? { |p| value.match?(p) }
 
     selector_is_sensitive || value_is_sensitive
-  end
-
-  def safe_metadata
-    # Remove any sensitive data from metadata
-    metadata.except("password", "credit_card", "cvv", "ssn")
   end
 
   def extract_url
