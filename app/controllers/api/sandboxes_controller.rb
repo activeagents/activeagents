@@ -5,12 +5,20 @@ module Api
     # Allow anonymous access to sandbox API for free tier
     allow_unauthenticated_access
 
+    # allow_unauthenticated_access skips require_authentication, which is also
+    # the callback that resolves Current.session -- so without this a signed-in
+    # caller looked exactly like an anonymous one here. Resuming the session
+    # keeps the demo tier open to anonymous callers while still identifying a
+    # signed-in one, which both the ownership scoping and the plan metering
+    # below depend on. Same pattern as PlansController#set_current_session.
+    before_action :resume_session
+
     before_action :set_sandbox, only: [ :show, :run, :destroy ]
 
     # POST /api/sandboxes/compare
     # Run multiple providers in a single sandbox using parallel generation jobs
     def compare
-      providers = params[:providers] || %w[anthropic openai ollama]
+      providers = compare_providers
       task = params[:task]
       sandbox_id = params[:sandbox_id]
 
@@ -21,9 +29,20 @@ module Api
       invalid = providers - %w[anthropic openai ollama]
       return render json: { error: "Invalid providers: #{invalid.join(', ')}" }, status: :bad_request if invalid.any?
 
-      # Use existing sandbox or create a new one (single container per user)
+      # Check account-level usage limits for authenticated users, same as #run.
+      # Compare spawns a provider job per provider, so leaving it unmetered made
+      # it a way to run agents without touching the plan's execution budget.
+      # Checked before the sandbox lookup so an over-limit caller costs no
+      # container provisioning.
+      if (denial = plan_limit_denial)
+        return render json: denial, status: :payment_required
+      end
+
+      # Use existing sandbox or create a new one (single container per user).
+      # Scoped to the caller so a leaked/observed session_id can't be used to
+      # run against someone else's sandbox.
       sandbox = if sandbox_id.present?
-        SandboxSession.find_by!(session_id: sandbox_id)
+        caller_sandboxes.find_by!(session_id: sandbox_id)
       else
         s = SandboxSession.create!(
           sandbox_type: params[:sandbox_type] || "playwright_mcp",
@@ -40,6 +59,9 @@ module Api
           sandbox: sandbox.summary
         }, status: :unprocessable_entity
       end
+
+      # Increment usage for authenticated users
+      current_user&.primary_account&.increment_agent_runs!
 
       sandbox.update!(status: :running)
       comparison_id = SecureRandom.uuid
@@ -60,7 +82,8 @@ module Api
         comparison_id: comparison_id,
         task: task,
         sandbox: sandbox.summary,
-        runs: runs
+        runs: runs,
+        usage: current_user&.primary_account&.usage_stats
       }, status: :accepted
     end
 
@@ -108,16 +131,8 @@ module Api
       end
 
       # Check account-level usage limits for authenticated users
-      if current_user&.primary_account
-        account = current_user.primary_account
-        unless account.can_run_agent?
-          return render json: {
-            error: "Plan limit reached",
-            upgrade_required: true,
-            usage: account.usage_stats,
-            message: "You've used all #{account.effective_agent_runs_limit} agent runs this month. Upgrade to continue."
-          }, status: :payment_required
-        end
+      if (denial = plan_limit_denial)
+        return render json: denial, status: :payment_required
       end
 
       task = params[:task]
@@ -156,8 +171,55 @@ module Api
 
     private
 
+    # The sandbox sessions this caller may reach. A signed-in caller sees only
+    # their own; an anonymous caller sees only the anonymous demo pool. Lookups
+    # used to be unscoped, so an observed session_id let anyone read another
+    # owner's run history (#show) or expire their sandbox (#destroy) or execute
+    # against it (#run, #compare).
+    #
+    # NOTE: this does not separate one anonymous caller from another -- nothing
+    # identifies them today. Binding demo sessions to a signed cookie is the
+    # open question raised on issue #109.
+    def caller_sandboxes
+      if current_user
+        SandboxSession.where(user_id: current_user.id)
+      else
+        SandboxSession.anonymous
+      end
+    end
+
     def set_sandbox
-      @sandbox = SandboxSession.find_by!(session_id: params[:id])
+      @sandbox = caller_sandboxes.find_by!(session_id: params[:id])
+    end
+
+    # Whatever limits the account's plan puts on running an agent, as a ready
+    # response body. Anonymous demo callers have no account and so no limit
+    # here -- see issue #109 for the open question about metering them.
+    def plan_limit_denial
+      account = current_user&.primary_account
+      return nil if account.nil? || account.can_run_agent?
+
+      {
+        error: "Plan limit reached",
+        upgrade_required: true,
+        usage: account.usage_stats,
+        message: "You've used all #{account.effective_agent_runs_limit} agent runs this month. Upgrade to continue."
+      }
+    end
+
+    # The providers a #compare caller asked for, always as an array of strings.
+    # params[:providers] carries whatever the request sent: an array, a bare
+    # String ("providers=anthropic", or {"providers": "anthropic"} in a JSON
+    # body), or a nested hash, which Rails hands over as
+    # ActionController::Parameters. Both guards in #compare assume an array --
+    # a String passed the "at least 2" check on its character count and then
+    # raised NoMethodError on String#-, answering 500 where 400 belongs.
+    # Anything that is not a string is dropped here so those guards answer for
+    # it instead.
+    def compare_providers
+      return %w[anthropic openai ollama] if params[:providers].nil?
+
+      Array.wrap(params[:providers]).grep(String)
     end
 
     def sandbox_params
