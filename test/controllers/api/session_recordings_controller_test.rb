@@ -103,6 +103,30 @@ class Api::SessionRecordingsControllerTest < ActionDispatch::IntegrationTest
     assert_equal 1, json_response["actions"].size
   end
 
+  # Array and ActionController::Parameters do not respond to `to_i`, so a
+  # container-valued query (`limit[]=5`) raised NoMethodError and 500ed
+  # before the query was built (#126).
+  test "actions coerces container-valued after_sequence and limit instead of raising" do
+    sign_in_as(@owner)
+
+    get "/api/session_recordings/#{@recording.id}/actions",
+        params: { after_sequence: [ 0 ], limit: { n: 5 } }
+
+    assert_response :success, "container-valued params were not coerced: #{response.body}"
+    assert_equal 1, json_response["actions"].size
+  end
+
+  test "index coerces container-valued page and per_page instead of raising" do
+    sign_in_as(@owner)
+
+    get "/api/session_recordings", params: { page: [ 1 ], per_page: { n: 20 } }
+
+    assert_response :success, "container-valued params were not coerced: #{response.body}"
+    assert_equal 1, json_response["pagination"]["page"]
+    assert_equal 1, json_response["pagination"]["per_page"],
+                 "a non-numeric per_page must clamp up to 1, never divide by zero"
+  end
+
   test "export still returns 200 for the owning account" do
     sign_in_as(@owner)
 

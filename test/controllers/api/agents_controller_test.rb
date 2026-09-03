@@ -375,6 +375,26 @@ class Api::AgentsControllerTest < ActionDispatch::IntegrationTest
     assert_equal 5, data["meta"]["total"]
   end
 
+  # A query value can arrive as a container (`minutes[]=1&minutes[]=2`, or
+  # `page[x]=1`), and neither Array nor ActionController::Parameters
+  # responds to `to_i`. Reading them directly raised NoMethodError and
+  # turned a malformed query into a 500 (#126).
+  test "runs coerces container-valued minutes, page and per_page instead of raising" do
+    create_run(agent: @agent)
+
+    get "/api/agents/#{@agent.id}/runs", params: { minutes: [ 1, 2 ], page: { x: 1 }, per_page: [ 5 ] }
+
+    assert_response :success, "container-valued params were not coerced: #{response.body}"
+    assert_equal 1, json_response["runs"].length
+  end
+
+  test "analytics coerces a container-valued days param instead of raising" do
+    get "/api/agents/#{@agent.id}/analytics", params: { days: [ 7, 30 ] }
+
+    assert_response :success, "container-valued days was not coerced: #{response.body}"
+    assert json_response["summary"].key?("total_runs")
+  end
+
   # ===========================================
   # Execute Tests
   # ===========================================

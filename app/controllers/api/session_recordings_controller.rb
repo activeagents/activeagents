@@ -44,8 +44,8 @@ module Api
       end
 
       # Pagination
-      page = (params[:page] || 1).to_i
-      per_page = [ (params[:per_page] || 20).to_i, 100 ].min
+      page = clamped_param(:page, default: 1, min: 1, max: 1_000_000)
+      per_page = clamped_param(:per_page, default: 20, min: 1, max: 100)
       offset = (page - 1) * per_page
 
       total = recordings.count
@@ -115,11 +115,11 @@ module Api
       actions = @recording.recording_actions.ordered
 
       # Support pagination for large recordings
-      if params[:after_sequence].present?
-        actions = actions.where("sequence > ?", params[:after_sequence].to_i)
+      if (after_sequence = integer_param(:after_sequence))
+        actions = actions.where("sequence > ?", after_sequence)
       end
 
-      limit = [ params[:limit]&.to_i || 100, 500 ].min
+      limit = clamped_param(:limit, default: 100, min: 1, max: 500)
       actions = actions.limit(limit)
 
       render json: {
