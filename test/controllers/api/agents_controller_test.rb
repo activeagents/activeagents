@@ -386,6 +386,9 @@ class Api::AgentsControllerTest < ActionDispatch::IntegrationTest
 
     assert_response :success, "container-valued params were not coerced: #{response.body}"
     assert_equal 1, json_response["runs"].length
+    # A multi-valued param means its first value, never the concatenation.
+    assert_equal 5, json_response["meta"]["per_page"]
+    assert_equal 1, json_response["meta"]["page"], "a nested object is malformed and floors to the default page"
   end
 
   test "analytics coerces a container-valued days param instead of raising" do
