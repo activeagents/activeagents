@@ -519,6 +519,26 @@ export default function InteractionsView({ agentId = null, embedded = false }) {
                   </div>
                 </div>
 
+                {/* What this conversation was about, before you open it —
+                    the same two lines a trace row shows. */}
+                {!isExpanded && (session.preview?.input || session.preview?.output) && (
+                  <div
+                    className="px-4 pb-3 grid gap-0.5 font-mono text-xs cursor-pointer min-w-0"
+                    style={{ color: colors.textSecondary }}
+                    onClick={() => toggleSession(session.id)}
+                  >
+                    {[
+                      { label: 'input', text: session.preview?.input, color: roleBubble('user').color },
+                      { label: 'output', text: session.preview?.output, color: roleBubble('assistant').color },
+                    ].filter((line) => line.text).map((line) => (
+                      <div key={line.label} className="flex gap-2 min-w-0">
+                        <span className="flex-shrink-0 uppercase" style={{ color: line.color, width: '48px' }}>{line.label}</span>
+                        <span className="truncate">{line.text}</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
                 {/* Expanded conversation */}
                 {isExpanded && (
                   <div className="border-t p-4 space-y-3" style={{ borderColor: colors.cardBorder, background: colors.innerBg }}>

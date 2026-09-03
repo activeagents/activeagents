@@ -236,11 +236,13 @@ function DashboardContent({ user, initialAgents = [], meta = {}, account = null,
 
   const handleUseTemplate = (agent) => {
     setAgents([agent, ...agents]);
-    setSelectedAgent(agent);
-    setCurrentView('editor');
     setShowTemplateLibrary(false);
     showNotification('Agent created from template!', 'success');
-    window.history.pushState({}, '', `/dashboard/agents/${agent.id}/edit`);
+    // Through navigateTo rather than setSelectedAgent directly: it refetches
+    // the full record whenever it is handed a summary, so the editor never
+    // initializes from a shallow object and wipes the template's
+    // instructions, tools and model_config on the first save.
+    navigateTo('editor', agent);
   };
 
   // Views that edit or run an agent need its detail fields (instructions,

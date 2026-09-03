@@ -5,7 +5,22 @@ module Api
     # Allow unauthenticated access for user session tracking (lander analytics)
     allow_unauthenticated_access only: [ :start_user_session, :record_action, :complete_session, :demo ]
 
+    # allow_unauthenticated_access skips require_authentication, which is
+    # also the only thing that populates Current.session — so a signed-in
+    # visitor was anonymous on these actions. Identify them without
+    # requiring them, so their recordings carry their account and the
+    # ownership gate below recognises them.
+    before_action :resume_session, only: [ :start_user_session, :record_action, :complete_session ]
+
     before_action :set_recording, only: [ :show, :actions, :snapshot, :export, :handoff ]
+    before_action :set_writable_recording, only: [ :record_action, :complete_session ]
+
+    # The write token start_user_session hands the browser. Anonymous writes
+    # to a recording are accepted only with the token minted for that
+    # recording, so a caller who merely knows (or guesses) an id cannot
+    # append actions to, or force-complete, someone else's live session.
+    WRITE_TOKEN_PURPOSE = :session_recording_write
+    WRITE_TOKEN_TTL = 24.hours
 
     # Browser state that must never leave the server in a read/export response.
     SENSITIVE_STATE_KEYS = %w[cookies session_storage local_storage].freeze
@@ -44,8 +59,8 @@ module Api
       end
 
       # Pagination
-      page = (params[:page] || 1).to_i
-      per_page = [ (params[:per_page] || 20).to_i, 100 ].min
+      page = clamped_param(:page, default: 1, min: 1, max: 1_000_000)
+      per_page = clamped_param(:per_page, default: 20, min: 1, max: 100)
       offset = (page - 1) * per_page
 
       total = recordings.count
@@ -115,11 +130,11 @@ module Api
       actions = @recording.recording_actions.ordered
 
       # Support pagination for large recordings
-      if params[:after_sequence].present?
-        actions = actions.where("sequence > ?", params[:after_sequence].to_i)
+      if (after_sequence = integer_param(:after_sequence))
+        actions = actions.where("sequence > ?", after_sequence)
       end
 
-      limit = [ params[:limit]&.to_i || 100, 500 ].min
+      limit = clamped_param(:limit, default: 100, min: 1, max: 500)
       actions = actions.limit(limit)
 
       render json: {
@@ -172,13 +187,19 @@ module Api
         page_url: params[:page_url]
       )
 
-      # Set user agent from request
-      recording.update!(
-        metadata: recording.metadata.merge(
-          user_agent: request.user_agent,
-          ip_hash: Digest::SHA256.hexdigest(request.remote_ip.to_s)[0..16]
-        )
-      )
+      # Set user agent from request. A signed-in visitor's recording is
+      # stamped with their account, the same key #index and
+      # can_manage_recording? resolve ownership through.
+      # String keys: the stored metadata is string-keyed, and merging symbols
+      # into it wrote a second "user_agent" that json 3.0 refuses to encode.
+      request_metadata = {
+        "user_agent" => request.user_agent,
+        "ip_hash" => Digest::SHA256.hexdigest(request.remote_ip.to_s)[0..16]
+      }
+      if (account = current_user&.primary_account)
+        request_metadata["account_id"] = account.id.to_s
+      end
+      recording.update!(metadata: recording.metadata.merge(request_metadata))
 
       # Record the handoff action
       recording.record_action!(
@@ -193,6 +214,7 @@ module Api
       render json: {
         recording_id: recording.id,
         visitor_id: recording.metadata["visitor_id"],
+        recording_token: write_token_for(recording),
         message: "User session started"
       }, status: :created
     end
@@ -200,7 +222,7 @@ module Api
     # POST /api/session_recordings/:id/record_action
     # Record a user action in an active session
     def record_action
-      recording = SessionRecording.find(params[:id])
+      recording = @recording
 
       unless recording.recording?
         render json: { error: "Recording already completed" }, status: :unprocessable_entity
@@ -224,7 +246,7 @@ module Api
     # POST /api/session_recordings/:id/complete
     # Complete a user session recording
     def complete_session
-      recording = SessionRecording.find(params[:id])
+      recording = @recording
 
       unless recording.recording?
         render json: { error: "Recording already completed" }, status: :unprocessable_entity
@@ -320,6 +342,40 @@ module Api
       PUBLIC_DEMO_ACTIONS.include?(action_name) && @recording.name == "lander_demo"
     end
 
+    # The write side of the gate. A recording may be written by whoever may
+    # manage it (its account, or an admin) or by the anonymous browser that
+    # started it, which proves that with the token start_user_session issued.
+    #
+    # Not found and not writable answer identically (404), so a real id
+    # cannot be told from a bogus one by probing: the previous shape answered
+    # 422 "already completed" for any real id and 404 for the rest, which was
+    # an oracle over the id space.
+    def set_writable_recording
+      @recording = SessionRecording.find_by(id: params[:id])
+      return not_found if @recording.nil?
+      return if can_manage_recording?(@recording)
+      return if write_token_valid?(@recording)
+
+      not_found
+    end
+
+    def write_token_for(recording)
+      write_token_verifier.generate(recording.id, purpose: WRITE_TOKEN_PURPOSE, expires_in: WRITE_TOKEN_TTL)
+    end
+
+    # Accepted in the JSON body (the lander's fetch calls) or as a header, so
+    # a client that cannot add a body field still has a way in.
+    def write_token_valid?(recording)
+      token = params[:recording_token].presence || request.headers["X-Recording-Token"].presence
+      return false unless token.is_a?(String)
+
+      write_token_verifier.verified(token, purpose: WRITE_TOKEN_PURPOSE) == recording.id
+    end
+
+    def write_token_verifier
+      Rails.application.message_verifier(WRITE_TOKEN_PURPOSE)
+    end
+
     # The continuation records the caller's own session, so stamp it with the
     # caller's account the same way can_manage_recording? resolves ownership.
     # Without it a continuation inherits no owner at all whenever the parent has
@@ -348,9 +404,11 @@ module Api
         return true if recording.metadata["account_id"].to_s == account_id
       end
 
-      # Check sandbox session ownership
-      if recording.sandbox_session&.respond_to?(:user_id)
-        return true if recording.sandbox_session.user_id == current_user&.id
+      # Check sandbox session ownership. Only for a signed-in caller: with
+      # no user, a sandbox that has no user_id would otherwise compare
+      # nil == nil and hand the recording to anyone.
+      if current_user && recording.sandbox_session&.respond_to?(:user_id)
+        return true if recording.sandbox_session.user_id == current_user.id
       end
 
       false

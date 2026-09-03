@@ -32,8 +32,8 @@ module Api
       scope = scope.where(agent_id: params[:agent_id]) if params[:agent_id].present?
       scope = scope.where(status: params[:status]) if params[:status].present?
 
-      page = (params[:page] || 1).to_i
-      per_page = (params[:per_page] || 20).to_i
+      page = clamped_param(:page, default: 1, min: 1, max: 1_000_000)
+      per_page = clamped_param(:per_page, default: 20, min: 1, max: 100)
       total = scope.count
       runs = scope.offset((page - 1) * per_page).limit(per_page)
 
