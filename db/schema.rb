@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.2].define(version: 2026_07_31_000001) do
+ActiveRecord::Schema[8.2].define(version: 2026_09_09_202622) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
 
@@ -346,30 +346,40 @@ ActiveRecord::Schema[8.2].define(version: 2026_07_31_000001) do
   end
 
   create_table "evaluation_runs", force: :cascade do |t|
+    t.bigint "account_id"
     t.datetime "completed_at"
     t.datetime "created_at", null: false
     t.text "error_message"
     t.bigint "evaluation_id", null: false
+    t.jsonb "external_report"
+    t.string "external_run_id"
+    t.string "report_digest"
     t.integer "samples_evaluated", default: 0
     t.integer "samples_passed", default: 0
     t.jsonb "scores", default: {}
     t.integer "status", default: 0, null: false
     t.datetime "updated_at", null: false
+    t.index ["account_id", "external_run_id"], name: "index_evaluation_runs_on_account_id_and_external_run_id", unique: true
+    t.index ["account_id"], name: "index_evaluation_runs_on_account_id"
     t.index ["evaluation_id", "created_at"], name: "index_evaluation_runs_on_evaluation_id_and_created_at"
     t.index ["evaluation_id"], name: "index_evaluation_runs_on_evaluation_id"
     t.index ["status"], name: "index_evaluation_runs_on_status"
   end
 
   create_table "evaluations", force: :cascade do |t|
+    t.bigint "account_id"
     t.bigint "agent_id", null: false
     t.jsonb "config", default: {}, null: false
     t.datetime "created_at", null: false
     t.jsonb "criteria", default: [], null: false
+    t.string "external_key"
     t.string "judge_kind", default: "rules", null: false
     t.string "judge_model"
     t.string "name", null: false
     t.integer "sample_size", default: 20, null: false
     t.datetime "updated_at", null: false
+    t.index ["account_id", "external_key"], name: "index_evaluations_on_account_id_and_external_key", unique: true
+    t.index ["account_id"], name: "index_evaluations_on_account_id"
     t.index ["agent_id", "name"], name: "index_evaluations_on_agent_id_and_name", unique: true
     t.index ["agent_id"], name: "index_evaluations_on_agent_id"
   end
@@ -760,7 +770,9 @@ ActiveRecord::Schema[8.2].define(version: 2026_07_31_000001) do
   add_foreign_key "document_access_grants", "investors"
   add_foreign_key "document_access_logs", "investor_documents"
   add_foreign_key "document_access_logs", "investors"
+  add_foreign_key "evaluation_runs", "accounts"
   add_foreign_key "evaluation_runs", "evaluations"
+  add_foreign_key "evaluations", "accounts"
   add_foreign_key "evaluations", "agents"
   add_foreign_key "investor_documents", "accounts"
   add_foreign_key "investor_documents", "safe_agreements"

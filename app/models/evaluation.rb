@@ -11,13 +11,14 @@
 # model to score each sample and requires a configured provider.
 class Evaluation < ApplicationRecord
   belongs_to :agent
+  belongs_to :account, optional: true
   has_many :evaluation_runs, dependent: :destroy
 
   # judge_defined: the judge model authors the KPI criteria itself from the
   # agent's instructions + sample interactions on the first run, then scores
   # against them (criteria stay persisted/editable so scores are comparable
   # across runs and models).
-  JUDGE_KINDS = %w[rules llm judge_defined].freeze
+  JUDGE_KINDS = %w[rules llm judge_defined external].freeze
 
   RULE_CRITERION_TYPES = %w[
     response_present min_length max_latency_ms token_budget contains not_contains
@@ -47,7 +48,13 @@ class Evaluation < ApplicationRecord
   end
 
   def run!
+    raise ArgumentError, "Imported evaluations must be rerun in their source application" if external?
+
     EvaluationRunnerService.call(self)
+  end
+
+  def external?
+    external_key.present?
   end
 
   def llm_criteria
@@ -57,6 +64,8 @@ class Evaluation < ApplicationRecord
   private
 
   def validate_criteria
+    return if external? && judge_kind == "external"
+
     if criteria.blank?
       # judge_defined evaluations start empty — the judge authors the KPIs
       # on the first run.

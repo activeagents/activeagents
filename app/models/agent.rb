@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
 class Agent < ApplicationRecord
+  class ObservedAgentError < StandardError; end
   belongs_to :user, optional: true
   has_many :agent_versions, dependent: :destroy
   has_many :agent_runs, dependent: :destroy
@@ -56,6 +57,8 @@ class Agent < ApplicationRecord
   # correlation key between platform Agent records and telemetry traces
   # (TelemetryTrace#agent_class) and solid_agent contexts.
   def telemetry_agent_class
+    return agent_class_name if observed? && agent_class_name.present?
+
     base = agent_class_name.presence || name.parameterize(separator: "_").camelize
     base.end_with?("Agent") ? base : "#{base}Agent"
   end
@@ -170,6 +173,8 @@ class Agent < ApplicationRecord
 
   # Execute a run with this agent
   def execute(input_prompt, action: nil, **params)
+    raise ObservedAgentError, "Observed agents must be forked before execution" if observed?
+
     run = agent_runs.create!(
       input_prompt: input_prompt,
       action_name: normalized_action(action),
@@ -186,6 +191,8 @@ class Agent < ApplicationRecord
 
   # Quick test execution (synchronous)
   def test_execute(input_prompt, action: nil, **params)
+    raise ObservedAgentError, "Observed agents must be forked before execution" if observed?
+
     run = agent_runs.create!(
       input_prompt: input_prompt,
       action_name: normalized_action(action),

@@ -9,6 +9,7 @@ class Account < ApplicationRecord
   has_many :telemetry_traces, dependent: :delete_all
   has_many :api_keys, dependent: :destroy
   has_many :provider_keys, dependent: :destroy
+  has_many :evaluations, dependent: :destroy
 
   # Legacy bearer token used by the activeagent gem's telemetry reporter to
   # push traces to POST /v1/traces. New keys are generated per-account as

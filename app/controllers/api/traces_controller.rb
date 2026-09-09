@@ -43,7 +43,7 @@ module Api
       trace = traces_scope.find_by(trace_id: params[:id]) ||
         traces_scope.where("trace_id LIKE ?", "#{TelemetryTrace.sanitize_sql_like(params[:id].to_s)}%").first ||
         traces_scope.find(params[:id])
-      render json: { trace: TelemetryTraceSerializer.detail(trace) }
+      render json: { trace: TelemetryTraceSerializer.detail(trace).merge(evaluation_runs: EvaluationRun.links_for_trace(trace)) }
     end
 
     private

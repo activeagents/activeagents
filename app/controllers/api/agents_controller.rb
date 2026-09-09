@@ -18,6 +18,7 @@ module Api
 
     before_action :set_agent, only: [ :show, :update, :destroy, :versions, :runs, :execute, :test, :restore, :duplicate, :export, :analytics ]
     before_action :require_account!, only: [ :execute, :test ]
+    before_action :require_authored_agent!, only: [ :execute, :test, :update, :restore ]
     before_action :enforce_run_limit!, only: [ :execute, :test ]
 
     # GET /api/agents
@@ -260,6 +261,12 @@ module Api
     end
 
     private
+
+    def require_authored_agent!
+      if @agent.observed?
+        render json: { error: "Observed agents are read-only; fork the agent to edit or execute it" }, status: :unprocessable_entity
+      end
+    end
 
     def list_sort(requested)
       LIST_SORTS.key?(requested.to_s) ? requested.to_s : DEFAULT_LIST_SORT
