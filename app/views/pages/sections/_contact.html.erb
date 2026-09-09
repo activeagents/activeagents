@@ -1,0 +1,71 @@
+<section class="contact-section" id="contact">
+  <div class="heading centered">
+    <h2>Talk to us about your project</h2>
+    <p class="paragraph l secondary balanced">
+      Workshops, advisory retainers, or hands-on development — tell us what
+      you're building and we'll get back to you within one business day.
+    </p>
+  </div>
+
+  <div class="contact-form-container" data-controller="contact">
+    <%= form_with url: leads_path, method: :post, id: "contact-form", class: "contact-form", data: { turbo: false, contact_target: "form" } do |f| %>
+      <input type="hidden" name="source" value="landing_contact">
+
+      <div class="contact-field-row">
+        <div class="contact-field">
+          <%= f.label :name, "Name", class: "contact-label" %>
+          <%= f.text_field :name, required: true, class: "contact-input",
+              autocomplete: "name", placeholder: "Jane Developer",
+              data: { contact_target: "name" } %>
+        </div>
+        <div class="contact-field">
+          <%= f.label :email, "Email", class: "contact-label" %>
+          <%= f.email_field :email, required: true, class: "contact-input",
+              autocomplete: "email", placeholder: "jane@company.com",
+              data: { contact_target: "email" } %>
+        </div>
+      </div>
+
+      <div class="contact-field-row">
+        <div class="contact-field">
+          <%= f.label :company, "Company", class: "contact-label" %>
+          <%= f.text_field :company, class: "contact-input",
+              autocomplete: "organization", placeholder: "Acme Inc. (optional)",
+              data: { contact_target: "company" } %>
+        </div>
+        <div class="contact-field">
+          <%= f.label :service_type, "What do you need?", class: "contact-label" %>
+          <%= f.select :service_type,
+              [ [ "Advisory retainer", "advisory" ],
+                [ "Workshop", "workshop" ],
+                [ "Development project", "development" ],
+                [ "Enterprise platform", "enterprise" ],
+                [ "Something else", "general" ] ],
+              { selected: "advisory" },
+              class: "contact-input contact-select", data: { contact_target: "serviceType" } %>
+        </div>
+      </div>
+
+      <div class="contact-field">
+        <%= f.label :message, "Tell us about your project", class: "contact-label" %>
+        <%= f.text_area :message, rows: 4, class: "contact-input contact-textarea",
+            placeholder: "What are you building, and what would help most?",
+            data: { contact_target: "message" } %>
+      </div>
+
+      <button type="submit" class="button primary full-width margin-top-l contact-submit" data-contact-target="submit">
+        <span class="submit-text" data-contact-target="submitText">Send Inquiry</span>
+        <span class="submit-loading" style="display: none;" data-contact-target="submitLoading">
+          <i class="fa-solid fa-spinner fa-spin"></i>
+        </span>
+      </button>
+    <% end %>
+
+    <div id="contact-response" class="contact-response" data-contact-target="response"></div>
+
+    <p class="paragraph s tertiary margin-top-m">
+      Prefer email? Reach us at
+      <%= link_to "consulting@activeagents.ai", "mailto:consulting@activeagents.ai" %>.
+    </p>
+  </div>
+</section>

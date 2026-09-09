@@ -132,7 +132,7 @@ class Account < ApplicationRecord
     telemetry_traces_this_period < limit
   end
 
-  # Called by ActiveAgent::Dashboard::Api::TracesController on every
+  # Called by ActionAgent::Api::TracesController on every
   # authenticated ingest request (rate-limit hook).
   def increment_telemetry_usage!
     reset_usage_period_if_needed!

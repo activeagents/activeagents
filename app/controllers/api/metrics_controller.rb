@@ -4,7 +4,7 @@ module Api
   # Read API for telemetry metrics, backing the dashboard Metrics view.
   #
   # Exposes the same aggregates as the gem dashboard's metrics page
-  # (ActiveAgent::Dashboard::TracesController#metrics / #calculate_metrics /
+  # (ActionAgent::TracesController#metrics / #calculate_metrics /
   # #agent_statistics): trace counts, token totals, average duration, error
   # rate, active agents and per-agent statistics — account-scoped, plus
   # previous-period deltas for trend indicators.

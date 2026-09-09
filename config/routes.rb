@@ -1,4 +1,5 @@
 Rails.application.routes.draw do
+  mount ActionAgent::Engine => "/activeagents"
   resource :session, only: [ :new, :create, :destroy ]
   resource :registration, only: [ :new, :create ]
   resources :passwords, param: :token, only: [ :new, :create, :edit, :update ]
@@ -25,6 +26,11 @@ Rails.application.routes.draw do
   # Landing page
   root to: "pages#home"
   get "pricing", to: "pages#pricing"
+  get "privacy", to: "pages#privacy"
+  get "terms", to: "pages#terms"
+
+  # Services / consulting inquiries from the landing page
+  resources :leads, only: [ :create ]
 
   # App dashboard (Inertia) - all dashboard routes render React app
   get "dashboard", to: "dashboard#index"

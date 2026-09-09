@@ -47,4 +47,47 @@ class PagesControllerTest < ActionDispatch::IntegrationTest
     get "/", params: { site: "commercial" }
     assert_match "Pro Platform", response.body
   end
+
+  test "the commercial lander renders the contact form and newsletter" do
+    get "/"
+
+    assert_response :success
+    assert_match 'id="contact"', response.body
+    assert_match "Talk to us about your project", response.body
+    assert_match 'action="/leads"', response.body
+    assert_match 'id="newsletter"', response.body
+  end
+
+  test "service CTAs point at the contact form rather than mailto" do
+    get "/"
+
+    assert_response :success
+    assert_match "#contact-advisory", response.body
+    assert_match "#contact-workshop", response.body
+    assert_match "#contact-development", response.body
+    assert_match "#contact-enterprise", response.body
+    assert_no_match(/mailto:consulting@activeagents\.ai\?subject/, response.body)
+  end
+
+  test "the privacy policy renders" do
+    get privacy_path
+
+    assert_response :success
+    assert_match "Privacy Policy", response.body
+  end
+
+  test "the terms of service render" do
+    get terms_path
+
+    assert_response :success
+    assert_match "Terms of Service", response.body
+  end
+
+  test "the footer links to the real legal pages" do
+    get "/"
+
+    assert_response :success
+    assert_match 'href="/privacy"', response.body
+    assert_match 'href="/terms"', response.body
+  end
 end

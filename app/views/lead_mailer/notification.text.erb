@@ -1,0 +1,26 @@
+Active Agent
+============
+
+New <%= @lead.display_service %> inquiry
+
+Name:     <%= @lead.name %>
+Email:    <%= @lead.email %>
+<% if @lead.company.present? -%>
+Company:  <%= @lead.company %>
+<% end -%>
+Service:  <%= @lead.display_service %>
+<% if @lead.source.present? -%>
+Source:   <%= @lead.source %>
+<% end -%>
+Received: <%= @lead.created_at.strftime("%B %-d, %Y at %-I:%M %p UTC") %>
+<% if @lead.message.present? -%>
+
+Message
+-------
+<%= @lead.message %>
+<% end -%>
+
+Reply directly to this email to reach <%= @lead.name %>.
+
+---
+Active Agent - The AI Framework for Ruby on Rails

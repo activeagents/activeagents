@@ -6,96 +6,29 @@
     </p>
   </div>
 
-  <div class="newsletter-form-container">
-    <form
-      action="/registration"
-      method="POST"
-      id="newsletter-form"
-      class="newsletter-form"
-    >
-      <input type="hidden" name="source" value="newsletter">
+  <div class="newsletter-form-container" data-controller="signup" data-signup-source-value="newsletter" data-signup-response-class-value="newsletter-response" data-signup-redirect-value="false" data-signup-success-message-value="You&#39;re in! Check your email to confirm.">
+    <%= form_with url: registration_path, method: :post, id: "newsletter-form", class: "newsletter-form", data: { turbo: false, signup_target: "form" } do |f| %>
       <div class="newsletter-input-group">
-        <input
-          type="email"
-          name="email_address"
-          placeholder="Enter your email"
-          required
-          class="newsletter-input"
-          id="newsletter-email"
-        >
-        <button type="submit" class="button primary newsletter-submit">
-          <span class="submit-text">Subscribe</span>
-          <span class="submit-loading" style="display: none;">
+        <%= f.email_field :email_address,
+            placeholder: "Enter your email",
+            required: true,
+            class: "newsletter-input",
+            id: "newsletter-email",
+            autocomplete: "email",
+            data: { signup_target: "email" } %>
+        <button type="submit" class="button primary newsletter-submit" data-signup-target="submit">
+          <span class="submit-text" data-signup-target="submitText">Subscribe</span>
+          <span class="submit-loading" style="display: none;" data-signup-target="submitLoading">
             <i class="fa-solid fa-spinner fa-spin"></i>
           </span>
         </button>
       </div>
-    </form>
+    <% end %>
 
-    <div id="newsletter-response" class="newsletter-response"></div>
+    <div id="newsletter-response" class="newsletter-response" data-signup-target="response"></div>
 
     <p class="paragraph s tertiary margin-top-m">
       No spam. Unsubscribe anytime.
     </p>
   </div>
 </section>
-
-<script>
-document.addEventListener('DOMContentLoaded', function() {
-  const form = document.getElementById('newsletter-form');
-  const responseDiv = document.getElementById('newsletter-response');
-  const submitBtn = form.querySelector('.newsletter-submit');
-  const submitText = submitBtn.querySelector('.submit-text');
-  const submitLoading = submitBtn.querySelector('.submit-loading');
-
-  form.addEventListener('submit', function(e) {
-    e.preventDefault();
-
-    const email = document.getElementById('newsletter-email').value;
-    if (!email) return;
-
-    // Show loading state
-    submitText.style.display = 'none';
-    submitLoading.style.display = 'inline';
-    submitBtn.disabled = true;
-    responseDiv.innerHTML = '';
-    responseDiv.className = 'newsletter-response';
-
-    fetch('/registration', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Accept': 'application/json'
-      },
-      body: JSON.stringify({ email_address: email, source: 'newsletter' })
-    })
-    .then(function(response) {
-      return response.json().then(function(data) {
-        return { ok: response.ok, data: data };
-      });
-    })
-    .then(function(result) {
-      submitText.style.display = 'inline';
-      submitLoading.style.display = 'none';
-      submitBtn.disabled = false;
-
-      if (result.ok || result.data.success) {
-        responseDiv.innerHTML = '<i class="fa-solid fa-check"></i> You\'re in! Check your email to verify your account.';
-        responseDiv.className = 'newsletter-response success';
-        form.reset();
-      } else {
-        var msg = result.data.error || 'An error occurred. Please try again.';
-        responseDiv.innerHTML = '<i class="fa-solid fa-exclamation-circle"></i> ' + msg;
-        responseDiv.className = 'newsletter-response error';
-      }
-    })
-    .catch(function() {
-      submitText.style.display = 'inline';
-      submitLoading.style.display = 'none';
-      submitBtn.disabled = false;
-      responseDiv.innerHTML = '<i class="fa-solid fa-exclamation-circle"></i> Connection error. Please try again.';
-      responseDiv.className = 'newsletter-response error';
-    });
-  });
-});
-</script>

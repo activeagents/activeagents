@@ -88,6 +88,20 @@ additional_txt_records = [
   {
     name  = "send.staging"
     value = "v=spf1 include:amazonses.com ~all"
+  },
+  # Resend PRODUCTION activeagents.ai DKIM record.
+  # TODO: replace REPLACE_WITH_RESEND_DKIM_KEY with the p=... value Resend
+  # shows after adding activeagents.ai as a domain (Domains -> Add Domain).
+  # The key is generated per-domain; the staging key above will NOT work here.
+  {
+    name  = "resend._domainkey.send"
+    value = "REPLACE_WITH_RESEND_DKIM_KEY"
+  },
+  # Resend PRODUCTION activeagents.ai SPF record. Scoped to the send.
+  # subdomain so the apex SPF (Google Workspace) is left untouched.
+  {
+    name  = "send"
+    value = "v=spf1 include:amazonses.com ~all"
   }
 ]
 
@@ -104,6 +118,11 @@ subdomain_mx_records = [
   # Resend staging.activeagents.ai
   {
     name   = "send.staging"
+    values = ["10 feedback-smtp.us-east-1.amazonses.com."]
+  },
+  # Resend PRODUCTION activeagents.ai
+  {
+    name   = "send"
     values = ["10 feedback-smtp.us-east-1.amazonses.com."]
   }
 ]

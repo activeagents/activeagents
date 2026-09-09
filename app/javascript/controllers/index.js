@@ -30,3 +30,9 @@ application.register("github-stars", GitHubStarsController)
 
 import EmailVerificationController from "./email_verification_controller"
 application.register("email-verification", EmailVerificationController)
+
+import SignupController from "./signup_controller"
+application.register("signup", SignupController)
+
+import ContactController from "./contact_controller"
+application.register("contact", ContactController)

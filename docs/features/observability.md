@@ -10,7 +10,7 @@ Positioning — the same engine runs in three contexts:
 
 - **Dev console** (free, in the gem): local traces while you build.
 - **Self-hosted enterprise**: a customer mounts the engine in their own
-  Rails app (e.g. `activeagents.combinaut.com`) as a production trace
+  Rails app (e.g. `activeagents.example.com`) as a production trace
   sink for their fleet — see the gem's
   `docs/framework/self-hosted-observability.md`. Data stays in their
   database; the richer React suite below stays platform-only.

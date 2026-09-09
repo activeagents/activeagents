@@ -14,7 +14,7 @@ class AddObservedAgentRegistration < ActiveRecord::Migration[8.1]
     add_column :agents, :first_observed_at, :datetime
     add_column :agents, :last_observed_at, :datetime
 
-    # One agent per (app, class, action). Clara.respond and Clara.title are
+    # One agent per (app, class, action). Assistant.respond and Assistant.title are
     # different agents — different instructions, tools, and cost — that share a
     # class name because one app method spawns both.
     add_index :agents,

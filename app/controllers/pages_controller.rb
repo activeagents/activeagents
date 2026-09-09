@@ -24,6 +24,12 @@ class PagesController < ApplicationController
     @sections = load_sections(:pricing, :services, :platform)
   end
 
+  def privacy
+  end
+
+  def terms
+  end
+
   private
 
   def oss_site?

@@ -6,8 +6,8 @@
     </p>
   </div>
 
-  <div class="signup-form-container">
-    <%= form_with url: registration_path, method: :post, id: "signup-form", class: "signup-form", data: { turbo: false, controller: "signup" } do |f| %>
+  <div class="signup-form-container" data-controller="signup">
+    <%= form_with url: registration_path, method: :post, id: "signup-form", class: "signup-form", data: { turbo: false, signup_target: "form" } do |f| %>
       <div class="signup-input-group">
         <%= f.email_field :email_address,
             placeholder: "Enter your email",
