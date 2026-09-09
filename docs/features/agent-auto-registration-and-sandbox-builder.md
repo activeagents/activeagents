@@ -50,10 +50,10 @@ else:
 
 | | `Assistant.respond` | `Assistant.title` |
 |---|---|---|
-| Instructions | `admin_instructions(tools)` — "You are Assistant, an admin-only assistant…" | `TITLE_INSTRUCTIONS` — "Generate a short, specific chat title… 3 to 7 words" |
+| Instructions | `admin_instructions(tools)` — "You are an admin-only assistant…" | `TITLE_INSTRUCTIONS` — "Generate a short, specific chat title… 3 to 7 words" |
 | Tools | every MCP diagnostic tool | none |
 | Temperature | default | 0.2 |
-| Chat object | the persisted `ClientAppAI::Chat` | a throwaway `RubyLLM.context.chat` |
+| Chat object | the app's persisted chat record | a throwaway `RubyLLM.context.chat` |
 | Observed cost/run | $0.0247 – $0.0530 | $0.0003 – $0.0005 |
 
 Different system prompt, different tools, different sampling, different chat
@@ -65,7 +65,7 @@ Collapsing them would ruin exactly the numbers the platform exists to show:
 one blended cost-per-run averaging a $0.03 tool-using agent with a $0.0004
 one-shot, one latency figure mixing 13s against 2s, and evaluations that can't
 target either independently. Model comparison would be meaningless — you'd be
-asking "is Haiku good for Assistant?" when the honest answer differs sharply
+asking "is Haiku good for this agent?" when the honest answer differs sharply
 between her two jobs.
 
 So: **one agent per observed `Agent.action`.** `Assistant` becomes a *group* in the
@@ -135,7 +135,7 @@ being told. This matters for three reasons:
 - Usage limits and billing likely count authored agents differently from
   discovered ones.
 
-Fork is the interesting affordance: "you've been observing Assistant for a month —
+Fork is the interesting affordance: "you've been observing an agent for a month —
 create an editable copy seeded with her real instructions, tools, and model."
 That's a genuinely good onboarding path from monitoring into the platform.
 

@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <style>
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 40px 20px; }
+    .logo { font-size: 24px; font-weight: bold; color: #e74c3c; margin-bottom: 30px; }
+    h1 { font-size: 24px; margin-bottom: 20px; color: #1a1a1a; }
+    table { width: 100%; border-collapse: collapse; margin: 20px 0; }
+    th { text-align: left; padding: 10px 12px; background: #f5f5f5; width: 130px; color: #555; font-size: 14px; }
+    td { padding: 10px 12px; border-bottom: 1px solid #eee; }
+    .message { background: #f9f9f9; padding: 16px; border-radius: 8px; white-space: pre-wrap; }
+    .footer { margin-top: 40px; padding-top: 20px; border-top: 1px solid #eee; font-size: 14px; color: #888; }
+  </style>
+</head>
+<body>
+  <div class="logo">Active Agent</div>
+
+  <h1>New <%= @lead.display_service %> inquiry</h1>
+
+  <table>
+    <tr><th>Name</th><td><%= @lead.name %></td></tr>
+    <tr><th>Email</th><td><a href="mailto:<%= @lead.email %>"><%= @lead.email %></a></td></tr>
+    <% if @lead.company.present? %>
+      <tr><th>Company</th><td><%= @lead.company %></td></tr>
+    <% end %>
+    <tr><th>Service</th><td><%= @lead.display_service %></td></tr>
+    <% if @lead.source.present? %>
+      <tr><th>Source</th><td><%= @lead.source %></td></tr>
+    <% end %>
+    <tr><th>Received</th><td><%= @lead.created_at.strftime("%B %-d, %Y at %-I:%M %p UTC") %></td></tr>
+  </table>
+
+  <% if @lead.message.present? %>
+    <p><strong>Message</strong></p>
+    <div class="message"><%= @lead.message %></div>
+  <% end %>
+
+  <p>Reply directly to this email to reach <%= @lead.name %>.</p>
+
+  <div class="footer">
+    <p>Active Agent - The AI Framework for Ruby on Rails</p>
+  </div>
+</body>
+</html>

@@ -3,8 +3,8 @@
 module Api
   # Read API for telemetry traces, backing the dashboard Traces view.
   #
-  # Query logic mirrors the gem's ActiveAgent::Dashboard::TracesController
-  # (same scopes on ActiveAgent::TelemetryTrace), scoped to the current
+  # Query logic mirrors the gem's ActionAgent::TracesController
+  # (same scopes on ActionAgent::TelemetryTrace), scoped to the current
   # account for the hosted platform.
   class TracesController < BaseController
     before_action :require_account!

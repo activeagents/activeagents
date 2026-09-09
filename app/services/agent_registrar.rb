@@ -59,7 +59,7 @@ class AgentRegistrar
     @trace.agent_action.presence
   end
 
-  # Name carries the action so the two Assistants are distinguishable anywhere a
+  # Name carries the action so the two agents are distinguishable anywhere a
   # bare agent name is shown.
   def display_name
     action_name ? "#{agent_class}.#{action_name}" : agent_class

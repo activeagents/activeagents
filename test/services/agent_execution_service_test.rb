@@ -77,7 +77,11 @@ class AgentExecutionServiceTest < ActiveSupport::TestCase
     names = service.send(:record_tool_spans, root_span, response)
 
     assert_equal %w[calculate fetch_url], names
-    tool_spans = root_span.children.select { |span| span.span_type.to_s == "tool" }
+    # `type`, not `span_type`: activeagent 1.2.0 rebased Telemetry::Span onto
+    # ActiveAgents::Telemetry::Span, which names the reader `type`. The
+    # framework subclass still accepts `span_type:` as a constructor keyword,
+    # so only reads had to change here.
+    tool_spans = root_span.children.select { |span| span.type.to_s == "tool" }
     assert_equal 2, tool_spans.length
     assert_equal "tool.calculate", tool_spans.first.name
   end

@@ -182,7 +182,7 @@ adapter is not redundant with it.
    `activesupport`, `ruby_llm` in development only.
 2. **Move the five telemetry files**, fix the two leaks above (`local_storage`
    AR reference, `ActiveAgent::VERSION`), add `Telemetry::VERSION`.
-3. **Port the adapter** from `client-app/lib/active_agents/ruby_llm_telemetry.rb`,
+3. **Port the adapter** from the client app's `lib/active_agents/ruby_llm_telemetry.rb`,
    swapping hand-built hashes for `Span` and Net::HTTP for `Reporter`.
 4. **Port the spec** (the client app's is 211 lines / 11 examples and now actually
    runs). Note the gem has **no telemetry tests at all** today, so this is the

@@ -1,0 +1,66 @@
+<% content_for :title, "Privacy Policy | Active Agent" %>
+
+<section class="legal-section">
+  <div class="legal-container">
+    <h1>Privacy Policy</h1>
+    <p class="paragraph s tertiary">Last updated: August 27, 2026</p>
+
+    <p class="paragraph m secondary">
+      Active Agent ("we", "us") provides observability and tooling for AI agents
+      built on Ruby on Rails. This policy explains what we collect, why, and what
+      control you have over it.
+    </p>
+
+    <h2>Information we collect</h2>
+    <ul class="legal-list">
+      <li><strong>Account information.</strong> Your email address, and the name and workspace details you provide when you register.</li>
+      <li><strong>Telemetry data.</strong> Traces, spans, token counts, latency, model names, and cost data that your applications send to our ingestion endpoint. This may include prompt and completion content that you choose to transmit.</li>
+      <li><strong>Inquiry information.</strong> Name, email, company, and message content when you contact us about workshops, advisory, or development services.</li>
+      <li><strong>Usage data.</strong> Standard server logs, including IP address, browser type, and pages viewed.</li>
+    </ul>
+
+    <h2>How we use it</h2>
+    <ul class="legal-list">
+      <li>To operate the platform, display your traces, and enforce plan limits.</li>
+      <li>To send transactional email such as verification and billing notices.</li>
+      <li>To respond to sales and consulting inquiries you initiate.</li>
+      <li>To send product updates, where you have opted in. Every marketing email includes an unsubscribe link.</li>
+    </ul>
+
+    <h2>Telemetry and your customers' data</h2>
+    <p class="paragraph m secondary">
+      You control what your agents transmit. Prompt and completion payloads are
+      only stored if you send them. We do not use customer telemetry to train
+      models, and we do not sell it. Retention is governed by your plan; data
+      past the retention window is deleted on a rolling basis.
+    </p>
+
+    <h2>Service providers</h2>
+    <p class="paragraph m secondary">
+      We share data only with providers necessary to run the service, including
+      Google Cloud Platform (hosting and database), Stripe (payments), and Resend
+      (email delivery). Each processes data on our behalf under their own terms.
+    </p>
+
+    <h2>Your rights</h2>
+    <p class="paragraph m secondary">
+      You may request access to, correction of, or deletion of your personal data
+      at any time by emailing
+      <%= link_to "privacy@activeagents.ai", "mailto:privacy@activeagents.ai" %>.
+      Deleting your account removes your workspaces and associated telemetry.
+    </p>
+
+    <h2>Security</h2>
+    <p class="paragraph m secondary">
+      Data is encrypted in transit and at rest. API keys and provider credentials
+      are encrypted at the application layer. Access to production systems is
+      restricted to authorized personnel.
+    </p>
+
+    <h2>Contact</h2>
+    <p class="paragraph m secondary">
+      Questions about this policy? Email
+      <%= link_to "privacy@activeagents.ai", "mailto:privacy@activeagents.ai" %>.
+    </p>
+  </div>
+</section>
