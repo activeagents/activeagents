@@ -25,7 +25,10 @@ gem "rouge"
 # Inertia adapter for Rails [https://inertia-rails.dev]
 gem "inertia_rails"
 # Active Agent - AI agent framework for Rails [https://github.com/activeagents/activeagent]
-gem "activeagent", github: "activeagents/activeagent", branch: "main"
+gem "activeagent", "~> 1.4"
+# Action Agent - the dashboard engine. Split out of activeagent in 1.2.0; this app
+# subclasses its controllers and models, so it is a hard requirement, not an add-on.
+gem "actionagent", "~> 1.3"
 # Solid Agent - Persistence and context management for ActiveAgent
 gem "solid_agent", github: "activeagents/solid_agent", branch: "main"
 # RubyLLM - model registry (token pricing data) and unified provider API
