@@ -28,6 +28,9 @@ gem "inertia_rails"
 gem "activeagent", github: "activeagents/activeagent", branch: "main"
 # Solid Agent - Persistence and context management for ActiveAgent
 gem "solid_agent", github: "activeagents/solid_agent", branch: "main"
+# ActionAgent - the dashboard, split out of the activeagent gem in 1.2 and
+# living in a subdirectory of that repo.
+gem "actionagent", github: "activeagents/activeagent", branch: "main", glob: "actionagent/*.gemspec"
 # RubyLLM - model registry (token pricing data) and unified provider API
 gem "ruby_llm"
 # Ragents - Ractor-based AI agents for benchmarking (Ruby 4.0+)
