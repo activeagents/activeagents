@@ -264,6 +264,16 @@ KUBECONFIG=/path/to/kubeconfig
 
 ---
 
+## Code Sessions (coding agents)
+
+Sandboxes above run the *user's agent*. Code Sessions run a *coding agent*
+(Claude Code, Codex, Copilot, ...) against the user's repository, inside a
+code-on-incus container on the same Incus host. The host setup script installs
+`coi` for this; the operator runbook is
+[code-agent-sessions.md](code-agent-sessions.md).
+
+---
+
 ## Security Considerations
 
 ### Incus Provides:
