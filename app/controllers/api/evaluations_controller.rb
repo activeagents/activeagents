@@ -40,6 +40,12 @@ module Api
       }
     end
 
+    def show_run
+      evaluation = evaluations_scope.find(params[:id])
+      run = evaluation.evaluation_runs.find(params[:run_id])
+      render json: { run: serialize_run(run).merge(report: run.external_report) }
+    end
+
     # POST /api/evaluations
     def create
       agent = current_user.agents.find(params.require(:evaluation)[:agent_id])
@@ -70,6 +76,9 @@ module Api
     # POST /api/evaluations/:id/run
     def run
       evaluation = evaluations_scope.find(params[:id])
+      if evaluation.external?
+        return render json: { error: "Rerun this evaluation in its source application" }, status: :unprocessable_entity
+      end
       run = evaluation.run!
 
       render json: { evaluation: serialize(evaluation.reload), run: serialize_run(run) }
@@ -84,7 +93,8 @@ module Api
     private
 
     def evaluations_scope
-      Evaluation.joins(:agent).where(agents: { user_id: current_user.id })
+      scope = Evaluation.joins(:agent)
+      scope.where(account_id: current_account.id).or(scope.where(account_id: nil, agents: { user_id: current_user.id }))
     end
 
     def evaluation_params
@@ -116,9 +126,10 @@ module Api
 
       {
         id: evaluation.id,
-        name: evaluation.name,
+        name: evaluation.external? ? evaluation.config["suite"] : evaluation.name,
         agent: { id: evaluation.agent.id, name: evaluation.agent.name, slug: evaluation.agent.slug },
         judge_kind: evaluation.judge_kind,
+        external: evaluation.external?,
         judge_model: evaluation.judge_model,
         criteria: evaluation.criteria,
         compare_models: evaluation.compare_models,
@@ -132,6 +143,7 @@ module Api
     def serialize_run(run)
       {
         id: run.id,
+        run_id: run.external_run_id,
         status: run.status,
         scores: run.scores,
         average_score: run.average_score,

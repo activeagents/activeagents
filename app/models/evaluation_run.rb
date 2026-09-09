@@ -8,13 +8,28 @@
 # not criterion stats at all.
 class EvaluationRun < ApplicationRecord
   belongs_to :evaluation
+  belongs_to :account, optional: true
 
   enum :status, { pending: 0, running: 1, complete: 2, failed: 3 }
 
   scope :recent, -> { order(created_at: :desc) }
 
+  def self.links_for_trace(trace)
+    matches = [
+      { results: [ { metadata: { trace_id: trace.trace_id } } ] },
+      { results: [ { metadata: { judge_trace_ids: [ trace.trace_id ] } } ] },
+      { metadata: { judge_trace_ids: [ trace.trace_id ] } }
+    ]
+    where(account_id: trace.account_id)
+      .where(matches.map { "external_report @> ?::jsonb" }.join(" OR "), *matches.map(&:to_json))
+      .recent.limit(20).map do |run|
+        { run_id: run.external_run_id, evaluation_id: run.evaluation_id, id: run.id,
+          url: "/dashboard/evaluations?evaluation=#{run.evaluation_id}&run=#{run.id}" }
+      end
+  end
+
   def average_score
-    values = criterion_scores
+    values = external_report ? external_report.fetch("results").filter_map { |result| result["score"] } : criterion_scores
     return nil if values.empty?
 
     (values.sum.to_f / values.size).round(3)

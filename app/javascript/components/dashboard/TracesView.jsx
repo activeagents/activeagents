@@ -110,6 +110,7 @@ export default function TracesView({ agentClass = null, embedded = false }) {
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState(null);
   const [selectedTrace, setSelectedTrace] = useState(null);
+  const [evaluationLinks, setEvaluationLinks] = useState([]);
   // Deep link: /dashboard/traces?trace=<id> (record id, trace_id, or its
   // 8-char short form) selects and scrolls to that trace, fetching it
   // directly when it falls outside the loaded window.
@@ -121,6 +122,15 @@ export default function TracesView({ agentClass = null, embedded = false }) {
   const [expandedAttributes, setExpandedAttributes] = useState({});
   const [filter, setFilter] = useState({ status: 'all', agent: 'all', action: 'all' });
   const [sortBy, setSortBy] = useState('time'); // 'time' (chronological) | 'latency' (slowest first)
+  useEffect(() => {
+    let cancelled = false;
+    setEvaluationLinks([]);
+    if (selectedTrace) fetch(`/api/traces/${encodeURIComponent(selectedTrace)}`)
+      .then((response) => response.ok ? response.json() : {})
+      .then((data) => { if (!cancelled) setEvaluationLinks(data.trace?.evaluation_runs || []); })
+      .catch(() => { if (!cancelled) setEvaluationLinks([]); });
+    return () => { cancelled = true; };
+  }, [selectedTrace]);
   const [selectedTimeBucket, setSelectedTimeBucket] = useState(null);
   const [viewMode, setViewMode] = useState('timeline'); // 'timeline', 'agents', 'actions', or 'spans'
   const [agentRank, setAgentRank] = useState('popular'); // agents view card ranking
@@ -279,7 +289,7 @@ export default function TracesView({ agentClass = null, embedded = false }) {
       select(match);
       return;
     }
-    if (traces.length === 0) return; // wait for the first window load before falling back
+    if (isLoading) return; // A focused trace may be outside an empty current window.
     fetch(`/api/traces/${encodeURIComponent(target)}`)
       .then((response) => (response.ok ? response.json() : Promise.reject(new Error('not found'))))
       .then(({ trace }) => {
@@ -289,7 +299,7 @@ export default function TracesView({ agentClass = null, embedded = false }) {
       .catch(() => {
         focusTraceRef.current = null;
       });
-  }, [traces]);
+  }, [traces, isLoading]);
 
   // Aggregate agent stats for selected time range
   const agentStats = useMemo(() => {
@@ -1103,11 +1113,16 @@ export default function TracesView({ agentClass = null, embedded = false }) {
   };
 
   const emptyState = traces.length === 0;
+  const reportLinks = evaluationLinks.length > 0 && <div className="flex flex-wrap gap-3 text-sm" style={{ padding: '12px' }}>
+    <span>Evaluation reports for the selected trace:</span>
+    {evaluationLinks.map((run) => <a key={run.id} className="underline" href={`/dashboard/evaluations?evaluation=${run.evaluation_id}&run=${run.id}`}>{run.run_id}</a>)}
+  </div>;
 
   // Dark mode uses lander CSS classes, light mode uses Tailwind
   if (darkMode) {
     return (
       <div className="preview-content" style={{ borderRadius: '12px', overflow: 'hidden', minHeight: 'calc(100vh - 200px)' }}>
+        {reportLinks}
         {/* Header inside dark container */}
         <div style={{ padding: '24px 24px 0 24px', borderBottom: '1px solid rgba(255,255,255,0.1)', marginBottom: '16px', paddingBottom: '16px' }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
@@ -1690,6 +1705,7 @@ export default function TracesView({ agentClass = null, embedded = false }) {
   // Light mode - Tailwind classes
   return (
     <div className="space-y-6">
+      {reportLinks}
       {/* Header */}
       <div className="flex items-center justify-between flex-wrap gap-y-2">
         <div>
