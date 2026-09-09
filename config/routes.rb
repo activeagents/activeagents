@@ -67,6 +67,7 @@ Rails.application.routes.draw do
   scope module: :api do
     namespace :v1 do
       resources :traces, only: [ :create ]
+      resources :evaluations, only: [ :create ]
     end
   end
 
@@ -169,6 +170,7 @@ Rails.application.routes.draw do
       member do
         post :run
       end
+      get "runs/:run_id", to: "evaluations#show_run", on: :member
     end
 
     # Ragents benchmark results — accepts POSTed JSON from bin/bench
@@ -185,6 +187,7 @@ Rails.application.routes.draw do
       resources :plans, only: [ :index ]
       # Alias of POST /v1/traces for clients configured with an /api prefix.
       resources :traces, only: [ :create ]
+      resources :evaluations, only: [ :create ]
     end
   end
 end

@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useTheme } from '../../contexts/ThemeContext';
+import ExternalEvaluationReport from './ExternalEvaluationReport';
 
 const RULE_CRITERIA = [
   { type: 'response_present', key: 'response_present', label: 'Response present', config: {} },
@@ -42,7 +43,7 @@ export default function EvaluationsView({ embedded = false, agentId = null }) {
   const [agents, setAgents] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState(null);
-  const [expandedEval, setExpandedEval] = useState(null);
+  const [expandedEval, setExpandedEval] = useState(() => Number(new URLSearchParams(window.location.search).get('evaluation')) || null);
   const [showForm, setShowForm] = useState(false);
   const [runningId, setRunningId] = useState(null);
   const [deletingId, setDeletingId] = useState(null);
@@ -63,7 +64,13 @@ export default function EvaluationsView({ embedded = false, agentId = null }) {
       const response = await fetch(`/api/evaluations${agentId ? `?agent_id=${encodeURIComponent(agentId)}` : ''}`);
       if (!response.ok) throw new Error(`Request failed (${response.status})`);
       const data = await response.json();
-      setEvaluations(data.evaluations || []);
+      const items = data.evaluations || [];
+      const focus = new URLSearchParams(window.location.search).get('evaluation');
+      if (focus && !items.some((item) => String(item.id) === focus)) {
+        const focusedResponse = await fetch(`/api/evaluations/${encodeURIComponent(focus)}`);
+        if (focusedResponse.ok) items.unshift((await focusedResponse.json()).evaluation);
+      }
+      setEvaluations(items);
       setLoadError(null);
     } catch (error) {
       setLoadError(error.message);
@@ -507,7 +514,7 @@ export default function EvaluationsView({ embedded = false, agentId = null }) {
 
               {isExpanded && (
                 <div className="border-t" style={{ borderColor: colors.cardBorder }}>
-                  {run?.status === 'failed' ? (
+                  {evaluation.external ? <ExternalEvaluationReport evaluation={evaluation} colors={colors} /> : run?.status === 'failed' ? (
                     <div className="p-4 text-sm text-red-500">{run.error_message}</div>
                   ) : run?.scores ? (
                     <div className="p-4 space-y-3">
@@ -562,13 +569,13 @@ export default function EvaluationsView({ embedded = false, agentId = null }) {
                       </div>
                     </div>
                     <div className="flex items-end justify-end">
-                      <button
+                      {!evaluation.external && <button
                         onClick={(e) => { e.stopPropagation(); handleRun(evaluation.id); }}
                         disabled={runningId === evaluation.id}
                         className="px-3 py-1.5 text-sm bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors disabled:opacity-50"
                       >
                         {runningId === evaluation.id ? 'Running…' : 'Run again'}
-                      </button>
+                      </button>}
                       <button
                         onClick={(e) => { e.stopPropagation(); handleDelete(evaluation); }}
                         disabled={deletingId === evaluation.id}
