@@ -15,6 +15,8 @@
 #   - Incus will be running with a "agent-sandboxes" project
 #   - A restricted sandbox profile will be created
 #   - Remote access will be configured (optional)
+#   - code-on-incus (coi) will be installed for code sessions
+#     (set INSTALL_COI=false to skip; COI_REBUILD=true to force `coi build`)
 #
 set -euo pipefail
 
@@ -23,6 +25,13 @@ INCUS_PROJECT="agent-sandboxes"
 STORAGE_POOL="default"
 NETWORK_NAME="incusbr0"
 SANDBOX_PROFILE="sandbox-restricted"
+# code-on-incus (coi) runs the coding-agent containers behind the dashboard's
+# Code Sessions. It is separate from the sandbox project above: coi manages
+# its own image, profiles and nftables rules, and the Rails app drives it over
+# SSH (COI_SSH_TARGET) rather than through the Incus REST API.
+INSTALL_COI="${INSTALL_COI:-true}"
+COI_REBUILD="${COI_REBUILD:-false}"
+COI_INSTALLER_URL="https://raw.githubusercontent.com/mensfeld/code-on-incus/master/install.sh"
 
 log() {
   echo "[$(date '+%Y-%m-%d %H:%M:%S')] $*"
@@ -347,6 +356,67 @@ SCRIPT
   log "Cleanup cron job configured"
 }
 
+install_code_on_incus() {
+  if [[ "$INSTALL_COI" != "true" ]]; then
+    log "INSTALL_COI=$INSTALL_COI, skipping code-on-incus"
+    return
+  fi
+
+  log "Installing code-on-incus (coi)..."
+
+  # The upstream installer drops a single binary on PATH. Re-running it would
+  # upgrade in place, which is not what an idempotent host setup should do
+  # behind the operator's back, so an existing binary is left alone.
+  if command -v coi &>/dev/null; then
+    log "coi already installed ($(coi version 2>/dev/null || echo 'version unknown')), skipping install"
+  else
+    curl -fsSL "$COI_INSTALLER_URL" | bash
+    hash -r
+    command -v coi &>/dev/null || error "coi installer finished but 'coi' is not on PATH"
+    log "coi installed"
+  fi
+
+  # `coi build` takes 5-10 minutes and only needs to happen once per host.
+  # `coi health` is the end-to-end check coi ships for exactly this question,
+  # so a passing health check means the image is there and the build is
+  # skipped unless COI_REBUILD=true asks for a fresh one.
+  if [[ "$COI_REBUILD" != "true" ]] && coi health &>/dev/null; then
+    log "coi health passes, skipping 'coi build' (set COI_REBUILD=true to rebuild)"
+  else
+    log "Running 'coi build' (this takes several minutes)..."
+    coi build
+  fi
+
+  # Fail loudly here rather than at the first code session: the Rails side
+  # only reports the backend as unhealthy and cannot tell the operator why.
+  if coi health; then
+    log "coi health check passed"
+  else
+    error "coi health check failed; see the output above before enabling code sessions"
+  fi
+
+  cat << EOF
+
+==========================================================
+  code-on-incus (coi) ready for Code Sessions
+==========================================================
+
+The Rails app reaches coi on this host over SSH. Point it here with:
+
+  export CODE_SESSION_BACKEND=code_on_incus
+  export COI_SSH_TARGET="$(whoami)@$(hostname -I | awk '{print $1}')"
+  # optional: where per-session state (profile, brief, workspace) lives
+  export COI_STATE_DIR=/var/lib/activeagents/code-sessions
+
+Install the app's deploy public key for that user (BatchMode SSH, no
+password prompts) and make sure the user is in the incus-admin group.
+
+Runbook: docs/infrastructure/code-agent-sessions.md
+
+==========================================================
+EOF
+}
+
 print_summary() {
   cat << EOF
 
@@ -373,6 +443,8 @@ Next Steps:
   1. Set SANDBOX_BACKEND=incus in your Rails app
   2. Configure INCUS_HOST with the server address
   3. Copy client certificates for remote access (optional)
+  4. For code sessions, set CODE_SESSION_BACKEND=code_on_incus and
+     COI_SSH_TARGET (printed above; see docs/infrastructure/code-agent-sessions.md)
 
 Documentation:
   https://linuxcontainers.org/incus/docs/main/
@@ -394,6 +466,7 @@ main() {
   setup_firewall
   setup_remote_access
   create_cleanup_cron
+  install_code_on_incus
   print_summary
 
   log "Setup complete!"

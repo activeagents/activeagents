@@ -6,6 +6,14 @@ const PROVIDER_META = {
   anthropic: { label: 'Anthropic', icon: '🧠', placeholder: 'sk-ant-…' },
   openrouter: { label: 'OpenRouter', icon: '🔀', placeholder: 'sk-or-…' },
   ollama: { label: 'Ollama', icon: '🦙', placeholder: 'http://localhost:11434/v1' },
+  // Not an LLM provider: a personal access token that code sessions use to
+  // clone (and, with write access, push to) this account's repositories.
+  github: {
+    label: 'GitHub (code sessions)',
+    icon: '🐙',
+    placeholder: 'ghp_… or github_pat_…',
+    help: 'Fine-grained personal access token with Contents read (and write, plus Pull requests, if sessions should open PRs). Used only by code sessions; never by agent runs.',
+  },
 };
 
 export default function SettingsView({ user, account }) {
@@ -371,6 +379,7 @@ export default function SettingsView({ user, account }) {
             <p className={`text-sm mb-4 ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
               Configure your own LLM provider credentials. Agent runs and evaluations on this
               account use these instead of the platform defaults. Keys are encrypted at rest.
+              The GitHub token is only used by code sessions to reach your repositories.
             </p>
             <div className="space-y-4">
               {providerKeys.map(({ provider, host_based: hostBased, configured, hint }) => {
@@ -431,6 +440,11 @@ export default function SettingsView({ user, account }) {
                           {savingProvider ? 'Saving…' : 'Save'}
                         </button>
                       </div>
+                    )}
+                    {meta.help && editing && (
+                      <p className={`mt-2 text-xs ${darkMode ? 'text-gray-500' : 'text-gray-400'}`}>
+                        {meta.help}
+                      </p>
                     )}
                     {hostBased && editing && (
                       <p className={`mt-2 text-xs ${darkMode ? 'text-gray-500' : 'text-gray-400'}`}>

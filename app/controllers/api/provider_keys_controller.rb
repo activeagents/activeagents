@@ -3,7 +3,9 @@
 module Api
   # Per-account LLM provider credentials (Settings -> Provider API Keys).
   # API keys are write-only: responses carry a masked hint, never the key.
-  # Ollama's credential is a host URL and is echoed back in full.
+  # Ollama's credential is a host URL and is echoed back in full. The list is
+  # ProviderKey::PROVIDERS verbatim, so the GitHub token used by code
+  # sessions appears here too and the Settings view labels it by provider.
   class ProviderKeysController < BaseController
     before_action :require_account!
 

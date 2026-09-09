@@ -60,6 +60,19 @@ class ProviderKeyTest < ActiveSupport::TestCase
     assert_equal "http://localhost:11434/v1", host.display_hint
   end
 
+  test "github tokens are accepted, masked and never treated as a host" do
+    key = @account.provider_keys.build(provider: "github", credential: "ghp_0123456789abcdefghijklmnopqrstuvwxyz")
+
+    assert key.valid?
+    assert_not key.host_based?
+    key.save!
+
+    # The dashboard only ever sees the hint: first and last four characters.
+    assert_equal "ghp_…wxyz", key.display_hint
+    assert_not_includes key.display_hint, "0123456789"
+    assert_equal key, @account.provider_key_for("github")
+  end
+
   test "Account#provider_key_for finds the stored credential" do
     key = @account.provider_keys.create!(provider: "openai", credential: "sk-mine")
 
