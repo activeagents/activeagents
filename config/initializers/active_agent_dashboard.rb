@@ -23,3 +23,14 @@ ActiveAgent::Dashboard.configure do |config|
   # ActiveAgent::TelemetryTrace pointed at our telemetry_traces table).
   config.trace_model_class = "TelemetryTrace"
 end
+
+# The platform's dashboard tables predate the engine's active_agent_ prefix
+# and are unprefixed (agents, agent_runs, ...). The one exception is the
+# traces table, which was created prefixed; TelemetryTrace pins it directly.
+ActionAgent.table_name_prefix = ""
+
+# Deferred: naming the model here would load Active Record at boot, which the
+# engine is structured to avoid.
+Rails.application.config.to_prepare do
+  ActionAgent::TelemetryTrace.table_name = "active_agent_telemetry_traces"
+end
