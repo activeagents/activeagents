@@ -1,6 +1,18 @@
 require "active_support/core_ext/integer/time"
 
 Rails.application.configure do
+  # How inbound mail reaches the app. :relay is the generic one — an SMTP
+  # relay (Postfix, Exim, a provider's forwarder) POSTs each message to
+  # /rails/action_mailbox/relay/inbound_emails, authenticated with
+  # `rails credentials:edit` -> action_mailbox.ingress_password. Set
+  # ACTION_MAILBOX_INGRESS to postmark, mailgun, sendgrid or mandrill to use
+  # one of those instead; Rails ships a controller for each.
+  #
+  # In development none of this is needed: /rails/conductor/action_mailbox/
+  # inbound_emails lets you paste an email into the browser and watch the
+  # agent answer it.
+  config.action_mailbox.ingress = ENV.fetch("ACTION_MAILBOX_INGRESS", "relay").to_sym
+
   # Settings specified here will take precedence over those in config/application.rb.
 
   # Code is not reloaded between requests.
@@ -83,4 +95,8 @@ Rails.application.configure do
   #
   # Skip DNS rebinding protection for the default health check endpoint.
   # config.host_authorization = { exclude: ->(request) { request.path == "/up" } }
+
+  # Where ActionMailbox keeps the raw source of inbound emails. A real
+  # deployment points this at object storage instead of the container disk.
+  config.active_storage.service = :local
 end

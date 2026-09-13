@@ -7,8 +7,23 @@
     <% if @ticket.priority %><span class="badge priority-<%= @ticket.priority %>"><%= @ticket.priority %></span><% end %>
     <% if @ticket.category %><span class="badge"><%= @ticket.category %></span><% end %>
     <% if @ticket.sentiment %><span class="badge sentiment-<%= @ticket.sentiment %>"><%= @ticket.sentiment %></span><% end %>
+    <% if @ticket.email? %><span class="badge">email</span><% end %>
+    <% if @ticket.handed_off? %><span class="badge priority-urgent">handed to a human</span><% end %>
   </div>
 </header>
+
+<% if @ticket.email? %>
+  <section class="panel">
+    <h3>Email thread</h3>
+    <p class="muted small">
+      Arrived by email and answered by SupportMailbox. The customer's replies come back to
+      <code><%= @ticket.reply_address %></code>, which is how this ticket finds them again.
+      <% if @ticket.handed_off? %>
+        The agent has stopped answering this one: <%= @ticket.handoff_reason %>.
+      <% end %>
+    </p>
+  </section>
+<% end %>
 
 <section class="agent-actions">
   <%= button_to "Triage", triage_ticket_path(@ticket), class: "action" %>
@@ -40,11 +55,13 @@
   </div>
 
   <% @ticket.replies.order(:created_at).each do |reply| %>
-    <div class="message <%= reply.draft? ? "draft" : "sent" %>">
+    <div class="message <%= reply.inbound? ? "customer" : (reply.draft? ? "draft" : "sent") %>">
       <p class="meta">
         <strong><%= reply.author %></strong> · <%= reply.created_at.to_fs(:short) %>
+        <% if reply.inbound? %><span class="badge">received</span><% end %>
         <% if reply.ai_generated? %><span class="badge">AI</span><% end %>
         <% if reply.draft? %><span class="badge draft-badge">draft</span><% end %>
+        <% if reply.delivered? %><span class="badge">emailed</span><% end %>
       </p>
       <%= simple_format(reply.body) %>
       <% if reply.draft? %>

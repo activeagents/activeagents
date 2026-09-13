@@ -6,8 +6,11 @@ A small but real Rails app that shows the whole ActiveAgent product loop:
   - `TriageAgent` — classifies each ticket (category / priority / sentiment + one-line summary), parsed defensively from a JSON-shaped response
   - `SupportReplyAgent` — drafts replies grounded in matching knowledge-base articles (`config/knowledge_base.yml`), with the conversation persisted through [solid_agent](https://github.com/activeagents/solid_agent)
   - `SummarizeAgent` — running thread summaries
+- **Support over email** — the same agents on a real transport: ActionMailbox
+  receives, `SupportMailbox` answers, ActionMailer replies on the customer's
+  thread. See [Email support](#email-support) below.
 - **Monitoring**:
-  - In development, traces land in the gem's **dev console** at [`/activeagents`](http://localhost:3000/activeagents)
+  - In development, traces land in the **actionagent dashboard** at [`/activeagents`](http://localhost:3000/activeagents)
   - In production (or whenever `ACTIVEAGENTS_API_KEY` is set), traces POST to the **ActiveAgents platform** — the same pipeline, hosted
   - Every persisted `AgentGeneration` carries the `trace_id` of the telemetry trace that produced it, so a conversation row here links to its trace on the dashboard
 
@@ -67,17 +70,71 @@ Details: `terraform/modules/demo-app`. The service uses ephemeral SQLite
 keep data. Agents default to the mock provider; set `demo_ai_provider` in
 terraform (plus provider keys as env) for real models.
 
+## Email support
+
+A customer emails `support@example.com` and gets an answer from the agent on
+the same thread. Nothing new is asked of the agents — `SupportMailbox` runs
+the same `TriageAgent` the Triage button runs, and `SupportReplyAgent#respond`
+continues the same solid_agent conversation the Draft reply button writes
+into, so an emailed ticket and a clicked one are the same conversation with
+different doors.
+
+```
+inbound email ─▶ ApplicationMailbox ─▶ SupportMailbox ─▶ SupportReplyAgent ─▶ SupportMailer ─▶ reply
+                                          │                    │
+                                     Ticket + Reply      AgentContext + trace
+```
+
+### Try it without a mail server
+
+```bash
+bin/rails server
+open http://localhost:3000/rails/conductor/action_mailbox/inbound_emails/new
+```
+
+Paste an email from `dana@example.com` to `support@example.com`, deliver it,
+and the inbox has a new ticket: triaged, answered, and with the outgoing
+reply recorded on the thread. Replies come back to
+`support+<ticket token>@example.com`, which is how the next message finds its
+ticket. In development `config.action_mailer.delivery_method` is `:test`, so
+nothing leaves your machine; in production, point an SMTP relay (or Postmark,
+Mailgun, SendGrid, Mandrill) at the ingress — see
+`config/environments/production.rb`.
+
+### What the transport layer handles
+
+`lib/action_mail_agent/` is deliberately app-agnostic — it knows about email,
+conversations and agents, and nothing about tickets. It is the part every
+email/agent integration ends up rebuilding:
+
+| | |
+|---|---|
+| `BodyParser` | Reduces a reply chain to what the customer wrote this time — Gmail/Outlook/Apple quoting, forwarded-message separators, signatures, HTML-only mail |
+| `Addressing` | The `support+<token>@` reply addresses conversations thread on, lowercase so they survive a round trip |
+| `InboundMessage` | One normalized view of a `Mail::Message`: sender, subject, thread ids, and the header tells that say a machine sent it |
+| `LoopGuard` | Refuses to answer bounces, vacation responders, mailing lists, our own addresses, and a conversation that has burst past its reply rate |
+| `Mailbox` | The exchange itself: parse, guard, record, answer, reply — with hooks an app fills in (`app/mailboxes/support_mailbox.rb` is 130 lines of ticket-specific code) |
+
+Threading works two ways, because one is not enough: the `+tag` on the reply
+address survives clients that rewrite headers, and the `References`/
+`In-Reply-To` chain catches replies sent to the plain support address.
+
+Rolling this out in front of real customers starts at
+`SUPPORT_DELIVERY_MODE=draft`: the agent's replies are generated and recorded
+for a human to read, and nothing is sent.
+
 ## Tests
 
 ```bash
 bin/rails test
 ```
 
-Five integration tests cover the three agent features, solid_agent
-persistence with trace correlation, and the send-draft flow — all against
-the mock provider.
+40 tests, all against the mock provider: the three agent features with
+solid_agent persistence and trace correlation, the send-draft flow, the
+email exchange end to end (threading, quote stripping, loop refusals,
+handoff, duplicate delivery), and unit coverage of the transport layer.
 
 ## Notes
 
-- The `Gemfile` tracks both gems' `main` branches (pin released versions
+- The `Gemfile` tracks the gems' `main` branches (pin released versions
   once activeagent v2 ships).

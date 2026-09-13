@@ -29,4 +29,21 @@
   end
 end
 
+# One ticket that arrived by email, with the customer's follow-up on the same
+# thread, so the inbox shows the email side without waiting for real mail.
+# (Send your own through the conductor at
+# /rails/conductor/action_mailbox/inbound_emails/new.)
+emailed = Ticket.find_or_create_by!(subject: "Webhook retries stopped") do |ticket|
+  ticket.customer_email = "ops@example.net"
+  ticket.body = "Our webhook endpoint stopped receiving retries after Tuesday's deploy, and there is nothing in the logs on our side."
+  ticket.channel = "email"
+  ticket.mail_message_id = "seed-webhook-retries@example.net"
+end
+
+emailed.replies.find_or_create_by!(message_id: "seed-webhook-retries-follow-up@example.net") do |reply|
+  reply.author = emailed.customer_email
+  reply.body = "Update: retries land for one endpoint but not the other. Same secret on both."
+  reply.inbound = true
+end
+
 puts "Seeded #{Ticket.count} tickets."
