@@ -47,4 +47,8 @@ Rails.application.configure do
 
   # Raise error when a before_action's only/except options reference missing actions.
   config.action_controller.raise_on_missing_callback_actions = true
+
+  # Active Storage holds the raw source of every inbound email (ActionMailbox
+  # keeps it for reprocessing), so even the test suite needs a service.
+  config.active_storage.service = :test
 end

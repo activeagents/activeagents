@@ -3,7 +3,10 @@
   <p class="subtitle">
     An example Rails app built on the <strong>activeagent</strong> gem —
     triage, drafting, and summaries are real agent generations, monitored
-    <%= Rails.env.local? ? link_to("in the dev console", "/activeagents") : "on the ActiveAgents platform".html_safe %>.
+    <%= Rails.env.local? ? link_to("in the dashboard", "/activeagents") : "on the ActiveAgents platform".html_safe %>.
+    Tickets also arrive by email: anything delivered to
+    <code><%= ActionMailAgent.default_from %></code> is triaged, answered by the agent, and
+    replied to on the same thread.
   </p>
 </header>
 
@@ -34,6 +37,7 @@
           <% if ticket.priority %><span class="badge priority-<%= ticket.priority %>"><%= ticket.priority %></span><% end %>
           <% if ticket.category %><span class="badge"><%= ticket.category %></span><% end %>
           <% if ticket.sentiment %><span class="badge sentiment-<%= ticket.sentiment %>"><%= ticket.sentiment %></span><% end %>
+          <% if ticket.email? %><span class="badge">email</span><% end %>
         </div>
         <% if ticket.triage_summary %>
           <p class="muted small"><%= ticket.triage_summary %></p>

@@ -6,7 +6,7 @@ require "test_helper"
 # the persisted solid_agent generation.
 class AgentFeaturesTest < ActionDispatch::IntegrationTest
   setup do
-    ActiveAgent::TelemetryTrace.delete_all
+    ActionAgent::TelemetryTrace.delete_all
     @ticket = Ticket.create!(
       subject: "Charged twice this month",
       body: "My card shows two charges for July. Can you refund the duplicate?",
@@ -42,7 +42,7 @@ class AgentFeaturesTest < ActionDispatch::IntegrationTest
     assert generation.trace_id.present?
 
     ActiveAgent::Telemetry.flush
-    trace = ActiveAgent::TelemetryTrace.find_by(trace_id: generation.trace_id)
+    trace = ActionAgent::TelemetryTrace.find_by(trace_id: generation.trace_id)
     assert trace.present?, "telemetry trace should share the generation's trace_id"
     assert_equal "SupportReplyAgent", trace.agent_class
   end
@@ -62,6 +62,21 @@ class AgentFeaturesTest < ActionDispatch::IntegrationTest
 
     assert_not draft.reload.draft?
     assert @ticket.reload.waiting?
+  end
+
+  test "an emailed ticket shows the address its replies come back to" do
+    emailed = Ticket.create!(
+      subject: "Webhook retries stopped",
+      body: "Retries stopped after Tuesday's deploy.",
+      customer_email: "ops@example.net",
+      channel: "email"
+    )
+
+    get ticket_path(emailed)
+
+    assert_response :success
+    assert_match "Email thread", response.body
+    assert_match emailed.reply_address, response.body
   end
 
   test "inbox lists tickets and the ticket page renders agent activity" do
