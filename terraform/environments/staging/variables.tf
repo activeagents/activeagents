@@ -82,7 +82,7 @@ variable "enable_demo_app" {
 }
 
 variable "demo_app_image" {
-  description = "Container image for the demo app (built from examples/support_inbox)"
+  description = "Container image for the demo app (built from activeagents/actionmailagent, examples/support_inbox)"
   type        = string
   default     = ""
 }
