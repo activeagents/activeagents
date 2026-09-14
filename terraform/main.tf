@@ -267,7 +267,7 @@ module "domain_alias" {
   ]
 }
 
-# Demo app: the Support Inbox example (examples/support_inbox) deployed as
+# Demo app: the Support Inbox example (activeagents/actionmailagent, examples/support_inbox) deployed as
 # a public Cloud Run service, posting telemetry to the platform
 module "demo_app" {
   count  = var.enable_demo_app ? 1 : 0

@@ -158,7 +158,7 @@ variable "alias_domains" {
   default     = []
 }
 
-# -- Demo app (examples/support_inbox) --------------------------------------
+# -- Demo app (activeagents/actionmailagent, examples/support_inbox) --------------------------------------
 
 variable "enable_demo_app" {
   description = "Deploy the Support Inbox example app as a public Cloud Run service"
@@ -167,7 +167,7 @@ variable "enable_demo_app" {
 }
 
 variable "demo_app_image" {
-  description = "Container image for the demo app (built from examples/support_inbox)"
+  description = "Container image for the demo app (built from activeagents/actionmailagent, examples/support_inbox)"
   type        = string
   default     = ""
 }

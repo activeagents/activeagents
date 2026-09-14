@@ -84,7 +84,7 @@ module "activeagents" {
   # Docs subdomain (GitHub Pages)
   docs_cname = var.docs_cname
 
-  # Demo app (examples/support_inbox) — end-to-end product testing:
+  # Demo app (activeagents/actionmailagent, examples/support_inbox) — end-to-end product testing:
   # its agents post telemetry to this platform's /v1/traces
   enable_demo_app           = var.enable_demo_app
   demo_app_image            = var.demo_app_image

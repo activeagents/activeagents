@@ -14,7 +14,7 @@ variable "name" {
 }
 
 variable "image" {
-  description = "Container image for the demo app (examples/support_inbox)"
+  description = "Container image for the demo app (the Support Inbox example in activeagents/actionmailagent)"
   type        = string
 }
 

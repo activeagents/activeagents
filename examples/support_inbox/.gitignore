@@ -1,9 +1,0 @@
-/log/*
-/tmp/*
-!/log/.keep
-!/tmp/.keep
-/storage/*
-!/storage/.keep
-/config/master.key
-/public/assets
-.byebug_history

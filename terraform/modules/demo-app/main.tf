@@ -1,4 +1,4 @@
-# Demo app module: the Support Inbox example (examples/support_inbox) as a
+# Demo app module: the Support Inbox example (activeagents/actionmailagent, examples/support_inbox) as a
 # public Cloud Run service, so the end-to-end product loop can be tested
 # against a real deployment: agents run in the demo app, telemetry POSTs to
 # the platform's /v1/traces, traces appear in the workspace dashboard.

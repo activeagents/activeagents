@@ -62,14 +62,25 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
-      # The Support Inbox example (examples/support_inbox) — an app built on
-      # the activeagent gem that posts telemetry to this platform. Enabled by
-      # setting the repository variable DEPLOY_DEMO_APP=true.
+      # The Support Inbox example — an app built on the activeagent gems that
+      # posts telemetry to this platform. It lives in the actionmailagent
+      # repository (examples/support_inbox there), whose gem it depends on by
+      # path, so it is checked out beside this repo and its image is built
+      # from that repository's root. Enabled by setting the repository
+      # variable DEPLOY_DEMO_APP=true.
+      - name: Check out the Support Inbox example (activeagents/actionmailagent)
+        if: ${{ vars.DEPLOY_DEMO_APP == 'true' }}
+        uses: actions/checkout@v6
+        with:
+          repository: activeagents/actionmailagent
+          path: actionmailagent
+
       - name: Build and push demo app image (Support Inbox example)
         if: ${{ vars.DEPLOY_DEMO_APP == 'true' }}
         uses: docker/build-push-action@v6
         with:
-          context: examples/support_inbox
+          context: actionmailagent
+          file: actionmailagent/examples/support_inbox/Dockerfile
           push: true
           tags: |
             ${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.REPOSITORY }}/support-inbox-demo:${{ github.sha }}
