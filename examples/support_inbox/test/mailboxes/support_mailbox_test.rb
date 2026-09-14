@@ -196,6 +196,24 @@ class SupportMailboxTest < ActiveSupport::TestCase
     ActiveSupport::Notifications.unsubscribe(subscriber)
   end
 
+  test "a draft a person sends from the inbox goes out by email on the thread" do
+    with_delivery_mode(:draft) do
+      receive(subject: "Export to CSV?", body: "Is there a bulk CSV download?")
+    end
+    ticket = Ticket.sole
+    draft = ticket.replies.outbound.sole
+
+    draft.send!
+
+    email = ActionMailer::Base.deliveries.sole
+    assert_equal [ "dana@example.com" ], email.to
+    assert_equal ticket.mail_message_id, email.in_reply_to
+    assert_equal draft.message_id, email.message_id
+    assert draft.reload.delivered?
+    assert_not draft.draft?
+    assert ticket.reload.waiting?
+  end
+
   test "the answer is persisted as a solid_agent conversation carrying its trace" do
     receive(subject: "Export to CSV?", body: "Is there a bulk CSV download?")
     ticket = Ticket.sole

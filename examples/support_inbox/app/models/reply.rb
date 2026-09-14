@@ -19,9 +19,20 @@ class Reply < ApplicationRecord
     delivered_at.present?
   end
 
+  # Sends this reply: on an email ticket that means emailing the customer,
+  # threaded onto their conversation. The same path whether the agent's
+  # answer is delivered straight away by SupportMailbox or a person clicks
+  # "Send this draft" in the inbox — one door out, so a reply cannot be
+  # marked sent without having been sent.
   def send!
+    deliver_by_email! if ticket.email? && !inbound?
     update!(draft: false)
     ticket.waiting!
+  end
+
+  def deliver_by_email!
+    SupportMailer.with(ticket: ticket, reply: self).answer.deliver_now
+    update!(delivered_at: Time.current)
   end
 
   private

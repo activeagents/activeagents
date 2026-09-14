@@ -2,8 +2,8 @@ class RepliesController < ApplicationController
   before_action :set_ticket
 
   def create
-    @ticket.replies.create!(reply_params.merge(author: "Support"))
-    @ticket.waiting!
+    reply = @ticket.replies.create!(reply_params.merge(author: "Support"))
+    reply.send!
     redirect_to @ticket, notice: "Reply sent."
   end
 
