@@ -85,11 +85,10 @@ class SupportMailbox < ActionMailAgent::Mailbox
     )
   end
 
+  # Reply#send! is the one door out — the same one the "Send this draft"
+  # button uses when delivery_mode is :draft and a person sends it later.
   def deliver(ticket, reply)
-    SupportMailer.with(ticket: ticket, reply: reply).answer.deliver_now
-
-    reply.update!(draft: false, delivered_at: Time.current)
-    ticket.waiting!
+    reply.send!
   end
 
   # One place to see what happened to an email that was not answered. A real
