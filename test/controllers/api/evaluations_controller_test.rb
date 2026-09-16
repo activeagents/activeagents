@@ -70,4 +70,31 @@ class Api::EvaluationsControllerTest < ActionDispatch::IntegrationTest
 
     assert_response :not_found
   end
+
+  test "runs are numbered oldest-first and the list carries the run before the latest" do
+    post "/api/evaluations", params: { evaluation: { agent_id: @agent.id, name: "Numbered" } }, as: :json
+    assert_response :created
+    evaluation_id = json_response.dig("evaluation", "id")
+    assert_equal 1, json_response.dig("evaluation", "runs_count")
+    assert_equal 1, json_response.dig("evaluation", "latest_run", "number")
+    assert_nil json_response.dig("evaluation", "previous_run")
+
+    post "/api/evaluations/#{evaluation_id}/run"
+    assert_response :success
+    assert_equal 2, json_response.dig("run", "number")
+    assert_equal 2, json_response.dig("evaluation", "latest_run", "number")
+
+    get "/api/evaluations"
+    evaluation = json_response["evaluations"].find { |e| e["id"] == evaluation_id }
+    assert_equal 2, evaluation["runs_count"]
+    assert_equal 2, evaluation.dig("latest_run", "number")
+    assert_equal 1, evaluation.dig("previous_run", "number")
+    assert_equal 1, evaluation.dig("previous_run", "samples_evaluated")
+    refute evaluation["previous_run"].key?("scores"), "the previous run is a summary, not a full payload"
+
+    get "/api/evaluations/#{evaluation_id}"
+    assert_response :success
+    assert_equal [ 2, 1 ], json_response.dig("evaluation", "runs").map { |run| run["number"] }
+    assert json_response.dig("evaluation", "runs", 0, "scores").key?("_cohorts")
+  end
 end
