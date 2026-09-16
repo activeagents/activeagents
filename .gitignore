@@ -75,3 +75,6 @@ tmp/
 e2e/.auth/
 test-results/
 playwright-report/
+
+# Locally installed gems (bundle config path vendor/bundle)
+/vendor/bundle
