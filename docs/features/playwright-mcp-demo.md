@@ -35,6 +35,12 @@ The PlaywrightMCP demo provides:
 └─────────────────────────────────────────────────────────────────────┘
 ```
 
+The React UI, the sandboxes controller and the `SandboxSession` model all come
+from the `actionagent` dashboard engine, which this app mounts at
+`/dashboard`. The Cloud Run infrastructure underneath is the platform's, and is
+registered with the engine as a sandbox backend
+(`config.sandbox_backends` in `config/initializers/action_agent.rb`).
+
 ## File Structure
 
 ```
@@ -46,22 +52,37 @@ examples/playwright_mcp/
     ├── Gemfile               # Ruby dependencies
     └── server.rb             # Sinatra server for sandbox
 
-app/
-├── models/
-│   └── sandbox_session.rb    # Session management model
-├── controllers/api/
-│   └── sandboxes_controller.rb  # REST API for sandboxes
-├── jobs/
-│   ├── sandbox_provision_job.rb # Cloud Run provisioning
-│   ├── sandbox_run_job.rb       # Task execution
-│   └── sandbox_cleanup_job.rb   # Resource cleanup
-├── channels/
-│   └── sandbox_channel.rb    # Real-time updates
-└── javascript/components/dashboard/
-    └── SandboxRunner.jsx     # React frontend
+# the actionagent gem — the dashboard engine this app mounts. Lives in the
+# gem repo (github.com/activeagents/activeagent), not here.
+actionagent/
+├── app/models/action_agent/
+│   └── sandbox_session.rb           # Session management model
+├── app/controllers/action_agent/api/
+│   └── sandboxes_controller.rb      # JSON API for sandboxes
+├── app/services/action_agent/
+│   └── sandbox_orchestrator.rb      # Dispatches to the registered backend
+├── app/jobs/action_agent/
+│   ├── sandbox_provision_job.rb     # Provisioning
+│   ├── sandbox_run_job.rb           # Task execution
+│   └── sandbox_cleanup_job.rb       # Resource cleanup
+└── frontend/components/dashboard/
+    └── SandboxRunner.jsx            # React frontend
 
-terraform/modules/sandbox/    # Cloud Run infrastructure
+# this app — the hosted infrastructure the engine dispatches to
+app/
+├── channels/
+│   └── sandbox_channel.rb           # Real-time updates
+└── services/
+    ├── cloud_run_service.rb         # registered via config.sandbox_backends
+    ├── incus_sandbox_service.rb
+    └── kubernetes_sandbox_service.rb
+
+terraform/modules/sandbox/           # Cloud Run infrastructure
 ```
+
+The app also keeps one-line aliases (`app/models/sandbox_session.rb` reads
+`SandboxSession = ActionAgent::SandboxSession`, and likewise for the
+jobs) so bare constant names still resolve here.
 
 ## Free Tier Limits
 
@@ -100,7 +121,8 @@ bin/rails db:migrate
 
 ## Agent Template
 
-A new template was added to `AgentTemplate.seed_defaults!`:
+A new template was added to `AgentTemplate.seed_defaults!` (the defaults now ship
+with the engine, in `ActionAgent::AgentTemplate`):
 
 | Field | Value |
 |-------|-------|
@@ -108,7 +130,7 @@ A new template was added to `AgentTemplate.seed_defaults!`:
 | Slug | playwright-mcp-demo |
 | Category | automation |
 | Provider | anthropic |
-| Model | claude-sonnet-4-20250514 |
+| Model | claude-sonnet-5 |
 | Tools | playwright |
 | Free Tier | true |
 | Featured | true |
@@ -163,13 +185,17 @@ Users can create an agent from the "PlaywrightMCP Demo" template:
 
 ## API Endpoints
 
+Served by the engine under its mount — `/dashboard/api/...` here, `<mount>/api/...`
+in a self-hosted install:
+
 | Method | Endpoint | Description |
 |--------|----------|-------------|
-| GET | `/api/sandboxes` | List sandbox types and sample tasks |
-| POST | `/api/sandboxes` | Create new sandbox session |
-| GET | `/api/sandboxes/:session_id` | Get session status and runs |
-| POST | `/api/sandboxes/:session_id/run` | Execute a task |
-| DELETE | `/api/sandboxes/:session_id` | End session |
+| GET | `/dashboard/api/sandboxes` | List sandbox types and sample tasks |
+| POST | `/dashboard/api/sandboxes` | Create new sandbox session |
+| GET | `/dashboard/api/sandboxes/:session_id` | Get session status and runs |
+| POST | `/dashboard/api/sandboxes/:session_id/run` | Execute a task |
+| DELETE | `/dashboard/api/sandboxes/:session_id` | End session |
+| POST | `/dashboard/api/sandboxes/compare` | Run one task across several providers in the same sandbox |
 
 ## Real-time Updates
 
@@ -196,8 +222,15 @@ const channel = consumer.subscriptions.create(
 
 - `examples/playwright_mcp/demo_agent.rb` - Ruby agent implementation
 - `examples/playwright_mcp/sandbox/` - Cloud Run container files
-- `app/models/sandbox_session.rb` - Session management
-- `app/controllers/api/sandboxes_controller.rb` - REST API
-- `app/jobs/sandbox_*.rb` - Background job handlers
-- `app/javascript/components/dashboard/SandboxRunner.jsx` - React UI
+- `config/initializers/action_agent.rb` - Registers this platform's sandbox backends with the engine
+- `app/channels/sandbox_channel.rb` - Real-time updates
+- `app/services/{incus_sandbox_service,kubernetes_sandbox_service,cloud_run_service}.rb` - The backends themselves
 - `terraform/modules/sandbox/` - Infrastructure as code
+
+In the `actionagent` gem (gem repo, under `actionagent/`):
+
+- `app/models/action_agent/sandbox_session.rb` - Session management
+- `app/controllers/action_agent/api/sandboxes_controller.rb` - JSON API
+- `app/services/action_agent/sandbox_orchestrator.rb` - Backend dispatch
+- `app/jobs/action_agent/sandbox_*.rb` - Background job handlers
+- `frontend/components/dashboard/SandboxRunner.jsx` - React UI

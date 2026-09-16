@@ -1,18 +1,27 @@
 # frozen_string_literal: true
 
 module Api
+  # The landing page's session-replay demo records a visitor's own browser
+  # session so they can watch it back: start_user_session mints a recording,
+  # record_action appends to it, complete closes it. Visitors are anonymous,
+  # so these three endpoints stay on this app rather than on the mounted
+  # dashboard engine, which authenticates every recording endpoint on purpose
+  # (recordings carry a replayable timeline of a real browser session).
+  # Playback, listing, export and handoff of recordings are the engine's, at
+  # /dashboard/api/session_recordings, for signed-in owners only.
+  #
+  # The recording itself is the engine's model (SessionRecording is an alias
+  # of ActionAgent::SessionRecording), so a visitor who signs up sees the
+  # session in the dashboard once UserSessionClaimer stamps it with them.
   class SessionRecordingsController < BaseController
-    # Allow unauthenticated access for user session tracking (lander analytics)
-    allow_unauthenticated_access only: [ :start_user_session, :record_action, :complete_session, :demo ]
+    allow_unauthenticated_access only: [ :start_user_session, :record_action, :complete_session ]
 
     # allow_unauthenticated_access skips require_authentication, which is
     # also the only thing that populates Current.session — so a signed-in
     # visitor was anonymous on these actions. Identify them without
     # requiring them, so their recordings carry their account and the
     # ownership gate below recognises them.
-    before_action :resume_session, only: [ :start_user_session, :record_action, :complete_session ]
-
-    before_action :set_recording, only: [ :show, :actions, :snapshot, :export, :handoff ]
+    before_action :resume_session
     before_action :set_writable_recording, only: [ :record_action, :complete_session ]
 
     # The write token start_user_session hands the browser. Anonymous writes
@@ -22,174 +31,18 @@ module Api
     WRITE_TOKEN_PURPOSE = :session_recording_write
     WRITE_TOKEN_TTL = 24.hours
 
-    # Browser state that must never leave the server in a read/export response.
-    SENSITIVE_STATE_KEYS = %w[cookies session_storage local_storage].freeze
-
-    # The only actions the public lander_demo carve-out in #set_recording may
-    # cover. Read-only, and they render through the scrubbers above.
-    PUBLIC_DEMO_ACTIONS = %w[show actions snapshot].freeze
-
-    # GET /api/session_recordings
-    # List recordings with optional filters
-    def index
-      recordings = SessionRecording.recent
-
-      # Filter by current user's account for multi-tenant isolation
-      if current_user&.primary_account
-        account_id = current_user.primary_account.id.to_s
-        # Include: user sessions claimed by user's account, or the lander_demo
-        recordings = recordings.where(
-          "metadata->>'account_id' = ? OR name = 'lander_demo'",
-          account_id
-        )
-      end
-
-      # Filter by status
-      recordings = recordings.where(status: params[:status]) if params[:status].present?
-
-      # Filter by agent
-      if params[:agent_id].present?
-        recordings = recordings.joins(:agent_run)
-                               .where(agent_runs: { agent_id: params[:agent_id] })
-      end
-
-      # Filter by sandbox session
-      if params[:sandbox_session_id].present?
-        recordings = recordings.where(sandbox_session_id: params[:sandbox_session_id])
-      end
-
-      # Pagination
-      page = clamped_param(:page, default: 1, min: 1, max: 1_000_000)
-      per_page = clamped_param(:per_page, default: 20, min: 1, max: 100)
-      offset = (page - 1) * per_page
-
-      total = recordings.count
-      recordings = recordings.offset(offset).limit(per_page)
-
-      render json: {
-        recordings: recordings.map { |r| recording_summary(r) },
-        pagination: {
-          page: page,
-          per_page: per_page,
-          total: total,
-          total_pages: (total.to_f / per_page).ceil
-        }
-      }
-    end
-
-    # GET /api/session_recordings/recent
-    # Get recent recordings for the current user
-    def recent
-      recordings = SessionRecording.recent.limit(10)
-
-      # If user is logged in, filter to their recordings (including user sessions)
-      if current_user&.primary_account
-        account_id = current_user.primary_account.id.to_s
-        recordings = recordings.where(
-          "metadata->>'account_id' = ?",
-          account_id
-        )
-      end
-
-      render json: {
-        recordings: recordings.map { |r| recording_summary(r) }
-      }
-    end
-
-    # GET /api/session_recordings/demo
-    # Get the pre-recorded demo session for the lander
-    def demo
-      # Find the featured demo recording or create a placeholder
-      demo_recording = SessionRecording.find_by(name: "lander_demo") ||
-                       SessionRecording.completed.order(:created_at).first
-
-      if demo_recording
-        render json: {
-          recording: recording_detail(demo_recording),
-          handoff_available: demo_recording.metadata["handoff_state"].present?
-        }
-      else
-        render json: {
-          recording: nil,
-          message: "No demo recording available"
-        }
-      end
-    end
-
-    # GET /api/session_recordings/:id
-    # Get full recording details for playback
-    def show
-      render json: {
-        recording: recording_detail(@recording)
-      }
-    end
-
-    # GET /api/session_recordings/:id/actions
-    # Get the action timeline for playback
-    def actions
-      actions = @recording.recording_actions.ordered
-
-      # Support pagination for large recordings
-      if (after_sequence = integer_param(:after_sequence))
-        actions = actions.where("sequence > ?", after_sequence)
-      end
-
-      limit = clamped_param(:limit, default: 100, min: 1, max: 500)
-      actions = actions.limit(limit)
-
-      render json: {
-        actions: actions.map(&:as_json_for_api),
-        has_more: actions.count == limit,
-        total_actions: @recording.action_count
-      }
-    end
-
-    # GET /api/session_recordings/:id/snapshot/:action_id
-    # Get a specific snapshot (screenshot or DOM)
-    def snapshot
-      action = @recording.recording_actions.find(params[:action_id])
-
-      snapshot_type = params[:type] || "screenshot"
-
-      case snapshot_type
-      when "screenshot"
-        url = action.screenshot_url
-        render json: { url: url, type: "screenshot" }
-      when "dom"
-        content = action.dom_snapshot_content
-        render json: { content: content, type: "dom" }
-      else
-        render json: { error: "Unknown snapshot type" }, status: :bad_request
-      end
-    rescue ActiveRecord::RecordNotFound
-      render json: { error: "Action not found" }, status: :not_found
-    end
-
-    # POST /api/session_recordings/:id/export
-    # Export recording as VCR cassette
-    def export
-      format = params[:format] || "json"
-
-      cassette = build_cassette(@recording, format)
-
-      render json: {
-        cassette: cassette,
-        filename: "#{@recording.name}_recording.#{format}"
-      }
-    end
-
     # POST /api/session_recordings/start_user_session
-    # Start a new user takeover session for analytics
     def start_user_session
       recording = SessionRecording.start_user_session!(
         visitor_id: params[:visitor_id] || generate_visitor_id,
         parent_demo_id: params[:parent_demo_id],
-        page_url: params[:page_url]
+        page_url: params[:page_url],
+        owner: current_user
       )
 
       # Set user agent from request. A signed-in visitor's recording is
-      # stamped with their account, the same key #index and
-      # can_manage_recording? resolve ownership through.
+      # stamped with their account as well as owned by them, the key
+      # UserSessionClaimer and the ownership gate below resolve through.
       # String keys: the stored metadata is string-keyed, and merging symbols
       # into it wrote a second "user_agent" that json 3.0 refuses to encode.
       request_metadata = {
@@ -220,16 +73,13 @@ module Api
     end
 
     # POST /api/session_recordings/:id/record_action
-    # Record a user action in an active session
     def record_action
-      recording = @recording
-
-      unless recording.recording?
+      unless @recording.recording?
         render json: { error: "Recording already completed" }, status: :unprocessable_entity
         return
       end
 
-      action = recording.record_action!(
+      action = @recording.record_action!(
         action_type: params[:action_type],
         selector: params[:selector],
         value: params[:value],
@@ -244,17 +94,14 @@ module Api
     end
 
     # POST /api/session_recordings/:id/complete
-    # Complete a user session recording
     def complete_session
-      recording = @recording
-
-      unless recording.recording?
+      unless @recording.recording?
         render json: { error: "Recording already completed" }, status: :unprocessable_entity
         return
       end
 
       # Record the completion action
-      recording.record_action!(
+      @recording.record_action!(
         action_type: "completion",
         value: params[:completion_type] || "session_end",
         metadata: {
@@ -263,93 +110,26 @@ module Api
         }
       )
 
-      recording.complete!
+      @recording.complete!
 
       render json: {
-        recording_id: recording.id,
-        status: recording.status,
-        action_count: recording.action_count,
-        duration_ms: recording.duration_ms
+        recording_id: @recording.id,
+        status: @recording.status,
+        action_count: @recording.action_count,
+        duration_ms: @recording.duration_ms
       }
-    end
-
-    # POST /api/session_recordings/:id/handoff
-    # Get handoff state to continue where agent left off
-    def handoff
-      handoff_state = @recording.metadata["handoff_state"]
-
-      unless handoff_state
-        render json: { error: "No handoff state available" }, status: :unprocessable_entity
-        return
-      end
-
-      # Create a new recording for the user's continuation
-      continuation = SessionRecording.create!(
-        sandbox_session: @recording.sandbox_session,
-        agent_run: @recording.agent_run,
-        name: "#{@recording.name}_continuation",
-        status: :recording,
-        metadata: continuation_metadata
-      )
-
-      render json: {
-        handoff_state: handoff_state,
-        continuation_recording_id: continuation.id,
-        parent_recording: recording_summary(@recording),
-        message: "Ready to continue from action #{@recording.action_count}"
-      }
-    end
-
-    # DELETE /api/session_recordings/:id
-    def destroy
-      @recording = SessionRecording.find(params[:id])
-
-      # Only allow deletion of own recordings (or any if admin)
-      unless can_manage_recording?(@recording)
-        render json: { error: "Not authorized" }, status: :forbidden
-        return
-      end
-
-      @recording.destroy!
-      render json: { message: "Recording deleted" }
     end
 
     private
 
-    # Gated through can_manage_recording? so show/actions/snapshot/export/handoff
-    # cannot be walked by id across accounts. 404 rather than 403 so recording
-    # ids stay unenumerable.
-    def set_recording
-      @recording = SessionRecording.find(params[:id])
-      return if can_manage_recording?(@recording)
-      return if public_demo_read?
-
-      not_found
-    end
-
-    # The lander demo is deliberately public (see #demo, which serves it
-    # unauthenticated) and #index lists it for every account, so keep it
-    # readable rather than 404ing a recording the dashboard just linked.
-    #
-    # The carve-out is read-only and lives here, not in can_manage_recording?,
-    # so destroy still requires real ownership. #export and #handoff are
-    # excluded on purpose: #handoff returns the raw handoff_state (cookies,
-    # session_storage, local_storage) that every read path scrubs and creates a
-    # continuation recording as a side effect, and #export dumps the whole
-    # cassette (screenshots included on request). Neither is something a
-    # non-owner may do just because the recording is publicly viewable.
-    def public_demo_read?
-      PUBLIC_DEMO_ACTIONS.include?(action_name) && @recording.name == "lander_demo"
-    end
-
-    # The write side of the gate. A recording may be written by whoever may
-    # manage it (its account, or an admin) or by the anonymous browser that
-    # started it, which proves that with the token start_user_session issued.
+    # A recording may be written by whoever may manage it (its owner, their
+    # account, or an admin) or by the anonymous browser that started it,
+    # which proves that with the token start_user_session issued.
     #
     # Not found and not writable answer identically (404), so a real id
-    # cannot be told from a bogus one by probing: the previous shape answered
-    # 422 "already completed" for any real id and 404 for the rest, which was
-    # an oracle over the id space.
+    # cannot be told from a bogus one by probing: answering 422 "already
+    # completed" for any real id and 404 for the rest would be an oracle
+    # over the id space.
     def set_writable_recording
       @recording = SessionRecording.find_by(id: params[:id])
       return not_found if @recording.nil?
@@ -376,136 +156,27 @@ module Api
       Rails.application.message_verifier(WRITE_TOKEN_PURPOSE)
     end
 
-    # The continuation records the caller's own session, so stamp it with the
-    # caller's account the same way can_manage_recording? resolves ownership.
-    # Without it a continuation inherits no owner at all whenever the parent has
-    # no sandbox_session, and the user who just created it is 404ed out of
-    # reading it back. account_id is omitted rather than stored as nil when the
-    # caller has no account (an admin acting outside one), leaving the
-    # continuation admin-only, which is the only caller who can get there.
-    def continuation_metadata
-      metadata = {
-        parent_recording_id: @recording.id,
-        handoff_from: @recording.action_count,
-        started_at: Time.current.iso8601,
-        user_id: current_user&.id
-      }
-
-      account = current_user&.primary_account
-      account ? metadata.merge(account_id: account.id.to_s) : metadata
-    end
-
+    # The same reachability the engine grants a signed-in reader: the owner
+    # (the engine writes the owner column), a member of the account the
+    # recording was stamped with, whoever opened the sandbox it records, and
+    # an admin.
     def can_manage_recording?(recording)
-      return true if current_user&.admin?
+      return false unless current_user
+      return true if current_user.admin?
+      return true if recording.owner == current_user
 
-      # Check if recording belongs to user's account via metadata
-      if current_user&.primary_account
-        account_id = current_user.primary_account.id.to_s
-        return true if recording.metadata["account_id"].to_s == account_id
+      if (account = current_user.primary_account)
+        return true if recording.metadata["account_id"].to_s == account.id.to_s
       end
 
-      # Check sandbox session ownership. Only for a signed-in caller: with
-      # no user, a sandbox that has no user_id would otherwise compare
-      # nil == nil and hand the recording to anyone.
-      if current_user && recording.sandbox_session&.respond_to?(:user_id)
-        return true if recording.sandbox_session.user_id == current_user.id
-      end
-
-      false
-    end
-
-    def recording_summary(recording)
-      {
-        id: recording.id,
-        name: recording.name,
-        status: recording.status,
-        action_count: recording.action_count,
-        duration_ms: recording.duration_ms,
-        created_at: recording.created_at.iso8601,
-        thumbnail_url: first_screenshot_url(recording),
-        agent_name: recording.agent_run&.agent&.name,
-        sandbox_type: recording.sandbox_session&.sandbox_type
-      }
-    end
-
-    def recording_detail(recording)
-      {
-        id: recording.id,
-        name: recording.name,
-        status: recording.status,
-        action_count: recording.action_count,
-        duration_ms: recording.duration_ms,
-        metadata: safe_metadata(recording.metadata),
-        created_at: recording.created_at.iso8601,
-        updated_at: recording.updated_at.iso8601,
-        timeline: recording.timeline,
-        handoff_state: safe_handoff_state(recording.metadata["handoff_state"]),
-        agent: recording.agent_run&.agent&.slice(:id, :name),
-        sandbox_session: recording.sandbox_session&.summary
-      }
-    end
-
-    def first_screenshot_url(recording)
-      action = recording.recording_actions.with_screenshots.first
-      action&.screenshot_url(expires_in: 1.hour)
-    end
-
-    def safe_metadata(metadata)
-      # Remove sensitive data from metadata, including the nested handoff_state
-      # copy of the browser's cookies/localStorage/sessionStorage — stripping
-      # only the top level left the same secrets readable one key down.
-      safe = metadata.except(*SENSITIVE_STATE_KEYS)
-      return safe unless safe.key?("handoff_state")
-
-      safe.merge("handoff_state" => safe_handoff_state(safe["handoff_state"]))
-    end
-
-    # The handoff_state is also returned as its own top-level key, so scrub it
-    # with the same rules wherever it is surfaced.
-    def safe_handoff_state(handoff_state)
-      return handoff_state unless handoff_state.is_a?(Hash)
-
-      handoff_state.except(*SENSITIVE_STATE_KEYS)
+      session = recording.sandbox_session
+      session.present? && session.owner.present? && session.owner == current_user
     end
 
     def generate_visitor_id
       # Generate a stable visitor ID based on IP and user agent
       fingerprint = "#{request.remote_ip}:#{request.user_agent}"
       "v_#{Digest::SHA256.hexdigest(fingerprint)[0..16]}"
-    end
-
-    def build_cassette(recording, format)
-      cassette = {
-        name: recording.name,
-        recorded_at: recording.created_at.iso8601,
-        duration_ms: recording.duration_ms,
-        action_count: recording.action_count,
-        actions: recording.recording_actions.ordered.map do |action|
-          {
-            type: action.action_type,
-            sequence: action.sequence,
-            timestamp_ms: action.timestamp_ms,
-            selector: action.selector,
-            value: action.redacted_value,
-            metadata: action.safe_metadata
-          }
-        end
-      }
-
-      # Include screenshots as base64 if requested
-      if params[:include_screenshots] == "true"
-        cassette[:actions].each_with_index do |action_data, i|
-          action = recording.recording_actions.find_by(sequence: action_data[:sequence])
-          if action&.screenshot_key
-            snapshot = RecordingSnapshot.find_by(storage_key: action.screenshot_key)
-            if snapshot&.file&.attached?
-              action_data[:screenshot_base64] = Base64.encode64(snapshot.file.download)
-            end
-          end
-        end
-      end
-
-      cassette
     end
   end
 end

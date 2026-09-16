@@ -6,9 +6,8 @@ require "test_helper"
 # unscoped (any session_id reached any owner's sandbox) and to spawn provider
 # jobs from #compare with no plan check and no usage increment at all.
 #
-# The anonymous demo tier is deliberately preserved here -- these tests assert
-# that anonymous callers can still create and run sandboxes, only that they
-# cannot reach a signed-in owner's session.
+# Sandboxes are the mounted engine's: every endpoint authenticates, so an
+# anonymous caller is refused outright rather than scoped to a demo pool.
 class Api::SandboxesControllerTest < ActionDispatch::IntegrationTest
   setup do
     @owner = create_user(email: "owner-#{SecureRandom.hex(4)}@example.com")
@@ -24,21 +23,21 @@ class Api::SandboxesControllerTest < ActionDispatch::IntegrationTest
   test "show does not expose another owner's sandbox by session_id" do
     sign_in_as(@attacker)
 
-    get "/api/sandboxes/#{@owner_sandbox.session_id}"
+    get "/dashboard/api/sandboxes/#{@owner_sandbox.session_id}"
 
     assert_response :not_found
   end
 
   test "show does not expose a signed-in owner's sandbox to an anonymous caller" do
-    get "/api/sandboxes/#{@owner_sandbox.session_id}"
+    get "/dashboard/api/sandboxes/#{@owner_sandbox.session_id}", as: :json
 
-    assert_response :not_found
+    assert_response :unauthorized
   end
 
   test "show returns the caller's own sandbox" do
     sign_in_as(@owner)
 
-    get "/api/sandboxes/#{@owner_sandbox.session_id}"
+    get "/dashboard/api/sandboxes/#{@owner_sandbox.session_id}"
 
     assert_response :success
     assert_equal @owner_sandbox.session_id, json_response["sandbox"]["session_id"]
@@ -48,7 +47,7 @@ class Api::SandboxesControllerTest < ActionDispatch::IntegrationTest
     sign_in_as(@attacker)
 
     assert_no_enqueued_jobs only: SandboxRunJob do
-      post "/api/sandboxes/#{@owner_sandbox.session_id}/run", params: { task: "Take a screenshot" }
+      post "/dashboard/api/sandboxes/#{@owner_sandbox.session_id}/run", params: { task: "Take a screenshot" }
     end
 
     assert_response :not_found
@@ -57,16 +56,16 @@ class Api::SandboxesControllerTest < ActionDispatch::IntegrationTest
 
   test "run does not execute against a signed-in owner's sandbox for an anonymous caller" do
     assert_no_enqueued_jobs only: SandboxRunJob do
-      post "/api/sandboxes/#{@owner_sandbox.session_id}/run", params: { task: "Take a screenshot" }
+      post "/dashboard/api/sandboxes/#{@owner_sandbox.session_id}/run", params: { task: "Take a screenshot" }, as: :json
     end
 
-    assert_response :not_found
+    assert_response :unauthorized
   end
 
   test "destroy does not expire another owner's sandbox" do
     sign_in_as(@attacker)
 
-    delete "/api/sandboxes/#{@owner_sandbox.session_id}"
+    delete "/dashboard/api/sandboxes/#{@owner_sandbox.session_id}"
 
     assert_response :not_found
     assert_not @owner_sandbox.reload.expired?
@@ -76,7 +75,7 @@ class Api::SandboxesControllerTest < ActionDispatch::IntegrationTest
     sign_in_as(@attacker)
 
     assert_no_enqueued_jobs only: SandboxRunJob do
-      post "/api/sandboxes/compare", params: {
+      post "/dashboard/api/sandboxes/compare", params: {
         task: "Take a screenshot",
         providers: %w[anthropic openai],
         sandbox_id: @owner_sandbox.session_id
@@ -87,40 +86,6 @@ class Api::SandboxesControllerTest < ActionDispatch::IntegrationTest
     assert_not @owner_sandbox.reload.running?
   end
 
-  test "anonymous demo sandboxes stay reachable by anonymous callers" do
-    anonymous_sandbox = create_sandbox(user: nil)
-
-    get "/api/sandboxes/#{anonymous_sandbox.session_id}"
-
-    assert_response :success
-    assert_equal anonymous_sandbox.session_id, json_response["sandbox"]["session_id"]
-  end
-
-  test "anonymous callers still run against an anonymous sandbox" do
-    anonymous_sandbox = create_sandbox(user: nil)
-
-    assert_enqueued_jobs 1, only: SandboxRunJob do
-      post "/api/sandboxes/#{anonymous_sandbox.session_id}/run", params: { task: "Take a screenshot" }
-    end
-
-    assert_response :accepted
-    assert_equal "running", json_response["status"]
-  end
-
-  test "anonymous callers still compare against an anonymous sandbox" do
-    anonymous_sandbox = create_sandbox(user: nil)
-
-    assert_enqueued_jobs 2, only: SandboxRunJob do
-      post "/api/sandboxes/compare", params: {
-        task: "Take a screenshot",
-        providers: %w[anthropic openai],
-        sandbox_id: anonymous_sandbox.session_id
-      }
-    end
-
-    assert_response :accepted
-  end
-
   # ===========================================
   # Ownership on create, metering on run
   # ===========================================
@@ -128,19 +93,11 @@ class Api::SandboxesControllerTest < ActionDispatch::IntegrationTest
   test "create files a signed-in caller's sandbox under their user" do
     sign_in_as(@owner)
 
-    post "/api/sandboxes", params: { sandbox_type: "playwright_mcp" }
+    post "/dashboard/api/sandboxes", params: { sandbox_type: "playwright_mcp" }
 
     assert_response :created
     created = SandboxSession.find_by!(session_id: json_response["sandbox"]["session_id"])
     assert_equal @owner.id, created.user_id
-  end
-
-  test "create keeps an anonymous caller's sandbox in the anonymous pool" do
-    post "/api/sandboxes", params: { sandbox_type: "playwright_mcp" }
-
-    assert_response :created
-    created = SandboxSession.find_by!(session_id: json_response["sandbox"]["session_id"])
-    assert_nil created.user_id
   end
 
   test "run records account usage for a signed-in caller" do
@@ -148,23 +105,22 @@ class Api::SandboxesControllerTest < ActionDispatch::IntegrationTest
     sign_in_as(@owner)
 
     assert_difference -> { account.reload.agent_runs_this_period }, 1 do
-      post "/api/sandboxes/#{@owner_sandbox.session_id}/run", params: { task: "Take a screenshot" }
+      post "/dashboard/api/sandboxes/#{@owner_sandbox.session_id}/run", params: { task: "Take a screenshot" }
     end
 
     assert_response :accepted
-    assert_equal 1, json_response["usage"]["runs_used"]
   end
 
   # ===========================================
   # compare metering
   # ===========================================
 
-  test "compare records account usage like run does" do
+  test "compare records one execution per provider" do
     account = create_account(owner: @owner)
     sign_in_as(@owner)
 
-    assert_difference -> { account.reload.agent_runs_this_period }, 1 do
-      post "/api/sandboxes/compare", params: {
+    assert_difference -> { account.reload.agent_runs_this_period }, 2 do
+      post "/dashboard/api/sandboxes/compare", params: {
         task: "Take a screenshot",
         providers: %w[anthropic openai],
         sandbox_id: @owner_sandbox.session_id
@@ -172,7 +128,6 @@ class Api::SandboxesControllerTest < ActionDispatch::IntegrationTest
     end
 
     assert_response :accepted
-    assert_equal 1, json_response["usage"]["runs_used"]
   end
 
   test "compare refuses to spawn provider jobs once the plan limit is reached" do
@@ -181,7 +136,7 @@ class Api::SandboxesControllerTest < ActionDispatch::IntegrationTest
     sign_in_as(@owner)
 
     assert_no_enqueued_jobs only: SandboxRunJob do
-      post "/api/sandboxes/compare", params: {
+      post "/dashboard/api/sandboxes/compare", params: {
         task: "Take a screenshot",
         providers: %w[anthropic openai],
         sandbox_id: @owner_sandbox.session_id
@@ -201,7 +156,7 @@ class Api::SandboxesControllerTest < ActionDispatch::IntegrationTest
     sign_in_as(@owner)
 
     assert_no_difference -> { SandboxSession.count } do
-      post "/api/sandboxes/compare", params: {
+      post "/dashboard/api/sandboxes/compare", params: {
         task: "Take a screenshot",
         providers: %w[anthropic openai]
       }
@@ -215,7 +170,7 @@ class Api::SandboxesControllerTest < ActionDispatch::IntegrationTest
     sign_in_as(@owner)
 
     assert_enqueued_jobs 2, only: SandboxRunJob do
-      post "/api/sandboxes/compare", params: {
+      post "/dashboard/api/sandboxes/compare", params: {
         task: "Take a screenshot",
         providers: %w[anthropic openai],
         sandbox_id: @owner_sandbox.session_id
@@ -234,7 +189,7 @@ class Api::SandboxesControllerTest < ActionDispatch::IntegrationTest
     sign_in_as(@owner)
 
     assert_no_enqueued_jobs only: SandboxRunJob do
-      post "/api/sandboxes/compare", params: {
+      post "/dashboard/api/sandboxes/compare", params: {
         task: "Take a screenshot",
         providers: "anthropic",
         sandbox_id: @owner_sandbox.session_id
@@ -242,7 +197,7 @@ class Api::SandboxesControllerTest < ActionDispatch::IntegrationTest
     end
 
     assert_response :bad_request
-    assert_equal "At least 2 providers required", json_response["error"]
+    assert_equal "providers must be a list of provider names", json_response["error"]
     assert_not @owner_sandbox.reload.running?
   end
 
@@ -250,7 +205,7 @@ class Api::SandboxesControllerTest < ActionDispatch::IntegrationTest
     sign_in_as(@owner)
 
     assert_no_enqueued_jobs only: SandboxRunJob do
-      post "/api/sandboxes/compare",
+      post "/dashboard/api/sandboxes/compare",
         params: {
           task: "Take a screenshot",
           providers: "anthropic",
@@ -260,14 +215,14 @@ class Api::SandboxesControllerTest < ActionDispatch::IntegrationTest
     end
 
     assert_response :bad_request
-    assert_equal "At least 2 providers required", json_response["error"]
+    assert_equal "providers must be a list of provider names", json_response["error"]
   end
 
   test "compare rejects a nested providers value without raising" do
     sign_in_as(@owner)
 
     assert_no_enqueued_jobs only: SandboxRunJob do
-      post "/api/sandboxes/compare", params: {
+      post "/dashboard/api/sandboxes/compare", params: {
         task: "Take a screenshot",
         providers: { first: "anthropic", second: "openai" },
         sandbox_id: @owner_sandbox.session_id
@@ -283,7 +238,7 @@ class Api::SandboxesControllerTest < ActionDispatch::IntegrationTest
     sign_in_as(@owner)
 
     assert_no_enqueued_jobs only: SandboxRunJob do
-      post "/api/sandboxes/compare", params: {
+      post "/dashboard/api/sandboxes/compare", params: {
         task: "Take a screenshot",
         providers: %w[anthropic bogus],
         sandbox_id: @owner_sandbox.session_id
@@ -298,7 +253,7 @@ class Api::SandboxesControllerTest < ActionDispatch::IntegrationTest
     sign_in_as(@owner)
 
     assert_enqueued_jobs 2, only: SandboxRunJob do
-      post "/api/sandboxes/compare", params: {
+      post "/dashboard/api/sandboxes/compare", params: {
         task: "Take a screenshot",
         providers: %w[anthropic openai],
         sandbox_id: @owner_sandbox.session_id

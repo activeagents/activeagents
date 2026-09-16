@@ -23,7 +23,7 @@ class Api::AgentRunsControllerTest < ActionDispatch::IntegrationTest
   # ===========================================
 
   test "show returns run details with all tracking fields" do
-    get "/api/runs/#{@run.id}"
+    get "/dashboard/api/runs/#{@run.id}"
 
     assert_response :success
     data = json_response
@@ -51,7 +51,7 @@ class Api::AgentRunsControllerTest < ActionDispatch::IntegrationTest
   end
 
   test "show returns 404 for nonexistent run" do
-    get "/api/runs/99999"
+    get "/dashboard/api/runs/99999"
 
     assert_response :not_found
   end
@@ -65,7 +65,7 @@ class Api::AgentRunsControllerTest < ActionDispatch::IntegrationTest
       status: :complete
     )
 
-    get "/api/runs/#{run.id}"
+    get "/dashboard/api/runs/#{run.id}"
 
     assert_response :success
     data = json_response
@@ -75,7 +75,7 @@ class Api::AgentRunsControllerTest < ActionDispatch::IntegrationTest
   end
 
   test "show includes timestamps" do
-    get "/api/runs/#{@run.id}"
+    get "/dashboard/api/runs/#{@run.id}"
 
     assert_response :success
     data = json_response
@@ -92,7 +92,7 @@ class Api::AgentRunsControllerTest < ActionDispatch::IntegrationTest
   test "index returns all runs" do
     create_run(agent: @agent, input_prompt: "Second prompt")
 
-    get "/api/runs"
+    get "/dashboard/api/runs"
 
     assert_response :success
     data = json_response
@@ -102,7 +102,7 @@ class Api::AgentRunsControllerTest < ActionDispatch::IntegrationTest
   end
 
   test "index includes agent info with each run" do
-    get "/api/runs"
+    get "/dashboard/api/runs"
 
     assert_response :success
     data = json_response
@@ -116,7 +116,7 @@ class Api::AgentRunsControllerTest < ActionDispatch::IntegrationTest
     other_agent = create_agent(user: @user, name: "Other Agent")
     create_run(agent: other_agent, input_prompt: "Other prompt")
 
-    get "/api/runs", params: { agent_id: @agent.id }
+    get "/dashboard/api/runs", params: { agent_id: @agent.id }
 
     assert_response :success
     data = json_response
@@ -128,7 +128,7 @@ class Api::AgentRunsControllerTest < ActionDispatch::IntegrationTest
   test "index filters by status" do
     create_run(agent: @agent, status: :failed, error_message: "API Error")
 
-    get "/api/runs", params: { status: "failed" }
+    get "/dashboard/api/runs", params: { status: "failed" }
 
     assert_response :success
     data = json_response
@@ -141,7 +141,7 @@ class Api::AgentRunsControllerTest < ActionDispatch::IntegrationTest
   test "index supports pagination" do
     4.times { create_run(agent: @agent) }
 
-    get "/api/runs", params: { page: 2, per_page: 2 }
+    get "/dashboard/api/runs", params: { page: 2, per_page: 2 }
 
     assert_response :success
     data = json_response
@@ -159,7 +159,7 @@ class Api::AgentRunsControllerTest < ActionDispatch::IntegrationTest
     )
     new_run = create_run(agent: @agent, input_prompt: "New prompt")
 
-    get "/api/runs"
+    get "/dashboard/api/runs"
 
     assert_response :success
     data = json_response
@@ -178,7 +178,7 @@ class Api::AgentRunsControllerTest < ActionDispatch::IntegrationTest
       status: :pending
     )
 
-    post "/api/runs/#{pending_run.id}/cancel"
+    post "/dashboard/api/runs/#{pending_run.id}/cancel"
 
     assert_response :success
     data = json_response
@@ -195,7 +195,7 @@ class Api::AgentRunsControllerTest < ActionDispatch::IntegrationTest
       started_at: Time.current
     )
 
-    post "/api/runs/#{running_run.id}/cancel"
+    post "/dashboard/api/runs/#{running_run.id}/cancel"
 
     assert_response :success
     assert running_run.reload.cancelled?
@@ -204,7 +204,7 @@ class Api::AgentRunsControllerTest < ActionDispatch::IntegrationTest
   test "cancel does not change completed run" do
     complete_run = create_run(agent: @agent, status: :complete)
 
-    post "/api/runs/#{complete_run.id}/cancel"
+    post "/dashboard/api/runs/#{complete_run.id}/cancel"
 
     assert_response :success
     assert complete_run.reload.complete?
@@ -222,7 +222,7 @@ class Api::AgentRunsControllerTest < ActionDispatch::IntegrationTest
       error_backtrace: "lib/client.rb:42\nlib/client.rb:28"
     )
 
-    get "/api/runs/#{failed_run.id}"
+    get "/dashboard/api/runs/#{failed_run.id}"
 
     assert_response :success
     data = json_response
@@ -245,7 +245,7 @@ class Api::AgentRunsControllerTest < ActionDispatch::IntegrationTest
       ]
     )
 
-    get "/api/runs/#{run_with_logs.id}"
+    get "/dashboard/api/runs/#{run_with_logs.id}"
 
     assert_response :success
     data = json_response
@@ -264,7 +264,7 @@ class Api::AgentRunsControllerTest < ActionDispatch::IntegrationTest
     create_run(agent: @agent, total_tokens: 200)
     create_run(agent: @agent, total_tokens: 300)
 
-    get "/api/runs", params: { agent_id: @agent.id }
+    get "/dashboard/api/runs", params: { agent_id: @agent.id }
 
     assert_response :success
     data = json_response
@@ -286,7 +286,7 @@ class Api::AgentRunsControllerTest < ActionDispatch::IntegrationTest
     other_agent = create_agent(user: other_user, name: "Other Agent")
     other_run = create_run(agent: other_agent, input_prompt: "Other user prompt")
 
-    get "/api/runs/#{other_run.id}"
+    get "/dashboard/api/runs/#{other_run.id}"
 
     assert_response :not_found
     assert_not_includes response.body, "Other user prompt"
@@ -298,7 +298,7 @@ class Api::AgentRunsControllerTest < ActionDispatch::IntegrationTest
     create_run(agent: other_agent, input_prompt: "Stranger prompt")
     mine = create_run(agent: @agent, input_prompt: "My prompt")
 
-    get "/api/runs"
+    get "/dashboard/api/runs"
 
     assert_response :success
     ids = json_response["runs"].map { |run| run["id"] }

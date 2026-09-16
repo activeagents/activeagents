@@ -7,8 +7,11 @@ class Account < ApplicationRecord
   has_many :account_memberships, dependent: :destroy
   has_many :members, through: :account_memberships, source: :user
   has_many :telemetry_traces, dependent: :delete_all
-  has_many :api_keys, dependent: :destroy
-  has_many :provider_keys, dependent: :destroy
+  # Lives in the dashboard engine now, so the association names it explicitly:
+  # Rails resolves a bare :agents to a class literally named Agent, and the
+  # app-level constant is an alias rather than a class of its own.
+  has_many :api_keys, class_name: "ActionAgent::ApiKey", dependent: :destroy
+  has_many :provider_keys, class_name: "ActionAgent::ProviderKey", dependent: :destroy
 
   # Legacy bearer token used by the activeagent gem's telemetry reporter to
   # push traces to POST /v1/traces. New keys are generated per-account as
@@ -74,6 +77,15 @@ class Account < ApplicationRecord
     end
   end
 
+  # How long each plan's traces are kept, backing the retention promises on
+  # the pricing page. Read by the engine's TraceRetentionJob through
+  # ActionAgent.trace_retention.
+  TRACE_RETENTION = {
+    "free" => 3.days,
+    "pro" => 14.days,
+    "enterprise" => 400.days
+  }.freeze
+
   def increment_agent_runs!
     reset_usage_period_if_needed!
     increment!(:agent_runs_this_period)
@@ -132,7 +144,7 @@ class Account < ApplicationRecord
     telemetry_traces_this_period < limit
   end
 
-  # Called by ActiveAgent::Dashboard::Api::TracesController on every
+  # Called by ActionAgent::Api::TracesController on every
   # authenticated ingest request (rate-limit hook).
   def increment_telemetry_usage!
     reset_usage_period_if_needed!

@@ -46,7 +46,7 @@ class Api::MetricsControllerTest < ActionDispatch::IntegrationTest
     create_trace(duration: 3000.0, status: "ERROR", agent_class: "BillingAgent")
     create_trace(account: create_account(owner: create_user)) # other account
 
-    get "/api/metrics", params: { hours: 24 }
+    get "/dashboard/api/metrics", params: { hours: 24 }
 
     assert_response :success
     summary = json_response["summary"]
@@ -64,7 +64,7 @@ class Api::MetricsControllerTest < ActionDispatch::IntegrationTest
   test "returns zero-filled hourly buckets" do
     create_trace
 
-    get "/api/metrics", params: { hours: 24 }
+    get "/dashboard/api/metrics", params: { hours: 24 }
 
     hourly = json_response["hourly_requests"]
     assert_equal 24, hourly.length
@@ -76,7 +76,7 @@ class Api::MetricsControllerTest < ActionDispatch::IntegrationTest
     2.times { create_trace(agent_class: "SupportAgent") }
     create_trace(agent_class: "BillingAgent", status: "ERROR")
 
-    get "/api/metrics"
+    get "/dashboard/api/metrics"
 
     by_agent = json_response["by_agent"]
     assert_equal [ "SupportAgent", "BillingAgent" ], by_agent.map { |a| a["name"] }
@@ -99,7 +99,7 @@ class Api::MetricsControllerTest < ActionDispatch::IntegrationTest
     }
     trace.update_columns(spans: trace.spans + [ llm_span ])
 
-    get "/api/metrics"
+    get "/dashboard/api/metrics"
 
     # gpt-4o: $2.50/1M input + $10.00/1M output = $12.50
     assert_in_delta 12.5, json_response.dig("summary", "total_cost"), 0.01
@@ -115,7 +115,7 @@ class Api::MetricsControllerTest < ActionDispatch::IntegrationTest
     2.times { create_trace(agent_class: "SupportAgent") }
     create_trace(agent_class: "BillingAgent")
 
-    get "/api/metrics"
+    get "/dashboard/api/metrics"
 
     assert_response :success
     assert_equal %w[SupportAgent BillingAgent], json_response["by_agent"].map { |a| a["name"] }
@@ -126,7 +126,7 @@ class Api::MetricsControllerTest < ActionDispatch::IntegrationTest
     2.times { create_trace(agent_class: "SupportAgent", duration: 100.0) }
     create_trace(agent_class: "BillingAgent", duration: 9000.0)
 
-    get "/api/metrics", params: { sort: "longest" }
+    get "/dashboard/api/metrics", params: { sort: "longest" }
 
     assert_equal %w[BillingAgent SupportAgent], json_response["by_agent"].map { |a| a["name"] }
   end
@@ -137,7 +137,7 @@ class Api::MetricsControllerTest < ActionDispatch::IntegrationTest
     2.times { create_trace(agent_class: "SupportAgent", model: "gpt-4o-mini", input: 1_000, output: 1_000) }
     create_trace(agent_class: "BillingAgent", model: "claude-3-opus-20240229", input: 1_000, output: 1_000)
 
-    get "/api/metrics", params: { sort: "cost" }
+    get "/dashboard/api/metrics", params: { sort: "cost" }
 
     names = json_response["by_agent"].map { |a| a["name"] }
     assert_equal %w[BillingAgent SupportAgent], names
@@ -149,7 +149,7 @@ class Api::MetricsControllerTest < ActionDispatch::IntegrationTest
     3.times { create_trace(agent_class: "SupportAgent") }
     create_trace(agent_class: "BillingAgent", status: "ERROR")
 
-    get "/api/metrics", params: { sort: "errors" }
+    get "/dashboard/api/metrics", params: { sort: "errors" }
 
     assert_equal "BillingAgent", json_response["by_agent"].first["name"]
   end
@@ -158,7 +158,7 @@ class Api::MetricsControllerTest < ActionDispatch::IntegrationTest
     2.times { create_trace(agent_class: "SupportAgent") }
     create_trace(agent_class: "BillingAgent")
 
-    get "/api/metrics", params: { sort: "nonsense" }
+    get "/dashboard/api/metrics", params: { sort: "nonsense" }
 
     assert_response :success
     assert_equal "popular", json_response["sort"]
@@ -170,7 +170,7 @@ class Api::MetricsControllerTest < ActionDispatch::IntegrationTest
     create_trace
     create_trace
 
-    get "/api/metrics", params: { hours: 24 }
+    get "/dashboard/api/metrics", params: { hours: 24 }
 
     assert_equal 100.0, json_response["summary"]["requests_change"]
   end

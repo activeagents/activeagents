@@ -17,7 +17,7 @@ telemetry). Set `OPENAI_API_KEY` or `ANTHROPIC_API_KEY` to use a real model.
 
 This app doubles as the **runnable reference for the self-hosted
 (enterprise) observability mode** — an existing Rails app that mounts
-`ActiveAgent::Dashboard::Engine` and stores its own traces. The full
+`ActionAgent::Engine` and stores its own traces. The full
 deployment story (production auth, ingest keys, fleet ingest, subdomain
 mounts) is in the gem's `docs/framework/self-hosted-observability.md`.
 
