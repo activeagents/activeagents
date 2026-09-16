@@ -5,6 +5,12 @@ the landing page, backend dashboard, Stripe checkout flow, and any future produc
 
 All implementations should reference this spec to ensure visual consistency.
 
+The dashboard's React components live in the `actionagent` gem — the dashboard
+engine this app mounts — at `actionagent/frontend/` in the gem repo
+(github.com/activeagents/activeagent), not in this one. This app's own
+JavaScript — landing page, plans, subscriptions, admin — is under
+`app/javascript/` here.
+
 ---
 
 ## Brand Identity
@@ -115,7 +121,7 @@ card adds noise without information; the space goes to the scorecard metrics.
 
 ### SVG Source
 - Primary: `public/images/activeagent-hero.svg` (500x500 viewBox)
-- React component: `app/javascript/components/AgentAvatar.jsx`
+- React component: `frontend/components/AgentAvatar.jsx` (dashboard engine)
 - Key colors: Face `#EB5555`, Hat/Frames `#000000`, Lenses `#000000` at 92% opacity
 
 ### Usage Rules
