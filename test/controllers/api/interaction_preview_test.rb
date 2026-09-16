@@ -26,7 +26,7 @@ class Api::InteractionPreviewTest < ActionDispatch::IntegrationTest
   end
 
   def interactions
-    get "/api/interactions"
+    get "/dashboard/api/interactions"
     assert_response :success
     json_response["interactions"]
   end
@@ -123,7 +123,7 @@ class Api::InteractionPreviewTest < ActionDispatch::IntegrationTest
     assert row, "the reported trace must be listed rather than 500 the index"
     assert_equal "Find order 1", row.dig("preview", "input")
 
-    get "/api/interactions/trace-#{trace.id}"
+    get "/dashboard/api/interactions/trace-#{trace.id}"
 
     assert_response :success
     tool_call = json_response["interaction"]["messages"].find { |m| m["tool_calls"] }

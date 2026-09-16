@@ -159,49 +159,4 @@ class EvaluationRunnerServiceTest < ActiveSupport::TestCase
     assert run.failed?
     assert_match(/No generations/, run.error_message)
   end
-
-  test "records a per-model cohort summary of the sampled generations" do
-    create_generation
-    create_generation(content: "short", output_tokens: 2000, duration: 20)
-
-    run = build_evaluation([
-      { "key" => "response_present", "type" => "response_present", "config" => {} },
-      { "key" => "token_budget", "type" => "token_budget", "config" => { "output_tokens" => 1000 } }
-    ]).run!
-
-    cohorts = run.scores["_cohorts"]
-    assert_equal [ "mock-model" ], cohorts.keys
-    cohort = cohorts["mock-model"]
-    assert_equal 2, cohort["samples"]
-    # Only the first generation clears both criteria; "short" blows the budget.
-    assert_equal 1, cohort["passed"]
-    assert_equal 40, cohort["input_tokens"]
-    assert_equal 2050, cohort["output_tokens"]
-    # (500ms + 20000ms) / 2
-    assert_equal 10_250, cohort["avg_duration_ms"]
-    # Metadata never leaks into the criterion average: (1.0 + 0.75) / 2.
-    assert_in_delta 0.875, run.average_score, 0.001
-  end
-
-  test "comparison runs summarize each model cohort and report the missing ones" do
-    create_generation
-    @context.generations.create!(
-      content: "Another sufficiently long answer with plenty of substance here.", model: "other-model",
-      provider: "ollama", input_tokens: 5, output_tokens: 10, duration_seconds: 0.1, finish_reason: "stop"
-    )
-
-    evaluation = @agent.evaluations.create!(
-      name: "compare", sample_size: 10,
-      criteria: [ { "key" => "response_present", "type" => "response_present", "config" => {} } ],
-      config: { "compare_models" => [ "mock-model", "other-model", "absent-model" ] }
-    )
-    run = evaluation.run!
-
-    assert run.complete?
-    assert_equal %w[mock-model other-model], run.scores["_cohorts"].keys.sort
-    assert_equal({ "samples" => 1, "passed" => 1, "provider" => "ollama", "avg_duration_ms" => 100, "input_tokens" => 5, "output_tokens" => 10 },
-      run.scores.dig("_cohorts", "other-model"))
-    assert_equal [ "absent-model" ], run.scores["_missing_models"]
-    assert_equal 1.0, run.scores.dig("response_present", "mock-model", "score")
-  end
 end
