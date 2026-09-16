@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.2].define(version: 2026_08_12_200000) do
+ActiveRecord::Schema[8.2].define(version: 2026_09_16_000001) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
 
@@ -356,11 +356,53 @@ ActiveRecord::Schema[8.2].define(version: 2026_08_12_200000) do
     t.integer "samples_evaluated", default: 0
     t.integer "samples_passed", default: 0
     t.jsonb "scores", default: {}
+    t.jsonb "selection", default: {}
     t.integer "status", default: 0, null: false
     t.datetime "updated_at", null: false
     t.index ["evaluation_id", "created_at"], name: "index_evaluation_runs_on_evaluation_id_and_created_at"
     t.index ["evaluation_id"], name: "index_evaluation_runs_on_evaluation_id"
     t.index ["status"], name: "index_evaluation_runs_on_status"
+  end
+
+  create_table "evaluation_scenario_results", force: :cascade do |t|
+    t.bigint "agent_run_id"
+    t.decimal "cost", precision: 12, scale: 6
+    t.datetime "created_at", null: false
+    t.jsonb "diagnosis", default: {}
+    t.integer "duration_ms"
+    t.text "error_message"
+    t.bigint "evaluation_run_id", null: false
+    t.bigint "evaluation_scenario_id", null: false
+    t.string "fault"
+    t.integer "input_tokens"
+    t.string "model", null: false
+    t.text "output"
+    t.integer "output_tokens"
+    t.string "provider"
+    t.text "recommendation"
+    t.float "score"
+    t.jsonb "scores", default: {}
+    t.integer "status", default: 0, null: false
+    t.jsonb "tool_calls", default: []
+    t.datetime "updated_at", null: false
+    t.index ["evaluation_run_id", "model"], name: "index_evaluation_scenario_results_on_run_and_model"
+    t.index ["evaluation_run_id"], name: "index_evaluation_scenario_results_on_run"
+    t.index ["evaluation_scenario_id"], name: "index_evaluation_scenario_results_on_scenario"
+  end
+
+  create_table "evaluation_scenarios", force: :cascade do |t|
+    t.datetime "created_at", null: false
+    t.boolean "enabled", default: true, null: false
+    t.bigint "evaluation_id", null: false
+    t.jsonb "expectations", default: {}
+    t.string "group"
+    t.string "key", null: false
+    t.text "notes"
+    t.integer "position", default: 0, null: false
+    t.text "prompt", null: false
+    t.datetime "updated_at", null: false
+    t.index ["evaluation_id", "group"], name: "index_evaluation_scenarios_on_evaluation_and_group"
+    t.index ["evaluation_id", "key"], name: "index_evaluation_scenarios_on_evaluation_and_key", unique: true
   end
 
   create_table "evaluations", force: :cascade do |t|
@@ -620,6 +662,7 @@ ActiveRecord::Schema[8.2].define(version: 2026_08_12_200000) do
   end
 
   create_table "sandbox_sessions", force: :cascade do |t|
+    t.bigint "account_id"
     t.bigint "agent_template_id"
     t.string "cloud_run_job_id"
     t.string "cloud_run_url"
@@ -628,6 +671,7 @@ ActiveRecord::Schema[8.2].define(version: 2026_08_12_200000) do
     t.datetime "expires_at"
     t.datetime "last_activity_at"
     t.integer "max_runs", default: 10
+    t.jsonb "mcp_servers", default: []
     t.jsonb "runs", default: []
     t.integer "runs_count", default: 0
     t.string "sandbox_type", default: "playwright_mcp"
@@ -638,6 +682,7 @@ ActiveRecord::Schema[8.2].define(version: 2026_08_12_200000) do
     t.integer "total_tokens", default: 0
     t.datetime "updated_at", null: false
     t.bigint "user_id"
+    t.index ["account_id"], name: "index_sandbox_sessions_on_account_id"
     t.index ["agent_template_id"], name: "index_sandbox_sessions_on_agent_template_id"
     t.index ["cloud_run_job_id"], name: "index_sandbox_sessions_on_cloud_run_job_id"
     t.index ["expires_at"], name: "index_sandbox_sessions_on_expires_at"
