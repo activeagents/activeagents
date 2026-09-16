@@ -38,3 +38,24 @@ jobs:
       - name: Lint code for consistent style
         run: bin/rubocop -f github
 
+  boot:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+
+      - name: Set up Ruby
+        uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: .ruby-version
+          bundler-cache: true
+
+      # Production eager-loads every constant at boot, so a file whose name no
+      # longer matches the constant it defines (an inflection a gem adds, a
+      # rename) takes the container down before its startup probe passes.
+      # Catch that here, before an image is built from it.
+      - name: Eager load the application as production does
+        env:
+          RAILS_ENV: production
+          SECRET_KEY_BASE_DUMMY: "1"
+        run: bin/rails zeitwerk:check
