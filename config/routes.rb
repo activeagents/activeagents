@@ -80,6 +80,19 @@ Rails.application.routes.draw do
   # API endpoints this platform owns. Everything the dashboard reads is
   # served by the engine under its mount.
   namespace :api do
+    # The landing page's session-replay demo records anonymous visitors here
+    # (Api::SessionRecordingsController); playback and everything else about
+    # recordings is the engine's, under its mount.
+    resources :session_recordings, only: [] do
+      member do
+        post :record_action
+        post :complete, action: :complete_session
+      end
+      collection do
+        post :start_user_session
+      end
+    end
+
     # Plan usage and limits — billing, so ours.
     resource :usage, only: [ :show ], controller: "usage" do
       post :check

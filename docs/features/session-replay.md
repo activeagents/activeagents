@@ -272,6 +272,13 @@ names still resolve here.
   - `POST /dashboard/api/session_recordings/start_user_session` - Open a user takeover session
   - `POST /dashboard/api/session_recordings/:id/record_action` - Append a user action
   - `POST /dashboard/api/session_recordings/:id/complete` - Close a user takeover session
+- The landing page's visitor flow is the one exception to the mount. Visitors
+  are anonymous and the engine authenticates every recording endpoint, so this
+  app serves `POST /api/session_recordings/start_user_session`,
+  `POST /api/session_recordings/:id/record_action` and
+  `POST /api/session_recordings/:id/complete` itself
+  (`app/controllers/api/session_recordings_controller.rb`), on the engine's
+  model, gated by the write token `start_user_session` hands the browser.
 - Dashboard components (`frontend/components/dashboard/`):
   - `SessionReplayView.jsx` - Full playback UI with timeline
   - Navigation added to sidebar
