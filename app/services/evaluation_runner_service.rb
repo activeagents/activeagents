@@ -54,6 +54,8 @@ class EvaluationRunnerService
       scores[criterion["key"]] = stats
     end
 
+    scores["_cohorts"] = cohort_summaries(samples, per_sample_scores) if samples.any?
+
     run.update!(
       status: :complete,
       scores: scores,
@@ -108,6 +110,10 @@ class EvaluationRunnerService
       scores["_verdict"] = verdict if verdict
     end
 
+    scores["_cohorts"] = active.to_h do |model, samples|
+      [ model, cohort_summary(samples, per_model_sample_scores[model] || {}) ]
+    end
+
     run.update!(
       status: :complete,
       scores: scores,
@@ -145,6 +151,42 @@ class EvaluationRunnerService
     per_sample_scores.count do |_id, values|
       values.any? && values.all? { |s| s >= PASS_THRESHOLD }
     end
+  end
+
+  # --- Cohort summaries ------------------------------------------------------
+  #
+  # Stored under scores["_cohorts"], keyed by model: how many generations were
+  # sampled under it, how many cleared every criterion, and their latency and
+  # token usage. A comparison run gets one entry per requested cohort; a plain
+  # run one per model that happened to be among the sampled generations. This
+  # is what lets the dashboard show a run as "5/12 passed" per model without
+  # re-reading the generations.
+
+  def cohort_summaries(samples, per_sample_scores)
+    samples
+      .group_by { |generation| generation.model.presence || "unknown" }
+      .transform_values { |group| cohort_summary(group, per_sample_scores) }
+  end
+
+  def cohort_summary(samples, per_sample_scores)
+    durations_ms = samples.filter_map do |generation|
+      seconds = generation.duration_seconds.to_f
+      seconds * 1000 if seconds.positive?
+    end
+    passed = samples.count do |generation|
+      values = per_sample_scores.fetch(generation.id, [])
+      values.any? && values.all? { |s| s >= PASS_THRESHOLD }
+    end
+    providers = samples.filter_map { |generation| generation.provider.presence }
+
+    {
+      "samples" => samples.size,
+      "passed" => passed,
+      "provider" => providers.tally.max_by { |_provider, count| count }&.first,
+      "avg_duration_ms" => durations_ms.any? ? (durations_ms.sum / durations_ms.size).round : nil,
+      "input_tokens" => samples.sum { |generation| generation.input_tokens.to_i },
+      "output_tokens" => samples.sum { |generation| generation.output_tokens.to_i }
+    }
   end
 
   def sample_generations(model: nil)

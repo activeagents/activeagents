@@ -15,6 +15,9 @@ module Api
       { "key" => "token_budget", "type" => "token_budget", "config" => { "output_tokens" => 1000 } }
     ].freeze
 
+    # Runs listed per evaluation on GET /api/evaluations/:id.
+    RUN_HISTORY_LIMIT = 20
+
     # GET /api/evaluations
     # agent_id scopes to one agent. The filter has to happen before the limit:
     # the agent page reads this endpoint, and filtering an account-wide page of
@@ -32,10 +35,12 @@ module Api
     # GET /api/evaluations/:id
     def show
       evaluation = evaluations_scope.find(params[:id])
+      runs_count = evaluation.evaluation_runs.count
+      runs = evaluation.evaluation_runs.recent.limit(RUN_HISTORY_LIMIT).to_a
 
       render json: {
         evaluation: serialize(evaluation).merge(
-          runs: evaluation.evaluation_runs.recent.limit(20).map { |run| serialize_run(run) }
+          runs: runs.each_with_index.map { |run, index| serialize_run(run, number: runs_count - index) }
         )
       }
     end
@@ -71,8 +76,12 @@ module Api
     def run
       evaluation = evaluations_scope.find(params[:id])
       run = evaluation.run!
+      evaluation.reload
 
-      render json: { evaluation: serialize(evaluation.reload), run: serialize_run(run) }
+      render json: {
+        evaluation: serialize(evaluation),
+        run: serialize_run(run, number: evaluation.evaluation_runs.count)
+      }
     end
 
     # DELETE /api/evaluations/:id
@@ -112,7 +121,9 @@ module Api
     end
 
     def serialize(evaluation)
-      latest = evaluation.latest_run
+      # size reads the preloaded association on index and COUNTs elsewhere.
+      runs_count = evaluation.evaluation_runs.size
+      latest, previous = recent_runs(evaluation, 2)
 
       {
         id: evaluation.id,
@@ -125,19 +136,42 @@ module Api
         config: evaluation.config,
         sample_size: evaluation.sample_size,
         created_at: evaluation.created_at.iso8601,
-        latest_run: latest ? serialize_run(latest) : nil
+        runs_count: runs_count,
+        latest_run: latest ? serialize_run(latest, number: runs_count) : nil,
+        # Just enough of the run before it for the list to show movement
+        # ("+3 passed vs #2") without a request per evaluation.
+        previous_run: previous ? serialize_run_summary(previous, number: runs_count - 1) : nil
       }
     end
 
-    def serialize_run(run)
+    # Newest first. Sorts the preloaded association when index loaded it
+    # rather than issuing one ORDER BY query per evaluation.
+    def recent_runs(evaluation, limit)
+      runs = evaluation.evaluation_runs
+      if runs.loaded?
+        runs.sort_by { |run| [ run.created_at, run.id ] }.reverse.first(limit)
+      else
+        runs.recent.limit(limit).to_a
+      end
+    end
+
+    # number is the run's position in its evaluation's history, oldest = 1,
+    # so the dashboard can say "Run #3" and "vs #2".
+    def serialize_run(run, number: nil)
+      serialize_run_summary(run, number: number).merge(
+        scores: run.scores,
+        error_message: run.error_message
+      )
+    end
+
+    def serialize_run_summary(run, number: nil)
       {
         id: run.id,
+        number: number,
         status: run.status,
-        scores: run.scores,
         average_score: run.average_score,
         samples_evaluated: run.samples_evaluated,
         samples_passed: run.samples_passed,
-        error_message: run.error_message,
         completed_at: run.completed_at&.iso8601,
         created_at: run.created_at.iso8601
       }

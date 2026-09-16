@@ -4,8 +4,8 @@
 # scores: { criterion_key => { "score", "min", "max", "passed", "total" } }
 # Comparison runs instead store a cohort map per criterion,
 # { criterion_key => { model => { "score", ... } } }, plus underscore-prefixed
-# metadata keys ("_missing_models" — an Array, "_verdict" — a Hash) that are
-# not criterion stats at all.
+# metadata keys ("_missing_models" — an Array, "_verdict" — a Hash,
+# "_cohorts" — per-model sample summaries) that are not criterion stats at all.
 class EvaluationRun < ApplicationRecord
   belongs_to :evaluation
 
