@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.2].define(version: 2026_09_16_000001) do
+ActiveRecord::Schema[8.2].define(version: 2026_09_16_000002) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
 
@@ -43,6 +43,7 @@ ActiveRecord::Schema[8.2].define(version: 2026_09_16_000001) do
     t.string "agent_action"
     t.string "agent_class"
     t.bigint "agent_id"
+    t.bigint "agent_version_id"
     t.datetime "created_at", null: false
     t.string "environment"
     t.text "error_message"
@@ -63,6 +64,7 @@ ActiveRecord::Schema[8.2].define(version: 2026_09_16_000001) do
     t.index ["account_id"], name: "index_active_agent_telemetry_traces_on_account_id"
     t.index ["agent_class"], name: "index_active_agent_telemetry_traces_on_agent_class"
     t.index ["agent_id"], name: "index_active_agent_telemetry_traces_on_agent_id"
+    t.index ["agent_version_id"], name: "index_active_agent_telemetry_traces_on_agent_version_id"
     t.index ["service_name"], name: "index_active_agent_telemetry_traces_on_service_name"
     t.index ["status"], name: "index_active_agent_telemetry_traces_on_status"
     t.index ["timestamp"], name: "index_active_agent_telemetry_traces_on_timestamp"
@@ -184,6 +186,7 @@ ActiveRecord::Schema[8.2].define(version: 2026_09_16_000001) do
   create_table "agent_runs", force: :cascade do |t|
     t.string "action_name"
     t.bigint "agent_id", null: false
+    t.bigint "agent_version_id"
     t.datetime "completed_at"
     t.datetime "created_at", null: false
     t.integer "duration_ms"
@@ -202,6 +205,7 @@ ActiveRecord::Schema[8.2].define(version: 2026_09_16_000001) do
     t.string "trace_id"
     t.datetime "updated_at", null: false
     t.index ["agent_id"], name: "index_agent_runs_on_agent_id"
+    t.index ["agent_version_id"], name: "index_agent_runs_on_agent_version_id"
     t.index ["created_at"], name: "index_agent_runs_on_created_at"
     t.index ["status"], name: "index_agent_runs_on_status"
     t.index ["trace_id"], name: "index_agent_runs_on_trace_id"
@@ -241,8 +245,11 @@ ActiveRecord::Schema[8.2].define(version: 2026_09_16_000001) do
     t.jsonb "configuration_snapshot", default: {}, null: false
     t.datetime "created_at", null: false
     t.string "created_by"
+    t.string "release_digest"
+    t.string "revision"
     t.datetime "updated_at", null: false
     t.integer "version_number", default: 1, null: false
+    t.index ["agent_id", "release_digest"], name: "index_agent_versions_on_agent_id_and_release_digest"
     t.index ["agent_id", "version_number"], name: "index_agent_versions_on_agent_id_and_version_number", unique: true
     t.index ["agent_id"], name: "index_agent_versions_on_agent_id"
   end
@@ -265,6 +272,7 @@ ActiveRecord::Schema[8.2].define(version: 2026_09_16_000001) do
     t.string "name", null: false
     t.string "preset_type"
     t.string "provider", default: "openai"
+    t.string "release_digest"
     t.jsonb "response_format", default: {}
     t.string "service_name"
     t.string "slug", null: false
@@ -349,6 +357,7 @@ ActiveRecord::Schema[8.2].define(version: 2026_09_16_000001) do
   end
 
   create_table "evaluation_runs", force: :cascade do |t|
+    t.bigint "agent_version_id"
     t.datetime "completed_at"
     t.datetime "created_at", null: false
     t.text "error_message"
@@ -359,6 +368,7 @@ ActiveRecord::Schema[8.2].define(version: 2026_09_16_000001) do
     t.jsonb "selection", default: {}
     t.integer "status", default: 0, null: false
     t.datetime "updated_at", null: false
+    t.index ["agent_version_id"], name: "index_evaluation_runs_on_agent_version_id"
     t.index ["evaluation_id", "created_at"], name: "index_evaluation_runs_on_evaluation_id_and_created_at"
     t.index ["evaluation_id"], name: "index_evaluation_runs_on_evaluation_id"
     t.index ["status"], name: "index_evaluation_runs_on_status"
