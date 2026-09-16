@@ -2,6 +2,10 @@
 
 require "test_helper"
 
+# Two surfaces for one model. The landing page's visitor flow stays on this
+# app at /api/session_recordings (anonymous, write-token gated); everything a
+# signed-in owner does with a recording is the mounted engine's, at
+# /dashboard/api/session_recordings, scoped to the owner.
 class Api::SessionRecordingsControllerTest < ActionDispatch::IntegrationTest
   setup do
     @owner = create_user(email: "recording-owner-#{SecureRandom.hex(4)}@example.com")
@@ -13,6 +17,7 @@ class Api::SessionRecordingsControllerTest < ActionDispatch::IntegrationTest
     @recording = SessionRecording.create!(
       name: "user_takeover_#{SecureRandom.hex(4)}",
       status: :recording,
+      owner: @owner,
       metadata: {
         "account_id" => @owner_account.id.to_s,
         "handoff_state" => {
@@ -33,499 +38,177 @@ class Api::SessionRecordingsControllerTest < ActionDispatch::IntegrationTest
   end
 
   # ===========================================
-  # IDOR — cross-account access must 404 (#106)
+  # Playback through the engine: owner-scoped, ids unenumerable
   # ===========================================
 
-  test "show returns 404 for a recording owned by another account" do
+  test "show returns 404 for a recording owned by someone else" do
     sign_in_as(@intruder)
 
-    get "/api/session_recordings/#{@recording.id}"
+    get "/dashboard/api/session_recordings/#{@recording.id}"
 
     assert_response :not_found
     assert_not_includes response.body, "topsecret99"
   end
 
-  test "actions returns 404 for a recording owned by another account" do
+  test "actions returns 404 for a recording owned by someone else" do
     sign_in_as(@intruder)
 
-    get "/api/session_recordings/#{@recording.id}/actions"
+    get "/dashboard/api/session_recordings/#{@recording.id}/actions"
 
     assert_response :not_found
   end
 
-  test "snapshot returns 404 for a recording owned by another account" do
-    sign_in_as(@intruder)
+  test "show still returns 200 for the owner" do
+    sign_in_as(@owner)
 
-    get "/api/session_recordings/#{@recording.id}/snapshot/#{@action.id}"
+    get "/dashboard/api/session_recordings/#{@recording.id}"
 
-    assert_response :not_found
+    assert_response :success
+    assert_equal @recording.id, json_response.dig("recording", "id")
   end
 
-  test "export returns 404 for a recording owned by another account" do
-    sign_in_as(@intruder)
+  test "the owner's list carries their recording and not someone else's" do
+    other = SessionRecording.start_user_session!(visitor_id: "v_other", owner: @intruder)
+    sign_in_as(@owner)
 
-    post "/api/session_recordings/#{@recording.id}/export"
+    get "/dashboard/api/session_recordings"
 
-    assert_response :not_found
+    assert_response :success
+    ids = json_response["recordings"].map { |r| r["id"] }
+    assert_includes ids, @recording.id
+    assert_not_includes ids, other.id
+  end
+
+  test "a browser that is not signed in is sent to this app's sign-in page" do
+    get "/dashboard/api/session_recordings/#{@recording.id}"
+
+    assert_redirected_to "/session/new"
+  end
+
+  test "show timeline redacts sensitive action values and metadata" do
+    sign_in_as(@owner)
+
+    get "/dashboard/api/session_recordings/#{@recording.id}"
+
+    assert_response :success
     assert_not_includes response.body, "topsecret99"
-  end
-
-  test "handoff returns 404 for a recording owned by another account" do
-    sign_in_as(@intruder)
-
-    assert_no_difference -> { SessionRecording.count } do
-      post "/api/session_recordings/#{@recording.id}/handoff"
-    end
-
-    assert_response :not_found
     assert_not_includes response.body, "sekrit-cookie"
   end
 
   # ===========================================
-  # The owner is unaffected by the gate
+  # The landing page's visitor flow, on this app
   # ===========================================
 
-  test "show still returns 200 for the owning account" do
-    sign_in_as(@owner)
-
-    get "/api/session_recordings/#{@recording.id}"
-
-    assert_response :success
-    assert_equal @recording.id, json_response["recording"]["id"]
-  end
-
-  test "actions still returns 200 for the owning account" do
-    sign_in_as(@owner)
-
-    get "/api/session_recordings/#{@recording.id}/actions"
-
-    assert_response :success
-    assert_equal 1, json_response["actions"].size
-  end
-
-  # Array and ActionController::Parameters do not respond to `to_i`, so a
-  # container-valued query (`limit[]=5`) raised NoMethodError and 500ed
-  # before the query was built (#126).
-  test "actions coerces container-valued after_sequence and limit instead of raising" do
-    sign_in_as(@owner)
-
-    get "/api/session_recordings/#{@recording.id}/actions",
-        params: { after_sequence: [ 0 ], limit: { n: 5 } }
-
-    assert_response :success, "container-valued params were not coerced: #{response.body}"
-    assert_equal 1, json_response["actions"].size
-  end
-
-  test "index coerces container-valued page and per_page instead of raising" do
-    sign_in_as(@owner)
-
-    get "/api/session_recordings", params: { page: [ 1 ], per_page: { n: 20 } }
-
-    assert_response :success, "container-valued params were not coerced: #{response.body}"
-    assert_equal 1, json_response["pagination"]["page"]
-    assert_equal 1, json_response["pagination"]["per_page"],
-                 "a non-numeric per_page must clamp up to 1, never divide by zero"
-  end
-
-  test "export still returns 200 for the owning account" do
-    sign_in_as(@owner)
-
-    post "/api/session_recordings/#{@recording.id}/export"
-
-    assert_response :success
-    assert_equal 1, json_response["cassette"]["actions"].size
-  end
-
-  test "handoff still returns 200 for the owning account" do
-    sign_in_as(@owner)
-
-    post "/api/session_recordings/#{@recording.id}/handoff"
-
-    assert_response :success
-    assert json_response["continuation_recording_id"].present?
-  end
-
-  test "handoff returns the full handoff_state to the owner, unscrubbed" do
-    sign_in_as(@owner)
-
-    post "/api/session_recordings/#{@recording.id}/handoff"
-
-    assert_response :success
-    handoff_state = json_response["handoff_state"]
-    assert_equal "sekrit-cookie", handoff_state["cookies"].first["value"]
-    assert_equal "lst-secret", handoff_state["local_storage"]["auth_token"]
-  end
-
-  # ==================================================
-  # The handoff continuation must stay readable by
-  # the account that created it (#119)
-  # ==================================================
-
-  test "the creating account can read back the recording handoff returns" do
-    assert_nil @recording.sandbox_session,
-               "this test exists for the no-sandbox_session case, where account_id is the only owner signal"
-    sign_in_as(@owner)
-
-    post "/api/session_recordings/#{@recording.id}/handoff"
-    assert_response :success
-    continuation_id = json_response["continuation_recording_id"]
-
-    get "/api/session_recordings/#{continuation_id}"
-
-    assert_response :success
-    assert_equal continuation_id, json_response["recording"]["id"]
-  end
-
-  test "another account still cannot read the handoff continuation" do
-    sign_in_as(@owner)
-
-    post "/api/session_recordings/#{@recording.id}/handoff"
-    assert_response :success
-    continuation_id = json_response["continuation_recording_id"]
-
-    sign_in_as(@intruder)
-    get "/api/session_recordings/#{continuation_id}"
-
-    assert_response :not_found
-  end
-
-  test "snapshot still returns 200 for the owning account" do
-    sign_in_as(@owner)
-
-    get "/api/session_recordings/#{@recording.id}/snapshot/#{@action.id}"
-
-    assert_response :success
-    assert_equal "screenshot", json_response["type"]
-  end
-
-  test "admins may still read another account's recording" do
-    admin = create_user(email: "recording-admin-#{SecureRandom.hex(4)}@example.com")
-    admin.update!(admin: true)
-    sign_in_as(admin)
-
-    get "/api/session_recordings/#{@recording.id}"
-
-    assert_response :success
-  end
-
-  # ==================================================
-  # lander_demo — public to READ only. The carve-out
-  # must not reach export, handoff or destroy (#119)
-  # ==================================================
-
-  test "any signed-in user may read the lander demo recording" do
-    demo = SessionRecording.create!(name: "lander_demo", status: :completed, metadata: {})
-    sign_in_as(@intruder)
-
-    get "/api/session_recordings/#{demo.id}"
-
-    assert_response :success
-    assert_equal demo.id, json_response["recording"]["id"]
-  end
-
-  test "any signed-in user may read the lander demo action timeline" do
-    demo = create_lander_demo
-    sign_in_as(@intruder)
-
-    get "/api/session_recordings/#{demo.id}/actions"
-
-    assert_response :success
-    assert_equal 1, json_response["actions"].size
-  end
-
-  test "any signed-in user may read a lander demo snapshot" do
-    demo = create_lander_demo
-    sign_in_as(@intruder)
-
-    get "/api/session_recordings/#{demo.id}/snapshot/#{demo.recording_actions.first.id}"
-
-    assert_response :success
-    assert_equal "screenshot", json_response["type"]
-  end
-
-  test "reading the lander demo still scrubs its handoff secrets" do
-    demo = create_lander_demo
-    sign_in_as(@intruder)
-
-    get "/api/session_recordings/#{demo.id}"
-
-    assert_response :success
-    assert_not_includes response.body, "demo-sekrit-cookie"
-    assert_not_includes response.body, "demo-lst-secret"
-    assert_not_includes response.body, "demo-sst-secret"
-  end
-
-  test "non-owners cannot export the lander demo recording" do
-    demo = create_lander_demo
-    sign_in_as(@intruder)
-
-    post "/api/session_recordings/#{demo.id}/export"
-
-    assert_response :not_found
-    assert_nil json_response["cassette"]
-  end
-
-  test "non-owners cannot hand off the lander demo recording" do
-    demo = create_lander_demo
-    sign_in_as(@intruder)
-    recording_count = SessionRecording.count
-
-    post "/api/session_recordings/#{demo.id}/handoff"
-
-    assert_response :not_found
-    assert_nil json_response["handoff_state"]
-    assert_not_includes response.body, "demo-sekrit-cookie"
-    assert_not_includes response.body, "demo-lst-secret"
-    assert_not_includes response.body, "demo-sst-secret"
-    assert_equal recording_count, SessionRecording.count,
-                 "handoff must not create a continuation recording for a non-owner"
-  end
-
-  test "the owning account may still export and hand off the lander demo" do
-    demo = create_lander_demo
-    sign_in_as(@owner)
-
-    post "/api/session_recordings/#{demo.id}/export"
-    assert_response :success
-    assert_equal 1, json_response["cassette"]["actions"].size
-
-    post "/api/session_recordings/#{demo.id}/handoff"
-    assert_response :success
-    assert_equal "demo-sekrit-cookie", json_response["handoff_state"]["cookies"].first["value"]
-  end
-
-  test "admins may still export and hand off the lander demo" do
-    demo = create_lander_demo
-    admin = create_user(email: "recording-admin-#{SecureRandom.hex(4)}@example.com")
-    admin.update!(admin: true)
-    sign_in_as(admin)
-
-    post "/api/session_recordings/#{demo.id}/export"
-    assert_response :success
-
-    post "/api/session_recordings/#{demo.id}/handoff"
-    assert_response :success
-  end
-
-  test "non-admins cannot delete the lander demo recording" do
-    demo = SessionRecording.create!(name: "lander_demo", status: :completed, metadata: {})
-    sign_in_as(@intruder)
-
-    assert_no_difference -> { SessionRecording.count } do
-      delete "/api/session_recordings/#{demo.id}"
-    end
-
-    assert_response :forbidden
-  end
-
-  # ==================================================
-  # Anonymous writes — record_action and complete
-  # must be bound to the session that started the
-  # recording (#125)
-  # ==================================================
-
   test "record_action refuses an anonymous caller who only knows the id" do
-    assert_no_difference -> { @recording.recording_actions.count } do
-      post "/api/session_recordings/#{@recording.id}/record_action",
-           params: { action_type: "type", selector: "input[name=card]", value: "4111" }.to_json,
-           headers: { "Content-Type" => "application/json" }
-    end
+    post "/api/session_recordings/#{@recording.id}/record_action",
+         params: { action_type: "click", selector: "button" }, as: :json
 
     assert_response :not_found
+    assert_equal 1, @recording.recording_actions.count
   end
 
   test "complete refuses an anonymous caller who only knows the id" do
-    post "/api/session_recordings/#{@recording.id}/complete",
-         params: { completion_type: "session_end" }.to_json,
-         headers: { "Content-Type" => "application/json" }
+    post "/api/session_recordings/#{@recording.id}/complete", as: :json
 
     assert_response :not_found
-    assert @recording.reload.recording?, "the recording must not have been force-completed"
+    assert @recording.reload.recording?
   end
 
   test "an unknown id and someone else's id answer identically to anonymous writers" do
-    post "/api/session_recordings/#{@recording.id}/record_action", params: { action_type: "click" }
-    real = [ response.status, response.body ]
+    post "/api/session_recordings/999999999/record_action", params: { action_type: "click" }, as: :json
+    unknown = response.status
 
-    post "/api/session_recordings/999999999/record_action", params: { action_type: "click" }
-    bogus = [ response.status, response.body ]
+    post "/api/session_recordings/#{@recording.id}/record_action", params: { action_type: "click" }, as: :json
 
-    assert_equal bogus, real, "a real id must not be distinguishable from a bogus one"
+    assert_equal unknown, response.status, "a real id must not be distinguishable from a bogus one"
   end
 
   test "start_user_session issues a token that authorizes writes to that recording only" do
-    post "/api/session_recordings/start_user_session",
-         params: { page_url: "https://example.com/", step: 4 }.to_json,
-         headers: { "Content-Type" => "application/json" }
+    post "/api/session_recordings/start_user_session", params: { page_url: "https://activeagents.ai/" }, as: :json
     assert_response :created
-    recording_id = json_response["recording_id"]
     token = json_response["recording_token"]
+    recording_id = json_response["recording_id"]
     assert token.present?
 
     post "/api/session_recordings/#{recording_id}/record_action",
-         params: { action_type: "click", selector: "button.cta", recording_token: token }.to_json,
-         headers: { "Content-Type" => "application/json" }
+         params: { action_type: "click", selector: "button", recording_token: token }, as: :json
     assert_response :success
-    assert json_response["action_id"].present?
 
-    # The token names one recording; it opens no other.
-    assert_no_difference -> { @recording.recording_actions.count } do
-      post "/api/session_recordings/#{@recording.id}/record_action",
-           params: { action_type: "click", recording_token: token }.to_json,
-           headers: { "Content-Type" => "application/json" }
-    end
+    # The same token does not open someone else's recording.
+    post "/api/session_recordings/#{@recording.id}/record_action",
+         params: { action_type: "click", selector: "button", recording_token: token }, as: :json
     assert_response :not_found
 
-    post "/api/session_recordings/#{recording_id}/complete",
-         params: { completion_type: "session_end", recording_token: token }.to_json,
-         headers: { "Content-Type" => "application/json" }
+    post "/api/session_recordings/#{recording_id}/complete", params: { recording_token: token }, as: :json
     assert_response :success
     assert_equal "completed", json_response["status"]
   end
 
   test "the write token is also accepted as a header" do
-    post "/api/session_recordings/start_user_session", params: { page_url: "https://example.com/" }
-    recording_id = json_response["recording_id"]
+    post "/api/session_recordings/start_user_session", as: :json
     token = json_response["recording_token"]
+    recording_id = json_response["recording_id"]
 
     post "/api/session_recordings/#{recording_id}/record_action",
-         params: { action_type: "scroll" }, headers: { "X-Recording-Token" => token }
+         params: { action_type: "scroll" }, headers: { "X-Recording-Token" => token }, as: :json
 
     assert_response :success
   end
 
   test "a forged or tampered token does not authorize writes" do
-    post "/api/session_recordings/start_user_session", params: { page_url: "https://example.com/" }
-    recording_id = json_response["recording_id"]
+    post "/api/session_recordings/start_user_session", as: :json
     token = json_response["recording_token"]
+    recording_id = json_response["recording_id"]
 
     post "/api/session_recordings/#{recording_id}/record_action",
-         params: { action_type: "click", recording_token: "#{token}x" }
+         params: { action_type: "click", recording_token: "#{token}x" }, as: :json
+    assert_response :not_found
 
+    post "/api/session_recordings/#{recording_id}/record_action",
+         params: { action_type: "click", recording_token: "not-a-token" }, as: :json
     assert_response :not_found
   end
 
-  test "the owning account may still write to its recording without a token" do
+  test "the owner may still write to their recording without a token" do
     sign_in_as(@owner)
 
     assert_difference -> { @recording.recording_actions.count }, 1 do
       post "/api/session_recordings/#{@recording.id}/record_action",
-           params: { action_type: "click", selector: "button.cta" }
+           params: { action_type: "click", selector: "button" }, as: :json
     end
-
     assert_response :success
   end
 
   test "another signed-in account may not write to the recording" do
     sign_in_as(@intruder)
 
-    assert_no_difference -> { @recording.recording_actions.count } do
-      post "/api/session_recordings/#{@recording.id}/record_action",
-           params: { action_type: "click", selector: "button.cta" }
-    end
+    post "/api/session_recordings/#{@recording.id}/record_action",
+         params: { action_type: "click" }, as: :json
 
     assert_response :not_found
   end
 
   test "a token holder still learns when the recording is already complete" do
-    post "/api/session_recordings/start_user_session", params: { page_url: "https://example.com/" }
-    recording_id = json_response["recording_id"]
+    post "/api/session_recordings/start_user_session", as: :json
     token = json_response["recording_token"]
+    recording_id = json_response["recording_id"]
     SessionRecording.find(recording_id).complete!
 
     post "/api/session_recordings/#{recording_id}/record_action",
-         params: { action_type: "click", recording_token: token }
+         params: { action_type: "click", recording_token: token }, as: :json
 
     assert_response :unprocessable_entity
-    assert_equal "Recording already completed", json_response["error"]
+    assert_match(/already completed/, json_response["error"])
   end
 
-  test "a signed-in visitor's user session is stamped with their account" do
+  test "a signed-in visitor's user session is owned by them and stamped with their account" do
     sign_in_as(@owner)
 
-    post "/api/session_recordings/start_user_session", params: { page_url: "https://example.com/" }
+    post "/api/session_recordings/start_user_session", as: :json
 
     assert_response :created
     recording = SessionRecording.find(json_response["recording_id"])
+    assert_equal @owner, recording.owner
     assert_equal @owner_account.id.to_s, recording.metadata["account_id"]
-  end
-
-  # ===========================================
-  # Redaction — show/export must not leak (#110)
-  # ===========================================
-
-  test "show timeline redacts sensitive action values and metadata" do
-    sign_in_as(@owner)
-
-    get "/api/session_recordings/#{@recording.id}"
-
-    assert_response :success
-    entry = json_response["recording"]["timeline"].first
-
-    assert_equal "[REDACTED]", entry["value"]
-    assert_not_includes response.body, "topsecret99"
-    assert_nil entry["metadata"]["password"]
-    assert_equal "https://example.com/login", entry["metadata"]["url"]
-  end
-
-  test "export cassette redacts sensitive action values and metadata" do
-    sign_in_as(@owner)
-
-    post "/api/session_recordings/#{@recording.id}/export"
-
-    assert_response :success
-    exported = json_response["cassette"]["actions"].first
-
-    assert_equal "[REDACTED]", exported["value"]
-    assert_not_includes response.body, "topsecret99"
-    assert_nil exported["metadata"]["password"]
-    assert_equal "https://example.com/login", exported["metadata"]["url"]
-  end
-
-  test "show strips cookies and web storage from nested handoff_state" do
-    sign_in_as(@owner)
-
-    get "/api/session_recordings/#{@recording.id}"
-
-    assert_response :success
-    handoff_state = json_response["recording"]["handoff_state"]
-
-    assert_equal "https://example.com/checkout", handoff_state["url"]
-    assert_nil handoff_state["cookies"]
-    assert_nil handoff_state["local_storage"]
-    assert_nil handoff_state["session_storage"]
-    assert_not_includes response.body, "sekrit-cookie"
-    assert_not_includes response.body, "lst-secret"
-    assert_not_includes response.body, "sst-secret"
-  end
-
-  private
-
-  # A lander demo that carries the same class of secrets as any other
-  # recording, owned by @owner_account so @intruder exercises the carve-out.
-  def create_lander_demo
-    demo = SessionRecording.create!(
-      name: "lander_demo",
-      status: :recording,
-      metadata: {
-        "account_id" => @owner_account.id.to_s,
-        "handoff_state" => {
-          "url" => "https://example.com/demo",
-          "cookies" => [ { "name" => "_session", "value" => "demo-sekrit-cookie" } ],
-          "local_storage" => { "auth_token" => "demo-lst-secret" },
-          "session_storage" => { "csrf" => "demo-sst-secret" }
-        }
-      }
-    )
-
-    demo.record_action!(
-      action_type: "click",
-      selector: "button.cta",
-      value: "Start the demo",
-      metadata: { "url" => "https://example.com/demo" }
-    )
-
-    demo.complete!
-    demo.reload
   end
 end

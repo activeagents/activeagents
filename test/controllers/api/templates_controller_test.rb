@@ -31,7 +31,7 @@ class Api::TemplatesControllerTest < ActionDispatch::IntegrationTest
   # `AgentTemplate.find` in #show served instructions/instruction_sets/
   # model_config for `public: false` templates to anyone walking the id space.
   test "show does not serve a non-public template to an anonymous client" do
-    get "/api/templates/#{@private_template.id}"
+    get "/dashboard/api/templates/#{@private_template.id}"
 
     assert_redirected_to "/session/new"
     refute_includes response.body, "SECRET SYSTEM PROMPT"
@@ -39,13 +39,13 @@ class Api::TemplatesControllerTest < ActionDispatch::IntegrationTest
   end
 
   test "show does not serve any template to an anonymous client" do
-    get "/api/templates/#{@public_template.id}"
+    get "/dashboard/api/templates/#{@public_template.id}"
 
     assert_redirected_to "/session/new"
   end
 
   test "index requires a session" do
-    get "/api/templates"
+    get "/dashboard/api/templates"
 
     assert_redirected_to "/session/new"
   end
@@ -57,7 +57,7 @@ class Api::TemplatesControllerTest < ActionDispatch::IntegrationTest
   test "show returns full template details for a signed-in user" do
     sign_in_as(@user)
 
-    get "/api/templates/#{@public_template.id}"
+    get "/dashboard/api/templates/#{@public_template.id}"
 
     assert_response :success
     template = json_response["template"]
@@ -70,7 +70,7 @@ class Api::TemplatesControllerTest < ActionDispatch::IntegrationTest
   test "index returns the public library for a signed-in user" do
     sign_in_as(@user)
 
-    get "/api/templates"
+    get "/dashboard/api/templates"
 
     assert_response :success
     ids = json_response["templates"].map { |t| t["id"] }
@@ -83,7 +83,7 @@ class Api::TemplatesControllerTest < ActionDispatch::IntegrationTest
     sign_in_as(@user)
 
     assert_difference -> { @user.agents.count }, 1 do
-      post "/api/templates/#{@public_template.id}/use", params: { name: "My Copy" }
+      post "/dashboard/api/templates/#{@public_template.id}/use", params: { name: "My Copy" }
     end
 
     assert_response :created
@@ -104,7 +104,7 @@ class Api::TemplatesControllerTest < ActionDispatch::IntegrationTest
       model_config: { "temperature" => 0.2, "max_tokens" => 4096 }
     )
 
-    post "/api/templates/#{template.id}/use", params: { name: "From Template" }
+    post "/dashboard/api/templates/#{template.id}/use", params: { name: "From Template" }
 
     assert_response :created
     agent = json_response["agent"]

@@ -81,10 +81,13 @@ class AgentToolboxTest < ActiveSupport::TestCase
     assert_equal 4, second[:result]
     assert second[:cached], "second identical call should replay the cached result"
 
-    # Error results are never cached.
+    # Error results are never cached: the two failing calls must not add a
+    # third entry alongside the one cached for "2+2". Counting entries beats
+    # grepping the key, which is a SHA of the arguments and matches by luck.
+    keys_before = Rails.cache.instance_variable_get(:@data).keys
     2.times { AgentToolbox.call("calculate", expression: "1/0") }
-    error_keys = Rails.cache.instance_variable_get(:@data).keys.grep(/1.0/)
-    assert_empty error_keys
+    keys_after = Rails.cache.instance_variable_get(:@data).keys
+    assert_equal keys_before, keys_after, "error results should not be cached"
   ensure
     Rails.cache = original_cache
   end
