@@ -2,7 +2,25 @@ repo: activeagents/activeagents
 branch: main
 
 ## Last sync
-date: 2026-07-31T17:56:19Z
+date: 2026-09-21T17:40:00Z
+
+### Recreated from this project — "Evaluations Redesign v2" (REVIEW EVALS RUNS)
+- Built in the `actionagent` engine (activeagents/activeagent, branch
+  `claude/awesome-gauss-ebky6n`), which this platform mounts, rather than in
+  this repo's deleted dashboard copy: *(gem)* `frontend/components/dashboard/EvaluationsView.jsx`,
+  `frontend/components/dashboard/evaluations/` (RunsList, EvaluationRunDetail,
+  ModelScorecard, SpendStrip, CriteriaFooter, EvaluationForm) and
+  `frontend/utils/evaluationRuns.mjs`.
+- Evaluations as the top level, every run listed with its movement against
+  the run before it, a run page with cohort scorecards, verdict, criteria ×
+  models matrix and what to fix; a suite's runs list is the same component.
+- Added beyond the export: each run's cost as the agent's spend (per
+  interaction — the operating figure) apart from the judge's (offline).
+- Rows keep their metric columns aligned with the `MetaStrip` from
+  activeagents/activeagent#470.
+- Reference shots: `docs/design/evaluations/`.
+
+### Earlier sync — 2026-07-31
 
 ### Updated in this project
 - Added `ContextMeter` — context-window state (messages / tool results / instructions / tool + MCP schemas / memory) modeled on `AgentContext` + `AgentGeneration` token fields.
