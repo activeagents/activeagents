@@ -71,9 +71,13 @@ Rails.application.routes.draw do
   # batched traces here (Configuration::DEFAULT_ENDPOINT is
   # https://api.activeagents.ai/v1/traces). Authenticated with the
   # account's telemetry API key (Bearer token).
+  #
+  # Evaluation reports an application ran itself arrive the same way, from
+  # ActiveAgent::Evals::Publisher (its DEFAULT_ENDPOINT is /v1/evaluations).
   scope module: :api do
     namespace :v1 do
       resources :traces, only: [ :create ]
+      resources :evaluations, only: [ :create ]
     end
   end
 
@@ -113,8 +117,10 @@ Rails.application.routes.draw do
 
     namespace :v1 do
       resources :plans, only: [ :index ]
-      # Alias of POST /v1/traces for clients configured with an /api prefix.
+      # Aliases of POST /v1/traces and /v1/evaluations for clients configured
+      # with an /api prefix.
       resources :traces, only: [ :create ]
+      resources :evaluations, only: [ :create ]
     end
   end
 end

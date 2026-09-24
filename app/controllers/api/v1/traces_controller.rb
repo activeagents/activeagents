@@ -25,13 +25,7 @@ module Api
           return
         end
 
-        if (api_key = ApiKey.authenticate(token))
-          api_key.touch_last_used!
-          @account = api_key.account
-        else
-          @account = Account.find_by(telemetry_api_key: token)
-        end
-
+        @account = Account.authenticate_api_token(token)
         if @account.nil?
           render json: { error: "Invalid API key" }, status: :unauthorized
           return
