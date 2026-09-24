@@ -1,9 +1,9 @@
 GIT
   remote: https://github.com/activeagents/activeagent.git
-  revision: 8ebff5151fb0ac7b4ded06ff471ce7f778f5569d
-  branch: release/1.6.2
+  revision: 61ceb4fbc1c2a20bbd745e612a1b6c55812ae23a
+  branch: feat/engine-evaluation-report-collector
   specs:
-    activeagent (1.6.2)
+    activeagent (1.6.4)
       actionpack (>= 7.2, <= 9.0)
       actionview (>= 7.2, <= 9.0)
       activeagents-telemetry (~> 0.1)
@@ -14,11 +14,11 @@ GIT
 
 GIT
   remote: https://github.com/activeagents/activeagent.git
-  revision: 8ebff5151fb0ac7b4ded06ff471ce7f778f5569d
-  branch: release/1.6.2
+  revision: 61ceb4fbc1c2a20bbd745e612a1b6c55812ae23a
+  branch: feat/engine-evaluation-report-collector
   glob: actionagent/*.gemspec
   specs:
-    actionagent (1.6.2)
+    actionagent (1.6.4)
       activeagent (>= 1.4, < 2)
       activerecord (>= 7.2, <= 9.0)
       railties (>= 7.2, <= 9.0)
