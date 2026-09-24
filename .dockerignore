@@ -7,6 +7,10 @@
 # Ignore bundler config.
 /.bundle
 
+# Gems installed into the checkout (bundle config path vendor/bundle); the
+# image installs its own.
+/vendor/bundle
+
 # Ignore all environment files.
 /.env*
 
