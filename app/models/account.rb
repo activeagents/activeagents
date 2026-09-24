@@ -71,11 +71,12 @@ class Account < ApplicationRecord
 
   def current_plan
     if active_subscription
+      stripe_price_id = active_subscription.processor_plan
       # A fake_processor subscription is a comp granted from a console or
       # `platform:bootstrap_account`, and names its plan by slug.
-      return Plan.find_by(slug: active_subscription.processor_plan) if active_subscription.customer.processor == "fake_processor"
+      comp = Plan.find_by(slug: stripe_price_id) if active_subscription.customer.processor == "fake_processor"
+      return comp if comp
 
-      stripe_price_id = active_subscription.processor_plan
       Plan.find_by(stripe_monthly_price_id: stripe_price_id) ||
         Plan.find_by(stripe_annual_price_id: stripe_price_id)
     else

@@ -189,6 +189,96 @@ class Api::V1::EvaluationsControllerTest < ActionDispatch::IntegrationTest
     assert_response :content_too_large
   end
 
+  test "stores text with NUL characters removed" do
+    payload = envelope
+    payload["report"]["results"].first["answer"] = "Order\u00001234"
+    publish(payload)
+
+    assert_response :created
+    assert_includes EvaluationRun.find(json_response["id"]).scenario_results.pluck(:output), "Order1234"
+  end
+
+  test "summarizes the run from the stored results rather than the report's own summary" do
+    payload = envelope
+    payload["report"]["models"] = payload["report"]["models"].transform_values { |summary| summary.merge("pass_rate" => 100.0) }
+    payload["report"]["recommendations"] = [ nil ]
+    publish(payload)
+
+    run = EvaluationRun.find(json_response["id"])
+    assert_equal 50.0, run.scores.dig("_models", "openrouter/anthropic/claude-sonnet-5", "pass_rate")
+    assert_equal [ "missing_capability" ], run.scores["_recommendations"].map { |entry| entry["fault"] }
+  end
+
+  test "rejects a verdict whose rationale is not text" do
+    payload = envelope
+    payload["report"]["verdict"] = { "winner" => "gpt-5-mini", "rationale" => { "x" => 1 } }
+    publish(payload)
+
+    assert_response :unprocessable_entity
+  end
+
+  test "rejects a tool call that is not an object with a name" do
+    payload = envelope
+    payload["report"]["results"].first["tool_calls"] = [ [ 1 ] ]
+    publish(payload)
+
+    assert_response :unprocessable_entity
+  end
+
+  test "rejects a diagnosis whose judge is not an object" do
+    payload = envelope
+    payload["report"]["results"].first["diagnosis"] = { "judge" => "gpt" }
+    publish(payload)
+
+    assert_response :unprocessable_entity
+  end
+
+  test "rejects a token count its column cannot hold" do
+    payload = envelope
+    payload["report"]["results"].first["input_tokens"] = 3_000_000_000
+    publish(payload)
+
+    assert_response :unprocessable_entity
+  end
+
+  test "rejects a scope value that would read as two" do
+    payload = envelope
+    payload["report"]["metadata"]["scope"] = "eu, support"
+    publish(payload)
+
+    assert_response :unprocessable_entity
+  end
+
+  test "rejects two labels for the same provider and model" do
+    payload = envelope
+    first = payload["report"]["results"].first
+    duplicate = first.merge("label" => "gpt-5-mini-again", "metadata" => first["metadata"].merge("result_id" => "result-extra"))
+    payload["report"]["models"]["gpt-5-mini-again"] = payload["report"]["models"]["gpt-5-mini"]
+    payload["report"]["results"] << duplicate
+    publish(payload)
+
+    assert_response :unprocessable_entity
+    assert_match "same provider/model", json_response["error"]
+  end
+
+  test "refuses to add runs to an evaluation no report created" do
+    publish(envelope)
+    Evaluation.find(json_response["evaluation_id"]).update!(config: {})
+    publish(envelope)
+
+    assert_response :conflict
+  end
+
+  test "refuses a report from an account over its trace quota" do
+    now = Time.current
+    TelemetryTrace.insert_all(Array.new(Account::TRACE_LIMITS["free"]) do
+      { account_id: @account.id, trace_id: SecureRandom.hex(16), timestamp: now, created_at: now, updated_at: now }
+    end)
+    publish(envelope)
+
+    assert_response :too_many_requests
+  end
+
   test "serves the same route under the /api prefix" do
     post "/api/v1/evaluations", params: envelope.to_json,
       headers: { "Authorization" => "Bearer #{@account.telemetry_api_key}", "Content-Type" => "application/json" }
