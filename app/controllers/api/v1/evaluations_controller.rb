@@ -9,13 +9,13 @@ module Api
     #
     # Responds 201 with the receipt the publisher checks, 200 for an identical
     # retry, 409 for different content under a run_id already stored, 413 over
-    # the size limit, 429 over the account's trace quota, its observed-agent cap
-    # or the request rate, and 400 or 422 for a body that is not a valid report.
+    # the size limit, 403 at the account's observed-agent cap, 429 over its trace
+    # quota or the request rate, and 400 or 422 for a body that is not a valid
+    # report.
     class EvaluationsController < ActionController::API
       wrap_parameters false
 
       before_action :authenticate_account!
-      before_action :enforce_trace_quota
       rate_limit to: 30, within: 1.minute, by: -> { @account.id }
 
       def create
@@ -24,7 +24,7 @@ module Api
         body = request.body.read(ExternalEvaluationImport::MAX_BYTES + 1).to_s
         return report_too_large if body.bytesize > ExternalEvaluationImport::MAX_BYTES
 
-        run, duplicate = ExternalEvaluationImport.call(account: @account, payload: JSON.parse(body))
+        run, duplicate = ExternalEvaluationImport.call(account: @account, payload: JSON.parse(body), admit: -> { @account.can_ingest_traces? })
         render json: receipt(run, duplicate), status: duplicate ? :ok : :created
       rescue JSON::ParserError
         render json: { error: "Invalid JSON" }, status: :bad_request
@@ -32,8 +32,10 @@ module Api
         render json: { error: e.message }, status: :unprocessable_entity
       rescue ExternalEvaluationImport::Conflict => e
         render json: { error: e.message }, status: :conflict
-      rescue ExternalEvaluationImport::LimitExceeded => e
-        render json: { error: e.message }, status: :too_many_requests
+      rescue ExternalEvaluationImport::QuotaExceeded => e
+        render json: { error: e.message, limit: @account.effective_trace_limit }, status: :too_many_requests
+      rescue ExternalEvaluationImport::AgentLimitReached => e
+        render json: { error: e.message }, status: :forbidden
       end
 
       private
@@ -44,13 +46,6 @@ module Api
 
         @account = Account.authenticate_api_token(token)
         render json: { error: "Invalid API key" }, status: :unauthorized if @account.nil?
-      end
-
-      # An account over its plan's trace quota imports no reports either.
-      def enforce_trace_quota
-        return if @account.can_ingest_traces?
-
-        render json: { error: "Trace quota exceeded for current plan", limit: @account.effective_trace_limit }, status: :too_many_requests
       end
 
       # `url` is relative to this host: the dashboard page that shows the run.

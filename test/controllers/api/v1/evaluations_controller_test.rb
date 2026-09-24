@@ -266,17 +266,69 @@ class Api::V1::EvaluationsControllerTest < ActionDispatch::IntegrationTest
     Evaluation.find(json_response["evaluation_id"]).update!(config: {})
     publish(envelope)
 
-    assert_response :conflict
+    assert_response :unprocessable_entity
+    assert_match "does not belong to", json_response["error"]
   end
 
-  test "refuses a report from an account over its trace quota" do
+  test "records a rules-only report as scored on rules, not by an earlier report's judge" do
+    publish(envelope)
+    payload = envelope
+    payload["report"].delete("judge")
+    publish(payload)
+
+    assert_response :created
+    assert_nil EvaluationRun.find(json_response["id"]).judge_label
+  end
+
+  test "rejects a run_id with a NUL character rather than storing a different one" do
+    publish(envelope(run_id: "run-\u0000-1"))
+
+    assert_response :unprocessable_entity
+  end
+
+  test "rejects a result whose fault its diagnosis does not name" do
+    payload = envelope
+    failing = payload["report"]["results"].find { |result| result["fault"] }
+    failing["diagnosis"] = failing["diagnosis"].merge("fault" => "tool_error")
+    publish(payload)
+
+    assert_response :unprocessable_entity
+  end
+
+  test "refuses a report at the account's observed-agent cap with a 403" do
+    now = Time.current
+    Agent.insert_all(Array.new(ActionAgent::AgentRegistrar::MAX_OBSERVED_PER_OWNER) do |index|
+      { name: "Observed #{index}", slug: "observed-#{index}", status: 3, user_id: @user.id, provider: "openai", model: "gpt-5-mini",
+        service_name: "other-app", agent_class_name: "Other#{index}", created_at: now, updated_at: now }
+    end)
+    publish(envelope)
+
+    assert_response :forbidden
+  end
+
+  test "refuses a new report from an account over its trace quota" do
+    fill_trace_quota
+    publish(envelope)
+
+    assert_response :too_many_requests
+  end
+
+  test "still answers an identical retry once the account is over its trace quota" do
+    payload = envelope
+    publish(payload)
+    first_id = json_response["id"]
+    fill_trace_quota
+    publish(payload)
+
+    assert_response :ok
+    assert_equal first_id, json_response["id"]
+  end
+
+  def fill_trace_quota
     now = Time.current
     TelemetryTrace.insert_all(Array.new(Account::TRACE_LIMITS["free"]) do
       { account_id: @account.id, trace_id: SecureRandom.hex(16), timestamp: now, created_at: now, updated_at: now }
     end)
-    publish(envelope)
-
-    assert_response :too_many_requests
   end
 
   test "serves the same route under the /api prefix" do

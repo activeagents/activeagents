@@ -20,13 +20,17 @@ require "digest"
 # computed from the stored results, not taken from the report. The judge's
 # verdict and label are taken from it.
 #
-# An identical retry returns the stored run. Different content under a run_id
-# already stored raises Conflict. The account lock and the unique index on
-# (account_id, external_run_id) make concurrent retries converge on one run.
+# An identical retry returns the stored run, even once the account is over its
+# quota. Different content under a run_id already stored raises Conflict. The
+# account lock and the unique index on (account_id, external_run_id) make
+# concurrent retries converge on one run.
 class ExternalEvaluationImport
   class Invalid < StandardError; end
   class Conflict < StandardError; end
-  class LimitExceeded < StandardError; end
+  # Raised when storing the report would pass the account's quota.
+  class QuotaExceeded < StandardError; end
+  # Raised when the account holds as many observed agents as it can.
+  class AgentLimitReached < StandardError; end
 
   MAX_BYTES = 2.megabytes
   MAX_RESULTS = 1000
@@ -50,15 +54,18 @@ class ExternalEvaluationImport
   }.freeze
 
   # Returns `[run, duplicate]`: the stored EvaluationRun, and whether it was
-  # already stored by an earlier identical delivery. NUL characters, which
-  # Postgres cannot store, are removed from every string first.
-  def self.call(account:, payload:)
-    new(account, payload).call
+  # already stored by an earlier identical delivery. `admit` is asked only
+  # before a report would be newly stored; a falsey answer raises QuotaExceeded.
+  # NUL characters, which Postgres cannot store, are removed from the report's
+  # strings; the envelope's identity fields are validated as sent.
+  def self.call(account:, payload:, admit: nil)
+    new(account, payload, admit).call
   end
 
-  def initialize(account, payload)
+  def initialize(account, payload, admit = nil)
     @account = account
-    @payload = without_nul(payload)
+    @payload = payload.is_a?(Hash) ? payload.merge("report" => without_nul(payload["report"])) : payload
+    @admit = admit
   end
 
   def call
@@ -72,6 +79,8 @@ class ExternalEvaluationImport
 
         [ existing, true ]
       else
+        raise QuotaExceeded, "Evaluation report quota exceeded for current plan" if @admit && !@admit.call
+
         [ import(digest), false ]
       end
     end
@@ -133,7 +142,7 @@ class ExternalEvaluationImport
   def create_agent(slug: agent_slug)
     owner = @account.owner
     if Agent.for_owner(owner).observed_agents.count >= ActionAgent::AgentRegistrar::MAX_OBSERVED_PER_OWNER
-      raise LimitExceeded, "This account already has the most observed agents it can hold"
+      raise AgentLimitReached, "This account already has the most observed agents it can hold"
     end
 
     agent = Agent.new(
@@ -163,13 +172,14 @@ class ExternalEvaluationImport
   end
 
   # An evaluation of this name that no report created, or that another source,
-  # suite or scope created, is not this report's to add to.
+  # suite or scope created, is not this report's to add to. Changing the suite
+  # or scope names another evaluation, so the report is refused as invalid.
   def find_or_initialize_evaluation(agent)
     evaluation = agent.evaluations.find_or_initialize_by(name: evaluation_name)
     unless evaluation.new_record?
       return evaluation if evaluation.config.dig("external") == external_config
 
-      raise Conflict, "The agent already has an evaluation named #{evaluation_name} that this report does not belong to"
+      raise Invalid, "The agent already has an evaluation named #{evaluation_name} that this report does not belong to"
     end
 
     evaluation.assign_attributes(
@@ -268,14 +278,16 @@ class ExternalEvaluationImport
   end
 
   # What the run keeps from the report itself, which EvaluationRun#to_report
-  # reads back when it rebuilds the report.
+  # reads back when it rebuilds the report. `_judge_label` is kept even when
+  # nil, which to_report reads as "scored on rules", rather than falling back to
+  # the judge an earlier report named on the evaluation.
   def recorded_scores
     {
       "_verdict" => report["verdict"],
       "_selection" => selection,
       "_metadata" => metadata,
       "_judge_label" => judge_label
-    }.compact
+    }
   end
 
   # The run's scores in the shape the Evaluations view renders
@@ -298,6 +310,7 @@ class ExternalEvaluationImport
     %w[run_id source suite].each { |key| identifier!(@payload[key], key) }
     string!(@payload["agent_name"], "agent_name", 100, required: true)
     raise Invalid, "agent_name must contain at least two characters" if @payload["agent_name"].strip.length < 2
+    raise Invalid, "agent_name must not contain control characters" if @payload["agent_name"].match?(/[[:cntrl:]]/)
 
     object!(report, "report")
     optional_object!(report["metadata"], "report.metadata")
@@ -339,6 +352,8 @@ class ExternalEvaluationImport
       %w[prompt answer error recommendation].each { |key| string!(result[key], "result.#{key}", MAX_TEXT) }
       string!(result["group"], "result.group", 200)
       validate_tool_calls!(result["tool_calls"])
+      raise Invalid, "result.fault needs a diagnosis naming the same fault" if result["fault"] && result["diagnosis"].nil?
+
       validate_diagnosis!(result["diagnosis"], result["fault"])
       optional_object!(result["metadata"], "result.metadata")
       result_metadata = result["metadata"] || {}
@@ -369,7 +384,7 @@ class ExternalEvaluationImport
     return if diagnosis.nil?
 
     object!(diagnosis, "result.diagnosis")
-    raise Invalid, "result.diagnosis.fault must match result.fault" unless diagnosis["fault"].nil? || diagnosis["fault"] == fault
+    raise Invalid, "result.diagnosis.fault must match result.fault" unless diagnosis["fault"] == fault
 
     %w[summary recommendation].each { |key| string!(diagnosis[key], "result.diagnosis.#{key}", MAX_TEXT) }
     optional_object!(diagnosis["evidence"], "result.diagnosis.evidence")
