@@ -1,6 +1,8 @@
 # Telemetry criteria find no traces for an observed agent whose class lacks `Agent`
 
-**Repo:** activeagents/activeagent (actionagent engine). **Status:** noted, not filed.
+**Repo:** activeagents/activeagent (actionagent engine). **Status:** fixed in
+https://github.com/activeagents/activeagent/pull/481 (open). This app picks the fix up when its
+engine pin moves to a commit that includes it.
 
 `EvaluationRunnerService#telemetry_traces` selects traces with
 `for_agent(@evaluation.agent.telemetry_agent_class)`, and `Agent#telemetry_agent_class` appends
@@ -9,5 +11,7 @@
 whose telemetry criteria (`trace_error_rate`, `trace_latency`) look for `SupportBotAgent` and
 score no traces.
 
-Likely fix: for an observed agent, select its traces by `agent_id` (ingest sets it through
-`AgentRegistrar`) or by the stored `agent_class_name` + `action_name`.
+The fix gives `Agent` a `#telemetry_traces` scope that reads an observed agent's traces by
+`agent_id`, plus unattributed traces matching its `service_name`, `agent_class` and
+`agent_action`. Telemetry criteria, the agent's Traces and Tools tabs, and the Metrics page's
+deploy markers all use it.
