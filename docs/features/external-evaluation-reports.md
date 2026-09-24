@@ -30,10 +30,11 @@ retry contract are documented with the publisher, in the activeagent repo's
 |---|---|
 | 201 | The report was stored. The receipt carries `id`, `evaluation_id`, `run_id`, `status: "complete"`, `duplicate: false` and `url`, the run's dashboard page. |
 | 200 | The same report was already stored under this `run_id`; the receipt names the stored run, with `duplicate: true`. |
-| 409 | A different report is already stored under this `run_id`, or the agent already has an evaluation of that name that no report with this source, suite and scope created. |
+| 409 | A different report is already stored under this `run_id`. Never retry that report under this `run_id`. |
 | 413 | The body is over 2 MiB. |
-| 429 | The account is over its plan's trace quota, holds as many observed agents as it can, or has published more than 30 reports in a minute. |
-| 400, 422 | The body is not JSON, or not a valid version-1 report (the error names the field). |
+| 403 | The account holds as many observed agents as it can; an operator has to remove one first. |
+| 429 | The account is over its plan's trace quota, or has published more than 30 reports in a minute. An identical retry of a stored report is still answered with 200. |
+| 400, 422 | The body is not JSON, or not a valid version-1 report (the error names the field), or the agent already has an evaluation of that name that no report with this source, suite and scope created. |
 | 401 | No key, or an unknown one. |
 
 A valid report has:
