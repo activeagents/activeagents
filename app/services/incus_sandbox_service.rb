@@ -20,8 +20,8 @@
 # repositories) boots from the sandbox-app-runtime image: the repository is
 # fetched into APP_DIR, the image's BOOT_COMMAND starts the app, and the
 # runtime manifest it writes tells the dashboard where the app's MCP facade
-# answers. See activeagents/activeagent issue "checkout sandbox runtime
-# requirements" for the image contract.
+# answers. The image contract and what remains (the image itself, Claude
+# Code sessions, isolation) are tracked in activeagents/activeagent#489.
 #
 class IncusSandboxService
   CONTAINER_PREFIX = "sandbox"
