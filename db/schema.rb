@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.2].define(version: 2026_09_16_000002) do
+ActiveRecord::Schema[8.2].define(version: 2026_09_24_000001) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
 
@@ -429,6 +429,21 @@ ActiveRecord::Schema[8.2].define(version: 2026_09_16_000002) do
     t.index ["agent_id"], name: "index_evaluations_on_agent_id"
   end
 
+  create_table "github_connections", force: :cascade do |t|
+    t.text "access_token", null: false
+    t.bigint "account_id"
+    t.string "avatar_url"
+    t.datetime "created_at", null: false
+    t.bigint "github_user_id", null: false
+    t.string "login", null: false
+    t.jsonb "repositories", default: []
+    t.string "scopes"
+    t.datetime "updated_at", null: false
+    t.bigint "user_id"
+    t.index ["account_id"], name: "index_github_connections_on_account_id", unique: true
+    t.index ["user_id"], name: "index_github_connections_on_user_id"
+  end
+
   create_table "investor_documents", force: :cascade do |t|
     t.bigint "account_id", null: false
     t.datetime "created_at", null: false
@@ -682,8 +697,12 @@ ActiveRecord::Schema[8.2].define(version: 2026_09_16_000002) do
     t.datetime "last_activity_at"
     t.integer "max_runs", default: 10
     t.jsonb "mcp_servers", default: []
+    t.string "repository"
+    t.string "repository_ref"
     t.jsonb "runs", default: []
     t.integer "runs_count", default: 0
+    t.text "runtime_mcp_token"
+    t.string "runtime_mcp_url"
     t.string "sandbox_type", default: "playwright_mcp"
     t.string "session_id", null: false
     t.integer "status", default: 0

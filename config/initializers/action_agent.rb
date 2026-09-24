@@ -98,6 +98,14 @@ ActionAgent.configure do |config|
     ActionAgent.tenant_for(owner)&.provider_key_for(provider)&.generation_options
   end
 
+  # --- GitHub -------------------------------------------------------------
+  # Settings -> Integrations connects an account's GitHub over OAuth, and a
+  # checkout sandbox clones one of the repositories it selected. The OAuth
+  # app's callback is https://<host>/dashboard/api/github_connection/callback.
+  # Left unset, the engine reads GITHUB_CLIENT_ID / GITHUB_CLIENT_SECRET.
+  config.github_client_id = Rails.application.credentials.dig(:github, :client_id)
+  config.github_client_secret = Rails.application.credentials.dig(:github, :client_secret)
+
   # --- Attribution --------------------------------------------------------
   # Agents observed in reported telemetry hang off the account's owning user,
   # because that is who owns agents here.
