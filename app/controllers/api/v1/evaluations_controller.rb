@@ -4,64 +4,21 @@ module Api
   module V1
     # Collector for evaluation reports an application ran itself
     # (POST /v1/evaluations, ActiveAgent::Evals::Publisher's default endpoint).
-    # Authenticated with the same account keys as trace ingest; the report is
-    # stored by ExternalEvaluationImport.
     #
-    # Responds 201 with the receipt the publisher checks, 200 for an identical
-    # retry, 409 for different content under a run_id already stored, 413 over
-    # the size limit, 403 at the account's observed-agent cap, 429 over its trace
-    # quota or the request rate, and 400 or 422 for a body that is not a valid
-    # report.
-    class EvaluationsController < ActionController::API
-      wrap_parameters false
-
-      before_action :authenticate_account!
-      rate_limit to: 30, within: 1.minute, by: -> { @account.id }
-
-      def create
-        return report_too_large if request.content_length.to_i > ExternalEvaluationImport::MAX_BYTES
-
-        body = request.body.read(ExternalEvaluationImport::MAX_BYTES + 1).to_s
-        return report_too_large if body.bytesize > ExternalEvaluationImport::MAX_BYTES
-
-        run, duplicate = ExternalEvaluationImport.call(account: @account, payload: JSON.parse(body), admit: -> { @account.can_ingest_traces? })
-        render json: receipt(run, duplicate), status: duplicate ? :ok : :created
-      rescue JSON::ParserError
-        render json: { error: "Invalid JSON" }, status: :bad_request
-      rescue ExternalEvaluationImport::Invalid, ActiveRecord::RecordInvalid => e
-        render json: { error: e.message }, status: :unprocessable_entity
-      rescue ExternalEvaluationImport::Conflict => e
-        render json: { error: e.message }, status: :conflict
-      rescue ExternalEvaluationImport::QuotaExceeded => e
-        render json: { error: e.message, limit: @account.effective_trace_limit }, status: :too_many_requests
-      rescue ExternalEvaluationImport::AgentLimitReached => e
-        render json: { error: e.message }, status: :forbidden
-      end
+    # Validation, storage, idempotency and the status codes are the engine's
+    # collector's (ActionAgent::Api::EvaluationReportsController). This
+    # subclass takes the same account keys as /v1/traces, and points the
+    # receipt at this app's dashboard. The plan's trace quota refuses a new
+    # report through ActionAgent.quota_checker (config/initializers/action_agent.rb).
+    class EvaluationsController < ActionAgent::Api::EvaluationReportsController
+      include Api::AccountTokenAuthentication
 
       private
 
-      def authenticate_account!
-        token = request.authorization.to_s[/\ABearer\s+(.+)\z/i, 1]
-        return render(json: { error: "Missing Authorization header" }, status: :unauthorized) if token.blank?
-
-        @account = Account.authenticate_api_token(token)
-        render json: { error: "Invalid API key" }, status: :unauthorized if @account.nil?
-      end
-
-      # `url` is relative to this host: the dashboard page that shows the run.
-      def receipt(run, duplicate)
-        {
-          id: run.id,
-          evaluation_id: run.evaluation_id,
-          run_id: run.external_run_id,
-          status: run.status,
-          duplicate: duplicate,
-          url: "/dashboard/evaluations?evaluation=#{run.evaluation_id}&run=#{run.id}"
-        }
-      end
-
-      def report_too_large
-        render json: { error: "Report exceeds #{ExternalEvaluationImport::MAX_BYTES / 1.megabyte} MiB" }, status: :content_too_large
+      # The engine builds the page's path from the mount the request came
+      # through, and this route sits outside it.
+      def run_url(run)
+        "/dashboard/evaluations?evaluation=#{run.evaluation_id}&run=#{run.id}"
       end
     end
   end
