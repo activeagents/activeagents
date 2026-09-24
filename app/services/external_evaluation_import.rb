@@ -8,13 +8,17 @@ require "digest"
 # shows a run the dashboard executed. It never executes the application's agent.
 #
 # The report lands as:
-#   agent      — the account owner's observed agent for the envelope's
-#                `source` and `agent_name`
-#   evaluation — that agent's evaluation named for the `suite` and the report's
-#                scope (SCOPE_KEYS in its metadata)
+#   agent      — the account's observed agent for the envelope's `source` and
+#                `agent_name`, owned by the account's owner
+#   evaluation — that agent's evaluation for the `suite` and the report's scope
+#                (SCOPE_KEYS in its metadata), named for both
 #   scenarios  — one per reported scenario key, updated to the reported prompt
 #   run        — one complete EvaluationRun per (account, run_id), with one
 #                ActionAgent::EvaluationScenarioResult per scenario and model
+#
+# The run's per-model summary, criterion scores and recommendations are
+# computed from the stored results, not taken from the report. The judge's
+# verdict and label are taken from it.
 #
 # An identical retry returns the stored run. Different content under a run_id
 # already stored raises Conflict. The account lock and the unique index on
@@ -22,28 +26,39 @@ require "digest"
 class ExternalEvaluationImport
   class Invalid < StandardError; end
   class Conflict < StandardError; end
+  class LimitExceeded < StandardError; end
 
   MAX_BYTES = 2.megabytes
   MAX_RESULTS = 1000
   MAX_MODELS = 50
-  ID_PATTERN = %r{\A[a-zA-Z0-9_.:/-]{1,200}\z}
+  MAX_TEXT = MAX_BYTES
+  IDENTIFIER_PATTERN = /\A[^[:cntrl:]]{1,200}\z/
   TRACE_PATTERN = /\A[a-zA-Z0-9_-]{1,128}\z/
+  SCOPE_PATTERN = %r{\A[\w .:/@-]{1,100}\z}
   STATUSES = %w[passed failed errored].freeze
   # Report metadata that tells one evaluation of a suite from another, in the
   # order it is written into the evaluation's name.
   SCOPE_KEYS = %w[scope environment role].freeze
   # The engine stores at most this much of an answer (ScenarioEvaluationRunner#persist).
   OUTPUT_BYTES = 20_000
+  # The largest value each numeric result column holds.
+  NUMERIC_LIMITS = {
+    "duration_ms" => 2_147_483_647,
+    "input_tokens" => 2_147_483_647,
+    "output_tokens" => 2_147_483_647,
+    "cost" => 999_999
+  }.freeze
 
   # Returns `[run, duplicate]`: the stored EvaluationRun, and whether it was
-  # already stored by an earlier identical delivery.
+  # already stored by an earlier identical delivery. NUL characters, which
+  # Postgres cannot store, are removed from every string first.
   def self.call(account:, payload:)
     new(account, payload).call
   end
 
   def initialize(account, payload)
     @account = account
-    @payload = payload
+    @payload = without_nul(payload)
   end
 
   def call
@@ -85,12 +100,13 @@ class ExternalEvaluationImport
       external_report_digest: digest,
       status: :complete,
       selection: selection,
-      scores: scores,
+      scores: recorded_scores,
       samples_evaluated: results.size,
       samples_passed: results.count { |result| result["status"] == "passed" },
       completed_at: Time.current
     )
     results.each { |result| persist(run, scenarios.fetch(result["scenario_key"]), result) }
+    run.update!(scores: summarized_scores(run))
     evaluation.touch
     run
   end
@@ -100,46 +116,73 @@ class ExternalEvaluationImport
   # Keyed with no action, unlike the per-action agents trace ingest observes:
   # the report evaluates the agent as a whole.
   def find_or_create_agent
+    find_agent || create_agent
+  rescue ActiveRecord::RecordNotUnique
+    # A concurrent first import from another account took the slug.
+    find_agent || create_agent(slug: "#{agent_slug}-#{SecureRandom.hex(3)}")
+  end
+
+  def agent_identity
+    { service_name: @payload["source"], agent_class_name: @payload["agent_name"], action_name: nil }
+  end
+
+  def find_agent
+    Agent.for_owner(@account.owner).observed_agents.where(account_id: @account.id).find_by(agent_identity)
+  end
+
+  def create_agent(slug: agent_slug)
     owner = @account.owner
-    identity = { service_name: @payload["source"], agent_class_name: @payload["agent_name"], action_name: nil }
-    Agent.for_owner(owner).observed_agents.find_by(identity) || begin
-      agent = Agent.new(
-        identity.merge(
-          name: @payload["agent_name"],
-          slug: agent_slug,
-          status: :observed,
-          source: "evaluation-report",
-          description: "Evaluation reports published by #{@payload['source']}",
-          provider: results.first["provider"],
-          model: results.first["model"],
-          instructions: "",
-          tools: []
-        )
-      )
-      agent.owner = owner
-      agent.save!
-      agent
+    if Agent.for_owner(owner).observed_agents.count >= ActionAgent::AgentRegistrar::MAX_OBSERVED_PER_OWNER
+      raise LimitExceeded, "This account already has the most observed agents it can hold"
     end
+
+    agent = Agent.new(
+      agent_identity.merge(
+        name: @payload["agent_name"],
+        slug: slug,
+        status: :observed,
+        source: "evaluation-report",
+        description: "Evaluation reports published by #{@payload['source']}",
+        provider: results.first["provider"],
+        model: results.first["model"],
+        instructions: "",
+        tools: []
+      )
+    )
+    agent.owner = owner
+    agent.account_id = @account.id
+    agent.save!
+    agent
   end
 
   def agent_slug
-    base = [ @payload["source"], @payload["agent_name"] ].join("-").parameterize
+    base = [ @payload["source"], @payload["agent_name"] ].join("-").parameterize.presence || "external-agent"
     return base unless Agent.exists?(slug: base)
 
     "#{base}-#{SecureRandom.hex(3)}"
   end
 
+  # An evaluation of this name that no report created, or that another source,
+  # suite or scope created, is not this report's to add to.
   def find_or_initialize_evaluation(agent)
     evaluation = agent.evaluations.find_or_initialize_by(name: evaluation_name)
-    return evaluation unless evaluation.new_record?
+    unless evaluation.new_record?
+      return evaluation if evaluation.config.dig("external") == external_config
+
+      raise Conflict, "The agent already has an evaluation named #{evaluation_name} that this report does not belong to"
+    end
 
     evaluation.assign_attributes(
       judge_kind: judge_label ? "llm" : "rules",
       judge_model: judge_label,
       criteria: [],
-      config: { "external" => { "source" => @payload["source"], "suite" => @payload["suite"], "scope" => scope } }
+      config: { "external" => external_config }
     )
     evaluation
+  end
+
+  def external_config
+    { "source" => @payload["source"], "suite" => @payload["suite"], "scope" => scope }
   end
 
   # "orders (eu, support)" for a report whose metadata names a scope and a
@@ -150,7 +193,7 @@ class ExternalEvaluationImport
   end
 
   def scope
-    SCOPE_KEYS.filter_map { |key| [ key, metadata[key] ] if metadata[key].is_a?(String) && metadata[key].present? }.to_h
+    SCOPE_KEYS.filter_map { |key| [ key, metadata[key] ] if metadata[key].present? }.to_h
   end
 
   # The judge that scored the report, or nil when it was scored on rules alone.
@@ -224,19 +267,25 @@ class ExternalEvaluationImport
     }
   end
 
-  # The run's scores in the shape the Evaluations view renders
-  # (ScenarioEvaluationRunner#scores_for): the criterion scores, plus the
-  # report's per-model summary, recommendations, verdict and metadata under
-  # underscore-prefixed keys.
-  def scores
-    (report["criteria"] || {}).reject { |key, _| key.start_with?("_") }.merge(
-      "_models" => report["models"],
-      "_recommendations" => report["recommendations"] || [],
+  # What the run keeps from the report itself, which EvaluationRun#to_report
+  # reads back when it rebuilds the report.
+  def recorded_scores
+    {
       "_verdict" => report["verdict"],
       "_selection" => selection,
       "_metadata" => metadata,
-      "_judge_label" => report["judge"]
-    ).compact
+      "_judge_label" => judge_label
+    }.compact
+  end
+
+  # The run's scores in the shape the Evaluations view renders
+  # (ScenarioEvaluationRunner#scores_for), summarized from the stored results.
+  def summarized_scores(run)
+    rebuilt = run.to_report
+    rebuilt.criterion_scores.merge(
+      "_models" => rebuilt.summary_by_model,
+      "_recommendations" => rebuilt.recommendations
+    ).merge(recorded_scores)
   end
 
   # --- validation ------------------------------------------------------------
@@ -252,10 +301,7 @@ class ExternalEvaluationImport
 
     object!(report, "report")
     optional_object!(report["metadata"], "report.metadata")
-    optional_object!(report["criteria"], "report.criteria")
-    optional_object!(report["verdict"], "report.verdict")
-    raise Invalid, "report.recommendations must be an array" unless report["recommendations"].nil? || report["recommendations"].is_a?(Array)
-
+    SCOPE_KEYS.each { |key| scope_value!(metadata[key], "report.metadata.#{key}") }
     judge_trace_ids!(metadata["judge_trace_ids"])
     string!(report["judge"], "report.judge", 200)
     object!(report["models"], "report.models")
@@ -265,16 +311,22 @@ class ExternalEvaluationImport
     end
 
     validate_results!
+    validate_verdict!
   end
 
   def validate_results!
     pairs = Set.new
     result_ids = Set.new
+    label_specs = {}
     results.each_with_index do |result, index|
       object!(result, "result #{index}")
       %w[scenario_key label provider model].each { |key| string!(result[key], "result.#{key}", 200, required: true) }
       raise Invalid, "result label #{result['label']} is missing from report.models" unless report["models"].key?(result["label"])
       raise Invalid, "duplicate scenario/model result" unless pairs.add?(result.values_at("scenario_key", "label"))
+      spec = result.values_at("provider", "model")
+      raise Invalid, "result label #{result['label']} names more than one provider/model" if label_specs.fetch(result["label"], spec) != spec
+
+      label_specs[result["label"]] = spec
       raise Invalid, "invalid result status" unless STATUSES.include?(result["status"])
       unless result["fault"].nil? || ActionAgent::EvaluationScenarioResult::FAULTS.include?(result["fault"])
         raise Invalid, "unknown fault #{result['fault']}"
@@ -283,12 +335,11 @@ class ExternalEvaluationImport
       numeric!(result["score"], "result.score", max: 1)
       optional_object!(result["scores"], "result.scores")
       (result["scores"] || {}).each_value { |score| numeric!(score, "criterion score", max: 1) }
-      %w[duration_ms cost input_tokens output_tokens].each { |key| numeric!(result[key], "result.#{key}") }
-      %w[prompt answer error recommendation].each { |key| string!(result[key], "result.#{key}", 100_000) }
+      NUMERIC_LIMITS.each { |key, max| numeric!(result[key], "result.#{key}", max: max) }
+      %w[prompt answer error recommendation].each { |key| string!(result[key], "result.#{key}", MAX_TEXT) }
       string!(result["group"], "result.group", 200)
-      raise Invalid, "result.tool_calls must be an array" unless result["tool_calls"].nil? || result["tool_calls"].is_a?(Array)
-
-      optional_object!(result["diagnosis"], "result.diagnosis")
+      validate_tool_calls!(result["tool_calls"])
+      validate_diagnosis!(result["diagnosis"], result["fault"])
       optional_object!(result["metadata"], "result.metadata")
       result_metadata = result["metadata"] || {}
       if result_metadata["result_id"]
@@ -298,6 +349,54 @@ class ExternalEvaluationImport
       trace_id!(result_metadata["trace_id"]) if result_metadata["trace_id"]
       judge_trace_ids!(result_metadata["judge_trace_ids"])
     end
+    distinct_specs = label_specs.values.uniq
+    raise Invalid, "two model labels name the same provider/model" if distinct_specs.size < label_specs.size
+  end
+
+  def validate_tool_calls!(tool_calls)
+    return if tool_calls.nil?
+    raise Invalid, "result.tool_calls must be an array" unless tool_calls.is_a?(Array)
+
+    tool_calls.each do |call|
+      object!(call, "result.tool_calls entry")
+      string!(call["name"], "result.tool_calls name", 200, required: true)
+    end
+  end
+
+  # The diagnosis fields the dashboard reads, in the shapes
+  # ActiveAgent::Evals::Diagnosis writes them.
+  def validate_diagnosis!(diagnosis, fault)
+    return if diagnosis.nil?
+
+    object!(diagnosis, "result.diagnosis")
+    raise Invalid, "result.diagnosis.fault must match result.fault" unless diagnosis["fault"].nil? || diagnosis["fault"] == fault
+
+    %w[summary recommendation].each { |key| string!(diagnosis[key], "result.diagnosis.#{key}", MAX_TEXT) }
+    optional_object!(diagnosis["evidence"], "result.diagnosis.evidence")
+    unavailable = diagnosis.dig("evidence", "unavailable")
+    unless unavailable.nil? || (unavailable.is_a?(Array) && unavailable.all?(String))
+      raise Invalid, "result.diagnosis.evidence.unavailable must be an array of tool names"
+    end
+
+    judge = diagnosis["judge"]
+    optional_object!(judge, "result.diagnosis.judge")
+    return if judge.nil?
+
+    string!(judge["instruction_change"], "result.diagnosis.judge.instruction_change", MAX_TEXT)
+    optional_object!(judge["suggested_tool"], "result.diagnosis.judge.suggested_tool")
+    string!(judge.dig("suggested_tool", "name"), "result.diagnosis.judge.suggested_tool.name", 200)
+  end
+
+  def validate_verdict!
+    verdict = report["verdict"]
+    return if verdict.nil?
+
+    object!(verdict, "report.verdict")
+    %w[winner judge].each { |key| string!(verdict[key], "report.verdict.#{key}", 200) }
+    string!(verdict["rationale"], "report.verdict.rationale", MAX_TEXT)
+    return if verdict["winner"].nil? || report["models"].key?(verdict["winner"])
+
+    raise Invalid, "report.verdict.winner is missing from report.models"
   end
 
   def object!(value, name)
@@ -315,7 +414,12 @@ class ExternalEvaluationImport
   end
 
   def identifier!(value, name)
-    raise Invalid, "invalid #{name}" unless value.is_a?(String) && ID_PATTERN.match?(value)
+    raise Invalid, "#{name} must be 1-200 characters without control characters" unless value.is_a?(String) && IDENTIFIER_PATTERN.match?(value)
+  end
+
+  def scope_value!(value, name)
+    return if value.nil?
+    raise Invalid, "#{name} must be 1-100 letters, digits, spaces or . : / @ _ -" unless value.is_a?(String) && SCOPE_PATTERN.match?(value)
   end
 
   def trace_id!(value)
@@ -329,7 +433,7 @@ class ExternalEvaluationImport
     value.each { |trace| trace_id!(trace) }
   end
 
-  def numeric!(value, name, max: 1e15)
+  def numeric!(value, name, max:)
     return if value.nil?
     raise Invalid, "#{name} must be a finite number between 0 and #{max}" unless value.is_a?(Numeric) && value.finite? && value.between?(0, max)
   end
@@ -344,10 +448,19 @@ class ExternalEvaluationImport
         validate_json!(child, depth + 1)
       end
     when Array then value.each { |child| validate_json!(child, depth + 1) }
-    when String then string!(value, "text", 100_000)
+    when String then raise Invalid, "text is not valid UTF-8" unless value.valid_encoding?
     when Numeric then raise Invalid, "non-finite number" unless value.finite?
     when NilClass, TrueClass, FalseClass then nil
     else raise Invalid, "unsupported JSON value"
+    end
+  end
+
+  def without_nul(value)
+    case value
+    when Hash then value.to_h { |key, child| [ without_nul(key), without_nul(child) ] }
+    when Array then value.map { |child| without_nul(child) }
+    when String then value.delete("\u0000")
+    else value
     end
   end
 

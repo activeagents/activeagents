@@ -30,16 +30,33 @@ retry contract are documented with the publisher, in the activeagent repo's
 |---|---|
 | 201 | The report was stored. The receipt carries `id`, `evaluation_id`, `run_id`, `status: "complete"`, `duplicate: false` and `url`, the run's dashboard page. |
 | 200 | The same report was already stored under this `run_id`; the receipt names the stored run, with `duplicate: true`. |
-| 409 | A different report is already stored under this `run_id`. |
+| 409 | A different report is already stored under this `run_id`, or the agent already has an evaluation of that name that no report with this source, suite and scope created. |
 | 413 | The body is over 2 MiB. |
-| 400, 422 | The body is not JSON, or not a valid version-1 report. |
+| 429 | The account is over its plan's trace quota, holds as many observed agents as it can, or has published more than 30 reports in a minute. |
+| 400, 422 | The body is not JSON, or not a valid version-1 report (the error names the field). |
 | 401 | No key, or an unknown one. |
+
+A valid report has:
+
+- `run_id`, `source` and `suite` of 1-200 characters with no control characters, and an
+  `agent_name` of 2-100.
+- Scope values (`scope`, `environment`, `role` in the report metadata) of 1-100 letters,
+  digits, spaces or `. : / @ _ -`.
+- One result per scenario and model label, each label naming one provider/model and no two
+  labels the same one.
+- Token counts and durations that fit a 32-bit integer, and a cost below 1,000,000.
+- Tool calls that are objects with a `name`, and a verdict and diagnosis in the shapes
+  `ActiveAgent::Evals` writes.
+
+NUL characters are removed from every string, and an answer is stored up to its first 20,000
+bytes. The run's per-model summary, criterion scores and recommendations are computed from
+its stored results; the judge's verdict and label are kept as the report gives them.
 
 ## Where a report lands
 
 | Record | Identity |
 |---|---|
-| Agent | The account owner's observed agent for the envelope's `source` and `agent_name`. It is read-only, like the agents trace ingest observes. |
+| Agent | The account's observed agent for the envelope's `source` and `agent_name`, owned by the account's owner. It is read-only, like the agents trace ingest observes. |
 | Evaluation | That agent's evaluation named for the `suite`, qualified by the report metadata's `scope`, `environment` and `role`, in that order: `orders (eu, support)`. |
 | Scenarios | One per reported scenario key, updated to the prompt and group the report ran. Scenarios the report did not run are left alone. |
 | Run | One complete run per account and `run_id`, with one scenario result per scenario and model. Each result keeps its `metadata` (`result_id`, `trace_id`, `judge_trace_ids`). |
@@ -51,7 +68,9 @@ elsewhere. Evaluate again from the application and publish the new run.
 
 A production image of this app runs locally with plain HTTP when
 `RAILS_ASSUME_SSL=false` and `RAILS_FORCE_SSL=false` are set.
-`bin/rails platform:bootstrap_account EMAIL=… PASSWORD=… PLAN=enterprise` creates
-a login with an account and an API key, comps the account onto a plan so trace
-quotas do not interrupt testing, and prints the key as `ACTIVEAGENTS_API_KEY=…`.
-It is idempotent.
+`bin/rails platform:bootstrap_account EMAIL=… PASSWORD=… PLAN=enterprise CONFIRM=yes`
+creates a login with an account it owns and an API key, comps the account onto a plan so
+trace quotas do not interrupt testing, and prints the key as `ACTIVEAGENTS_API_KEY=…`. It is
+idempotent. `CONFIRM=yes` is required wherever `RAILS_ENV` is production, which includes a
+local run of the production image, and it refuses to comp an account with a paid
+subscription.
