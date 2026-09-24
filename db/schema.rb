@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.2].define(version: 2026_09_24_180151) do
+ActiveRecord::Schema[8.2].define(version: 2026_09_24_224117) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
 
@@ -357,7 +357,6 @@ ActiveRecord::Schema[8.2].define(version: 2026_09_24_180151) do
   end
 
   create_table "evaluation_runs", force: :cascade do |t|
-    t.bigint "account_id"
     t.bigint "agent_version_id"
     t.datetime "completed_at"
     t.datetime "created_at", null: false
@@ -365,16 +364,17 @@ ActiveRecord::Schema[8.2].define(version: 2026_09_24_180151) do
     t.bigint "evaluation_id", null: false
     t.string "external_report_digest"
     t.string "external_run_id"
+    t.string "external_tenant"
     t.integer "samples_evaluated", default: 0
     t.integer "samples_passed", default: 0
     t.jsonb "scores", default: {}
     t.jsonb "selection", default: {}
     t.integer "status", default: 0, null: false
     t.datetime "updated_at", null: false
-    t.index ["account_id", "external_run_id"], name: "index_evaluation_runs_on_account_id_and_external_run_id", unique: true, where: "(external_run_id IS NOT NULL)"
     t.index ["agent_version_id"], name: "index_evaluation_runs_on_agent_version_id"
     t.index ["evaluation_id", "created_at"], name: "index_evaluation_runs_on_evaluation_id_and_created_at"
     t.index ["evaluation_id"], name: "index_evaluation_runs_on_evaluation_id"
+    t.index ["external_tenant", "external_run_id"], name: "index_evaluation_runs_on_external_identity", unique: true
     t.index ["status"], name: "index_evaluation_runs_on_status"
   end
 
@@ -827,7 +827,6 @@ ActiveRecord::Schema[8.2].define(version: 2026_09_24_180151) do
   add_foreign_key "document_access_grants", "investors"
   add_foreign_key "document_access_logs", "investor_documents"
   add_foreign_key "document_access_logs", "investors"
-  add_foreign_key "evaluation_runs", "accounts", on_delete: :nullify
   add_foreign_key "evaluation_runs", "evaluations"
   add_foreign_key "evaluations", "agents"
   add_foreign_key "investor_documents", "accounts"

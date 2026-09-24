@@ -84,7 +84,8 @@ class Api::V1::EvaluationsControllerTest < ActionDispatch::IntegrationTest
 
     agent = evaluation.agent
     assert agent.observed?, "the reporting application's agent is read-only here"
-    assert_equal [ @user.id, "support-app", "SupportBot", nil ], [ agent.user_id, agent.service_name, agent.agent_class_name, agent.action_name ]
+    assert_equal [ @user.id, @account.id ], [ agent.user_id, agent.account_id ], "the agent is the account owner's, in the publishing account"
+    assert_equal [ "support-app", "SupportBot", nil ], [ agent.service_name, agent.agent_class_name, agent.action_name ]
 
     assert_equal [ 4, 3 ], [ run.samples_evaluated, run.samples_passed ]
     assert_equal [ "gpt-5-mini", "openrouter/anthropic/claude-sonnet-5" ], run.models
@@ -174,6 +175,13 @@ class Api::V1::EvaluationsControllerTest < ActionDispatch::IntegrationTest
     assert_response :unprocessable_entity
   end
 
+  test "rejects a body not declared as JSON" do
+    post "/v1/evaluations", params: envelope.to_json,
+      headers: { "Authorization" => "Bearer #{@account.telemetry_api_key}", "Content-Type" => "text/plain" }
+
+    assert_response :unsupported_media_type
+  end
+
   test "rejects a body that is not JSON" do
     post "/v1/evaluations", params: "{not json",
       headers: { "Authorization" => "Bearer #{@account.telemetry_api_key}", "Content-Type" => "application/json" }
@@ -183,7 +191,7 @@ class Api::V1::EvaluationsControllerTest < ActionDispatch::IntegrationTest
 
   test "rejects a report over the size limit" do
     payload = envelope
-    payload["report"]["results"].first["answer"] = "x" * (ExternalEvaluationImport::MAX_BYTES + 1)
+    payload["report"]["results"].first["answer"] = "x" * (ActionAgent::EvaluationReportImport::MAX_BYTES + 1)
     publish(payload)
 
     assert_response :content_too_large
@@ -308,7 +316,18 @@ class Api::V1::EvaluationsControllerTest < ActionDispatch::IntegrationTest
 
   test "refuses a new report from an account over its trace quota" do
     fill_trace_quota
-    publish(envelope)
+
+    assert_no_difference -> { EvaluationRun.count } do
+      publish(envelope)
+    end
+    assert_response :too_many_requests
+    assert_equal [ "Trace quota exceeded for current plan", Account::TRACE_LIMITS["free"] ], json_response.values_at("error", "limit")
+  end
+
+  test "applies the trace quota to reports posted to the dashboard mount's collector too" do
+    fill_trace_quota
+    post "/dashboard/api/evaluation_reports", params: envelope.to_json,
+      headers: { "Authorization" => "Bearer #{@account.telemetry_api_key}", "Content-Type" => "application/json" }
 
     assert_response :too_many_requests
   end
