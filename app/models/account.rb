@@ -20,6 +20,20 @@ class Account < ApplicationRecord
 
   validates :name, presence: true
 
+  # Returns the account a Bearer token authenticates, or nil: the account of an
+  # ApiKey (Settings -> API Keys), which records the key's use, else the
+  # account whose telemetry_api_key the token is.
+  def self.authenticate_api_token(token)
+    return if token.blank?
+
+    if (api_key = ActionAgent::ApiKey.authenticate(token))
+      api_key.touch_last_used!
+      return api_key.account
+    end
+
+    find_by(telemetry_api_key: token)
+  end
+
   # Agent execution limits per monthly period, by plan slug.
   # Free is a deliberately low observability trial — enough to evaluate the
   # product, not enough to run production on. Pro matches the advertised
@@ -58,6 +72,11 @@ class Account < ApplicationRecord
   def current_plan
     if active_subscription
       stripe_price_id = active_subscription.processor_plan
+      # A fake_processor subscription is a comp granted from a console or
+      # `platform:bootstrap_account`, and names its plan by slug.
+      comp = Plan.find_by(slug: stripe_price_id) if active_subscription.customer.processor == "fake_processor"
+      return comp if comp
+
       Plan.find_by(stripe_monthly_price_id: stripe_price_id) ||
         Plan.find_by(stripe_annual_price_id: stripe_price_id)
     else
