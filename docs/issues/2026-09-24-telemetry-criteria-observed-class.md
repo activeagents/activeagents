@@ -1,8 +1,8 @@
 # Telemetry criteria find no traces for an observed agent whose class lacks `Agent`
 
 **Repo:** activeagents/activeagent (actionagent engine). **Status:** fixed in
-https://github.com/activeagents/activeagent/pull/481 (open). This app picks the fix up when its
-engine pin moves to a commit that includes it.
+https://github.com/activeagents/activeagent/pull/481, released in activeagent and actionagent
+1.7.0, which this app runs.
 
 `EvaluationRunnerService#telemetry_traces` selects traces with
 `for_agent(@evaluation.agent.telemetry_agent_class)`, and `Agent#telemetry_agent_class` appends
