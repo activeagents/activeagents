@@ -59,3 +59,56 @@ jobs:
           RAILS_ENV: production
           SECRET_KEY_BASE_DUMMY: "1"
         run: bin/rails zeitwerk:check
+
+  test:
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    env:
+      RAILS_ENV: test
+      DATABASE_URL: postgres://postgres:postgres@localhost:5432/activeagents_test
+      # One process: the suite runs in seconds, and this is the configuration
+      # it is verified in locally.
+      PARALLEL_WORKERS: "1"
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+
+      - name: Set up Ruby
+        uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: .ruby-version
+          bundler-cache: true
+
+      - name: Set up Node
+        uses: actions/setup-node@v7
+        with:
+          node-version-file: .node-version
+
+      # The landing pages link the esbuild bundle, which is built rather than
+      # committed. Yarn 1 reads yarn.lock, as the Dockerfile's build does.
+      - name: Build JavaScript
+        run: |
+          npm install -g yarn@1.22.19
+          yarn install --frozen-lockfile
+          yarn build
+
+      - name: Prepare the test database
+        run: bin/rails db:create db:schema:load
+
+      - name: Run tests
+        run: bin/rails test

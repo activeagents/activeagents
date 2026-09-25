@@ -67,16 +67,28 @@ ActionAgent.configure do |config|
   # action; nil allows it.
   # Owners reaching the dashboard can be users or accounts, but plans hang
   # off accounts, so both resolve through tenant_for below.
+  #
+  # A published evaluation report (/v1/evaluations) is refused once the
+  # account is over its plan's trace quota, with the body /v1/traces answers
+  # its 429 with. The engine asks only before storing a new report, so an
+  # identical retry still gets its receipt.
   config.quota_checker = lambda do |owner, kind|
-    next nil unless kind == :execution
-
     account = ActionAgent.tenant_for(owner)
-    next nil if account.nil? || account.can_run_agent?
+    next nil if account.nil?
 
-    {
-      message: "You've used all #{account.effective_agent_runs_limit} agent runs this month. Upgrade to continue.",
-      usage: account.usage_stats
-    }
+    case kind
+    when :execution
+      next nil if account.can_run_agent?
+
+      {
+        message: "You've used all #{account.effective_agent_runs_limit} agent runs this month. Upgrade to continue.",
+        usage: account.usage_stats
+      }
+    when :evaluation_report
+      next nil if account.can_ingest_traces?
+
+      { error: "Trace quota exceeded for current plan", limit: account.effective_trace_limit }
+    end
   end
 
   config.usage_recorder = lambda do |owner, kind|

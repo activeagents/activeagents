@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.2].define(version: 2026_09_16_000002) do
+ActiveRecord::Schema[8.2].define(version: 2026_09_24_224117) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
 
@@ -362,6 +362,9 @@ ActiveRecord::Schema[8.2].define(version: 2026_09_16_000002) do
     t.datetime "created_at", null: false
     t.text "error_message"
     t.bigint "evaluation_id", null: false
+    t.string "external_report_digest"
+    t.string "external_run_id"
+    t.string "external_tenant"
     t.integer "samples_evaluated", default: 0
     t.integer "samples_passed", default: 0
     t.jsonb "scores", default: {}
@@ -371,6 +374,7 @@ ActiveRecord::Schema[8.2].define(version: 2026_09_16_000002) do
     t.index ["agent_version_id"], name: "index_evaluation_runs_on_agent_version_id"
     t.index ["evaluation_id", "created_at"], name: "index_evaluation_runs_on_evaluation_id_and_created_at"
     t.index ["evaluation_id"], name: "index_evaluation_runs_on_evaluation_id"
+    t.index ["external_tenant", "external_run_id"], name: "index_evaluation_runs_on_external_identity", unique: true
     t.index ["status"], name: "index_evaluation_runs_on_status"
   end
 
