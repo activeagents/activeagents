@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.2].define(version: 2026_09_24_000001) do
+ActiveRecord::Schema[8.2].define(version: 2026_09_26_000001) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
 
@@ -327,6 +327,33 @@ ActiveRecord::Schema[8.2].define(version: 2026_09_24_000001) do
     t.index ["safe_agreement_id"], name: "index_cap_table_entries_on_safe_agreement_id"
     t.index ["security_type"], name: "index_cap_table_entries_on_security_type"
     t.index ["stakeholder_type"], name: "index_cap_table_entries_on_stakeholder_type"
+  end
+
+  create_table "code_sessions", force: :cascade do |t|
+    t.bigint "account_id"
+    t.string "claude_session_id"
+    t.datetime "created_at", null: false
+    t.text "diff"
+    t.integer "dropped_events_count", default: 0, null: false
+    t.integer "duration_ms"
+    t.text "error_message"
+    t.jsonb "events", default: []
+    t.datetime "finished_at"
+    t.integer "input_tokens"
+    t.string "model"
+    t.integer "num_turns"
+    t.integer "output_tokens"
+    t.text "prompt", null: false
+    t.text "result"
+    t.bigint "sandbox_session_id", null: false
+    t.datetime "started_at"
+    t.integer "status", default: 0, null: false
+    t.decimal "total_cost_usd", precision: 12, scale: 6
+    t.datetime "updated_at", null: false
+    t.bigint "user_id"
+    t.index ["account_id"], name: "index_code_sessions_on_account_id"
+    t.index ["sandbox_session_id"], name: "index_code_sessions_on_sandbox_session_id"
+    t.index ["user_id"], name: "index_code_sessions_on_user_id"
   end
 
   create_table "document_access_grants", force: :cascade do |t|
