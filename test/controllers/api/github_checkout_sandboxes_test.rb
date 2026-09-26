@@ -49,9 +49,13 @@ class Api::GithubCheckoutSandboxesTest < ActionDispatch::IntegrationTest
     post "/dashboard/api/provider_keys", params: { provider: "claude_code", credential: OAUTH_TOKEN }, as: :json
     assert_response :created
 
-    post "/dashboard/api/sandboxes", params: { sandbox_type: "app_runtime", repository: "acme/shop" }, as: :json
+    # Provisioning a checkout runs in the background (activeagent#491).
+    perform_enqueued_jobs do
+      post "/dashboard/api/sandboxes", params: { sandbox_type: "app_runtime", repository: "acme/shop" }, as: :json
+    end
 
     assert_response :created, response.body
+    get "/dashboard/api/sandboxes/#{json_response.dig('sandbox', 'session_id')}"
     assert_equal "ready", json_response.dig("sandbox", "status")
     key = json_response.dig("sandbox", "runtime_server_key")
     assert key.start_with?("sandbox:")
