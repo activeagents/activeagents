@@ -178,6 +178,16 @@ class IncusSandboxService
     false
   end
 
+  # The container booted for +sandbox_session+, found by the session id it
+  # was labelled with. The engine asks for it when a boot's job died before
+  # recording the container's name (activeagent#491), so Stop and the reaper
+  # can still remove it.
+  #
+  # @return [String, nil] the container name
+  def handle_for(sandbox_session)
+    list_sandboxes.find { |sandbox| sandbox[:session_id] == sandbox_session.session_id }&.dig(:name)
+  end
+
   # List all sandbox containers
   #
   # @return [Array<Hash>] List of container statuses
