@@ -50,6 +50,46 @@ class ProviderKeyTest < ActiveSupport::TestCase
     assert_equal({ host: "http://localhost:11434/v1" }, host.generation_options)
   end
 
+  test "ollama hosts get the /v1 path added and trailing slashes dropped" do
+    assert_equal "http://localhost:11434/v1", ProviderKey.normalize_host("http://localhost:11434")
+    assert_equal "http://localhost:11434/v1", ProviderKey.normalize_host("http://localhost:11434/")
+    assert_equal "http://localhost:11434/v1", ProviderKey.normalize_host(" http://localhost:11434/v1/ ")
+    assert_equal "https://ollama.com/v1", ProviderKey.normalize_host("https://ollama.com")
+    # An explicit non-default path is left alone (reverse proxies).
+    assert_equal "https://ai.example.com/ollama/v1", ProviderKey.normalize_host("https://ai.example.com/ollama/v1")
+
+    key = @account.provider_keys.create!(provider: "ollama", credential: "http://mac-mini.local:11434")
+    assert_equal "http://mac-mini.local:11434/v1", key.credential
+  end
+
+  test "ollama can carry an optional encrypted api key for remote servers" do
+    key = @account.provider_keys.create!(
+      provider: "ollama", credential: "https://ollama.com", api_key: " sk-remote-abcd1234 "
+    )
+
+    assert key.api_key?
+    assert_equal "sk-remote-abcd1234", key.reload.api_key
+    assert_equal({ host: "https://ollama.com/v1", access_token: "sk-remote-abcd1234" }, key.generation_options)
+    assert_equal "sk-r…1234", key.api_key_hint
+
+    raw = ProviderKey.connection.select_value(
+      ProviderKey.sanitize_sql([ "SELECT api_key FROM provider_keys WHERE id = ?", key.id ])
+    )
+    assert_not_includes raw, "sk-remote-abcd1234"
+
+    key.update!(api_key: "")
+    assert_not key.api_key?
+    assert_nil key.api_key_hint
+    assert_equal({ host: "https://ollama.com/v1" }, key.generation_options)
+  end
+
+  test "api keys on key-based providers are ignored" do
+    key = @account.provider_keys.create!(provider: "openai", credential: "sk-test", api_key: "unused")
+
+    assert_not key.api_key?
+    assert_equal({ access_token: "sk-test" }, key.generation_options)
+  end
+
   test "display_hint masks keys but shows hosts in full" do
     api = @account.provider_keys.create!(provider: "openai", credential: "sk-test-abc123")
     assert_not_includes api.display_hint, "test-abc"
