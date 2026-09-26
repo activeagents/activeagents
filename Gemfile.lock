@@ -1,6 +1,6 @@
 GIT
   remote: https://github.com/activeagents/activeagent.git
-  revision: 7c283e2c29de27f05e62c49be291e4d3c90ee7a1
+  revision: 870e00b0229a95c00982f13e6d0d66afcdbddbe4
   branch: claude/checkout-sandbox-runtime-489
   specs:
     activeagent (1.6.4)
@@ -14,7 +14,7 @@ GIT
 
 GIT
   remote: https://github.com/activeagents/activeagent.git
-  revision: 7c283e2c29de27f05e62c49be291e4d3c90ee7a1
+  revision: 870e00b0229a95c00982f13e6d0d66afcdbddbe4
   branch: claude/checkout-sandbox-runtime-489
   glob: actionagent/*.gemspec
   specs:
