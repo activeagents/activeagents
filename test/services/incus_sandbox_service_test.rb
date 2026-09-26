@@ -101,6 +101,16 @@ class IncusSandboxServiceTest < ActiveSupport::TestCase
     assert_match(/mcp_path/, error.message)
   end
 
+  test "a sandbox's container is found by its session id" do
+    incus = FakeIncus.new([])
+    session = session_double
+    def incus.list_sandboxes = [ { name: "sandbox-other-1", session_id: "someone-else" }, { name: "sandbox-mine-2", session_id: @mine } ]
+    incus.instance_variable_set(:@mine, session.session_id)
+
+    assert_equal "sandbox-mine-2", incus.handle_for(session)
+    assert_nil incus.handle_for(session_double)
+  end
+
   test "other sandbox types boot as before, with no checkout" do
     incus = FakeIncus.new([])
     session = session_double(checkout: nil)
