@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.2].define(version: 2026_09_24_224117) do
+ActiveRecord::Schema[8.2].define(version: 2026_09_30_000001) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
 
@@ -28,6 +28,8 @@ ActiveRecord::Schema[8.2].define(version: 2026_09_24_224117) do
   create_table "accounts", force: :cascade do |t|
     t.integer "agent_runs_limit", default: 3, null: false
     t.integer "agent_runs_this_period", default: 0, null: false
+    t.datetime "checkout_expires_at"
+    t.text "checkout_url"
     t.datetime "created_at", null: false
     t.string "name", null: false
     t.bigint "owner_id", null: false
@@ -281,12 +283,11 @@ ActiveRecord::Schema[8.2].define(version: 2026_09_24_224117) do
     t.jsonb "tools", default: []
     t.datetime "updated_at", null: false
     t.bigint "user_id"
+    t.index ["account_id", "service_name", "agent_class_name", "action_name"], name: "index_agents_on_observed_identity", unique: true, where: "(service_name IS NOT NULL)"
+    t.index ["account_id", "slug"], name: "index_agents_on_account_id_and_slug", unique: true
     t.index ["account_id"], name: "index_agents_on_account_id"
     t.index ["provider"], name: "index_agents_on_provider"
-    t.index ["slug"], name: "index_agents_on_slug", unique: true
     t.index ["status"], name: "index_agents_on_status"
-    t.index ["user_id", "service_name", "agent_class_name", "action_name"], name: "index_agents_on_observed_identity", unique: true, where: "(service_name IS NOT NULL)"
-    t.index ["user_id", "slug"], name: "index_agents_on_user_id_and_slug", unique: true
     t.index ["user_id"], name: "index_agents_on_user_id"
   end
 
@@ -480,6 +481,16 @@ ActiveRecord::Schema[8.2].define(version: 2026_09_24_224117) do
     t.index ["user_id"], name: "index_investors_on_user_id"
   end
 
+  create_table "newsletter_subscriptions", force: :cascade do |t|
+    t.datetime "confirmed_at"
+    t.datetime "consented_at", null: false
+    t.datetime "created_at", null: false
+    t.string "email_address", null: false
+    t.datetime "synced_at"
+    t.datetime "updated_at", null: false
+    t.index ["email_address"], name: "index_newsletter_subscriptions_on_email_address", unique: true
+  end
+
   create_table "pay_charges", force: :cascade do |t|
     t.integer "amount", null: false
     t.integer "amount_refunded"
@@ -587,6 +598,34 @@ ActiveRecord::Schema[8.2].define(version: 2026_09_24_224117) do
     t.datetime "updated_at", null: false
     t.index ["active"], name: "index_plans_on_active"
     t.index ["slug"], name: "index_plans_on_slug", unique: true
+  end
+
+  create_table "pro_access_events", force: :cascade do |t|
+    t.string "action", null: false
+    t.bigint "actor_id"
+    t.datetime "created_at", null: false
+    t.jsonb "details", default: {}, null: false
+    t.datetime "notified_at"
+    t.bigint "pro_access_grant_id", null: false
+    t.datetime "updated_at", null: false
+    t.index ["actor_id"], name: "index_pro_access_events_on_actor_id"
+    t.index ["pro_access_grant_id"], name: "index_pro_access_events_on_pro_access_grant_id"
+  end
+
+  create_table "pro_access_grants", force: :cascade do |t|
+    t.bigint "account_id", null: false
+    t.datetime "created_at", null: false
+    t.datetime "expiration_recorded_at"
+    t.datetime "expires_at"
+    t.bigint "granted_by_id", null: false
+    t.text "reason", null: false
+    t.date "review_on", null: false
+    t.datetime "revoked_at"
+    t.string "source", null: false
+    t.datetime "starts_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["account_id"], name: "index_pro_access_grants_on_account_id", unique: true
+    t.index ["granted_by_id"], name: "index_pro_access_grants_on_granted_by_id"
   end
 
   create_table "provider_keys", force: :cascade do |t|
@@ -725,11 +764,13 @@ ActiveRecord::Schema[8.2].define(version: 2026_09_24_224117) do
   end
 
   create_table "sessions", force: :cascade do |t|
+    t.bigint "account_id"
     t.datetime "created_at", null: false
     t.string "ip_address"
     t.datetime "updated_at", null: false
     t.string "user_agent"
     t.bigint "user_id", null: false
+    t.index ["account_id"], name: "index_sessions_on_account_id"
     t.index ["user_id"], name: "index_sessions_on_user_id"
   end
 
@@ -806,6 +847,33 @@ ActiveRecord::Schema[8.2].define(version: 2026_09_24_224117) do
     t.index ["user_id"], name: "index_videos_on_user_id"
   end
 
+  create_table "workspace_invitations", force: :cascade do |t|
+    t.datetime "accepted_at"
+    t.bigint "accepted_by_id"
+    t.bigint "account_id"
+    t.datetime "created_at", null: false
+    t.string "delivery_error"
+    t.string "delivery_state", default: "draft", null: false
+    t.integer "delivery_version", default: 0, null: false
+    t.string "email_address", null: false
+    t.datetime "grant_expires_at"
+    t.bigint "invited_by_id", null: false
+    t.text "reason", null: false
+    t.date "review_on", null: false
+    t.datetime "revoked_at"
+    t.datetime "sent_at"
+    t.string "source", default: "retainer_pilot", null: false
+    t.string "token_digest"
+    t.datetime "token_expires_at"
+    t.datetime "updated_at", null: false
+    t.string "workspace_name", null: false
+    t.index ["accepted_by_id"], name: "index_workspace_invitations_on_accepted_by_id"
+    t.index ["account_id"], name: "index_workspace_invitations_on_account_id"
+    t.index ["email_address"], name: "index_pending_invitation_email", unique: true, where: "((accepted_at IS NULL) AND (revoked_at IS NULL))"
+    t.index ["invited_by_id"], name: "index_workspace_invitations_on_invited_by_id"
+    t.index ["token_digest"], name: "index_workspace_invitations_on_token_digest", unique: true
+  end
+
   add_foreign_key "account_memberships", "accounts"
   add_foreign_key "account_memberships", "users"
   add_foreign_key "accounts", "users", column: "owner_id"
@@ -837,6 +905,10 @@ ActiveRecord::Schema[8.2].define(version: 2026_09_24_224117) do
   add_foreign_key "pay_charges", "pay_subscriptions", column: "subscription_id"
   add_foreign_key "pay_payment_methods", "pay_customers", column: "customer_id"
   add_foreign_key "pay_subscriptions", "pay_customers", column: "customer_id"
+  add_foreign_key "pro_access_events", "pro_access_grants"
+  add_foreign_key "pro_access_events", "users", column: "actor_id"
+  add_foreign_key "pro_access_grants", "accounts"
+  add_foreign_key "pro_access_grants", "users", column: "granted_by_id"
   add_foreign_key "provider_keys", "accounts"
   add_foreign_key "recording_actions", "session_recordings"
   add_foreign_key "recording_snapshots", "recording_actions"
@@ -847,10 +919,14 @@ ActiveRecord::Schema[8.2].define(version: 2026_09_24_224117) do
   add_foreign_key "sandbox_sessions", "users"
   add_foreign_key "session_recordings", "agent_runs"
   add_foreign_key "session_recordings", "sandbox_sessions"
+  add_foreign_key "sessions", "accounts", on_delete: :nullify
   add_foreign_key "sessions", "users"
   add_foreign_key "timeline_videos", "video_timelines"
   add_foreign_key "timeline_videos", "videos"
   add_foreign_key "video_events", "videos"
   add_foreign_key "video_timelines", "users"
   add_foreign_key "videos", "users"
+  add_foreign_key "workspace_invitations", "accounts"
+  add_foreign_key "workspace_invitations", "users", column: "accepted_by_id"
+  add_foreign_key "workspace_invitations", "users", column: "invited_by_id"
 end
