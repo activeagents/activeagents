@@ -6,9 +6,9 @@
 class UserSessionClaimer
   attr_reader :user, :account, :session_id
 
-  def initialize(user, session_id: nil)
+  def initialize(user, session_id: nil, account: user.primary_account)
     @user = user
-    @account = user.primary_account
+    @account = account
     @session_id = session_id
   end
 
@@ -17,7 +17,6 @@ class UserSessionClaimer
     return unless account
 
     claim_by_session_id if session_id.present?
-    claim_recent_anonymous_sessions
   end
 
   private
@@ -25,25 +24,14 @@ class UserSessionClaimer
   # Claim a specific session by ID (passed from the signup flow)
   def claim_by_session_id
     recording = SessionRecording.find_by(id: session_id)
-    return unless recording && recording.metadata["user_id"].blank?
+    return unless recording && recording.user_id.nil? && recording.account_id.nil?
 
     associate_recording_with_user(recording)
   end
 
-  # Claim recent anonymous user sessions that match this user's visitor fingerprint
-  def claim_recent_anonymous_sessions
-    # Find user takeover sessions from the last hour that haven't been claimed
-    SessionRecording
-      .user_sessions
-      .where("created_at > ?", 1.hour.ago)
-      .where("metadata->>'user_id' IS NULL OR metadata->>'user_id' = ''")
-      .find_each do |recording|
-        associate_recording_with_user(recording)
-      end
-  end
-
   def associate_recording_with_user(recording)
     recording.update!(
+      user_id: user.id, account_id: account.id,
       metadata: recording.metadata.merge(
         user_id: user.id,
         account_id: account.id,

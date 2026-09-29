@@ -26,7 +26,8 @@ class SandboxChannel < ApplicationCable::Channel
   # only their own; an anonymous caller sees only the anonymous demo pool.
   def caller_sandboxes
     if current_user
-      SandboxSession.where(user_id: current_user.id)
+      return SandboxSession.none unless current_user.email_verified? && current_account
+      SandboxSession.where(account_id: current_account.id)
     else
       SandboxSession.anonymous
     end

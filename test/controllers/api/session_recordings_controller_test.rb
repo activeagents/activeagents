@@ -17,7 +17,8 @@ class Api::SessionRecordingsControllerTest < ActionDispatch::IntegrationTest
     @recording = SessionRecording.create!(
       name: "user_takeover_#{SecureRandom.hex(4)}",
       status: :recording,
-      owner: @owner,
+      owner: @owner_account,
+      user: @owner,
       metadata: {
         "account_id" => @owner_account.id.to_s,
         "handoff_state" => {
@@ -68,7 +69,7 @@ class Api::SessionRecordingsControllerTest < ActionDispatch::IntegrationTest
   end
 
   test "the owner's list carries their recording and not someone else's" do
-    other = SessionRecording.start_user_session!(visitor_id: "v_other", owner: @intruder)
+    other = SessionRecording.start_user_session!(visitor_id: "v_other", owner: @intruder_account)
     sign_in_as(@owner)
 
     get "/dashboard/api/session_recordings"
@@ -208,7 +209,8 @@ class Api::SessionRecordingsControllerTest < ActionDispatch::IntegrationTest
 
     assert_response :created
     recording = SessionRecording.find(json_response["recording_id"])
-    assert_equal @owner, recording.owner
+    assert_equal @owner_account, recording.owner
+    assert_equal @owner, recording.user
     assert_equal @owner_account.id.to_s, recording.metadata["account_id"]
   end
 end

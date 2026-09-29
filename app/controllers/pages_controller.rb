@@ -21,7 +21,7 @@ class PagesController < ApplicationController
   end
 
   def pricing
-    @sections = load_sections(:pricing, :services, :platform)
+    redirect_to plans_path
   end
 
   private

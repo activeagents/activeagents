@@ -2,6 +2,7 @@
 
 module Api
   class BaseController < ApplicationController
+    before_action :require_verified_user!, if: -> { Current.user.present? }
     skip_before_action :verify_authenticity_token
 
     rescue_from ActiveRecord::RecordNotFound, with: :not_found
@@ -15,7 +16,7 @@ module Api
     end
 
     def current_account
-      @current_account ||= current_user&.primary_account
+      @current_account ||= Current.account
     end
 
     def require_account!

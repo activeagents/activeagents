@@ -4,11 +4,12 @@ module Api
   class UsageController < BaseController
     # Allow anonymous users - they'll get default free tier limits
     allow_unauthenticated_access
+    prepend_before_action :resume_session
 
     # GET /api/usage
     # Returns current usage stats for the user's account
     def show
-      account = current_user&.primary_account
+      account = Current.account
 
       unless account
         free_limit = Account::USAGE_LIMITS["free"]
@@ -29,7 +30,7 @@ module Api
     # POST /api/usage/check
     # Check if user can run and optionally increment usage
     def check
-      account = current_user&.primary_account
+      account = Current.account
 
       unless account
         return render json: {
