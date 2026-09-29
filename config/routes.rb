@@ -1,6 +1,9 @@
 Rails.application.routes.draw do
   resource :session, only: [ :new, :create, :destroy ]
   resource :registration, only: [ :new, :create ]
+  resource :workspace_invitation, only: [ :show, :create ]
+  resource :workspace, only: [ :show, :update ]
+  resource :newsletter_subscription, only: [ :create, :show, :update ]
   resources :passwords, param: :token, only: [ :new, :create, :edit, :update ]
 
   # Email verification
@@ -49,6 +52,12 @@ Rails.application.routes.draw do
 
   # Admin dashboard
   namespace :admin do
+    resources :pilots, only: :index
+    resources :pilot_invitations, only: :create do
+      post :deliver, on: :member
+      post :revoke, on: :member
+    end
+    resources :pro_access_grants, only: [ :create, :destroy ]
     resources :spaces, only: [ :index, :show ] do
       member do
         post :terminate

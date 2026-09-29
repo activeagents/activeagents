@@ -8,12 +8,12 @@
 
   <div class="newsletter-form-container">
     <form
-      action="/registration"
+      action="/newsletter_subscription"
       method="POST"
       id="newsletter-form"
       class="newsletter-form"
     >
-      <input type="hidden" name="source" value="newsletter">
+      <%= hidden_field_tag :authenticity_token, form_authenticity_token %>
       <div class="newsletter-input-group">
         <input
           type="email"
@@ -61,11 +61,12 @@ document.addEventListener('DOMContentLoaded', function() {
     responseDiv.innerHTML = '';
     responseDiv.className = 'newsletter-response';
 
-    fetch('/registration', {
+    fetch('/newsletter_subscription', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Accept': 'application/json'
+        'Accept': 'application/json',
+        'X-CSRF-Token': document.querySelector('meta[name="csrf-token"]')?.content
       },
       body: JSON.stringify({ email_address: email, source: 'newsletter' })
     })
@@ -80,12 +81,12 @@ document.addEventListener('DOMContentLoaded', function() {
       submitBtn.disabled = false;
 
       if (result.ok || result.data.success) {
-        responseDiv.innerHTML = '<i class="fa-solid fa-check"></i> You\'re in! Check your email to verify your account.';
+        responseDiv.innerHTML = '<i class="fa-solid fa-check"></i> Check your email to confirm your newsletter subscription.';
         responseDiv.className = 'newsletter-response success';
         form.reset();
       } else {
         var msg = result.data.error || 'An error occurred. Please try again.';
-        responseDiv.innerHTML = '<i class="fa-solid fa-exclamation-circle"></i> ' + msg;
+        responseDiv.textContent = msg;
         responseDiv.className = 'newsletter-response error';
       }
     })

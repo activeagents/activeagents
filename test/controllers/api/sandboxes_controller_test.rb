@@ -13,6 +13,8 @@ class Api::SandboxesControllerTest < ActionDispatch::IntegrationTest
     @owner = create_user(email: "owner-#{SecureRandom.hex(4)}@example.com")
     @attacker = create_user(email: "attacker-#{SecureRandom.hex(4)}@example.com")
 
+    @account = create_account(owner: @owner)
+    create_account(owner: @attacker)
     @owner_sandbox = create_sandbox(user: @owner)
   end
 
@@ -101,7 +103,7 @@ class Api::SandboxesControllerTest < ActionDispatch::IntegrationTest
   end
 
   test "run records account usage for a signed-in caller" do
-    account = create_account(owner: @owner)
+    account = @account
     sign_in_as(@owner)
 
     assert_difference -> { account.reload.agent_runs_this_period }, 1 do
@@ -116,7 +118,7 @@ class Api::SandboxesControllerTest < ActionDispatch::IntegrationTest
   # ===========================================
 
   test "compare records one execution per provider" do
-    account = create_account(owner: @owner)
+    account = @account
     sign_in_as(@owner)
 
     assert_difference -> { account.reload.agent_runs_this_period }, 2 do
@@ -131,7 +133,7 @@ class Api::SandboxesControllerTest < ActionDispatch::IntegrationTest
   end
 
   test "compare refuses to spawn provider jobs once the plan limit is reached" do
-    account = create_account(owner: @owner)
+    account = @account
     account.update!(agent_runs_this_period: account.effective_agent_runs_limit)
     sign_in_as(@owner)
 
@@ -151,7 +153,7 @@ class Api::SandboxesControllerTest < ActionDispatch::IntegrationTest
   end
 
   test "compare at the plan limit does not create or provision a sandbox" do
-    account = create_account(owner: @owner)
+    account = @account
     account.update!(agent_runs_this_period: account.effective_agent_runs_limit)
     sign_in_as(@owner)
 
@@ -166,7 +168,6 @@ class Api::SandboxesControllerTest < ActionDispatch::IntegrationTest
   end
 
   test "compare still spawns a job per provider within the plan limit" do
-    create_account(owner: @owner)
     sign_in_as(@owner)
 
     assert_enqueued_jobs 2, only: SandboxRunJob do
@@ -268,7 +269,7 @@ class Api::SandboxesControllerTest < ActionDispatch::IntegrationTest
 
   def create_sandbox(user:, **attrs)
     SandboxSession.create!(
-      { sandbox_type: "playwright_mcp", status: :ready, user: user }.merge(attrs)
+      { sandbox_type: "playwright_mcp", status: :ready, user: user, account: user&.primary_account }.merge(attrs)
     )
   end
 end

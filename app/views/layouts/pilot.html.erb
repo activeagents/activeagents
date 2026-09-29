@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <title>ActiveAgents · Workspaces</title>
+    <meta name="viewport" content="width=device-width,initial-scale=1">
+    <%= csrf_meta_tags %>
+    <%= csp_meta_tag %>
+    <%= stylesheet_link_tag "pilot" %>
+  </head>
+  <body>
+    <header class="pilot-header">
+      <a href="/" class="pilot-brand">ActiveAgents<span>.ai</span></a>
+      <nav aria-label="Main navigation">
+        <%= link_to "Plans", plans_path %>
+        <% if Current.user&.email_verified? %>
+          <%= link_to "Workspace", workspace_path %>
+          <%= link_to "Dashboard", dashboard_path %>
+          <%= link_to "Pilot admin", admin_pilots_path if Current.user.admin? %>
+        <% else %>
+          <%= link_to "Sign in", new_session_path %>
+        <% end %>
+      </nav>
+    </header>
+    <main class="pilot-main">
+      <% flash.each do |type, message| %>
+        <p class="pilot-flash <%= type %>" role="status"><%= message %></p>
+      <% end %>
+      <%= yield %>
+    </main>
+  </body>
+</html>

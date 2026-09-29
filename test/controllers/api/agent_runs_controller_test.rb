@@ -5,6 +5,7 @@ require "test_helper"
 class Api::AgentRunsControllerTest < ActionDispatch::IntegrationTest
   setup do
     @user = create_user(email: "test@example.com")
+    create_account(owner: @user)
     @agent = create_agent(user: @user, name: "Test Agent", status: :active)
     @run = create_run(
       agent: @agent,
