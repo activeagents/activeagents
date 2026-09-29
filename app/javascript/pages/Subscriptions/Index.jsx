@@ -2,7 +2,7 @@ import React from 'react'
 import { router } from '@inertiajs/react'
 import { ThemeProvider, useTheme } from '../../contexts/ThemeContext'
 
-function SubscriptionsContent({ subscription, plan, plans, stripe_public_key }) {
+function SubscriptionsContent({ subscription, plan, plans, stripe_public_key, pilot_access, access_source }) {
   const { darkMode, toggleDarkMode } = useTheme()
 
   // Theme colors - single source of truth
@@ -49,6 +49,7 @@ function SubscriptionsContent({ subscription, plan, plans, stripe_public_key }) 
           <div style={{ display: 'flex', height: '64px', justifyContent: 'space-between', alignItems: 'center' }}>
             <span style={{ fontSize: '20px', fontWeight: 'bold', color: '#ef4444' }}>Active Agent</span>
             <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+              <a href="/workspace" style={{ fontSize: '14px', color: colors.textSecondary }}>Workspace</a>
               <a href="/dashboard" style={{ fontSize: '14px', color: colors.textSecondary, textDecoration: 'none' }}>Dashboard</a>
               <a href="/plans" style={{ fontSize: '14px', color: colors.textSecondary, textDecoration: 'none' }}>Plans</a>
               {/* Theme toggle */}
@@ -81,6 +82,16 @@ function SubscriptionsContent({ subscription, plan, plans, stripe_public_key }) 
 
       <div style={{ maxWidth: '896px', margin: '0 auto', padding: '48px 16px' }}>
         <h1 style={{ fontSize: '30px', fontWeight: 'bold', color: colors.textPrimary }}>Subscription</h1>
+
+        {pilot_access && (
+          <div style={{ marginTop: '24px', padding: '20px', backgroundColor: colors.infoBg, color: colors.infoText, borderRadius: '8px' }}>
+            <strong>{pilot_access.active ? 'Pro included during your pilot/retainer' : 'Complimentary pilot access ended'}</strong>
+            <p>Review date: {pilot_access.review_on}. Review does not trigger a charge or expire access.</p>
+            {pilot_access.expires_at && <p>Explicit expiration: {new Date(pilot_access.expires_at).toLocaleDateString()}.</p>}
+            <p>No automatic charge or conversion is attached to this grant. Any paid subscription continues independently.</p>
+            <a href="/workspace">View your workspace and access policy</a>
+          </div>
+        )}
 
         {subscription ? (
           <div style={{ marginTop: '32px', backgroundColor: colors.cardBg, borderRadius: '8px', boxShadow: '0 1px 3px rgba(0,0,0,0.1)', padding: '24px', border: `1px solid ${colors.border}` }}>
@@ -232,7 +243,7 @@ function SubscriptionsContent({ subscription, plan, plans, stripe_public_key }) 
         ) : (
           <div style={{ marginTop: '32px', backgroundColor: colors.cardBg, borderRadius: '8px', boxShadow: '0 1px 3px rgba(0,0,0,0.1)', padding: '32px', textAlign: 'center', border: `1px solid ${colors.border}` }}>
             <h2 style={{ fontSize: '20px', fontWeight: '600', color: colors.textPrimary }}>No active subscription</h2>
-            <p style={{ marginTop: '8px', color: colors.textSecondary }}>Choose a plan to get started with Active Agent.</p>
+            <p style={{ marginTop: '8px', color: colors.textSecondary }}>{access_source === 'complimentary_pilot' ? 'Your workspace already has complimentary Pro access. You can choose a paid plan at any time.' : 'Choose a plan to get started with Active Agent.'}</p>
             <a
               href="/plans"
               style={{

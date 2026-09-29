@@ -1,0 +1,21 @@
+You're invited to own the <%= @invitation.workspace_name %> workspace on ActiveAgents.
+
+Pro is included during your pilot/retainer arrangement. No payment method is needed, and this invitation does not create a paid subscription or an automatic future charge.
+
+Review date: <%= @invitation.review_on %> (a review is not an expiration or charge).
+<% if @invitation.grant_expires_at %>
+Complimentary access expires: <%= @invitation.grant_expires_at.to_date %>.
+<% else %>
+No automatic expiration has been set.
+<% end %>
+
+Open this link and explicitly accept to set your password (or sign in with your existing account):
+<%= @accept_url %>
+
+The invitation link expires in 7 days and can only be accepted once. Opening the link alone does not activate a workspace.
+
+After activation, add provider credentials in your workspace and connect your first agent or trace. Do not send credentials by email.
+
+If complimentary access ends, your account stays available. Any paid subscription continues; otherwise Free limits apply. The existing 14-day trace retention window continues for 14 days after access ends before Free's 3-day window applies. We send a notice when access changes.
+
+This is a transactional invitation, not a newsletter subscription. If you weren't expecting it, you can ignore it or reply for help.

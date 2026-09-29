@@ -7,8 +7,9 @@ inherit_gem: { rubocop-rails-omakase: rubocop.yml }
 # Layout/SpaceInsideArrayLiteralBrackets:
 #   Enabled: false
 
-# The example app (examples/support_inbox) is a standalone Rails app with
-# its own conventions; lint the platform only.
+# The example app and ragents gem have their own lint configurations and
+# dependencies; lint the platform only.
 AllCops:
   Exclude:
     - "examples/**/*"
+    - "ragents/**/*"

@@ -106,6 +106,7 @@ jobs:
           npm install -g yarn@1.22.19
           yarn install --frozen-lockfile
           yarn build
+          yarn build:css
 
       - name: Prepare the test database
         run: bin/rails db:create db:schema:load

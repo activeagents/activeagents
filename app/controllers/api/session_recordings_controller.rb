@@ -21,7 +21,7 @@ module Api
     # visitor was anonymous on these actions. Identify them without
     # requiring them, so their recordings carry their account and the
     # ownership gate below recognises them.
-    before_action :resume_session
+    prepend_before_action :resume_session
     before_action :set_writable_recording, only: [ :record_action, :complete_session ]
 
     # The write token start_user_session hands the browser. Anonymous writes
@@ -37,7 +37,7 @@ module Api
         visitor_id: params[:visitor_id] || generate_visitor_id,
         parent_demo_id: params[:parent_demo_id],
         page_url: params[:page_url],
-        owner: current_user
+        owner: Current.account
       )
 
       # Set user agent from request. A signed-in visitor's recording is
@@ -49,10 +49,11 @@ module Api
         "user_agent" => request.user_agent,
         "ip_hash" => Digest::SHA256.hexdigest(request.remote_ip.to_s)[0..16]
       }
-      if (account = current_user&.primary_account)
+      if (account = Current.account)
         request_metadata["account_id"] = account.id.to_s
       end
-      recording.update!(metadata: recording.metadata.merge(request_metadata))
+      recording.update!(user: current_user, metadata: recording.metadata.merge(request_metadata))
+      session[:signup_recording_id] = recording.id unless current_user
 
       # Record the handoff action
       recording.record_action!(
@@ -134,7 +135,7 @@ module Api
       @recording = SessionRecording.find_by(id: params[:id])
       return not_found if @recording.nil?
       return if can_manage_recording?(@recording)
-      return if write_token_valid?(@recording)
+      return if @recording.account_id.nil? && write_token_valid?(@recording)
 
       not_found
     end
@@ -161,16 +162,7 @@ module Api
     # recording was stamped with, whoever opened the sandbox it records, and
     # an admin.
     def can_manage_recording?(recording)
-      return false unless current_user
-      return true if current_user.admin?
-      return true if recording.owner == current_user
-
-      if (account = current_user.primary_account)
-        return true if recording.metadata["account_id"].to_s == account.id.to_s
-      end
-
-      session = recording.sandbox_session
-      session.present? && session.owner.present? && session.owner == current_user
+      current_user&.email_verified? && Current.account.present? && recording.account_id == Current.account.id
     end
 
     def generate_visitor_id

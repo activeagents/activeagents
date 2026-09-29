@@ -1,0 +1,37 @@
+<p class="pilot-eyebrow">Your workspace</p>
+<h1><%= @account.name %></h1>
+<p class="pilot-muted">Effective plan: <strong><%= @account.current_plan&.name || "Free" %></strong> · Access: <%= @account.access_source.humanize %></p>
+<% if @accounts.size > 1 %>
+  <%= form_with url: workspace_path, method: :patch do |form| %>
+    <%= form.label :account_id, "Switch workspace" %>
+    <%= form.select :account_id, @accounts.map { |account| [account.name, account.id] }, selected: @account.id %>
+    <%= form.submit "Switch workspace" %>
+  <% end %>
+<% end %>
+<% if (grant = @account.pro_access_grant) %>
+  <div class="pilot-card">
+    <h2><%= grant.active? ? "Pro included during your pilot/retainer" : "Complimentary Pro access ended" %></h2>
+    <p>Review date: <%= grant.review_on %>. A review does not trigger a charge or expire access.</p>
+    <% if grant.expires_at %><p>Explicit expiration: <%= grant.expires_at.to_date %>.</p><% end %>
+    <p>No automatic conversion or charge is attached to this grant. Any paid subscription continues independently.</p>
+    <p><small>After complimentary access ends, Free limits apply unless a paid subscription provides access. Pro's 14-day trace window continues for 14 days after the end date, then Free's 3-day window applies.</small></p>
+  </div>
+<% end %>
+<div class="pilot-grid">
+  <section class="pilot-card">
+    <h2>1. Connect a provider</h2>
+    <p>Add your OpenAI, Anthropic, or other supported provider credentials in this workspace. Keep keys in the dashboard, never in email.</p>
+    <%= link_to "Open provider settings", "/dashboard/settings", class: "pilot-button" %>
+  </section>
+  <section class="pilot-card">
+    <h2>2. Run an agent or connect traces</h2>
+    <p>Create an agent in the builder, or generate a workspace API key in Settings and point your application's telemetry at <code>https://api.activeagents.ai/v1/traces</code>.</p>
+    <%= link_to "Open dashboard", dashboard_path, class: "pilot-button" %>
+  </section>
+  <section class="pilot-card">
+    <h2>3. Check your first evaluation</h2>
+    <p>Inspect your first trace, then run an evaluation. Provider keys, traces, agents, and evaluations stay scoped to this workspace.</p>
+    <%= link_to "Open evaluations", "/dashboard/evaluations", class: "pilot-button" %>
+  </section>
+</div>
+<p><%= link_to "View subscription and public plans", subscriptions_path %></p>
