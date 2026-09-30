@@ -4,10 +4,10 @@ require "test_helper"
 
 # GitHub connections, the Claude Code connection, and checkout sandboxes on
 # the platform (activeagents/activeagent#479, #482). Here the credentials
-# belong to accounts while sandboxes and agents belong to users, the split
-# the engine's single-user dummy app never exercises.
+# and sandboxes belong to accounts, an owner the engine's single-user dummy
+# app never exercises.
 class Api::GithubCheckoutSandboxesTest < ActionDispatch::IntegrationTest
-  OAUTH_TOKEN = "sk-ant-oat01-platformTEST_value-1234"
+  CLAUDE_CODE_API_KEY = "sk-ant-api03-platformTEST_value-1234"
 
   setup do
     @previous_backend = ActionAgent.sandbox_service
@@ -16,7 +16,7 @@ class Api::GithubCheckoutSandboxesTest < ActionDispatch::IntegrationTest
     @owner = create_user(email: "owner-#{SecureRandom.hex(4)}@example.com")
     @account = create_account(owner: @owner)
     @stranger = create_user(email: "stranger-#{SecureRandom.hex(4)}@example.com")
-    create_account(owner: @stranger)
+    @stranger_account = create_account(owner: @stranger)
 
     GithubConnection.create!(
       account_id: @account.id, access_token: "gho_platform", github_user_id: 7, login: "octo-owner",
@@ -46,7 +46,7 @@ class Api::GithubCheckoutSandboxesTest < ActionDispatch::IntegrationTest
 
   test "a checkout sandbox boots from the account's selection with its Claude Code credential" do
     sign_in_as(@owner)
-    post "/dashboard/api/provider_keys", params: { provider: "claude_code", credential: OAUTH_TOKEN }, as: :json
+    post "/dashboard/api/provider_keys", params: { provider: "claude_code", credential: CLAUDE_CODE_API_KEY }, as: :json
     assert_response :created
 
     # Provisioning a checkout runs in the background (activeagent#491).
@@ -59,17 +59,17 @@ class Api::GithubCheckoutSandboxesTest < ActionDispatch::IntegrationTest
     assert_equal "ready", json_response.dig("sandbox", "status")
     key = json_response.dig("sandbox", "runtime_server_key")
     assert key.start_with?("sandbox:")
-    assert_not_includes response.body, OAUTH_TOKEN
+    assert_not_includes response.body, CLAUDE_CODE_API_KEY
     assert_not_includes response.body, "gho_platform"
 
     session = SandboxSession.find_by!(session_id: json_response.dig("sandbox", "session_id"))
     assert_equal @account.id, session.account_id
     assert_equal "gho_platform", session.checkout_spec[:token]
-    assert_equal({ "CLAUDE_CODE_OAUTH_TOKEN" => OAUTH_TOKEN }, session.runtime_environment)
+    assert_equal({ "ANTHROPIC_API_KEY" => CLAUDE_CODE_API_KEY }, session.runtime_environment)
 
     # The runtime is an MCP server only to the owner's agents.
-    assert SandboxSession.runtime_server_entry(key, owner: @owner)
-    assert_nil SandboxSession.runtime_server_entry(key, owner: @stranger)
+    assert SandboxSession.runtime_server_entry(key, owner: @account)
+    assert_nil SandboxSession.runtime_server_entry(key, owner: @stranger_account)
   end
 
   test "another account cannot check out the account's repositories" do
