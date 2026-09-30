@@ -2,7 +2,8 @@
 
 class OnboardingController < ApplicationController
   before_action :require_authentication
-  before_action :redirect_if_complete, only: [ :pending_verification, :complete_profile ]
+  before_action :require_verified_user!, only: [ :complete_profile, :update_profile ]
+  before_action :redirect_if_complete, only: [ :pending_verification, :complete_profile, :update_profile ]
 
   # GET /pending_verification
   def pending_verification
@@ -25,7 +26,7 @@ class OnboardingController < ApplicationController
 
     @user = Current.user
     @plans = Plan.active.order(:price_cents)
-    @current_plan = @user.primary_account&.current_plan || Plan.find_by(slug: "free")
+    @current_plan = Current.account&.current_plan || Plan.find_by(slug: "free")
   end
 
   # PATCH /complete_profile
@@ -61,7 +62,7 @@ class OnboardingController < ApplicationController
   end
 
   def handle_plan_selection
-    plan = Plan.find_by(slug: params[:plan_slug])
+    plan = Plan.active.find_by(slug: params[:plan_slug])
     return unless plan&.paid?
 
     # Store selected plan for checkout after profile completion
@@ -76,23 +77,17 @@ class OnboardingController < ApplicationController
     slug = session.delete(:selected_plan_slug)
     return nil unless slug
 
-    plan = Plan.find_by(slug: slug)
+    plan = Plan.active.find_by(slug: slug)
     return nil unless plan&.paid?
 
-    account = Current.user.primary_account
-    return nil unless account
+    account = Current.account
+    return nil unless account && account.owner_id == Current.user.id
 
     price_id = plan.stripe_monthly_price_id
     return nil unless price_id
 
-    pay_customer = account.set_payment_processor(:stripe)
-    pay_customer.checkout(
-      mode: "subscription",
-      line_items: [ { price: price_id, quantity: 1 } ],
-      success_url: subscriptions_url,
-      cancel_url: dashboard_url,
-      subscription_data: plan.trial_days.positive? ? { trial_period_days: plan.trial_days } : {}
-    ).url
+    SubscriptionCheckout.call(account: account, plan: plan, price_id: price_id,
+      success_url: subscriptions_url, cancel_url: dashboard_url)
   rescue => e
     Rails.logger.error("Onboarding checkout failed for user #{Current.user.id}: #{e.message}")
     nil
@@ -106,7 +101,7 @@ class OnboardingController < ApplicationController
 
   def claim_user_sessions
     # Pass the session recording ID if it was stored during signup
-    UserSessionClaimer.new(@user, session_id: session[:signup_recording_id]).claim!
+    UserSessionClaimer.new(@user, account: Current.account, session_id: session[:signup_recording_id]).claim!
     session.delete(:signup_recording_id)
   rescue => e
     # Don't fail onboarding if session claiming fails

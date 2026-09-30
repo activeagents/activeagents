@@ -1,22 +1,26 @@
 class SubscriptionsController < ApplicationController
   before_action :require_authentication
+  before_action :require_verified_user!
   before_action :require_account!, except: [ :checkout ]
   before_action :ensure_account_for_checkout, only: [ :checkout ]
+  before_action :require_workspace_owner!, except: :index
 
   def index
-    subscription = current_account.active_subscription
+    subscription = current_account.billing_subscription
     plan = current_account.current_plan
 
     render inertia: "Subscriptions/Index", props: {
       subscription: subscription ? subscription_props(subscription) : nil,
       plan: plan ? plan_props(plan) : nil,
+      access_source: current_account.access_source,
+      pilot_access: current_account.pilot_access_details,
       plans: Plan.active.order(:price_cents).map { |p| plan_props(p) },
       stripe_public_key: stripe_public_key
     }
   end
 
   def checkout
-    plan = Plan.find(params[:plan_id])
+    plan = Plan.active.find(params[:plan_id])
     billing_interval = params[:billing_interval] || "monthly"
 
     price_id = case billing_interval
@@ -33,28 +37,24 @@ class SubscriptionsController < ApplicationController
       return
     end
 
-    pay_customer = current_account.set_payment_processor(:stripe)
-    checkout_session = pay_customer.checkout(
-      mode: "subscription",
-      line_items: [ { price: price_id, quantity: 1 } ],
-      success_url: subscriptions_url,
-      cancel_url: plans_url,
-      subscription_data: plan.trial_days.positive? ? { trial_period_days: plan.trial_days } : {}
-    )
+    checkout_url = SubscriptionCheckout.call(account: current_account, plan: plan, price_id: price_id,
+      success_url: subscriptions_url, cancel_url: plans_url)
 
     # For Inertia requests, return the URL as JSON so frontend can redirect
     if request.headers["X-Inertia"]
-      render json: { checkout_url: checkout_session.url }
+      render json: { checkout_url: checkout_url }
     else
-      redirect_to checkout_session.url, allow_other_host: true
+      redirect_to checkout_url, allow_other_host: true
     end
+  rescue SubscriptionCheckout::AlreadySubscribed
+    checkout_error("This workspace already has a subscription. Manage it from Subscription.", status: :conflict)
   rescue Pay::Error, Stripe::StripeError => e
     Rails.logger.error("Stripe checkout failed for account #{current_account&.id}: #{e.class}: #{e.message}")
     checkout_error("Unable to start checkout. Please try again or contact support.", status: :service_unavailable)
   end
 
   def billing_portal
-    pay_customer = current_account.payment_processor
+    pay_customer = current_account.pay_customers.where(processor: "stripe").where.not(processor_id: nil).first
     unless pay_customer
       redirect_to subscriptions_path, alert: "No billing information found."
       return
@@ -65,9 +65,9 @@ class SubscriptionsController < ApplicationController
   end
 
   def change_plan
-    plan = Plan.find(params[:plan_id])
+    plan = Plan.active.paid.find(params[:plan_id])
     billing_interval = params[:billing_interval] || "monthly"
-    subscription = current_account.active_subscription
+    subscription = current_account.billing_subscription
 
     unless subscription
       redirect_to subscriptions_path, alert: "No active subscription found."
@@ -81,12 +81,13 @@ class SubscriptionsController < ApplicationController
       plan.stripe_monthly_price_id
     end
 
+    return redirect_to subscriptions_path, alert: "This plan is not available for purchase." if price_id.blank?
     subscription.swap(price_id)
     redirect_to subscriptions_path, notice: "Plan changed to #{plan.name}."
   end
 
   def resume
-    subscription = current_account.active_subscription
+    subscription = current_account.billing_subscription
 
     unless subscription
       redirect_to subscriptions_path, alert: "No subscription found to resume."
@@ -98,7 +99,7 @@ class SubscriptionsController < ApplicationController
   end
 
   def destroy
-    subscription = current_account.active_subscription
+    subscription = current_account.billing_subscription
 
     unless subscription
       redirect_to subscriptions_path, alert: "No active subscription found."
@@ -116,7 +117,11 @@ class SubscriptionsController < ApplicationController
   end
 
   def current_account
-    @current_account ||= current_user&.primary_account
+    @current_account ||= Current.account
+  end
+
+  def require_workspace_owner!
+    head :forbidden unless current_account&.owner_id == current_user.id
   end
 
   def require_account!
@@ -127,13 +132,12 @@ class SubscriptionsController < ApplicationController
 
   def ensure_account_for_checkout
     return if current_account
-
-    # Create an account for the user if they don't have one, with the same
-    # owner membership registration provisions
-    @current_account = current_user.owned_accounts.create!(
-      name: "#{current_user.email_address.split('@').first}'s Account"
-    )
-    AccountMembership.create!(account: @current_account, user: current_user, role: "owner")
+    current_user.with_lock do
+      @current_account = current_user.primary_account || current_user.owned_accounts.create!(
+        name: "#{current_user.email_address.split('@').first}'s Account")
+      @current_account.account_memberships.find_or_create_by!(user: current_user) { |membership| membership.role = "owner" }
+      Current.session.update!(account: @current_account)
+    end
   end
 
   # Renders checkout failures in a shape each caller can consume: JSON for

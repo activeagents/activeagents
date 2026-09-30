@@ -1,0 +1,87 @@
+<p class="pilot-eyebrow">Platform administration</p>
+<h1>Pro pilot workspaces</h1>
+<p class="pilot-muted">Public registration and paid signup remain open. Complimentary grants never create a Stripe subscription.</p>
+
+<section class="pilot-card">
+  <h2>Prepare an invitation</h2>
+  <p>Preparation saves a draft. Review it below, then explicitly send the transactional email.</p>
+  <%= form_with scope: :invitation, url: admin_pilot_invitations_path do |form| %>
+    <div class="pilot-grid">
+      <div><%= form.label :workspace_name, "Workspace / company name" %><%= form.text_field :workspace_name, required: true %></div>
+      <div><%= form.label :email_address, "Owner email" %><%= form.email_field :email_address, required: true %></div>
+      <div><%= form.label :account_id, "Existing workspace (optional)" %><%= form.select :account_id, @accounts.map { |account| ["#{account.name} — #{account.owner.email_address}", account.id] }, include_blank: "Create a new client workspace" %></div>
+      <div><%= form.label :review_on, "Review date (no automatic charge or expiry)" %><%= form.date_field :review_on, required: true %></div>
+      <div><%= form.label :grant_expires_at, "Explicit access expiration (optional, UTC)" %><%= form.datetime_local_field :grant_expires_at %></div>
+    </div>
+    <%= form.label :reason, "Reason for complimentary Pro" %><%= form.text_area :reason, required: true %>
+    <%= form.submit "Prepare invitation" %>
+  <% end %>
+</section>
+
+<section class="pilot-card">
+  <h2>Invitations</h2>
+  <div class="pilot-table-wrap">
+    <table>
+      <thead><tr><th>Recipient / workspace</th><th>Status</th><th>Access review</th><th>Delivery actions</th></tr></thead>
+      <tbody>
+        <% @invitations.each do |invitation| %>
+          <tr>
+            <td><strong><%= invitation.workspace_name %></strong><br><%= invitation.email_address %><br><small>Invited by <%= invitation.invited_by.email_address %></small></td>
+            <td><%= invitation.status.humanize %><% if invitation.delivery_error %><br><small><%= invitation.delivery_error %></small><% end %></td>
+            <td><%= invitation.review_on %><% if invitation.grant_expires_at %><br><small>Expires <%= invitation.grant_expires_at.to_date %></small><% end %></td>
+            <td>
+              <% unless invitation.accepted_at? || invitation.revoked_at? %>
+                <div class="pilot-actions">
+                  <%= button_to(invitation.sent_at? ? "Resend with new link" : "Send invitation", deliver_admin_pilot_invitation_path(invitation)) unless invitation.delivery_state == "queued" %>
+                  <%= button_to "Revoke invitation", revoke_admin_pilot_invitation_path(invitation) %>
+                </div>
+              <% end %>
+            </td>
+          </tr>
+        <% end %>
+      </tbody>
+    </table>
+  </div>
+  <p><small>Showing the latest 100 invitations. A failed delivery requires an explicit resend. Acceptance sends one access notice; retries do not send another welcome email.</small></p>
+</section>
+
+<section class="pilot-card">
+  <h2>Workspace access and activation</h2>
+  <p><small>Showing the latest 100 workspaces. Paid status excludes complimentary access and trials; these rows do not estimate revenue.</small></p>
+  <% @accounts.each do |account| %>
+    <% grant = account.pro_access_grant %>
+    <details>
+      <summary><%= account.name %> · <%= account.current_plan&.name || "Free" %> · <%= account.access_source.humanize %></summary>
+      <p>Owner: <%= account.owner.email_address %> · Signup source: <%= account.owner.signup_source.presence || "existing account" %><br>
+      Paying subscriber: <strong><%= account.paid_subscriber? ? "Yes" : "No" %></strong> · Pilot grant: <%= grant&.active? ? "Active" : "None / ended" %><br>
+      First trace: <%= account.telemetry_traces.minimum(:timestamp) || "Not yet" %> ·
+      First evaluation: <%= ActionAgent::EvaluationRun.joins(evaluation: :agent).where(agents: { account_id: account.id }).minimum(:created_at) || "Not yet" %></p>
+      <%= form_with scope: :grant, url: admin_pro_access_grants_path do |form| %>
+        <%= hidden_field_tag :account_id, account.id %>
+        <div class="pilot-grid">
+          <div><%= form.label :source, "Grant source", for: "source_#{account.id}" %><%= form.text_field :source, id: "source_#{account.id}", value: grant&.source || "retainer_pilot", required: true %></div>
+          <div><%= form.label :starts_at, "Start (UTC)", for: "starts_#{account.id}" %><%= form.datetime_local_field :starts_at, id: "starts_#{account.id}", value: grant&.starts_at&.strftime("%Y-%m-%dT%H:%M:%S"), step: 1 %></div>
+          <div><%= form.label :review_on, "Review date", for: "review_#{account.id}" %><%= form.date_field :review_on, id: "review_#{account.id}", value: grant&.review_on, required: true %></div>
+          <div><%= form.label :expires_at, "Explicit expiration (optional, UTC)", for: "expiry_#{account.id}" %><%= form.datetime_local_field :expires_at, id: "expiry_#{account.id}", value: grant&.expires_at&.strftime("%Y-%m-%dT%H:%M:%S"), step: 1 %></div>
+        </div>
+        <%= form.label :reason, "Reason", for: "reason_#{account.id}" %><%= form.text_area :reason, id: "reason_#{account.id}", value: grant&.reason, required: true %>
+        <%= form.submit(grant ? "Save / extend Pro grant" : "Grant complimentary Pro") %>
+      <% end %>
+      <%= button_to "Revoke complimentary Pro", admin_pro_access_grant_path(grant), method: :delete if grant && !grant.revoked_at? %>
+    </details>
+  <% end %>
+</section>
+
+<section class="pilot-card">
+  <h2>Access audit</h2>
+  <div class="pilot-table-wrap">
+    <table>
+      <thead><tr><th>When / workspace</th><th>Action / actor</th><th>Recorded details</th><th>Notice</th></tr></thead>
+      <tbody>
+        <% @events.each do |event| %>
+          <tr><td><%= event.created_at %><br><%= event.pro_access_grant.account.name %></td><td><%= event.action %><br><%= event.actor&.email_address || "Expiration job" %></td><td><%= event.details["reason"] %><br>Review: <%= event.details["review_on"] %><br>Expiration: <%= event.details["expires_at"].presence || "None" %></td><td><%= event.notified_at || "Pending / check job queue" %></td></tr>
+        <% end %>
+      </tbody>
+    </table>
+  </div>
+</section>

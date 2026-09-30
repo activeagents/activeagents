@@ -447,7 +447,7 @@ class Api::AgentsControllerTest < ActionDispatch::IntegrationTest
     agent = create_agent(user: user_without_account, status: :active)
     sign_in_as(user_without_account)
 
-    post "/dashboard/api/agents/#{agent.id}/execute", params: { prompt: "Hello" }
+    post "/dashboard/api/agents/#{agent.id}/execute", params: { prompt: "Hello" }, as: :json
 
     assert_response :unauthorized
   end
