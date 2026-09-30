@@ -1,87 +1,14 @@
 namespace :stripe do
-  desc "Create Stripe products and prices, then update local Plan records"
+  desc "Configure only staging Pro test prices; requires STRIPE_EXPECTED_ACCOUNT_ID"
+  task setup_pro: :environment do
+    result = StagingProBilling.new(expected_account_id: ENV["STRIPE_EXPECTED_ACCOUNT_ID"]).configure!
+    puts "STAGING_PRO_BILLING #{JSON.generate(result)}"
+  rescue StagingProBilling::ConfigurationError => error
+    abort error.message
+  end
+
+  desc "Use stripe:setup_pro for scoped, repeatable staging setup"
   task setup: :environment do
-    unless Stripe.api_key.present?
-      abort "STRIPE_PRIVATE_KEY is not set. Please set it in your environment or credentials."
-    end
-
-    plans_config = [
-      {
-        slug: "pro",
-        product_name: "ActiveAgent.PRO",
-        monthly_price: 9900,
-        annual_price: 99_500,
-        currency: "usd"
-      },
-      {
-        slug: "enterprise",
-        product_name: "ActiveAgent Enterprise",
-        monthly_price: 26_900,
-        annual_price: 269_000,
-        currency: "usd"
-      },
-      {
-        slug: "advisory",
-        product_name: "Advisory Retainer",
-        monthly_price: 300_000,
-        annual_price: 3_000_000,
-        currency: "usd"
-      }
-    ]
-
-    plans_config.each do |config|
-      plan = Plan.find_by!(slug: config[:slug])
-
-      # Create or find Stripe product
-      product = Stripe::Product.create(
-        name: config[:product_name],
-        metadata: { plan_slug: config[:slug] }
-      )
-      puts "Created Stripe product: #{product.name} (#{product.id})"
-
-      # Create monthly price
-      monthly_price = Stripe::Price.create(
-        product: product.id,
-        unit_amount: config[:monthly_price],
-        currency: config[:currency],
-        recurring: { interval: "month" },
-        metadata: { plan_slug: config[:slug], interval: "monthly" }
-      )
-      puts "  Monthly price: $#{config[:monthly_price] / 100.0}/mo (#{monthly_price.id})"
-
-      # Create annual price
-      annual_price = Stripe::Price.create(
-        product: product.id,
-        unit_amount: config[:annual_price],
-        currency: config[:currency],
-        recurring: { interval: "year" },
-        metadata: { plan_slug: config[:slug], interval: "annual" }
-      )
-      puts "  Annual price: $#{config[:annual_price] / 100.0}/yr (#{annual_price.id})"
-
-      # Update local plan record
-      plan.update!(
-        stripe_monthly_price_id: monthly_price.id,
-        stripe_annual_price_id: annual_price.id
-      )
-      puts "  Updated local plan record with Stripe price IDs"
-      puts ""
-    end
-
-    puts "Stripe setup complete!"
-    puts ""
-    puts "Next steps:"
-    puts "1. Configure webhooks in Stripe Dashboard -> Developers -> Webhooks"
-    puts "   Endpoint URL: https://your-domain.com/pay/webhooks/stripe"
-    puts "   Events to listen for:"
-    puts "     - customer.subscription.created"
-    puts "     - customer.subscription.updated"
-    puts "     - customer.subscription.deleted"
-    puts "     - customer.subscription.trial_will_end"
-    puts "     - charge.succeeded"
-    puts "     - charge.refunded"
-    puts "     - payment_method.attached"
-    puts "     - payment_method.updated"
-    puts "2. Set the STRIPE_SIGNING_SECRET environment variable with the webhook signing secret"
+    abort "Broad catalog creation is disabled. Use stripe:setup_pro with STRIPE_EXPECTED_ACCOUNT_ID for staging test billing."
   end
 end
