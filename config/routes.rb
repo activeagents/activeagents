@@ -1,6 +1,9 @@
 Rails.application.routes.draw do
   resource :session, only: [ :new, :create, :destroy ]
   resource :registration, only: [ :new, :create ]
+  resource :workspace_invitation, only: [ :show, :create ]
+  resource :workspace, only: [ :show, :update ]
+  resource :newsletter_subscription, only: [ :create, :show, :update ]
   resources :passwords, param: :token, only: [ :new, :create, :edit, :update ]
 
   # Email verification
@@ -49,6 +52,12 @@ Rails.application.routes.draw do
 
   # Admin dashboard
   namespace :admin do
+    resources :pilots, only: :index
+    resources :pilot_invitations, only: :create do
+      post :deliver, on: :member
+      post :revoke, on: :member
+    end
+    resources :pro_access_grants, only: [ :create, :destroy ]
     resources :spaces, only: [ :index, :show ] do
       member do
         post :terminate
@@ -71,9 +80,13 @@ Rails.application.routes.draw do
   # batched traces here (Configuration::DEFAULT_ENDPOINT is
   # https://api.activeagents.ai/v1/traces). Authenticated with the
   # account's telemetry API key (Bearer token).
+  #
+  # Evaluation reports an application ran itself arrive the same way, from
+  # ActiveAgent::Evals::Publisher (its DEFAULT_ENDPOINT is /v1/evaluations).
   scope module: :api do
     namespace :v1 do
       resources :traces, only: [ :create ]
+      resources :evaluations, only: [ :create ]
     end
   end
 
@@ -113,8 +126,10 @@ Rails.application.routes.draw do
 
     namespace :v1 do
       resources :plans, only: [ :index ]
-      # Alias of POST /v1/traces for clients configured with an /api prefix.
+      # Aliases of POST /v1/traces and /v1/evaluations for clients configured
+      # with an /api prefix.
       resources :traces, only: [ :create ]
+      resources :evaluations, only: [ :create ]
     end
   end
 end

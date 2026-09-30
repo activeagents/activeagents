@@ -7,7 +7,7 @@ module Admin
     private
 
     def require_admin!
-      unless current_user&.admin?
+      unless current_user&.admin? && current_user.email_verified?
         redirect_to root_path, alert: "Access denied"
       end
     end

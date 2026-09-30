@@ -14,12 +14,16 @@ module ActiveSupport
 
     # Add more helper methods to be used by all tests here...
 
-    # Helper to create a user
-    def create_user(email: "user#{SecureRandom.hex(4)}@example.com", password: "password123")
+    # Most tests exercise an onboarded actor. Ownership tests explicitly pass
+    # email_verified: false; public signup tests go through registration.
+    def create_user(email: "user#{SecureRandom.hex(4)}@example.com", password: "password123", **attributes)
       User.create!(
         email_address: email,
         password: password,
-        password_confirmation: password
+        password_confirmation: password,
+        email_verified: true,
+        profile_completed: false,
+        **attributes
       )
     end
 
@@ -33,6 +37,7 @@ module ActiveSupport
     # Helper to create an agent for a user
     def create_agent(user:, name: "Test Agent", **attrs)
       defaults = {
+        account: user.primary_account,
         name: name,
         description: "A test agent",
         provider: "openai",
