@@ -95,7 +95,19 @@ jobs:
       name: staging
       url: ${{ steps.deploy.outputs.url }}
 
+    env:
+      TF_VAR_stripe_expected_account_id: ${{ vars.STRIPE_STAGING_ACCOUNT_ID }}
+      TF_VAR_stripe_pro_monthly_price_id: ${{ vars.STRIPE_PRO_MONTHLY_PRICE_ID }}
+      TF_VAR_stripe_pro_annual_price_id: ${{ vars.STRIPE_PRO_ANNUAL_PRICE_ID }}
+
     steps:
+      - name: Require the verified Stripe sandbox account
+        run: |
+          if [ -z "$TF_VAR_stripe_expected_account_id" ]; then
+            echo "Set STRIPE_STAGING_ACCOUNT_ID on the staging environment to the verified Stripe test account."
+            exit 1
+          fi
+
       - name: Checkout code
         uses: actions/checkout@v6
 
@@ -231,8 +243,35 @@ jobs:
             exit 1
           }
 
+  billing:
+    needs: migrate
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      id-token: write
+    environment: staging
+    steps:
+      - uses: google-github-actions/auth@v3
+        with:
+          workload_identity_provider: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ secrets.GCP_SERVICE_ACCOUNT }}
+      - uses: google-github-actions/setup-gcloud@v3
+      - name: Configure and verify staging Pro test prices
+        run: |
+          gcloud run jobs execute activeagents-staging-migrate \
+            --project=${{ env.PROJECT_ID }} --region=${{ env.REGION }} \
+            --args=stripe:setup_pro --wait
+      - name: Read the sanitized Pro price report
+        if: always()
+        run: |
+          gcloud logging read \
+            'resource.type="cloud_run_job" AND resource.labels.job_name="activeagents-staging-migrate" AND textPayload:"STAGING_PRO_BILLING "' \
+            --project=${{ env.PROJECT_ID }} --freshness=15m \
+            --limit=2 --order=desc --format="value(textPayload)"
+
   smoke-test:
-    needs: [deploy, migrate]
+    needs: [deploy, migrate, billing]
     runs-on: ubuntu-latest
 
     steps:

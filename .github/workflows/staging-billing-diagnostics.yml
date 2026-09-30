@@ -5,7 +5,6 @@ on:
   push:
     branches: [codex/staging-pro-billing]
     paths:
-      - .github/workflows/staging-billing-diagnostics.yml
       - script/staging_billing_diagnostics.rb
 
 concurrency:
@@ -19,7 +18,7 @@ permissions:
 jobs:
   inspect:
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 15
     environment: staging
     steps:
       - uses: actions/checkout@v6
@@ -29,7 +28,7 @@ jobs:
           service_account: ${{ secrets.GCP_SERVICE_ACCOUNT }}
       - uses: google-github-actions/setup-gcloud@v3
       - name: Read staging billing configuration without changing it
-        timeout-minutes: 4
+        timeout-minutes: 10
         shell: bash
         run: |
           BILLING_DIAGNOSTIC_CODE=$(cat script/staging_billing_diagnostics.rb)
