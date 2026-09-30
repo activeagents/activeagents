@@ -1,0 +1,6 @@
+<h1>Confirm your newsletter subscription</h1>
+<p>Receive ActiveAgents news, updates, and releases at <%= @subscription.email_address %>. You can unsubscribe anytime.</p>
+<%= form_with url: newsletter_subscription_path, method: :patch do |form| %>
+  <%= hidden_field_tag :token, params[:token] %>
+  <%= form.submit "Confirm newsletter subscription" %>
+<% end %>

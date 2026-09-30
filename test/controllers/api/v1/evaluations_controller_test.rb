@@ -306,7 +306,7 @@ class Api::V1::EvaluationsControllerTest < ActionDispatch::IntegrationTest
   test "refuses a report at the account's observed-agent cap with a 403" do
     now = Time.current
     Agent.insert_all(Array.new(ActionAgent::AgentRegistrar::MAX_OBSERVED_PER_OWNER) do |index|
-      { name: "Observed #{index}", slug: "observed-#{index}", status: 3, user_id: @user.id, provider: "openai", model: "gpt-5-mini",
+      { name: "Observed #{index}", slug: "observed-#{index}", status: 3, user_id: @user.id, account_id: @account.id, provider: "openai", model: "gpt-5-mini",
         service_name: "other-app", agent_class_name: "Other#{index}", created_at: now, updated_at: now }
     end)
     publish(envelope)

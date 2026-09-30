@@ -1,0 +1,15 @@
+<%= @account.name %>: complimentary Pro access <%= @event.action %>.
+
+Review date: <%= @event.details["review_on"] %>. Review does not mean an automatic charge or expiration.
+<% if @event.details["expires_at"].present? %>
+Explicit expiration: <%= @event.details["expires_at"] %>.
+<% end %>
+
+This changes complimentary access only. Your paid subscription, if any, continues unchanged. No automatic charge is created.
+
+If complimentary access ends and there is no active paid subscription, Free usage limits apply. The Pro trace retention window (14 days) continues for 14 days after the end date, so traces age out normally before Free's 3-day window applies. No immediate deletion is triggered by this change.
+
+Review your current access and workspace:
+<%= workspace_url %>
+
+Reply if your retainer is continuing or you have questions about this change.

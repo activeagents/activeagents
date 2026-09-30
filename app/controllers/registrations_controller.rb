@@ -2,20 +2,31 @@
 
 class RegistrationsController < ApplicationController
   allow_unauthenticated_access
+  rate_limit to: 10, within: 10.minutes, only: :create
 
   def new
     @user = User.new
-    @source = params[:source] # Track where signup came from (demo, newsletter, etc.)
+    @source = params[:source]
   end
 
   def create
     # Handle landing page signup (email at root level, JSON, or no nested user params)
     # vs full registration form (nested user params with password)
-    if landing_page_signup?
+    if params[:source] == "newsletter"
+      NewsletterSubscription.subscribe!(params[:email_address])
+      respond_to do |format|
+        format.json { render json: { success: true, message: "Check your email to confirm your newsletter subscription." } }
+        format.html { redirect_to root_path(anchor: "newsletter"), notice: "Check your email to confirm your newsletter subscription." }
+      end
+    elsif landing_page_signup?
       create_from_landing_page
     else
       create_from_form
     end
+  rescue ActiveRecord::RecordInvalid => error
+    render json: { error: error.record.errors.full_messages.to_sentence }, status: :unprocessable_entity
+  rescue ActiveRecord::RecordNotUnique
+    render json: { error: "This email is already registered. Please sign in." }, status: :unprocessable_entity
   end
 
   def landing_page_signup?
@@ -44,10 +55,9 @@ class RegistrationsController < ApplicationController
       else
         # Resend verification email
         existing_user.send_verification_email!
-        start_new_session_for(existing_user)
         respond_to do |format|
-          format.html { redirect_to pending_verification_path, notice: "Verification email resent." }
-          format.json { render json: { success: true, redirect_url: pending_verification_path, message: "Verification email resent." } }
+          format.html { redirect_to new_session_path, notice: "Verification email resent. Open the link in your email to continue." }
+          format.json { render json: { success: true, redirect_url: new_session_path, message: "Verification email resent. Open the link in your email to continue." } }
         end
       end
       return
@@ -57,25 +67,15 @@ class RegistrationsController < ApplicationController
     @user = User.new(
       email_address: email,
       password: SecureRandom.hex(16),
-      signup_source: params[:source] || "landing_page"
+      signup_source: "public_signup"
     )
 
-    if @user.save
-      # Create default account/workspace
-      account = Account.create!(name: "#{@user.display_name}'s Workspace", owner: @user)
-      AccountMembership.create!(account: account, user: @user, role: "owner")
-
+    if save_user_and_workspace
       # Send verification email
       @user.send_verification_email!
 
-      # Sync contact to Resend Audiences for marketing email
-      SyncUserToResendJob.perform_later(@user.id)
-
       # Start session so user can access pending verification page
       start_new_session_for(@user)
-
-      # Store recording ID if user signed up from an active session recording
-      store_signup_recording_id
 
       respond_to do |format|
         format.html { redirect_to pending_verification_path, notice: "Check your email to verify your account!" }
@@ -91,18 +91,11 @@ class RegistrationsController < ApplicationController
 
   # Full registration from form (with password)
   def create_from_form
-    @user = User.new(user_params)
+    @user = User.new(user_params.merge(signup_source: "public_signup"))
 
-    if @user.save
-      # Create default account/workspace
-      account = Account.create!(name: "#{@user.display_name}'s Workspace", owner: @user)
-      AccountMembership.create!(account: account, user: @user, role: "owner")
-
+    if save_user_and_workspace
       # Send verification email
       @user.send_verification_email!
-
-      # Sync contact to Resend Audiences for marketing email
-      SyncUserToResendJob.perform_later(@user.id)
 
       # Start session so user can access pending verification page
       start_new_session_for(@user)
@@ -117,9 +110,12 @@ class RegistrationsController < ApplicationController
     params.require(:user).permit(:email_address, :password, :password_confirmation)
   end
 
-  # Store the session recording ID so we can claim it after profile completion
-  def store_signup_recording_id
-    recording_id = params[:recording_id] || params[:session_recording_id]
-    session[:signup_recording_id] = recording_id if recording_id.present?
+  def save_user_and_workspace
+    User.transaction do
+      return false unless @user.save
+      account = Account.create!(name: "#{@user.display_name}'s Workspace", owner: @user)
+      AccountMembership.create!(account: account, user: @user, role: "owner")
+    end
+    true
   end
 end

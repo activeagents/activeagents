@@ -2,7 +2,7 @@ import React, { useState } from 'react'
 import { router } from '@inertiajs/react'
 import { ThemeProvider, useTheme } from '../../contexts/ThemeContext'
 
-function PlansContent({ plans, current_plan, signed_in }) {
+function PlansContent({ plans, current_plan, signed_in, email_verified, subscribed, access_source }) {
   const { darkMode, toggleDarkMode } = useTheme()
   const [billingInterval, setBillingInterval] = useState('monthly')
   const [checkoutError, setCheckoutError] = useState(null)
@@ -21,6 +21,16 @@ function PlansContent({ plans, current_plan, signed_in }) {
 
   async function handleSelectPlan(plan) {
     if (plan.free) return
+
+    if (signed_in && !email_verified) {
+      window.location.href = '/pending_verification'
+      return
+    }
+
+    if (subscribed) {
+      window.location.href = '/subscriptions'
+      return
+    }
 
     // Enterprise is sold white-glove, not self-serve checkout
     if (plan.slug === 'enterprise') {
@@ -155,6 +165,12 @@ function PlansContent({ plans, current_plan, signed_in }) {
           </div>
         </div>
 
+        {access_source === 'complimentary_pilot' && (
+          <p style={{ marginTop: '24px', textAlign: 'center', color: colors.textSecondary }}>
+            Your workspace includes Pro during its pilot/retainer. Choosing a paid plan is optional and starts a separate checkout.
+          </p>
+        )}
+
         {checkoutError && (
           <div style={{
             marginTop: '24px',
@@ -260,7 +276,7 @@ function PlansContent({ plans, current_plan, signed_in }) {
               </div>
 
               <div style={{ marginTop: '32px' }}>
-                {current_plan?.id === plan.id ? (
+                {current_plan?.id === plan.id && (plan.free || subscribed) ? (
                   <button
                     disabled
                     style={{

@@ -12,6 +12,9 @@ class Account < ApplicationRecord
   # app-level constant is an alias rather than a class of its own.
   has_many :api_keys, class_name: "ActionAgent::ApiKey", dependent: :destroy
   has_many :provider_keys, class_name: "ActionAgent::ProviderKey", dependent: :destroy
+  has_one :github_connection, class_name: "ActionAgent::GithubConnection", dependent: :destroy
+  has_one :pro_access_grant, dependent: :destroy
+  has_many :workspace_invitations, dependent: :restrict_with_error
 
   # Legacy bearer token used by the activeagent gem's telemetry reporter to
   # push traces to POST /v1/traces. New keys are generated per-account as
@@ -62,27 +65,54 @@ class Account < ApplicationRecord
   end
 
   def active_subscription
-    pay_customers.flat_map(&:subscriptions).find(&:active?)
+    billing_subscription || complimentary_subscription
+  end
+
+  # fake_processor and app-managed grants confer access, never paid status.
+  def billing_subscription
+    pay_customers.where.not(processor: "fake_processor").flat_map(&:subscriptions).find(&:active?)
+  end
+
+  def complimentary_subscription
+    pay_customers.where(processor: "fake_processor").flat_map(&:subscriptions).find(&:active?)
   end
 
   def subscribed?
-    active_subscription.present?
+    billing_subscription.present?
+  end
+
+  def paid_subscriber?
+    subscription = billing_subscription
+    subscription.present? && subscription.status == "active" && !subscription.on_trial?
+  end
+
+  def access_source
+    return billing_subscription.on_trial? ? "trial" : "subscription" if billing_subscription
+    return "complimentary_pilot" if pro_access_grant&.active?
+    return "legacy_complimentary" if complimentary_subscription
+    "free"
   end
 
   def current_plan
-    if active_subscription
-      stripe_price_id = active_subscription.processor_plan
-      # A fake_processor subscription is a comp granted from a console or
-      # `platform:bootstrap_account`, and names its plan by slug.
-      comp = Plan.find_by(slug: stripe_price_id) if active_subscription.customer.processor == "fake_processor"
-      return comp if comp
-
-      Plan.find_by(stripe_monthly_price_id: stripe_price_id) ||
-        Plan.find_by(stripe_annual_price_id: stripe_price_id)
-    else
-      # Default to free plan for users without a subscription
-      Plan.free.first
+    if (subscription = billing_subscription)
+      price_id = subscription.processor_plan
+      return Plan.find_by(stripe_monthly_price_id: price_id) || Plan.find_by(stripe_annual_price_id: price_id) || Plan.free.first
     end
+    return Plan.find_by!(slug: "pro") if pro_access_grant&.active?
+    return Plan.find_by(slug: complimentary_subscription.processor_plan) || Plan.free.first if complimentary_subscription
+    Plan.free.first
+  end
+
+  def trace_retention
+    retention = TRACE_RETENTION.fetch(current_plan&.slug || "free")
+    pro_access_grant&.retention_grace? ? [ retention, TRACE_RETENTION.fetch("pro") ].max : retention
+  end
+
+  def pilot_access_details
+    grant = pro_access_grant
+    return unless grant
+    { active: grant.active?, review_on: grant.review_on, expires_at: grant.expires_at,
+      revoked_at: grant.revoked_at, source: grant.source }
   end
 
   # Usage tracking methods
@@ -117,6 +147,7 @@ class Account < ApplicationRecord
   end
 
   def can_run_agent?
+    reset_usage_period_if_needed!
     limit = effective_agent_runs_limit
     return true if limit == -1  # Unlimited
     agent_runs_this_period < limit
