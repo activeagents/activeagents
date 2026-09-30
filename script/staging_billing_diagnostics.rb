@@ -30,26 +30,33 @@ report = {
 }
 
 puts "STAGING_BILLING_DIAGNOSTICS #{JSON.generate(report)}"
-abort "Staging billing must use matching test keys; no Stripe request was made" unless
-  report[:stripe_key_mode] == "test" && report[:effective_keys_match]
-
-client = Stripe::StripeClient.new(Stripe.api_key)
-read = ->(path, params = {}) { client.execute_request(:get, path, params: params).first.data }
-balance = read.call("/v1/balance")
-abort "Stripe reported livemode=true; stopping" unless balance[:livemode] == false
-
-account = read.call("/v1/account")
-report[:stripe_account] = account[:id]
-report[:livemode] = balance[:livemode]
-report[:staging_webhooks] = []
-params = { limit: 100 }
-loop do
-  page = read.call("/v1/webhook_endpoints", params)
-  page[:data].each do |endpoint|
-    next unless endpoint[:url] == "https://staging.activeagents.ai/pay/webhooks/stripe"
-    report[:staging_webhooks] << endpoint.slice(:id, :url, :livemode, :status, :enabled_events, :api_version)
+report[:key_accounts] = {}
+{ global: Stripe.api_key, pay: Pay::Stripe.private_key, environment: ENV["STRIPE_API_KEY"] }.each do |source, key|
+  next unless key_mode.call(key) == "test"
+  begin
+    client = Stripe::StripeClient.new(key)
+    read = ->(path, params = {}) { client.execute_request(:get, path, params: params).first.data }
+    balance = read.call("/v1/balance")
+    unless balance[:livemode] == false
+      report[:key_accounts][source] = { error: "Stripe did not report livemode=false" }
+      next
+    end
+    account = read.call("/v1/account")
+    report[:key_accounts][source] = { stripe_account: account[:id], livemode: false }
+    next unless source == :environment
+    report[:staging_webhooks] = []
+    params = { limit: 100 }
+    loop do
+      page = read.call("/v1/webhook_endpoints", params)
+      page[:data].each do |endpoint|
+        next unless endpoint[:url] == "https://staging.activeagents.ai/pay/webhooks/stripe"
+        report[:staging_webhooks] << endpoint.slice(:id, :url, :livemode, :status, :enabled_events, :api_version)
+      end
+      break unless page[:has_more]
+      params[:starting_after] = page[:data].last.fetch(:id)
+    end
+  rescue Stripe::StripeError => error
+    report[:key_accounts][source] = { error: error.class.name, http_status: error.http_status }
   end
-  break unless page[:has_more]
-  params[:starting_after] = page[:data].last.fetch(:id)
 end
 puts "STAGING_BILLING_DIAGNOSTICS #{JSON.generate(report)}"
