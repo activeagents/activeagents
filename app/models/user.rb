@@ -14,7 +14,7 @@ class User < ApplicationRecord
 
   normalizes :email_address, with: ->(e) { e.strip.downcase }
 
-  validates :email_address, presence: true, uniqueness: true
+  validates :email_address, presence: true, uniqueness: true, length: { maximum: 254 }, format: { with: URI::MailTo::EMAIL_REGEXP }
   validates :password, length: { minimum: 8 }, if: -> { new_record? || password.present? }
 
   # Email verification
@@ -30,6 +30,10 @@ class User < ApplicationRecord
 
   def primary_account
     owned_accounts.first || accounts.first
+  end
+
+  def accessible_accounts
+    Account.where(owner_id: id).or(Account.where(id: accounts.select(:id)))
   end
 
   def admin?

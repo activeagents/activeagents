@@ -21,7 +21,7 @@ ActionAgent.configure do |config|
   # here instead of named as methods to call.
   config.authentication_method = lambda do |controller|
     Current.session ||= Session.find_by(id: controller.send(:cookies).signed[:session_id])
-    Current.session.present?
+    Current.user&.email_verified? && Current.account.present?
   end
 
   config.current_user_resolver = ->(_controller) { Current.session&.user }
@@ -30,19 +30,14 @@ ActionAgent.configure do |config|
   # dashboard header's sign-out posts to this app's session.
   config.sign_in_path = "/session/new"
   config.sign_out_path = "/session"
-  config.current_account_resolver = ->(_controller) { Current.session&.user&.primary_account }
+  config.current_account_resolver = ->(_controller) { Current.account }
 
-  # An account reaches every agent its members own — agents belong to users
-  # here, while API keys and traces belong to the account. Someone signed in
-  # without an account yet still reaches their own agents; what they cannot do
-  # without one is run them (see quota_checker and require_owner!).
+  # Every dashboard record is workspace-scoped, even when one user owns
+  # multiple workspaces. Never infer a workspace from an agent's creator.
   config.agent_scope_resolver = lambda do |owner|
     case owner
-    when Account then Agent.where(user_id: [ owner.owner_id ] | owner.members.pluck(:id))
-    when User then Agent.where(user_id: owner.id)
-    else
-      user = Current.session&.user
-      user ? Agent.where(user_id: user.id) : Agent.none
+    when Account then Agent.where(account_id: owner.id)
+    else Agent.none
     end
   end
 
@@ -67,16 +62,28 @@ ActionAgent.configure do |config|
   # action; nil allows it.
   # Owners reaching the dashboard can be users or accounts, but plans hang
   # off accounts, so both resolve through tenant_for below.
+  #
+  # A published evaluation report (/v1/evaluations) is refused once the
+  # account is over its plan's trace quota, with the body /v1/traces answers
+  # its 429 with. The engine asks only before storing a new report, so an
+  # identical retry still gets its receipt.
   config.quota_checker = lambda do |owner, kind|
-    next nil unless kind == :execution
-
     account = ActionAgent.tenant_for(owner)
-    next nil if account.nil? || account.can_run_agent?
+    next nil if account.nil?
 
-    {
-      message: "You've used all #{account.effective_agent_runs_limit} agent runs this month. Upgrade to continue.",
-      usage: account.usage_stats
-    }
+    case kind
+    when :execution
+      next nil if account.can_run_agent?
+
+      {
+        message: "You've used all #{account.effective_agent_runs_limit} agent runs this month. Upgrade to continue.",
+        usage: account.usage_stats
+      }
+    when :evaluation_report
+      next nil if account.can_ingest_traces?
+
+      { error: "Trace quota exceeded for current plan", limit: account.effective_trace_limit }
+    end
   end
 
   config.usage_recorder = lambda do |owner, kind|
@@ -88,7 +95,7 @@ ActionAgent.configure do |config|
 
   # Retention follows the plan (free 3 days, pro 14, enterprise 400) — the
   # promise the pricing page makes.
-  config.trace_retention = ->(account) { Account::TRACE_RETENTION.fetch(account&.current_plan&.slug || "free") }
+  config.trace_retention = ->(account) { account&.trace_retention || Account::TRACE_RETENTION.fetch("free") }
 
   # --- Credentials --------------------------------------------------------
   # An account's own provider key beats the platform's ENV credentials, so
@@ -107,9 +114,9 @@ ActionAgent.configure do |config|
   config.github_client_secret = Rails.application.credentials.dig(:github, :client_secret)
 
   # --- Attribution --------------------------------------------------------
-  # Agents observed in reported telemetry hang off the account's owning user,
-  # because that is who owns agents here.
-  config.trace_owner_resolver = ->(trace) { trace.account&.owner }
+  # Observed agents belong to the publishing workspace. The host concern
+  # retains its owning user as attribution, not as the tenant boundary.
+  config.trace_owner_resolver = ->(trace) { trace.account }
 
   # --- Sandboxes ----------------------------------------------------------
   # The engine ships the in-memory backend; the infrastructure this platform
@@ -120,4 +127,13 @@ ActionAgent.configure do |config|
     "cloud_run" => "CloudRunService"
   }
   config.sandbox_service = ENV.fetch("SANDBOX_BACKEND", "incus")
+end
+
+Rails.application.config.to_prepare do
+  # The engine supports both owners. This hosted app uses accounts; keeping
+  # user as optional attribution must not make it the authorization boundary.
+  [ ActionAgent::Agent, ActionAgent::SandboxSession, ActionAgent::SessionRecording ].each do |model|
+    model.owned_by :account, :user
+  end
+  ActionAgent::Agent.include WorkspaceAgentAttribution
 end

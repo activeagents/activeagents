@@ -5,12 +5,15 @@ class PlansController < ApplicationController
   def index
     plans = Plan.active.order(:price_cents)
     current_user = Current.session&.user
-    account = current_user&.primary_account
+    account = Current.account
 
     render inertia: "Plans/Index", props: {
       plans: plans.map { |plan| plan_props(plan) },
       current_plan: account&.current_plan&.then { |p| plan_props(p) },
-      signed_in: current_user.present?
+      signed_in: current_user.present?,
+      email_verified: current_user&.email_verified? || false,
+      subscribed: account&.subscribed? || false,
+      access_source: account&.access_source
     }
   end
 
