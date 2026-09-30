@@ -183,7 +183,7 @@ module "cloud_run" {
 
   cloud_sql_connection = module.cloud_sql.connection_name
 
-  env_vars = {
+  env_vars = merge({
     RAILS_ENV              = "production"
     RAILS_LOG_TO_STDOUT    = "true"
     RAILS_SERVE_STATIC_FILES = "true"
@@ -195,7 +195,14 @@ module "cloud_run" {
     DB_NAME                = module.cloud_sql.database_name
     DB_USER                = module.cloud_sql.database_user
     MAILER_FROM_ADDRESS    = var.mailer_from_address
-  }
+  }, var.environment == "staging" ? merge({
+    STRIPE_REQUIRE_TEST_MODE   = "true"
+    STRIPE_EXPECTED_ACCOUNT_ID = var.staging_stripe.account_id
+  }, var.staging_stripe.monthly_price_id != "" ? {
+    STRIPE_PRO_MONTHLY_PRICE_ID = var.staging_stripe.monthly_price_id
+  } : {}, var.staging_stripe.annual_price_id != "" ? {
+    STRIPE_PRO_ANNUAL_PRICE_ID = var.staging_stripe.annual_price_id
+  } : {}) : {})
 
   secret_env_vars = {
     RAILS_MASTER_KEY       = module.secrets.secret_ids["rails-master-key"]

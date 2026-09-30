@@ -22,6 +22,12 @@ module "activeagents" {
   region      = var.region
   environment = "staging"
 
+  staging_stripe = {
+    account_id       = var.stripe_expected_account_id
+    monthly_price_id = var.stripe_pro_monthly_price_id
+    annual_price_id  = var.stripe_pro_annual_price_id
+  }
+
   # Cloud Run configuration
   image         = var.image
   min_instances = 0  # Scale to zero for cost savings
