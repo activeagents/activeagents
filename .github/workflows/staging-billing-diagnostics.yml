@@ -29,6 +29,7 @@ jobs:
           service_account: ${{ secrets.GCP_SERVICE_ACCOUNT }}
       - uses: google-github-actions/setup-gcloud@v3
       - name: Read staging billing configuration without changing it
+        timeout-minutes: 4
         shell: bash
         run: |
           BILLING_DIAGNOSTIC_CODE=$(cat script/staging_billing_diagnostics.rb)
@@ -43,3 +44,9 @@ jobs:
             'resource.type="cloud_run_job" AND resource.labels.job_name="activeagents-staging-migrate" AND textPayload:"STAGING_BILLING_DIAGNOSTICS "' \
             --project=active-agents-platform --freshness=15m \
             --limit=10 --order=asc --format="value(textPayload)"
+      - name: Show execution status without container arguments or environment
+        if: always()
+        run: |
+          gcloud run jobs executions list \
+            --job=activeagents-staging-migrate --project=active-agents-platform --region=us-central1 \
+            --limit=3 --format="table(metadata.name,status.completionTime,status.conditions.type,status.conditions.status,status.conditions.message)"
