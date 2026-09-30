@@ -1,4 +1,23 @@
 GIT
+  remote: https://github.com/activeagents/activeagent.git
+  revision: da403f958a69e1db73a6f5d75c362ffb3b131292
+  ref: da403f958a69e1db73a6f5d75c362ffb3b131292
+  specs:
+    actionagent (1.8.0)
+      activeagent (>= 1.4, < 2)
+      activerecord (>= 7.2, <= 9.0)
+      railties (>= 7.2, <= 9.0)
+      solid_agent (>= 0.1)
+    activeagent (1.8.0)
+      actionpack (>= 7.2, <= 9.0)
+      actionview (>= 7.2, <= 9.0)
+      activeagents-telemetry (~> 0.1)
+      activejob (>= 7.2, <= 9.0)
+      activemodel (>= 7.2, <= 9.0)
+      activesupport (>= 7.2, <= 9.0)
+      railties (>= 7.2, <= 9.0)
+
+GIT
   remote: https://github.com/activeagents/solid_agent.git
   revision: 41fd2fe2a31e24994baf2ff8017dad7c3795deac
   branch: main
@@ -121,19 +140,6 @@ GEM
   specs:
     action_text-trix (2.1.16)
       railties
-    actionagent (1.8.0)
-      activeagent (>= 1.4, < 2)
-      activerecord (>= 7.2, <= 9.0)
-      railties (>= 7.2, <= 9.0)
-      solid_agent (>= 0.1)
-    activeagent (1.8.0)
-      actionpack (>= 7.2, <= 9.0)
-      actionview (>= 7.2, <= 9.0)
-      activeagents-telemetry (~> 0.1)
-      activejob (>= 7.2, <= 9.0)
-      activemodel (>= 7.2, <= 9.0)
-      activesupport (>= 7.2, <= 9.0)
-      railties (>= 7.2, <= 9.0)
     activeagents-telemetry (0.1.0)
     addressable (2.8.9)
       public_suffix (>= 2.0.2, < 8.0)
@@ -554,8 +560,8 @@ PLATFORMS
   x86_64-linux-musl
 
 DEPENDENCIES
-  actionagent (~> 1.8.0)
-  activeagent (~> 1.8.0)
+  actionagent!
+  activeagent!
   anthropic
   bcrypt (~> 3.1.7)
   bootsnap

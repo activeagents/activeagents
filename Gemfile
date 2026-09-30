@@ -25,12 +25,13 @@ gem "rouge"
 # Inertia adapter for Rails [https://inertia-rails.dev]
 gem "inertia_rails"
 # Active Agent - AI agent framework for Rails [https://github.com/activeagents/activeagent]
-# 1.8.0 is the floor for the engine's GitHub connections, checkout sandboxes
-# and Claude Code sessions; 1.7.0 added the evaluation report collector that
-# /v1/evaluations subclasses.
-gem "activeagent", "~> 1.8.0"
+# Pinned to an unreleased main commit to test the evaluation report changes
+# that follow 1.8.0 (section order, partial cost). Swap back to the release
+# that carries them before merging.
+ACTIVEAGENT_REF = "da403f958a69e1db73a6f5d75c362ffb3b131292"
+gem "activeagent", github: "activeagents/activeagent", ref: ACTIVEAGENT_REF
 # Action Agent - the dashboard, a mountable Rails engine.
-gem "actionagent", "~> 1.8.0"
+gem "actionagent", github: "activeagents/activeagent", ref: ACTIVEAGENT_REF
 # Solid Agent - Persistence and context management for ActiveAgent
 gem "solid_agent", github: "activeagents/solid_agent", branch: "main"
 # RubyLLM - model registry (token pricing data) and unified provider API
