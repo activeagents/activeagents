@@ -25,10 +25,10 @@ gem "rouge"
 # Inertia adapter for Rails [https://inertia-rails.dev]
 gem "inertia_rails"
 # Active Agent - AI agent framework for Rails [https://github.com/activeagents/activeagent]
-# Pinned to an unreleased main commit to test the evaluation report changes
+# Pinned to the unreleased release/1.8.1 commit to test the evaluation report changes
 # that follow 1.8.0 (section order, partial cost). Swap back to the release
 # that carries them before merging.
-ACTIVEAGENT_REF = "da403f958a69e1db73a6f5d75c362ffb3b131292"
+ACTIVEAGENT_REF = "a7c35a44e0951abd2c35affd65de54945200fdfd"
 gem "activeagent", github: "activeagents/activeagent", ref: ACTIVEAGENT_REF
 # Action Agent - the dashboard, a mountable Rails engine.
 gem "actionagent", github: "activeagents/activeagent", ref: ACTIVEAGENT_REF

@@ -1,14 +1,14 @@
 GIT
   remote: https://github.com/activeagents/activeagent.git
-  revision: da403f958a69e1db73a6f5d75c362ffb3b131292
-  ref: da403f958a69e1db73a6f5d75c362ffb3b131292
+  revision: a7c35a44e0951abd2c35affd65de54945200fdfd
+  ref: a7c35a44e0951abd2c35affd65de54945200fdfd
   specs:
-    actionagent (1.8.0)
+    actionagent (1.8.1)
       activeagent (>= 1.4, < 2)
       activerecord (>= 7.2, <= 9.0)
       railties (>= 7.2, <= 9.0)
       solid_agent (>= 0.1)
-    activeagent (1.8.0)
+    activeagent (1.8.1)
       actionpack (>= 7.2, <= 9.0)
       actionview (>= 7.2, <= 9.0)
       activeagents-telemetry (~> 0.1)

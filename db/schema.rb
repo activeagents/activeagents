@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.2].define(version: 2026_09_30_031125) do
+ActiveRecord::Schema[8.2].define(version: 2026_10_01_005320) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
 
@@ -346,6 +346,8 @@ ActiveRecord::Schema[8.2].define(version: 2026_09_30_031125) do
     t.integer "output_tokens"
     t.text "prompt", null: false
     t.text "result"
+    t.string "runner", default: "claude_code", null: false
+    t.string "runner_session_id"
     t.bigint "sandbox_session_id", null: false
     t.datetime "started_at"
     t.integer "status", default: 0, null: false
