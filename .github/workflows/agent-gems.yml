@@ -1,0 +1,169 @@
+name: Agent gems
+
+# Opens the pull request that moves the platform onto a new activeagent and
+# actionagent release. The gem repository's release workflow dispatches
+# `agent-gems-released` here once both gems are on RubyGems. Run it by hand
+# with a version to catch up on a release that predates that, or to retry.
+#
+# It moves the two exact pins in the Gemfile, relocks conservatively so
+# nothing else moves, and lists the engine's generator templates that
+# changed between the two versions. This app mounts the engine with an
+# unprefixed schema, so each changed migration template needs a platform
+# migration written by hand before the pull request merges. Nothing here
+# generates one.
+#
+# After it merges, `bin/release next` prints the tag, and pushing that tag
+# runs release.yml. See docs/releasing.md.
+#
+# A pull request opened with GITHUB_TOKEN starts no workflows, so CI would
+# not run on it. PLATFORM_RELEASE_TOKEN, a fine-grained token on this
+# repository with Contents and Pull requests read/write, opens it as a user
+# CI does run for. Without it the pull request still opens, and says so.
+
+on:
+  repository_dispatch:
+    types: [ agent-gems-released ]
+  workflow_dispatch:
+    inputs:
+      activeagent:
+        description: activeagent version, e.g. 1.8.1
+        required: true
+        type: string
+      actionagent:
+        description: actionagent version, when it differs from activeagent
+        required: false
+        type: string
+
+permissions:
+  contents: write
+  pull-requests: write
+
+concurrency:
+  group: agent-gems
+  cancel-in-progress: false
+
+jobs:
+  bump:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Read the versions
+        id: to
+        env:
+          ACTIVEAGENT: ${{ inputs.activeagent || github.event.client_payload.activeagent }}
+          ACTIONAGENT: ${{ inputs.actionagent || github.event.client_payload.actionagent }}
+        run: |
+          ACTIONAGENT="${ACTIONAGENT:-$ACTIVEAGENT}"
+          for version in "$ACTIVEAGENT" "$ACTIONAGENT"; do
+            if ! [[ "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+              echo "::error::'$version' is not a release version (X.Y.Z)"
+              exit 1
+            fi
+          done
+          echo "activeagent=$ACTIVEAGENT" >> "$GITHUB_OUTPUT"
+          echo "actionagent=$ACTIONAGENT" >> "$GITHUB_OUTPUT"
+
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ github.event.repository.default_branch }}
+
+      - uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: .ruby-version
+
+      - name: Read the versions being replaced
+        id: from
+        run: |
+          outputs=$(bin/release gems)
+          echo "$outputs"
+          echo "$outputs" >> "$GITHUB_OUTPUT"
+
+      # `gem push` returns before the version reaches the compact index
+      # Bundler resolves from, which can take a few minutes.
+      - name: Wait for RubyGems to serve both versions
+        env:
+          ACTIVEAGENT: ${{ steps.to.outputs.activeagent }}
+          ACTIONAGENT: ${{ steps.to.outputs.actionagent }}
+        run: |
+          served() { curl -fsS "https://index.rubygems.org/info/$1" | grep -q "^$2 "; }
+          for attempt in $(seq 1 30); do
+            if served activeagent "$ACTIVEAGENT" && served actionagent "$ACTIONAGENT"; then
+              exit 0
+            fi
+            echo "Not on the index yet (attempt $attempt); waiting 30s"
+            sleep 30
+          done
+          echo "::error::activeagent $ACTIVEAGENT or actionagent $ACTIONAGENT is not on RubyGems after 15 minutes"
+          exit 1
+
+      - name: Pin and relock
+        env:
+          ACTIVEAGENT: ${{ steps.to.outputs.activeagent }}
+          ACTIONAGENT: ${{ steps.to.outputs.actionagent }}
+        run: |
+          sed -i -E "s/^gem \"activeagent\", \"[^\"]+\"$/gem \"activeagent\", \"$ACTIVEAGENT\"/" Gemfile
+          sed -i -E "s/^gem \"actionagent\", \"[^\"]+\"$/gem \"actionagent\", \"$ACTIONAGENT\"/" Gemfile
+          grep -qx "gem \"activeagent\", \"$ACTIVEAGENT\"" Gemfile
+          grep -qx "gem \"actionagent\", \"$ACTIONAGENT\"" Gemfile
+
+          bundle lock --conservative --update activeagent actionagent
+          git diff --stat
+
+      # The engine's install generator writes these into a host app. Here
+      # they become hand-written migrations on the unprefixed tables.
+      - name: List the engine changes the platform has to mirror
+        env:
+          FROM: ${{ steps.from.outputs.activeagent }}
+          TO: ${{ steps.to.outputs.activeagent }}
+          ACTIONAGENT: ${{ steps.to.outputs.actionagent }}
+          FROM_ACTIONAGENT: ${{ steps.from.outputs.actionagent }}
+          HAS_TOKEN: ${{ secrets.PLATFORM_RELEASE_TOKEN != '' }}
+        run: |
+          git clone --quiet --filter=blob:none https://github.com/activeagents/activeagent.git "$RUNNER_TEMP/activeagent"
+          generators=actionagent/lib/generators/action_agent
+          changes=$(git -C "$RUNNER_TEMP/activeagent" diff --name-status "v$FROM" "v$TO" -- "$generators")
+
+          {
+            echo "Moves the platform onto activeagent $TO and actionagent $ACTIONAGENT, from $FROM and $FROM_ACTIONAGENT."
+            echo
+            echo "- Release: https://github.com/activeagents/activeagent/releases/tag/v$TO"
+            echo "- Changes: https://github.com/activeagents/activeagent/compare/v$FROM...v$TO"
+            echo
+            echo "## Before merging"
+            echo
+            if [ -z "$changes" ]; then
+              echo "The engine's generator is unchanged between v$FROM and v$TO, so there is no migration to mirror."
+            else
+              echo "The engine's generator changed between v$FROM and v$TO. This app mounts the engine with \`table_name_prefix = \"\"\`, so each new or changed migration template below needs a migration in \`db/migrate\` against the unprefixed tables, and \`db/schema.rb\` updated. Initializer template changes may add configuration worth setting in \`config/initializers/action_agent.rb\`."
+              echo
+              while IFS=$'\t' read -r status path; do
+                case "$status" in A) what=added ;; M) what=changed ;; D) what=removed ;; *) what="$status" ;; esac
+                echo "- $what: [\`${path#"$generators"/}\`](https://github.com/activeagents/activeagent/blob/v$TO/$path)"
+              done <<< "$changes"
+            fi
+            echo
+            if [ "$HAS_TOKEN" != "true" ]; then
+              echo "> [!NOTE]"
+              echo "> This pull request was opened with \`GITHUB_TOKEN\`, so CI has not run. Push a commit to the branch to start it, or set the \`PLATFORM_RELEASE_TOKEN\` secret so the next one starts on its own."
+              echo
+            fi
+            echo "## After merging"
+            echo
+            echo "Push the tag \`bin/release next\` prints (\`v$TO\` unless that tag exists). That publishes the image and the GitHub release, and deploys production."
+          } > "$RUNNER_TEMP/body.md"
+          cat "$RUNNER_TEMP/body.md"
+
+      - uses: peter-evans/create-pull-request@v7
+        with:
+          token: ${{ secrets.PLATFORM_RELEASE_TOKEN || github.token }}
+          base: ${{ github.event.repository.default_branch }}
+          branch: agent-gems/v${{ steps.to.outputs.activeagent }}
+          delete-branch: true
+          add-paths: |
+            Gemfile
+            Gemfile.lock
+          title: Run activeagent and actionagent ${{ steps.to.outputs.activeagent }}
+          commit-message: |
+            Run activeagent ${{ steps.to.outputs.activeagent }} and actionagent ${{ steps.to.outputs.actionagent }}
+
+            Moves both exact pins and relocks conservatively, so no other gem moves.
+          body-path: ${{ runner.temp }}/body.md
