@@ -1,0 +1,40 @@
+#!/usr/bin/env ruby
+# frozen_string_literal: true
+
+# Platform release versions, read from Gemfile.lock and the repository's tags.
+#
+#   bin/release next          the tag the current lock should be released as
+#   bin/release check v1.8.1  verify a tag against the lock; prints the
+#                             key=value lines .github/workflows/release.yml
+#                             reads (image tags, gem versions, latest)
+#   bin/release gems          the agent gem versions the lock runs
+#
+# See docs/releasing.md.
+
+require_relative "../lib/platform_release"
+
+Dir.chdir(File.expand_path("..", __dir__))
+
+def existing_tags
+  `git tag --list "v*"`.split
+end
+
+begin
+  case ARGV
+  in [ "next" ]
+    puts PlatformRelease.next_tag(existing_tags: existing_tags)
+  in [ "check", tag ]
+    puts PlatformRelease.load(tag, existing_tags: existing_tags).verify!.to_outputs
+  in [ "gems" ]
+    lock = Bundler::LockfileParser.new(File.read("Gemfile.lock"))
+    PlatformRelease::RELEASED_GEMS.each do |name|
+      puts "#{name.tr("-", "_")}=#{lock.specs.find { |spec| spec.name == name }&.version}"
+    end
+  else
+    warn "Usage: bin/release next | bin/release check vX.Y.Z[.N] | bin/release gems"
+    exit 64
+  end
+rescue PlatformRelease::Error => error
+  warn error.message
+  exit 1
+end
