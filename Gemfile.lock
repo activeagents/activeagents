@@ -1,14 +1,4 @@
 GIT
-  remote: https://github.com/activeagents/solid_agent.git
-  revision: 41fd2fe2a31e24994baf2ff8017dad7c3795deac
-  branch: main
-  specs:
-    solid_agent (0.1.1)
-      activeagent (>= 1.0.0)
-      activerecord (>= 7.0)
-      activesupport (>= 7.0)
-
-GIT
   remote: https://github.com/rails/rails.git
   revision: 074429b990c789949721d8ffd93bd28295433315
   branch: main
@@ -483,6 +473,11 @@ GEM
       faraday (>= 0.17.5, < 3.a)
       jwt (>= 1.5, < 4.0)
       multi_json (~> 1.10)
+    solid_agent (0.2.0)
+      activeagent (>= 1.0.0)
+      activemodel (>= 7.0)
+      activerecord (>= 7.0)
+      activesupport (>= 7.0)
     solid_cable (3.0.12)
       actioncable (>= 7.2)
       activejob (>= 7.2)
@@ -554,8 +549,8 @@ PLATFORMS
   x86_64-linux-musl
 
 DEPENDENCIES
-  actionagent (~> 1.7.0)
-  activeagent (~> 1.7.0)
+  actionagent (= 1.7.0)
+  activeagent (= 1.7.0)
   anthropic
   bcrypt (~> 3.1.7)
   bootsnap
@@ -582,7 +577,7 @@ DEPENDENCIES
   rouge
   rubocop-rails-omakase
   ruby_llm
-  solid_agent!
+  solid_agent (= 0.2.0)
   solid_cable
   solid_cache
   solid_queue
