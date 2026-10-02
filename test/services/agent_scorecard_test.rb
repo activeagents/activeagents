@@ -98,17 +98,20 @@ class AgentScorecardTest < ActiveSupport::TestCase
     assert stats[:last_run_at].present?
   end
 
-  test "eval_score comes from the latest complete evaluation run" do
+  # The tile is the pass rate of each evaluation's newest complete run, pooled,
+  # not the mean criterion score of whichever run was last.
+  test "eval_score is the pass rate of the newest complete evaluation run" do
     evaluation = @agent.evaluations.create!(name: "quality", criteria: [ { "key" => "k", "type" => "response_present" } ])
     older = evaluation.evaluation_runs.create!(status: :complete, scores: { "k" => { "score" => 0.4 } }, samples_evaluated: 5, samples_passed: 2)
     older.update_columns(created_at: 2.days.ago)
-    evaluation.evaluation_runs.create!(status: :complete, scores: { "k" => { "score" => 0.9 } }, samples_evaluated: 5, samples_passed: 5)
+    evaluation.evaluation_runs.create!(status: :complete, scores: { "k" => { "score" => 0.9 } }, samples_evaluated: 5, samples_passed: 4)
     evaluation.evaluation_runs.create!(status: :failed, error_message: "boom")
 
     stats = AgentScorecard.for_agents([ @agent ])[@agent.id]
 
-    assert_in_delta 0.9, stats[:eval_score], 0.001
-    assert_equal 5, stats[:eval_samples_passed]
+    assert_in_delta 0.8, stats[:eval_score], 0.001
+    assert_equal [ 4, 5, 1, 0 ],
+      stats.values_at(:eval_samples_passed, :eval_samples_evaluated, :eval_runs, :eval_not_counted)
   end
 
   test "estimates cost across both execution sources" do
