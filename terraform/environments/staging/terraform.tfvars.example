@@ -4,3 +4,12 @@
 project_id = "active-agents-platform"
 region     = "us-central1"
 image      = "us-central1-docker.pkg.dev/active-agents-platform/activeagents/activeagents:staging"
+
+# Staging Pro billing. None of these is a secret: the account ID identifies the
+# Stripe test account the setup refuses to write anywhere else, and the price
+# IDs are visible to the browser at checkout. Keep the real values here (or in a
+# committed staging .tfvars) rather than only in CI variables, so a local apply
+# does not blank them on the service and job.
+stripe_expected_account_id  = "" # acct_...
+stripe_pro_monthly_price_id = "" # price_... for the $99/month Pro plan
+stripe_pro_annual_price_id  = "" # price_... for the $995/year Pro plan
