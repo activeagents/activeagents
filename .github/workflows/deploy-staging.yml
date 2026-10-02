@@ -4,6 +4,11 @@ on:
   push:
     branches: [main]
   workflow_dispatch:
+    inputs:
+      run_billing_setup:
+        description: Configure and verify the staging Pro test prices in Stripe after the deploy
+        type: boolean
+        default: false
 
 concurrency:
   group: staging-deployment
@@ -94,6 +99,11 @@ jobs:
     environment:
       name: staging
       url: ${{ steps.deploy.outputs.url }}
+
+    env:
+      TF_VAR_stripe_expected_account_id: ${{ vars.STRIPE_STAGING_ACCOUNT_ID }}
+      TF_VAR_stripe_pro_monthly_price_id: ${{ vars.STRIPE_PRO_MONTHLY_PRICE_ID }}
+      TF_VAR_stripe_pro_annual_price_id: ${{ vars.STRIPE_PRO_ANNUAL_PRICE_ID }}
 
     steps:
       - name: Checkout code
@@ -230,6 +240,47 @@ jobs:
               --format="value(textPayload)" || true
             exit 1
           }
+
+  billing:
+    # Stripe writes (products, prices) never run on a plain push to main: a
+    # maintainer dispatches the workflow with run_billing_setup after the
+    # verified test account is set on the environment.
+    if: ${{ github.event_name == 'workflow_dispatch' && inputs.run_billing_setup && vars.STRIPE_STAGING_ACCOUNT_ID != '' }}
+    needs: migrate
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      id-token: write
+    environment: staging
+    steps:
+      - uses: google-github-actions/auth@v3
+        with:
+          workload_identity_provider: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ secrets.GCP_SERVICE_ACCOUNT }}
+      - uses: google-github-actions/setup-gcloud@v3
+      - name: Configure and verify staging Pro test prices
+        run: |
+          gcloud run jobs execute activeagents-staging-migrate \
+            --project=${{ env.PROJECT_ID }} --region=${{ env.REGION }} \
+            --args=stripe:setup_pro --wait \
+          || {
+            echo "--- billing job logs (last hour) ---"
+            gcloud logging read \
+              'resource.type="cloud_run_job" AND resource.labels.job_name="activeagents-staging-migrate"' \
+              --project=${{ env.PROJECT_ID }} --freshness=1h \
+              --limit=200 \
+              --order=asc \
+              --format="value(textPayload)" || true
+            exit 1
+          }
+      - name: Read the sanitized Pro price report
+        if: always()
+        run: |
+          gcloud logging read \
+            'resource.type="cloud_run_job" AND resource.labels.job_name="activeagents-staging-migrate" AND textPayload:"STAGING_PRO_BILLING "' \
+            --project=${{ env.PROJECT_ID }} --freshness=15m \
+            --limit=2 --order=desc --format="value(textPayload)"
 
   smoke-test:
     needs: [deploy, migrate]

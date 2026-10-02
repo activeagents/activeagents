@@ -21,6 +21,17 @@ variable "environment" {
   }
 }
 
+# Staging billing configuration (never injected into production)
+variable "staging_stripe" {
+  description = "Staging-only Stripe account and optional existing Pro test price IDs"
+  type = object({
+    account_id       = optional(string, "")
+    monthly_price_id = optional(string, "")
+    annual_price_id  = optional(string, "")
+  })
+  default = {}
+}
+
 # Email configuration
 variable "mailer_from_address" {
   description = "Default from address for transactional emails"

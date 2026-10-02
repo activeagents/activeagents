@@ -205,6 +205,8 @@ plans = [
 
 plans.each do |plan_attrs|
   plan = Plan.find_or_initialize_by(slug: plan_attrs[:slug])
+  # Omitted deployment variables must not erase prices provisioned in Stripe.
+  plan_attrs = plan_attrs.reject { |key, value| key.to_s.start_with?("stripe_") && value.blank? }
   plan.assign_attributes(plan_attrs)
   plan.save!
   puts "#{plan.persisted? && !plan.previously_new_record? ? 'Updated' : 'Created'} plan: #{plan.name} (#{plan.slug})"
