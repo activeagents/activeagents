@@ -1,0 +1,261 @@
+name: Release
+
+# Publishes a tagged release of the platform as a container image anyone can
+# run, then deploys it to production.
+#
+#   v1.8.1     this app on activeagent and actionagent 1.8.1
+#   v1.8.1.1   a platform-only release on those same gems
+#
+# `bin/release next` prints the tag the current lock should be released as,
+# and `bin/release check` (the first job here) refuses a tag the lock does
+# not match, or a lock that takes an agent gem from git: an image published
+# under a version has to rebuild from RubyGems alone. See docs/releasing.md.
+#
+# The image goes to ghcr.io/activeagents/activeagents, for linux/amd64 and
+# linux/arm64, under its full version, its gem version, its minor line and
+# `latest`. Each alias moves only while this is the newest release in its
+# line, so re-running an old tag never moves one backwards. The GitHub
+# release carries compose.yml with this version as its default.
+#
+# A release this workflow creates with GITHUB_TOKEN raises no `release`
+# event, so production is deployed by calling deploy-production.yml from
+# here, and only for the newest release.
+#
+# Push a tag to release. To re-run a release, dispatch this workflow from the
+# tag (Use workflow from: Tags), not from a branch.
+
+on:
+  push:
+    tags: [ "v*" ]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  IMAGE: ghcr.io/activeagents/activeagents
+
+jobs:
+  version:
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.check.outputs.version }}
+      gems_version: ${{ steps.check.outputs.gems_version }}
+      image_tags: ${{ steps.check.outputs.image_tags }}
+      latest: ${{ steps.check.outputs.latest }}
+      activeagent: ${{ steps.check.outputs.activeagent }}
+      actionagent: ${{ steps.check.outputs.actionagent }}
+      solid_agent: ${{ steps.check.outputs.solid_agent }}
+      activeagents_telemetry: ${{ steps.check.outputs.activeagents_telemetry }}
+    steps:
+      - name: Require a tag
+        if: github.ref_type != 'tag'
+        run: |
+          echo "::error::Run this workflow from a release tag (Use workflow from: Tags), not from ${GITHUB_REF}."
+          exit 1
+
+      # Every tag, so bin/release can tell whether this is the newest
+      # release in each line.
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: .ruby-version
+
+      - name: Check the tag against Gemfile.lock
+        id: check
+        run: |
+          outputs=$(bin/release check "$GITHUB_REF_NAME")
+          echo "$outputs"
+          echo "$outputs" >> "$GITHUB_OUTPUT"
+
+  # The same checks a pull request gets: security scan, lint, production
+  # eager load and the test suite.
+  ci:
+    needs: version
+    uses: ./.github/workflows/ci.yml
+
+  # One native runner per architecture, each pushing its image by digest;
+  # publish joins them under the release's tags.
+  image:
+    needs: [ version, ci ]
+    strategy:
+      fail-fast: true
+      matrix:
+        include:
+          - arch: amd64
+            runner: ubuntu-24.04
+          - arch: arm64
+            runner: ubuntu-24.04-arm
+    runs-on: ${{ matrix.runner }}
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: docker/setup-buildx-action@v4
+
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push linux/${{ matrix.arch }}
+        id: build
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          platforms: linux/${{ matrix.arch }}
+          labels: |
+            org.opencontainers.image.title=ActiveAgents
+            org.opencontainers.image.description=The ActiveAgents platform: the Active Agent dashboard with trace and evaluation ingest
+            org.opencontainers.image.source=https://github.com/${{ github.repository }}
+            org.opencontainers.image.version=${{ needs.version.outputs.version }}
+            org.opencontainers.image.revision=${{ github.sha }}
+            ai.activeagents.activeagent.version=${{ needs.version.outputs.activeagent }}
+            ai.activeagents.actionagent.version=${{ needs.version.outputs.actionagent }}
+            ai.activeagents.solid_agent.version=${{ needs.version.outputs.solid_agent }}
+          outputs: type=image,name=${{ env.IMAGE }},push-by-digest=true,name-canonical=true,push=true
+          cache-from: type=gha,scope=release-${{ matrix.arch }}
+          cache-to: type=gha,mode=max,scope=release-${{ matrix.arch }}
+
+      - name: Record the digest
+        env:
+          DIGEST: ${{ steps.build.outputs.digest }}
+        run: |
+          mkdir -p "$RUNNER_TEMP/digests"
+          touch "$RUNNER_TEMP/digests/${DIGEST#sha256:}"
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: digest-${{ matrix.arch }}
+          path: ${{ runner.temp }}/digests/*
+          if-no-files-found: error
+          retention-days: 1
+
+  publish:
+    needs: [ version, image ]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/download-artifact@v8
+        with:
+          path: ${{ runner.temp }}/digests
+          pattern: digest-*
+          merge-multiple: true
+
+      - uses: docker/setup-buildx-action@v4
+
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Tag the multi-architecture image
+        working-directory: ${{ runner.temp }}/digests
+        env:
+          IMAGE_TAGS: ${{ needs.version.outputs.image_tags }}
+          VERSION: ${{ needs.version.outputs.version }}
+        run: |
+          tags=()
+          for tag in $IMAGE_TAGS; do tags+=(--tag "$IMAGE:$tag"); done
+
+          sources=()
+          for digest in *; do sources+=("$IMAGE@sha256:$digest"); done
+
+          docker buildx imagetools create "${tags[@]}" \
+            --annotation "index:org.opencontainers.image.source=https://github.com/${GITHUB_REPOSITORY}" \
+            --annotation "index:org.opencontainers.image.version=$VERSION" \
+            --annotation "index:org.opencontainers.image.description=The ActiveAgents platform: the Active Agent dashboard with trace and evaluation ingest" \
+            "${sources[@]}"
+
+          docker buildx imagetools inspect "$IMAGE:$VERSION"
+
+  release:
+    needs: [ version, publish ]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Write compose.yml and the release notes
+        env:
+          VERSION: ${{ needs.version.outputs.version }}
+          IMAGE_TAGS: ${{ needs.version.outputs.image_tags }}
+          ACTIVEAGENT: ${{ needs.version.outputs.activeagent }}
+          ACTIONAGENT: ${{ needs.version.outputs.actionagent }}
+          SOLID_AGENT: ${{ needs.version.outputs.solid_agent }}
+          TELEMETRY: ${{ needs.version.outputs.activeagents_telemetry }}
+        run: |
+          mkdir -p dist
+
+          # The downloaded file runs this release unless told otherwise.
+          sed 's/\${ACTIVEAGENTS_VERSION:-latest}/${ACTIVEAGENTS_VERSION:-'"$VERSION"'}/' compose.yml > dist/compose.yml
+          grep -qF "ghcr.io/activeagents/activeagents:\${ACTIVEAGENTS_VERSION:-$VERSION}" dist/compose.yml
+
+          gem_row() { echo "| \`$1\` | [$2](https://rubygems.org/gems/$1/versions/$2) |"; }
+          aliases=$(for tag in $IMAGE_TAGS; do printf '`%s` ' "$tag"; done)
+
+          cat > dist/notes.md <<NOTES
+          ## Run it
+
+          \`\`\`sh
+          curl -fsSLO https://github.com/${GITHUB_REPOSITORY}/releases/download/${GITHUB_REF_NAME}/compose.yml
+          echo "SECRET_KEY_BASE=\$(openssl rand -hex 64)"   >> .env
+          echo "POSTGRES_PASSWORD=\$(openssl rand -hex 24)" >> .env
+          docker compose up -d
+          docker compose exec web bin/rails platform:bootstrap_account \\
+            EMAIL=you@example.com PASSWORD=change-me PLAN=enterprise CONFIRM=yes
+          \`\`\`
+
+          Then open http://localhost:3000/dashboard. The [README](https://github.com/${GITHUB_REPOSITORY}#readme) covers TLS, provider keys and email.
+
+          **Image:** \`${IMAGE}\` for linux/amd64 and linux/arm64, tagged ${aliases}
+
+          ## Agent gems
+
+          | Gem | Version |
+          | --- | --- |
+          $(gem_row activeagent "$ACTIVEAGENT")
+          $(gem_row actionagent "$ACTIONAGENT")
+          $(gem_row solid_agent "$SOLID_AGENT")
+          $(gem_row activeagents-telemetry "$TELEMETRY")
+
+          What changed in the framework and the dashboard engine: [activeagent v${ACTIVEAGENT}](https://github.com/activeagents/activeagent/releases/tag/v${ACTIVEAGENT}).
+
+          NOTES
+          cat dist/notes.md
+
+      - uses: softprops/action-gh-release@v3
+        with:
+          tag_name: ${{ github.ref_name }}
+          name: ${{ github.ref_name }}
+          body_path: dist/notes.md
+          generate_release_notes: true
+          make_latest: ${{ needs.version.outputs.latest }}
+          files: dist/compose.yml
+
+  # The hosted platform runs the newest release. An older tag re-run still
+  # publishes its image and release, and leaves production alone.
+  production:
+    needs: [ version, release ]
+    if: needs.version.outputs.latest == 'true'
+    permissions:
+      contents: read
+      id-token: write
+    uses: ./.github/workflows/deploy-production.yml
+    with:
+      release_tag: ${{ github.ref_name }}
+    secrets: inherit
