@@ -4,6 +4,11 @@ on:
   push:
     branches: [main]
   workflow_dispatch:
+    inputs:
+      run_billing_setup:
+        description: Configure and verify the staging Pro test prices in Stripe after the deploy
+        type: boolean
+        default: false
 
 concurrency:
   group: staging-deployment
@@ -101,13 +106,6 @@ jobs:
       TF_VAR_stripe_pro_annual_price_id: ${{ vars.STRIPE_PRO_ANNUAL_PRICE_ID }}
 
     steps:
-      - name: Require the verified Stripe sandbox account
-        run: |
-          if [ -z "$TF_VAR_stripe_expected_account_id" ]; then
-            echo "Set STRIPE_STAGING_ACCOUNT_ID on the staging environment to the verified Stripe test account."
-            exit 1
-          fi
-
       - name: Checkout code
         uses: actions/checkout@v6
 
@@ -244,6 +242,10 @@ jobs:
           }
 
   billing:
+    # Stripe writes (products, prices) never run on a plain push to main: a
+    # maintainer dispatches the workflow with run_billing_setup after the
+    # verified test account is set on the environment.
+    if: ${{ github.event_name == 'workflow_dispatch' && inputs.run_billing_setup && vars.STRIPE_STAGING_ACCOUNT_ID != '' }}
     needs: migrate
     runs-on: ubuntu-latest
     timeout-minutes: 15
@@ -261,7 +263,17 @@ jobs:
         run: |
           gcloud run jobs execute activeagents-staging-migrate \
             --project=${{ env.PROJECT_ID }} --region=${{ env.REGION }} \
-            --args=stripe:setup_pro --wait
+            --args=stripe:setup_pro --wait \
+          || {
+            echo "--- billing job logs (last hour) ---"
+            gcloud logging read \
+              'resource.type="cloud_run_job" AND resource.labels.job_name="activeagents-staging-migrate"' \
+              --project=${{ env.PROJECT_ID }} --freshness=1h \
+              --limit=200 \
+              --order=asc \
+              --format="value(textPayload)" || true
+            exit 1
+          }
       - name: Read the sanitized Pro price report
         if: always()
         run: |
@@ -271,7 +283,7 @@ jobs:
             --limit=2 --order=desc --format="value(textPayload)"
 
   smoke-test:
-    needs: [deploy, migrate, billing]
+    needs: [deploy, migrate]
     runs-on: ubuntu-latest
 
     steps:
