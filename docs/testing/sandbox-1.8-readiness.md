@@ -1,8 +1,8 @@
 # Sandbox 1.8 deployment readiness
 
-The app currently pins the 1.7 gems. Testing 1.8 through its dashboard requires
-upgrading both `activeagent` and `actionagent`, installing their generated
-migrations, and deploying the matching assets and workers.
+Testing 1.8 through the dashboard requires the 1.8 `activeagent` and
+`actionagent` gems, their generated migrations, and the matching assets and
+workers deployed together.
 
 ## Incus preflight
 
@@ -35,10 +35,13 @@ network routes to the Incus daemon and to the sandbox runtime endpoints.
 ## Remaining execution support
 
 A successful preflight confirms the daemon connection, not a working 1.8 checkout
-sandbox. `IncusSandboxService` does not yet implement repository cloning, app
-bootstrap/MCP readiness, or the `run_code_session` and `cancel_code_session`
-contract. An `app_runtime` request is rejected before allocating a container so
-the generic base image cannot be mistaken for a repository checkout.
+sandbox. `IncusSandboxService` boots an `app_runtime` session from the
+`sandbox-app-runtime` image: it fetches the repository into the container, runs
+the image's boot command, and reads the runtime manifest the app writes for its
+MCP endpoint. `app_runtime_supported` in the preflight report says whether the
+daemon carries that image. The service does not implement the `run_code_session`
+and `cancel_code_session` contract, so `code_sessions_supported` is false and the
+orchestrator refuses Claude Code and Codex sessions on this backend.
 
 Before a live Claude Code or Codex test, implement that contract with a suitable
 image, per-session ownership, credential isolation, streamed events, cancellation

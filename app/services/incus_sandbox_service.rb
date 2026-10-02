@@ -16,10 +16,40 @@
 #   status = service.container_status(container_name)
 #   service.terminate(container_name)
 #
+# An app_runtime session (a checkout of one of the account's GitHub
+# repositories) boots from the sandbox-app-runtime image: the repository is
+# fetched into APP_DIR, the image's BOOT_COMMAND starts the app, and the
+# runtime manifest it writes tells the dashboard where the app's MCP facade
+# answers. The image contract and what remains (the image itself, Claude
+# Code sessions, isolation) are tracked in activeagents/activeagent#489.
+#
 class IncusSandboxService
   CONTAINER_PREFIX = "sandbox"
   DEFAULT_TIMEOUT = 900 # 15 minutes
   POLL_INTERVAL = 1 # seconds
+
+  # The app_runtime image contract: the checkout lands in APP_DIR,
+  # BOOT_COMMAND APP_DIR installs and starts the app on :8080 (returning once
+  # it is up), and writes RUNTIME_MANIFEST as JSON:
+  #   { "mcp_path": "/activeagents/mcp", "mcp_token": "aa_..." }
+  APP_RUNTIME_IMAGE = "sandbox-app-runtime"
+  APP_DIR = "/workspace/app"
+  BOOT_COMMAND = "sandbox-app-boot"
+  RUNTIME_MANIFEST = "/workspace/runtime.json"
+  BOOT_TIMEOUT = 900
+
+  # Fetches exactly the requested ref (branch, tag, or commit) without
+  # writing the token anywhere: it travels in the exec environment and an
+  # ephemeral http.extraHeader, never in .git/config or the remote URL.
+  CHECKOUT_SCRIPT = <<~'SH'
+    set -eu
+    auth=$(printf '%s:%s' "$CHECKOUT_USER" "$CHECKOUT_TOKEN" | base64 | tr -d '\n')
+    git init -q "$APP_DIR"
+    cd "$APP_DIR"
+    git remote add origin "$CHECKOUT_URL"
+    git -c "http.extraHeader=Authorization: Basic $auth" fetch -q --depth 1 origin "$CHECKOUT_REF"
+    git checkout -q --detach FETCH_HEAD
+  SH
 
   class ContainerError < StandardError; end
   class ContainerNotFoundError < StandardError; end
@@ -39,10 +69,6 @@ class IncusSandboxService
   # @param instance_tier [SandboxInstanceTier, String, nil] Optional instance tier for resource allocation
   # @return [Hash] Container details including name and IP
   def create_sandbox(sandbox_session, instance_tier: nil)
-    if sandbox_session.sandbox_type == "app_runtime"
-      raise ContainerError, "Incus checkout sandboxes are not implemented: this backend cannot boot a repository or run Claude Code/Codex sessions"
-    end
-
     container_name = generate_container_name(sandbox_session.session_id)
 
     # Resolve instance tier
@@ -51,7 +77,8 @@ class IncusSandboxService
     config = build_container_config(
       name: container_name,
       session_id: sandbox_session.session_id,
-      owner_id: sandbox_session.owner_id,
+      # The engine's sessions answer #owner (Ownable), not #owner_id.
+      owner_id: sandbox_session.try(:owner)&.id,
       sandbox_type: sandbox_session.sandbox_type,
       timeout: sandbox_session.timeout_seconds || DEFAULT_TIMEOUT,
       instance_tier: tier
@@ -69,10 +96,15 @@ class IncusSandboxService
       })
       wait_for_operation(start_response["operation"]) if start_response["operation"]
 
-      # Wait for network and readiness
-      container_ip = wait_for_container_ready(container_name)
+      # A checkout has nothing listening until it is fetched and booted, so
+      # only the network is awaited before that.
+      checkout = sandbox_session.try(:checkout_spec)
+      container_ip = wait_for_container_ready(container_name, require_service: checkout.nil?)
+      runtime = boot_app_runtime(container_name, container_ip, checkout, sandbox_session.try(:runtime_environment)) if checkout
 
       {
+        mcp_url: runtime && "http://#{container_ip}:8080#{runtime.fetch("mcp_path")}",
+        mcp_token: runtime&.dig("mcp_token"),
         container_name: container_name,
         container_ip: container_ip,
         url: "http://#{container_ip}:8080",
@@ -146,6 +178,16 @@ class IncusSandboxService
   rescue => e
     Rails.logger.error("Failed to terminate container #{container_name}: #{e.message}")
     false
+  end
+
+  # The container booted for +sandbox_session+, found by the session id it
+  # was labelled with. The engine asks for it when a boot's job died before
+  # recording the container's name (activeagent#491), so Stop and the reaper
+  # can still remove it.
+  #
+  # @return [String, nil] the container name
+  def handle_for(sandbox_session)
+    list_sandboxes.find { |sandbox| sandbox[:session_id] == sandbox_session.session_id }&.dig(:name)
   end
 
   # List all sandbox containers
@@ -289,6 +331,9 @@ class IncusSandboxService
 
   # Read-only checks before provisioning anything. Credentials never appear
   # in the report; being able to reach the daemon is not proof of trust.
+  # app_runtime_supported says whether the daemon carries the checkout image;
+  # code_sessions_supported whether this backend runs Claude Code sessions,
+  # which the orchestrator decides by the presence of run_code_session.
   def preflight
     server = api_request(:get, "/1.0").fetch("metadata")
     raise ConnectionError, "Incus did not authenticate this client certificate" unless server["auth"] == "trusted"
@@ -299,16 +344,63 @@ class IncusSandboxService
       connected: true, project: @project,
       server_version: server.dig("environment", "server_version"),
       sandbox_count: list_sandboxes.size,
-      app_runtime_supported: false, code_sessions_supported: false
+      app_runtime_supported: image_alias?(APP_RUNTIME_IMAGE),
+      code_sessions_supported: respond_to?(:run_code_session)
     }
   end
 
   private
 
+  # Fetches the checkout, boots the app, and returns its runtime manifest.
+  # The GitHub token and the account's Claude Code credential reach the
+  # container only as exec environment, never as persisted instance config.
+  def boot_app_runtime(container_name, container_ip, checkout, runtime_environment)
+    run_in_container!(container_name, [ "sh", "-c", CHECKOUT_SCRIPT ], environment: {
+      "APP_DIR" => APP_DIR,
+      "CHECKOUT_URL" => checkout.fetch(:clone_url),
+      "CHECKOUT_REF" => checkout.fetch(:ref),
+      "CHECKOUT_USER" => checkout.fetch(:username),
+      "CHECKOUT_TOKEN" => checkout.fetch(:token)
+    })
+
+    run_in_container!(container_name, [ BOOT_COMMAND, APP_DIR ],
+      environment: runtime_environment.to_h, timeout: BOOT_TIMEOUT)
+    raise ContainerError, "The app did not answer on :8080 after booting" unless service_ready?(container_ip)
+
+    manifest = JSON.parse(run_in_container!(container_name, [ "cat", RUNTIME_MANIFEST ]))
+    raise ContainerError, "#{RUNTIME_MANIFEST} names no mcp_path" if manifest["mcp_path"].blank?
+
+    manifest
+  rescue JSON::ParserError
+    raise ContainerError, "#{RUNTIME_MANIFEST} is not JSON"
+  end
+
+  # Runs +command+ and returns its stdout, raising with stderr when it exits
+  # non-zero.
+  def run_in_container!(container_name, command, environment: {}, timeout: 120)
+    response = api_request(:post, "/1.0/instances/#{container_name}/exec", {
+      command: command,
+      environment: environment,
+      "wait-for-websocket": false,
+      interactive: false,
+      "record-output": true
+    })
+    operation = wait_for_operation(response["operation"], timeout: timeout)
+    exit_code = operation.dig("metadata", "return")
+    output = operation.dig("metadata", "output") || {}
+
+    unless exit_code.to_i.zero?
+      stderr = recorded_output(container_name, output["2"]).strip.last(500)
+      raise ContainerError, "#{command.first} exited #{exit_code}: #{stderr}"
+    end
+
+    recorded_output(container_name, output["1"])
+  end
+
   # Incus records stdout/stderr as log resources, not inline strings.
   # Only fetch resources from this instance on the configured daemon.
   def recorded_output(container_name, path)
-    return "" if path.nil?
+    return "" if path.blank?
 
     uri = URI.parse(path)
     prefix = "/1.0/instances/#{container_name}/logs/"
@@ -317,6 +409,14 @@ class IncusSandboxService
     end
 
     api_request(:get, uri.path).to_s
+  end
+
+  # Whether the daemon carries an image under +alias_name+.
+  def image_alias?(alias_name)
+    api_request(:get, "/1.0/images/aliases/#{alias_name}")
+    true
+  rescue Faraday::ResourceNotFound
+    false
   end
 
   def generate_container_name(session_id)
@@ -365,6 +465,8 @@ class IncusSandboxService
       "sandbox-terminal"
     when "research"
       "sandbox-research"
+    when "app_runtime"
+      APP_RUNTIME_IMAGE
     else
       "sandbox-base"
     end
@@ -402,12 +504,15 @@ class IncusSandboxService
     when "research"
       # Research may need more memory
       SandboxInstanceTier.find(:cpu_small)
+    when "app_runtime"
+      # A whole Rails app: bundle install, a database, the server
+      SandboxInstanceTier.find(:cpu_medium)
     else
       SandboxInstanceTier.find(:free)
     end
   end
 
-  def wait_for_container_ready(container_name, timeout: 60)
+  def wait_for_container_ready(container_name, timeout: 60, require_service: true)
     start_time = Time.current
 
     loop do
@@ -418,9 +523,7 @@ class IncusSandboxService
         ip = extract_ip(state)
         if ip.present?
           # Check if the service is responding
-          if service_ready?(ip)
-            return ip
-          end
+          return ip if !require_service || service_ready?(ip)
         end
       end
 
