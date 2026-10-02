@@ -1,0 +1,70 @@
+# Run a tagged release of the ActiveAgents platform on your own machine or
+# server: the dashboard, trace and evaluation ingest, and the agent builder,
+# with its own Postgres. The image is the one activeagents.ai runs, and its
+# tag names the agent gems inside: 1.8.1 runs activeagent and actionagent
+# 1.8.1, and 1.8.1.1 is a platform-only release on them.
+#
+#   1. Put two secrets in a .env file beside this one. Keep them: the
+#      secret key also encrypts stored provider keys and tokens.
+#        echo "SECRET_KEY_BASE=$(openssl rand -hex 64)"   >> .env
+#        echo "POSTGRES_PASSWORD=$(openssl rand -hex 24)" >> .env
+#   2. docker compose up -d
+#   3. Create your login, its workspace and an API key (the key is printed):
+#        docker compose exec web bin/rails platform:bootstrap_account \
+#          EMAIL=you@example.com PASSWORD=change-me PLAN=enterprise CONFIRM=yes
+#   4. Open http://localhost:3000/dashboard and sign in.
+#
+# Anything else in .env reaches the app too: provider keys
+# (ANTHROPIC_API_KEY, OPENAI_API_KEY, OPENROUTER_API_KEY, OLLAMA_HOST),
+# RESEND_API_KEY for email, and ACTIVEAGENTS_VERSION to run another release.
+# See README.md in github.com/activeagents/activeagents.
+
+name: activeagents
+
+services:
+  db:
+    image: postgres:16
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: activeagents
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}
+    volumes:
+      - postgres:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U activeagents"]
+      interval: 2s
+      timeout: 3s
+      retries: 15
+
+  web:
+    image: ghcr.io/activeagents/activeagents:${ACTIVEAGENTS_VERSION:-latest}
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    ports:
+      - "${PORT:-3000}:80"
+    env_file:
+      - path: .env
+        required: false
+    environment:
+      DB_HOST: db
+      DB_USER: activeagents
+      DB_PASSWORD: ${POSTGRES_PASSWORD}
+      # The cache, queue and cable databases are this name with a suffix;
+      # the first boot creates all four.
+      DB_NAME: activeagents
+      SECRET_KEY_BASE: ${SECRET_KEY_BASE:?set SECRET_KEY_BASE in .env}
+      # Plain HTTP on the published port. Behind a proxy that terminates TLS,
+      # set both to true in .env.
+      RAILS_ASSUME_SSL: ${RAILS_ASSUME_SSL:-false}
+      RAILS_FORCE_SSL: ${RAILS_FORCE_SSL:-false}
+      # Background jobs (evaluation runs, trace retention) run in the web
+      # process.
+      SOLID_QUEUE_IN_PUMA: "true"
+    volumes:
+      - storage:/rails/storage
+
+volumes:
+  postgres:
+  storage:

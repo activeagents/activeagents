@@ -1,8 +1,15 @@
 name: Deploy to Production
 
 on:
-  release:
-    types: [published]
+  # release.yml calls this for the newest release, once its image is public.
+  # A release that workflow creates with GITHUB_TOKEN raises no `release`
+  # event, so a call is what deploys it, and each release deploys once.
+  workflow_call:
+    inputs:
+      release_tag:
+        description: Release tag to build and deploy, e.g. v1.8.1
+        required: true
+        type: string
   workflow_dispatch:
     inputs:
       image_tag:
@@ -53,26 +60,34 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       image_tag: ${{ steps.image.outputs.tag }}
+      build: ${{ steps.image.outputs.build }}
     steps:
       - name: Determine image tag
         id: image
+        env:
+          RELEASE_TAG: ${{ inputs.release_tag }}
+          IMAGE_TAG: ${{ inputs.image_tag }}
         run: |
-          if [ "${{ github.event_name }}" = "release" ]; then
-            # For releases, use the release tag
-            TAG="${{ github.event.release.tag_name }}"
-          elif [ -n "${{ inputs.image_tag }}" ]; then
+          if [ -n "$RELEASE_TAG" ]; then
+            # A release builds its own image, tagged with the release
+            TAG="$RELEASE_TAG"
+            BUILD=true
+          elif [ -n "$IMAGE_TAG" ]; then
             # For manual dispatch with specified tag
-            TAG="${{ inputs.image_tag }}"
+            TAG="$IMAGE_TAG"
+            BUILD=false
           else
             # Default to staging image
             TAG="staging"
+            BUILD=false
           fi
-          echo "tag=$TAG" >> $GITHUB_OUTPUT
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+          echo "build=$BUILD" >> "$GITHUB_OUTPUT"
           echo "Using image tag: $TAG"
 
   build-production:
     needs: [verify-staging, determine-image]
-    if: github.event_name == 'release'
+    if: needs.determine-image.outputs.build == 'true'
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -81,6 +96,8 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v6
+        with:
+          ref: ${{ needs.determine-image.outputs.image_tag }}
 
       - name: Authenticate to Google Cloud
         uses: google-github-actions/auth@v3
@@ -103,7 +120,7 @@ jobs:
           context: .
           push: true
           tags: |
-            ${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.REPOSITORY }}/activeagents:${{ github.event.release.tag_name }}
+            ${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.REPOSITORY }}/activeagents:${{ needs.determine-image.outputs.image_tag }}
             ${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.REPOSITORY }}/activeagents:production
             ${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.REPOSITORY }}/activeagents:latest
           cache-from: type=gha
@@ -111,11 +128,22 @@ jobs:
 
   deploy:
     needs: [verify-staging, determine-image, build-production]
-    if: always() && needs.verify-staging.result == 'success' && needs.determine-image.result == 'success'
+    # build-production is skipped when deploying an existing image, which is
+    # why this runs on always(); a build that failed or was cancelled leaves
+    # no image to deploy.
+    if: >-
+      always() &&
+      needs.verify-staging.result == 'success' &&
+      needs.determine-image.result == 'success' &&
+      (needs.build-production.result == 'success' || needs.build-production.result == 'skipped')
     runs-on: ubuntu-latest
     permissions:
       contents: read
       id-token: write
+
+    # The smoke test reads the URL from here.
+    outputs:
+      url: ${{ steps.deploy.outputs.url }}
 
     environment:
       name: production
@@ -138,13 +166,11 @@ jobs:
 
       - name: Determine image to deploy
         id: image
+        env:
+          IMAGE_TAG: ${{ needs.determine-image.outputs.image_tag }}
         run: |
-          if [ "${{ github.event_name }}" = "release" ]; then
-            IMAGE="${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.REPOSITORY }}/activeagents:${{ github.event.release.tag_name }}"
-          else
-            IMAGE="${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.REPOSITORY }}/activeagents:${{ needs.determine-image.outputs.image_tag }}"
-          fi
-          echo "image=$IMAGE" >> $GITHUB_OUTPUT
+          IMAGE="${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.REPOSITORY }}/activeagents:$IMAGE_TAG"
+          echo "image=$IMAGE" >> "$GITHUB_OUTPUT"
 
       - name: Terraform Init
         working-directory: terraform/environments/production
