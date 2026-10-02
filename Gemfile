@@ -25,13 +25,20 @@ gem "rouge"
 # Inertia adapter for Rails [https://inertia-rails.dev]
 gem "inertia_rails"
 # Active Agent - AI agent framework for Rails [https://github.com/activeagents/activeagent]
-# 1.7.0 is the floor for the engine's evaluation report collector, which
-# /v1/evaluations subclasses.
-gem "activeagent", "~> 1.7.0"
 # Action Agent - the dashboard, a mountable Rails engine.
-gem "actionagent", "~> 1.7.0"
-# Solid Agent - Persistence and context management for ActiveAgent
-gem "solid_agent", github: "activeagents/solid_agent", branch: "main"
+#
+# Both are pinned exactly. A platform release is named after the gems it runs
+# (v1.7.0 runs activeagent and actionagent 1.7.0; v1.7.0.1 is a platform-only
+# fix on them), and bin/release refuses a tag the lock does not match. When
+# the gem repository releases, the "Agent gems" workflow opens the pull
+# request that moves both pins. 1.7.0 is also the floor for the engine's
+# evaluation report collector, which /v1/evaluations subclasses.
+gem "activeagent", "1.7.0"
+gem "actionagent", "1.7.0"
+# Solid Agent - Persistence and context management for ActiveAgent. From
+# RubyGems like the two above, so a tagged image rebuilds from released gems
+# alone.
+gem "solid_agent", "0.2.0"
 # RubyLLM - model registry (token pricing data) and unified provider API
 gem "ruby_llm"
 # Ragents - Ractor-based AI agents for benchmarking (Ruby 4.0+)
