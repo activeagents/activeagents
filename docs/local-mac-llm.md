@@ -113,7 +113,9 @@ Native Ollama is just `http://localhost:11434/v1` — no host-gateway games.
    tunnel, or Ollama Cloud at `https://ollama.com`) that requires
    authentication, fill in the optional **API key** field; it is sent as a
    Bearer token. When no host is configured, the card shows the platform
-   default from `OLLAMA_HOST`, if any. For Haiku 4.5, configure
+   default from `OLLAMA_HOST`, if any. `OLLAMA_HOST` itself must include
+   `/v1` — only the Settings card and its Test button add it for you. For
+   Haiku 4.5, configure
    **Anthropic** with your API key instead. Credentials are encrypted at
    rest (Active Record Encryption).
 2. Create an agent: provider `ollama`, model `qwen3:8b` (or provider
