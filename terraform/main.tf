@@ -195,6 +195,8 @@ module "cloud_run" {
     DB_NAME                = module.cloud_sql.database_name
     DB_USER                = module.cloud_sql.database_user
     MAILER_FROM_ADDRESS    = var.mailer_from_address
+    # IncusSandboxService refuses checkout sandboxes unless this is true
+    INCUS_APP_RUNTIME_ENABLED = tostring(var.incus_app_runtime_enabled)
   }
 
   secret_env_vars = {

@@ -29,6 +29,10 @@ module "activeagents" {
   cpu           = "2"
   memory        = "1Gi"
 
+  # Checkout sandboxes on the Incus host stay off until its egress controls
+  # (https://github.com/activeagents/activeagents/issues/150) are applied.
+  incus_app_runtime_enabled = false
+
   # Database configuration (production-scale)
   database_tier = "db-custom-2-4096"  # 2 vCPUs, 4GB RAM
 }
