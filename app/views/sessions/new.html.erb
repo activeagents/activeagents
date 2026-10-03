@@ -44,6 +44,8 @@
         </div>
       <% end %>
 
+      <%= render "github_sessions/button", label: "Sign in with GitHub" %>
+
       <%= form_with url: session_path, class: "space-y-6" do |form| %>
         <div>
           <%= form.label :email_address, "Email address", class: "block text-sm font-medium text-gray-700" %>

@@ -64,11 +64,8 @@ class RegistrationsController < ApplicationController
     end
 
     # Create user with temporary password (will be set during profile completion)
-    @user = User.new(
-      email_address: email,
-      password: SecureRandom.hex(16),
-      signup_source: "public_signup"
-    )
+    @user = User.new(email_address: email, signup_source: "public_signup")
+    @user.assign_random_password
 
     if @user.save_with_workspace
       # Send verification email
