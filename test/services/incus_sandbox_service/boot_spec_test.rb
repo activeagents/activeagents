@@ -170,12 +170,12 @@ class IncusSandboxService::BootSpecTest < ActiveSupport::TestCase
     postgres = build
     assert_equal "postgresql:///shop_development_sandbox_3f2a9c1e", postgres.document.dig("env", "DATABASE_URL")
     assert_equal [ "postgresql" ], toolchain.call(postgres)
-    assert_empty postgres.document["directories"]
+    assert_equal [ IncusSandboxService::RUNTIME_DIR ], postgres.document["directories"], "the manifest's directory, for the app to write"
 
     sqlite = build(files: checkout("config/database.yml": "development:\n  adapter: sqlite3\n  database: storage/development.sqlite3\n"))
     assert_equal "sqlite3:/workspace/db/development.sqlite3", sqlite.document.dig("env", "DATABASE_URL")
     assert_empty toolchain.call(sqlite)
-    assert_equal [ BootSpec::DATA_DIR ], sqlite.document["directories"]
+    assert_equal [ IncusSandboxService::RUNTIME_DIR, BootSpec::DATA_DIR ], sqlite.document["directories"]
 
     mysql = build(files: checkout("config/database.yml": "development:\n  adapter: trilogy\n  database: shop\n"))
     assert_equal [ "mysql" ], toolchain.call(mysql)

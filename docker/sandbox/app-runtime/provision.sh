@@ -19,7 +19,10 @@
 #   - /usr/local/bin/sandbox-app-boot
 #
 # Every boot command runs as the unprivileged user `sandbox` (uid 1000),
-# which owns /workspace and the mise installs.
+# which owns the checkout's directory, /workspace/app, and the mise installs.
+# /workspace itself is root's: sandbox-app-boot runs as root from the spec,
+# state and logs the platform keeps in /workspace/boot, and the checkout's
+# code must not be able to rename that directory and put its own in place.
 set -euo pipefail
 
 SOURCE_DIR=${SOURCE_DIR:-$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)}
@@ -71,7 +74,8 @@ create_user() {
     userdel -r "$existing" 2>/dev/null || userdel "$existing"
   fi
   id "$SANDBOX_USER" >/dev/null 2>&1 || useradd -m -u "$SANDBOX_UID" -s /bin/bash "$SANDBOX_USER"
-  install -d -o "$SANDBOX_USER" -g "$SANDBOX_USER" -m 0755 /workspace "$MISE_DATA_DIR"
+  install -d -o root -g root -m 0755 /workspace
+  install -d -o "$SANDBOX_USER" -g "$SANDBOX_USER" -m 0755 /workspace/app "$MISE_DATA_DIR"
 }
 
 install_toolchains() {

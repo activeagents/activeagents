@@ -159,6 +159,43 @@ class SandboxAppBootTest < ActiveSupport::TestCase
     assert_equal({ "greet" => "succeeded", "flaky" => "succeeded", "manifest" => "succeeded", "start" => "succeeded" }, steps.except("checkout"))
   end
 
+  test "a manifest the app left as a symlink is not followed" do
+    target = @root.join("elsewhere.json")
+    target.write(%({"mcp_path":"/mcp"}))
+    target.chmod(0o644)
+    document = spec(manifest: { "command" => %(ln -s #{target} "$ACTION_AGENT_SANDBOX_MANIFEST"), "timeout" => 10 })
+
+    status, _stdout, stderr = boot(document)
+
+    assert_equal 1, status
+    assert_match(/Sandbox manifest failed: the manifest is not a regular file/, stderr)
+    assert_equal "644", format("%o", target.stat.mode & 0o777), "the file it points at keeps its mode"
+  end
+
+  test "run as root, the script refuses a spec anyone but root could have written or replaced" do
+    check = <<~PYTHON
+      import importlib.machinery, importlib.util, sys
+      loader = importlib.machinery.SourceFileLoader("sandbox_app_boot", sys.argv[1])
+      boot = importlib.util.module_from_spec(importlib.util.spec_from_loader(loader.name, loader))
+      loader.exec_module(boot)
+      for path in sys.argv[2:]:
+          try:
+              boot.require_root_only(path)
+              print("accepted")
+          except boot.Refused as error:
+              print(f"refused: {error}")
+    PYTHON
+    spec_path = @root.join("boot", "spec.json")
+    spec_path.write("{}")
+
+    stdout, stderr, status = Open3.capture3("python3", "-B", "-c", check, SCRIPT, spec_path.to_s, "/usr/bin/env")
+
+    assert status.success?, stderr
+    mine, roots = stdout.lines(chomp: true)
+    assert_match(/\Arefused: #{Regexp.escape(spec_path.to_s)} must be root's, writable by root alone and not a symlink/, mine)
+    assert_equal "accepted", roots, "a file root owns, in directories only root can write"
+  end
+
   test "a resume needs a failed boot and a step the boot has" do
     status, _stdout, stderr = boot(spec, "--from", "greet")
     assert_equal 2, status

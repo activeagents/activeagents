@@ -161,7 +161,7 @@ class IncusSandboxService
         "toolchain" => {
           "ruby" => ruby_version, "node" => node_version, "services" => services.uniq, "timeout" => TOOLCHAIN_TIMEOUT
         },
-        "directories" => databases.values.any? { |url| url.start_with?("sqlite3:") } ? [ DATA_DIR ] : [],
+        "directories" => [ IncusSandboxService::RUNTIME_DIR, (DATA_DIR if databases.values.any? { |url| url.start_with?("sqlite3:") }) ].compact,
         "recorded_steps" => @recorded_steps,
         "facts" => {
           "repository" => @repository, "locked_gems" => locked_gems.to_a.sort, "ruby" => lock_facts["ruby"],
