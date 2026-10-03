@@ -13,8 +13,8 @@ local:
 # There is no keyfile. The client authenticates as the Cloud Run service account
 # through Application Default Credentials and takes the project from
 # GOOGLE_CLOUD_PROJECT or the metadata server. With `iam: true`, download URLs
-# are signed through the IAM Credentials API as RECORDINGS_SIGNER_EMAIL, or as
-# the service's own account when that is blank.
+# are signed through the IAM Credentials API as RECORDINGS_SIGNER_EMAIL, which
+# production requires whenever it selects this service.
 google:
   service: GCS
   bucket: <%= ENV["RECORDINGS_BUCKET"] %>

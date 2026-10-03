@@ -12,6 +12,7 @@
 module StorageServiceSelector
   SERVICE_VARIABLE = "ACTIVE_STORAGE_SERVICE"
   BUCKET_VARIABLE = "RECORDINGS_BUCKET"
+  SIGNER_VARIABLE = "RECORDINGS_SIGNER_EMAIL"
   SERVICES = %i[google local].freeze
 
   class ConfigurationError < StandardError; end
@@ -20,24 +21,29 @@ module StorageServiceSelector
 
   # Returns `:google` or `:local` for the variables in `env`. Raises
   # ConfigurationError when `ACTIVE_STORAGE_SERVICE` names any other service,
-  # or names `google` while `RECORDINGS_BUCKET` is blank.
+  # names `google` while `RECORDINGS_BUCKET` is blank, or when the service is
+  # `:google` and `RECORDINGS_SIGNER_EMAIL` is blank.
   def service(env = ENV)
     requested = variable(env, SERVICE_VARIABLE)
     bucket = variable(env, BUCKET_VARIABLE)
+    service = requested ? requested.downcase.to_sym : (bucket ? :google : :local)
 
-    if requested.nil?
-      return bucket ? :google : :local
-    end
-
-    service = requested.downcase.to_sym
     unless SERVICES.include?(service)
       raise ConfigurationError,
-        "#{SERVICE_VARIABLE}=#{requested} names no service in config/storage.yml. Use #{SERVICES.join(' or ')}."
+        "#{SERVICE_VARIABLE}=#{requested} is not a production storage service. Use #{SERVICES.join(' or ')}."
     end
 
     if service == :google && bucket.nil?
       raise ConfigurationError,
         "#{SERVICE_VARIABLE}=google needs #{BUCKET_VARIABLE}, the Google Cloud Storage bucket to keep files in."
+    end
+
+    # With a blank signer, Active Storage's GCS service signs URLs as the Cloud
+    # Run service account. Terraform lets that account mint tokens only for the
+    # signer account, so signing as itself is refused.
+    if service == :google && variable(env, SIGNER_VARIABLE).nil?
+      raise ConfigurationError,
+        "Google Cloud Storage needs #{SIGNER_VARIABLE}, the read-only service account that signs download URLs."
     end
 
     service

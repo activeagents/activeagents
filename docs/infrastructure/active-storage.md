@@ -11,14 +11,16 @@ Cloud Run's disk does not qualify:
 
 The `staging` and `production` Terraform environments both run `RAILS_ENV=production`. `config/environments/production.rb` picks the service with `lib/storage_service_selector.rb`:
 
-| `ACTIVE_STORAGE_SERVICE` | `RECORDINGS_BUCKET` | Service |
-|---|---|---|
-| unset | set | `google` |
-| unset | unset | `local`, with a warning in the boot log |
-| `local` | either | `local` |
-| `google` | set | `google` |
-| `google` | unset | boot fails with a message naming `RECORDINGS_BUCKET` |
-| anything else | either | boot fails |
+| `ACTIVE_STORAGE_SERVICE` | `RECORDINGS_BUCKET` | `RECORDINGS_SIGNER_EMAIL` | Service |
+|---|---|---|---|
+| unset | set | set | `google` |
+| unset | set | unset | boot fails with a message naming `RECORDINGS_SIGNER_EMAIL` |
+| unset | unset | either | `local`, with a warning in the boot log |
+| `local` | either | either | `local` |
+| `google` | set | set | `google` |
+| `google` | set | unset | boot fails with a message naming `RECORDINGS_SIGNER_EMAIL` |
+| `google` | unset | either | boot fails with a message naming `RECORDINGS_BUCKET` |
+| anything else | either | either | boot fails |
 
 `ACTIVE_STORAGE_SERVICE=local` is for running the production image on a machine with no Google credentials. Development, test and the `sandbox` environment keep using the disk.
 
@@ -27,7 +29,7 @@ The `google` service in `config/storage.yml`:
 - takes the project from `GOOGLE_CLOUD_PROJECT`, or from the metadata server when that is unset;
 - signs download URLs through the IAM Credentials `signBlob` API as `RECORDINGS_SIGNER_EMAIL`.
 
-The signer account can only read the bucket, so a signed URL can download a file but not upload one. Nothing in the app or the engine uses Active Storage direct uploads.
+The signer account can only read the bucket, so a signed URL can download a file but not upload one. The Cloud Run service account can create tokens only for the signer account, not for itself. Boot therefore requires `RECORDINGS_SIGNER_EMAIL`, because without it Active Storage signs as the service account and Google refuses every signature. Nothing in the app or the engine uses Active Storage direct uploads.
 
 ## Turning it on
 
