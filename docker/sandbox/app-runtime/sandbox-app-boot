@@ -1,0 +1,861 @@
+#!/usr/bin/env python3
+"""Boots the checkout of an app-runtime sandbox from the boot spec the
+platform writes into the container.
+
+    sandbox-app-boot [--spec /workspace/boot/spec.json] [--from STEP]
+
+IncusSandboxService resolves the engine's boot spec against the checkout
+(which steps apply, which gems were locked, the toolchain, the sandbox's
+databases) and writes the result to --spec as JSON. This script executes it
+and decides nothing about the repository itself, so a hosted boot and the
+engine's local backend cannot drift apart. It runs as root, starts the
+services the spec names, and runs every command as the spec's user:
+
+  toolchain  the Ruby and Node versions the spec names, installed with mise
+             when the image lacks them, and the services it names
+  steps      the spec's steps in order, each bounded by its own timeout
+  manifest   writes the runtime manifest to $ACTION_AGENT_SANDBOX_MANIFEST
+  start      starts the app detached on 127.0.0.1:$PORT, forwards
+             listen_port on every interface to it, and waits until the
+             manifest's MCP path answers 405, 401 or 200 and start_url
+             answers below 500
+
+The spec names its secrets (secret_names) without their values. The values
+arrive in this process's environment, reach every command, and are masked
+in every log this script writes and every message it prints.
+
+State and logs live in the spec's directory:
+
+  state.json  each step and how it went, the failed step, whether a failed
+              boot is kept for a resume, and the server's pids
+  logs/       <step>.log for each step. start.log holds the server's own
+              output, which is written unmasked because it outlives this
+              script; the platform masks it when it reads it
+  boot.lock   held while a boot runs, so two never run in one container
+
+--from STEP reruns a failed boot from STEP. The steps before it are not run
+again; the toolchain step always is, since it restarts the services.
+
+Exit status: 0 when the app is ready; 1 when a step failed, with the
+failure and the end of that step's log on stderr; 2 when the spec or the
+request cannot be run at all.
+"""
+
+import argparse
+import base64
+import datetime
+import fcntl
+import http.client
+import json
+import os
+import pwd
+import re
+import signal
+import subprocess
+import sys
+import threading
+import time
+import urllib.parse
+
+BOOT_SPEC_VERSION = 1
+DEFAULT_SPEC = "/workspace/boot/spec.json"
+
+READY_STATUSES = (405, 401, 200)
+STEP_NAME = re.compile(r"[a-z][a-z0-9_]{0,39}")
+SERVICE_NAME = re.compile(r"[a-z][a-z0-9_-]{0,39}")
+ENV_NAME = re.compile(r"[A-Za-z_][A-Za-z0-9_]*")
+TOOL_VERSION = re.compile(r"\d+(\.\d+){0,2}")
+TASK_LINE = re.compile(r"^\S+\s+([^\s\[#]+)")
+# Steps this script or the platform runs around the spec's own.
+BACKEND_STEPS = ("checkout", "preflight", "toolchain", "manifest", "start")
+STATUSES = ("pending", "running", "succeeded", "failed", "skipped")
+
+SERVICE_DIR = "/usr/local/lib/sandbox-app-runtime/services"
+MISE = "/usr/local/bin/mise"
+MISE_DATA_DIR = "/opt/mise"
+FORWARDER = "socat"
+SYSTEM_PATH = "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
+
+MASK = "[REDACTED]"
+# Shorter values are not credentials, and masking them would mangle text.
+MIN_SECRET_LENGTH = 8
+MAX_LOG_BYTES = 8 * 1024 * 1024
+LOG_LINE_BYTES = 64 * 1024
+LOG_TAIL_LINES = 20
+LOG_TAIL_BYTES = 64 * 1024
+TASK_LIST_BYTES = 1024 * 1024
+TASK_LIST_TIMEOUT = 120
+STOP_GRACE = 10
+POLL_INTERVAL = 0.25
+PROBE_TIMEOUT = 2
+# A development server compiles on its first request.
+START_URL_READ_TIMEOUT = 60
+FORWARDER_TIMEOUT = 10
+
+
+class Refused(Exception):
+    """The spec or the request cannot be run: exit status 2."""
+
+
+class StepFailed(Exception):
+    def __init__(self, step, problem):
+        super().__init__(problem)
+        self.step = step
+        self.problem = problem
+
+
+class Interrupted(BaseException):
+    """SIGTERM or SIGINT, raised so a running step's processes are stopped."""
+
+
+class Skip:
+    """What a step's action returns when the step had nothing to do."""
+
+    def __init__(self, reason):
+        self.reason = reason
+
+
+def now_iso():
+    return datetime.datetime.now(datetime.timezone.utc).isoformat(timespec="milliseconds").replace("+00:00", "Z")
+
+
+def monotonic():
+    return time.monotonic()
+
+
+def describe(returncode):
+    return f"signal {-returncode}" if returncode < 0 else f"status {returncode}"
+
+
+class Scrubber:
+    """Masks the secrets' values, and their URL-encoded and Base64 forms."""
+
+    def __init__(self, values):
+        forms = set()
+        for value in values:
+            if len(value) < MIN_SECRET_LENGTH:
+                continue
+            forms.add(value)
+            forms.add(urllib.parse.quote(value, safe=""))
+            forms.add(base64.b64encode(value.encode()).decode())
+        forms = sorted((form for form in forms if len(form) >= MIN_SECRET_LENGTH), key=len, reverse=True)
+        self.pattern = re.compile("|".join(re.escape(form) for form in forms)) if forms else None
+
+    def __call__(self, text):
+        return self.pattern.sub(MASK, text) if self.pattern else text
+
+
+class User:
+    def __init__(self, name):
+        try:
+            entry = pwd.getpwnam(name)
+        except KeyError:
+            raise Refused(f"the spec's user {name!r} does not exist in this image")
+        self.name = name
+        self.uid = entry.pw_uid
+        self.gid = entry.pw_gid
+        self.home = entry.pw_dir
+
+
+# --- The spec -------------------------------------------------------------
+
+
+def require(condition, message):
+    if not condition:
+        raise Refused(f"the boot spec is invalid: {message}")
+
+
+def optional_timeout(value, what):
+    require(value is None or (isinstance(value, int) and not isinstance(value, bool) and value > 0),
+            f"{what} must be a number of seconds")
+    return value
+
+
+def absolute_path(value, what):
+    require(isinstance(value, str) and value.startswith("/") and "\0" not in value, f"{what} must be an absolute path")
+    return value
+
+
+def command(value, what):
+    require(isinstance(value, dict) and isinstance(value.get("command"), str) and value["command"].strip()
+            and "\0" not in value["command"], f"{what} needs a command")
+    optional_timeout(value.get("timeout"), f"{what}'s timeout")
+    return value
+
+
+def load_spec(path):
+    try:
+        with open(path, "rb") as file:
+            spec = json.load(file)
+    except (OSError, ValueError) as error:
+        raise Refused(f"cannot read the boot spec {path}: {error}")
+    require(isinstance(spec, dict), "it is not a JSON object")
+    version = spec.get("version")
+    if version != BOOT_SPEC_VERSION:
+        raise Refused(f"the boot spec is version {version!r}; this image runs version {BOOT_SPEC_VERSION}")
+
+    absolute_path(spec.get("app_dir"), "app_dir")
+    absolute_path(spec.get("manifest_path"), "manifest_path")
+    require(spec.get("user") is None or isinstance(spec["user"], str), "user must be a name")
+    for key in ("port", "listen_port"):
+        value = spec.get(key)
+        require((value is None and key == "listen_port") or
+                (isinstance(value, int) and not isinstance(value, bool) and 0 < value < 65536), f"{key} must be a port")
+    require(isinstance(spec.get("timeout"), int) and spec["timeout"] > 0, "timeout must be a number of seconds")
+
+    toolchain = spec.get("toolchain")
+    if toolchain is not None:
+        require(isinstance(toolchain, dict), "toolchain must be a mapping")
+        for tool in ("ruby", "node"):
+            version = toolchain.get(tool)
+            require(version is None or (isinstance(version, str) and TOOL_VERSION.fullmatch(version)),
+                    f"toolchain.{tool} must be a version such as 3.3.6")
+        services = toolchain.get("services", [])
+        require(isinstance(services, list) and all(isinstance(s, str) and SERVICE_NAME.fullmatch(s) for s in services),
+                "toolchain.services must name services")
+        optional_timeout(toolchain.get("timeout"), "toolchain.timeout")
+
+    directories = spec.get("directories", [])
+    require(isinstance(directories, list), "directories must be a list")
+    for directory in directories:
+        absolute_path(directory, "each directory")
+
+    env = spec.get("env", {})
+    require(isinstance(env, dict) and all(isinstance(k, str) and ENV_NAME.fullmatch(k) and isinstance(v, str) and "\0" not in v
+                                          for k, v in env.items()), "env must map variable names to strings")
+    names = spec.get("secret_names", [])
+    require(isinstance(names, list) and all(isinstance(n, str) and ENV_NAME.fullmatch(n) for n in names),
+            "secret_names must be variable names")
+
+    steps = spec.get("steps", [])
+    require(isinstance(steps, list), "steps must be a list")
+    seen = set()
+    for step in steps:
+        require(isinstance(step, dict), "each step must be a mapping")
+        name = step.get("name")
+        require(isinstance(name, str) and STEP_NAME.fullmatch(name) and name not in BACKEND_STEPS,
+                f"{json.dumps(name)} is not a step name (lowercase, digits and _; not {', '.join(BACKEND_STEPS)})")
+        require(name not in seen, f"step names must be unique ({name} is not)")
+        seen.add(name)
+        command(step, f"step {name}")
+        for key in ("skip", "if_task"):
+            require(step.get(key) is None or isinstance(step[key], str), f"step {name}'s {key} must be a string")
+    command(spec.get("manifest"), "manifest")
+    command(spec.get("start"), "start")
+    start_url = spec.get("start_url")
+    require(start_url is None or (isinstance(start_url, str) and start_url.startswith("/") and not start_url.startswith("//")
+                                  and re.fullmatch(r"[\x21-\x7e]+", start_url)), "start_url must be a path such as /")
+    require(isinstance(spec.get("keep_on_failure", False), bool), "keep_on_failure must be true or false")
+    recorded = spec.get("recorded_steps", [])
+    require(isinstance(recorded, list), "recorded_steps must be a list")
+    return spec
+
+
+def recorded_entry(entry):
+    """One of the platform's own steps, in the shape state.json keeps."""
+    if not isinstance(entry, dict) or not isinstance(entry.get("name"), str) or not STEP_NAME.fullmatch(entry["name"]):
+        return None
+    status = entry.get("status") if entry.get("status") in STATUSES else "succeeded"
+    clean = {"name": entry["name"], "log": None, "status": status}
+    for key in ("started_at", "finished_at", "detail"):
+        clean[key] = entry[key] if isinstance(entry.get(key), str) else None
+    duration = entry.get("duration_ms")
+    clean["duration_ms"] = duration if isinstance(duration, int) and not isinstance(duration, bool) else None
+    return clean
+
+
+def read_secrets(spec):
+    secrets = {}
+    missing = []
+    for name in spec.get("secret_names", []):
+        value = os.environ.get(name)
+        if value is None:
+            missing.append(name)
+        else:
+            secrets[name] = value
+    if missing:
+        raise Refused(f"the boot needs {', '.join(missing)} in its environment; secret values are never written down")
+    return secrets
+
+
+# --- Processes ------------------------------------------------------------
+
+
+def spawn(argv, *, env, cwd, user, stdout):
+    options = dict(cwd=cwd, env=env, stdin=subprocess.DEVNULL, stdout=stdout, stderr=subprocess.STDOUT,
+                   start_new_session=True, close_fds=True)
+    if user is not None:
+        options.update(user=user.uid, group=user.gid, extra_groups=[])
+    return subprocess.Popen(argv, **options)
+
+
+def group_alive(pgid):
+    try:
+        os.killpg(pgid, 0)
+        return True
+    except ProcessLookupError:
+        return False
+    except PermissionError:
+        return True
+
+
+def stop_group(pgid, grace=STOP_GRACE, process=None):
+    """Stops process group `pgid`: SIGTERM, then SIGKILL after `grace`."""
+    if not pgid:
+        return
+    try:
+        os.killpg(pgid, signal.SIGTERM)
+    except (ProcessLookupError, PermissionError):
+        return
+    deadline = monotonic() + grace
+    while monotonic() < deadline:
+        if process is not None:
+            process.poll()
+        if not group_alive(pgid):
+            return
+        time.sleep(0.1)
+    try:
+        os.killpg(pgid, signal.SIGKILL)
+    except (ProcessLookupError, PermissionError):
+        pass
+    if process is not None:
+        try:
+            process.wait(timeout=STOP_GRACE)
+        except subprocess.TimeoutExpired:
+            pass
+
+
+def probe(port, path, accept="application/json", timeout=PROBE_TIMEOUT):
+    """The status a GET of `path` on 127.0.0.1:`port` answers, or None."""
+    connection = http.client.HTTPConnection("127.0.0.1", port, timeout=timeout)
+    try:
+        connection.request("GET", path, headers={"Accept": accept})
+        return connection.getresponse().status
+    except (OSError, http.client.HTTPException):
+        return None
+    finally:
+        connection.close()
+
+
+# --- The boot -------------------------------------------------------------
+
+
+class Entry:
+    """One step of the boot as this script runs it. `kind` is "toolchain",
+    "step", "manifest" or "start".
+    """
+
+    def __init__(self, name, kind, command=None, timeout=None, skip=None, if_task=None):
+        self.name = name
+        self.kind = kind
+        self.command = command
+        self.timeout = timeout
+        self.skip = skip
+        self.if_task = if_task
+
+
+class Boot:
+    DEFAULT_TOOLCHAIN_TIMEOUT = 1200
+
+    def __init__(self, spec, spec_path, secrets):
+        self.spec = spec
+        self.dir = os.path.dirname(os.path.abspath(spec_path))
+        self.logs = os.path.join(self.dir, "logs")
+        self.state_path = os.path.join(self.dir, "state.json")
+        self.secrets = secrets
+        self.scrub = Scrubber(secrets.values())
+        self.user = User(spec["user"]) if spec.get("user") else None
+        self.app_dir = spec["app_dir"]
+        self.port = spec["port"]
+        self.listen_port = spec.get("listen_port")
+        self.state = {}
+        self.lock = None
+        self.tasks = None
+        self.server = None
+        self.forwarder = None
+        # The phase's limit: the toolchain's own, then the spec's timeout,
+        # which bounds every step, the manifest and the start together.
+        self.deadline = None
+        self.deadline_label = None
+        self.current = None
+        self.current_started = None
+
+    def entries(self):
+        entries = []
+        toolchain = self.spec.get("toolchain")
+        if toolchain is not None:
+            entries.append(Entry("toolchain", "toolchain", timeout=toolchain.get("timeout") or self.DEFAULT_TOOLCHAIN_TIMEOUT))
+        for step in self.spec.get("steps", []):
+            entries.append(Entry(step["name"], "step", step["command"], step.get("timeout"), step.get("skip"), step.get("if_task")))
+        manifest, start = self.spec["manifest"], self.spec["start"]
+        entries.append(Entry("manifest", "manifest", manifest["command"], manifest.get("timeout")))
+        entries.append(Entry("start", "start", start["command"], start.get("timeout")))
+        return entries
+
+    # Every entry can be resumed from. The toolchain runs on every resume
+    # anyway, so resuming from it reruns the whole boot after the checkout.
+    def resumable(self):
+        return [entry.name for entry in self.entries()]
+
+    # --- State --------------------------------------------------------------
+
+    def acquire_lock(self):
+        os.makedirs(self.logs, mode=0o700, exist_ok=True)
+        self.lock = open(os.path.join(self.dir, "boot.lock"), "w")
+        try:
+            fcntl.flock(self.lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        except BlockingIOError:
+            raise Refused("another boot is running in this sandbox")
+
+    def read_state(self):
+        try:
+            with open(self.state_path, "rb") as file:
+                state = json.load(file)
+            return state if isinstance(state, dict) else {}
+        except (OSError, ValueError):
+            return {}
+
+    def save_state(self):
+        temporary = f"{self.state_path}.tmp"
+        with open(temporary, "w") as file:
+            json.dump(self.state, file, indent=2)
+        os.chmod(temporary, 0o600)
+        os.replace(temporary, self.state_path)
+
+    def prepare(self, from_step):
+        """Writes the state a run starts from and returns the position of
+        the first entry it runs.
+        """
+        previous = self.read_state()
+        entries = self.entries()
+        names = [entry.name for entry in entries]
+        start_at = 0
+        if from_step is not None:
+            if previous.get("status") != "failed":
+                raise Refused("there is no failed boot to resume in this sandbox")
+            if from_step not in names:
+                raise Refused(f"{json.dumps(from_step)} is not a step this boot can resume from ({', '.join(names)})")
+            start_at = names.index(from_step)
+
+        recorded = [entry for entry in map(recorded_entry, self.spec.get("recorded_steps", [])) if entry]
+        if from_step is not None:
+            kept = {entry.get("name"): entry for entry in previous.get("steps", []) if isinstance(entry, dict)}
+            recorded = [kept.get(entry["name"], entry) for entry in recorded]
+        else:
+            kept = {}
+        steps = list(recorded)
+        for index, entry in enumerate(entries):
+            if index < start_at and entry.kind != "toolchain":
+                steps.append(kept.get(entry.name) or {"name": entry.name, "log": entry.name, "status": "skipped",
+                                                      "detail": f"not run: resumed from {from_step}"})
+            else:
+                steps.append({"name": entry.name, "log": entry.name, "status": "pending"})
+
+        # Whatever server a previous run left is stopped before another starts.
+        stop_group(previous.get("server_pid"))
+        stop_group(previous.get("forwarder_pid"))
+
+        self.state = {
+            "version": BOOT_SPEC_VERSION,
+            "mode": self.spec.get("mode"),
+            "kind": self.spec.get("kind"),
+            "status": "running",
+            "started_at": now_iso(),
+            "finished_at": None,
+            "resumed_from": from_step,
+            "failed_step": None,
+            "detail": None,
+            "kept": False,
+            "resumable_steps": names,
+            "steps": steps,
+            "server_pid": None,
+            "forwarder_pid": None,
+        }
+        self.save_state()
+        return start_at
+
+    def update_step(self, name, **attributes):
+        for entry in self.state["steps"]:
+            if entry.get("name") == name and entry.get("log") == name:
+                entry.update(attributes)
+        self.save_state()
+
+    # --- Logs ---------------------------------------------------------------
+
+    def log_path(self, name):
+        return os.path.join(self.logs, f"{name}.log")
+
+    def append_log(self, name, text):
+        with open(self.log_path(name), "ab") as file:
+            file.write(self.scrub(text).encode("utf-8", "replace"))
+
+    def copy_output(self, stream, name):
+        written = 0
+        truncated = False
+        with open(self.log_path(name), "ab") as file:
+            for raw in iter(lambda: stream.readline(LOG_LINE_BYTES), b""):
+                if truncated:
+                    continue
+                line = self.scrub(raw.decode("utf-8", "replace")).encode("utf-8", "replace")
+                if written + len(line) > MAX_LOG_BYTES:
+                    file.write(f"[sandbox-app-boot: log truncated at {MAX_LOG_BYTES} bytes]\n".encode())
+                    truncated = True
+                    continue
+                file.write(line)
+                file.flush()
+                written += len(line)
+
+    def log_tail(self, name):
+        try:
+            with open(self.log_path(name), "rb") as file:
+                file.seek(max(file.seek(0, os.SEEK_END) - LOG_TAIL_BYTES, 0))
+                data = file.read()
+        except OSError:
+            return ""
+        lines = data.decode("utf-8", "replace").splitlines()[-LOG_TAIL_LINES:]
+        return self.scrub("\n".join(line[:500] for line in lines))
+
+    # --- Running ------------------------------------------------------------
+
+    def environment(self, path):
+        env = {"PATH": path, "LANG": "C.UTF-8", "COREPACK_ENABLE_DOWNLOAD_PROMPT": "0"}
+        if self.user is not None:
+            env.update(HOME=self.user.home, USER=self.user.name, LOGNAME=self.user.name, SHELL="/bin/bash")
+        else:
+            env.update({name: os.environ[name] for name in ("HOME", "USER", "LOGNAME", "TMPDIR") if name in os.environ})
+        env.update(self.spec.get("env", {}))
+        env.update(self.secrets)
+        # Set after the spec's env, so a spec cannot move them.
+        env["PORT"] = str(self.port)
+        env["ACTION_AGENT_SANDBOX_MANIFEST"] = self.spec["manifest_path"]
+        return env
+
+    def begin_phase(self, seconds, label):
+        self.deadline = monotonic() + seconds
+        self.deadline_label = label
+
+    def step_deadline(self, timeout):
+        return min(self.deadline, monotonic() + timeout) if timeout else self.deadline
+
+    def limit_reached(self, timeout, deadline):
+        if timeout and deadline < self.deadline:
+            return f"within its {timeout}s timeout"
+        return f"within {self.deadline_label}"
+
+    def run(self, step, argv, *, env, cwd, timeout, user, label):
+        """Runs `argv` to completion in its own process group, with its output
+        in the step's log. Anything it left running in that group is stopped.
+        """
+        deadline = self.step_deadline(timeout)
+        self.append_log(step, f"$ {label}\n")
+        process = spawn(argv, env=env, cwd=cwd, user=user, stdout=subprocess.PIPE)
+        copier = threading.Thread(target=self.copy_output, args=(process.stdout, step), daemon=True)
+        copier.start()
+        finished = False
+        try:
+            process.wait(timeout=max(deadline - monotonic(), 0))
+            finished = True
+        except subprocess.TimeoutExpired:
+            pass
+        finally:
+            stop_group(process.pid, grace=1 if finished else STOP_GRACE, process=process)
+            copier.join(2)
+        if not finished:
+            raise StepFailed(step, f"`{label}` did not finish {self.limit_reached(timeout, deadline)}")
+        if process.returncode != 0:
+            raise StepFailed(step, f"`{label}` exited with {describe(process.returncode)}")
+
+    def capture(self, argv, *, env, cwd, user, timeout, limit):
+        """Runs `argv` and returns its output and exit status; (None, None)
+        when it did not finish within `timeout`.
+        """
+        options = dict(cwd=cwd, env=env, stdin=subprocess.DEVNULL, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+                       start_new_session=True)
+        if user is not None:
+            options.update(user=user.uid, group=user.gid, extra_groups=[])
+        process = subprocess.Popen(argv, **options)
+        try:
+            output, _ = process.communicate(timeout=timeout)
+        except subprocess.TimeoutExpired:
+            stop_group(process.pid, process=process)
+            return None, None
+        return output[:limit].decode("utf-8", "replace"), process.returncode
+
+    def missing_task(self, step, task, env, timeout):
+        """Why `step` is skipped because the app defines no `task`, or None.
+        The app's tasks are listed once, by the first step that needs them.
+        """
+        if self.tasks is None:
+            self.append_log(step, "$ bin/rails -T -A\n")
+            deadline = self.step_deadline(timeout)
+            output, status = self.capture(["bin/rails", "-T", "-A"], env=env, cwd=self.app_dir, user=self.user,
+                                          timeout=max(min(TASK_LIST_TIMEOUT, deadline - monotonic()), 1), limit=TASK_LIST_BYTES)
+            if status != 0:
+                if output:
+                    self.append_log(step, output[-LOG_TAIL_BYTES:])
+                outcome = f"exited with {describe(status)}" if status is not None else "did not finish"
+                raise StepFailed(step, f"could not list the app's Rake tasks: `bin/rails -T -A` {outcome}")
+            self.tasks = {match.group(1) for match in map(TASK_LINE.match, output.splitlines()) if match}
+        return None if task in self.tasks else f"the app defines no {task} task"
+
+    def boot_step(self, name, action):
+        """Records `name` as running, then as succeeded, skipped (`action`
+        returned a Skip) or failed, and returns what `action` returned.
+        """
+        self.current = name
+        self.current_started = monotonic()
+        self.update_step(name, status="running", started_at=now_iso(), finished_at=None, duration_ms=None, detail=None)
+        try:
+            outcome = action()
+        except StepFailed as failure:
+            self.finish_step(name, status="failed", detail=self.scrub(failure.problem).splitlines()[0])
+            raise
+        except BaseException as error:
+            self.finish_step(name, status="failed", detail=self.scrub(f"{type(error).__name__}: {error}").splitlines()[0])
+            raise
+        if isinstance(outcome, Skip):
+            self.append_log(name, f"# skipped: {outcome.reason}\n")
+            self.finish_step(name, status="skipped", detail=outcome.reason)
+        else:
+            self.finish_step(name, status="succeeded")
+        return outcome
+
+    def finish_step(self, name, **attributes):
+        self.update_step(name, finished_at=now_iso(), duration_ms=round((monotonic() - self.current_started) * 1000), **attributes)
+
+    def execute(self, start_at):
+        entries = self.entries()
+        for directory in self.spec.get("directories", []):
+            os.makedirs(directory, mode=0o700, exist_ok=True)
+            if self.user is not None:
+                os.chown(directory, self.user.uid, self.user.gid)
+        path = os.environ.get("PATH", SYSTEM_PATH)
+        if entries[0].kind == "toolchain":
+            # Bounded by its own limit only: installing a Ruby the image lacks
+            # is no part of the spec's boot.
+            timeout = entries[0].timeout
+            self.begin_phase(timeout, f"the toolchain timeout ({timeout}s)")
+            path = self.boot_step("toolchain", self.prepare_toolchain)
+        self.begin_phase(self.spec["timeout"], f"the boot timeout ({self.spec['timeout']}s)")
+        env = self.environment(path)
+        manifest = None
+
+        for index, entry in enumerate(entries):
+            if index < start_at or entry.kind == "toolchain":
+                continue
+            if entry.kind == "step":
+                self.boot_step(entry.name, lambda entry=entry: self.run_spec_step(entry, env))
+            elif entry.kind == "manifest":
+                manifest = self.boot_step(entry.name, lambda entry=entry: self.run_manifest(entry, env))
+            else:
+                self.boot_step(entry.name, lambda entry=entry: self.start_app(entry, env, manifest or self.read_manifest()))
+
+    def run_spec_step(self, entry, env):
+        reason = entry.skip or (self.missing_task(entry.name, entry.if_task, env, entry.timeout) if entry.if_task else None)
+        if reason:
+            return Skip(reason)
+        self.run(entry.name, ["/bin/sh", "-c", entry.command], env=env, cwd=self.app_dir, timeout=entry.timeout,
+                 user=self.user, label=entry.command)
+        return None
+
+    # --- Toolchain ----------------------------------------------------------
+
+    def prepare_toolchain(self):
+        """Starts the spec's services and installs its Ruby and Node. Returns
+        the PATH every later command runs with.
+        """
+        toolchain = self.spec["toolchain"]
+        for service in toolchain.get("services", []):
+            script = os.path.join(SERVICE_DIR, f"start-{service}")
+            if not os.access(script, os.X_OK):
+                raise StepFailed("toolchain", f"this image has no {service} service")
+            self.run("toolchain", [script], env=self.mise_environment(), cwd="/", timeout=None, user=None, label=f"start {service}")
+
+        bins = {}
+        for tool in ("ruby", "node", "bun"):
+            version = toolchain.get(tool)
+            target = f"{tool}@{version}" if version else tool
+            if version:
+                self.run("toolchain", [MISE, "install", target], env=self.mise_environment(), cwd="/", timeout=None,
+                         user=self.user, label=f"mise install {target}")
+            output, status = self.capture([MISE, "where", target], env=self.mise_environment(), cwd="/", user=self.user,
+                                          timeout=max(self.deadline - monotonic(), 1), limit=4096)
+            location = (output or "").strip()
+            if status == 0 and location.startswith("/"):
+                bins[tool] = os.path.join(location, "bin")
+            elif tool != "bun":
+                outcome = f"exited with {describe(status)}" if status is not None else "did not finish"
+                raise StepFailed("toolchain", f"this image has no {target}: `mise where {target}` {outcome}")
+        if toolchain.get("node"):
+            # A Node installed now has no yarn or pnpm until corepack links
+            # them, and corepack runs on that node.
+            env = dict(self.mise_environment(), PATH=f"{bins['node']}:{SYSTEM_PATH}")
+            self.run("toolchain", ["corepack", "enable"], env=env, cwd="/", timeout=None, user=self.user, label="corepack enable")
+        return ":".join([*bins.values(), SYSTEM_PATH])
+
+    def mise_environment(self):
+        env = {"PATH": SYSTEM_PATH, "LANG": "C.UTF-8", "MISE_DATA_DIR": MISE_DATA_DIR, "MISE_YES": "1"}
+        if self.user is not None:
+            env.update(HOME=self.user.home, USER=self.user.name)
+        elif "HOME" in os.environ:
+            env["HOME"] = os.environ["HOME"]
+        return env
+
+    # --- Manifest and start -------------------------------------------------
+
+    def run_manifest(self, entry, env):
+        path = self.spec["manifest_path"]
+        try:
+            os.remove(path)
+        except FileNotFoundError:
+            pass
+        self.run("manifest", ["/bin/sh", "-c", entry.command], env=env, cwd=self.app_dir, timeout=entry.timeout,
+                 user=self.user, label=entry.command)
+        if not os.path.isfile(path):
+            raise StepFailed("manifest", f"`{entry.command}` wrote nothing to $ACTION_AGENT_SANDBOX_MANIFEST")
+        return self.read_manifest()
+
+    def read_manifest(self):
+        path = self.spec["manifest_path"]
+        if not os.path.isfile(path):
+            raise StepFailed("manifest", "there is no manifest to resume from: resume from manifest")
+        # The token in it is for the platform alone.
+        os.chmod(path, 0o600)
+        try:
+            with open(path, "rb") as file:
+                manifest = json.load(file)
+        except ValueError as error:
+            raise StepFailed("manifest", f"the manifest is not JSON ({str(error)[:120]})")
+        mcp_path = manifest.get("mcp_path") if isinstance(manifest, dict) else None
+        if not (isinstance(mcp_path, str) and mcp_path.startswith("/") and not mcp_path.startswith("//")
+                and re.fullmatch(r"[\x21-\x7e]+", mcp_path)):
+            raise StepFailed("manifest", "the manifest names no mcp_path (expected a path such as /activeagents/mcp)")
+        if not (manifest.get("mcp_token") is None or isinstance(manifest["mcp_token"], str)):
+            raise StepFailed("manifest", "the manifest's mcp_token is not a string")
+        return manifest
+
+    def start_app(self, entry, env, manifest):
+        deadline = self.step_deadline(entry.timeout)
+        self.append_log("start", f"$ {entry.command}\n")
+        # Straight to the log rather than through a pipe: the server outlives
+        # this script.
+        with open(self.log_path("start"), "ab") as log:
+            self.server = spawn(["/bin/sh", "-c", entry.command], env=env, cwd=self.app_dir, user=self.user, stdout=log)
+        self.state["server_pid"] = self.server.pid
+        self.save_state()
+        if self.listen_port and self.listen_port != self.port:
+            with open(self.log_path("start"), "ab") as log:
+                self.forwarder = spawn([FORWARDER, f"TCP-LISTEN:{self.listen_port},fork,reuseaddr", f"TCP:127.0.0.1:{self.port}"],
+                                       env={"PATH": SYSTEM_PATH}, cwd="/", user=self.user, stdout=log)
+            self.state["forwarder_pid"] = self.forwarder.pid
+            self.save_state()
+
+        self.wait_until_ready(manifest["mcp_path"], entry.timeout, deadline)
+        if self.spec.get("start_url"):
+            self.probe_start_url(self.spec["start_url"], entry.timeout, deadline)
+        if self.forwarder is not None:
+            self.wait_for_forwarder(manifest["mcp_path"], deadline)
+
+    def server_exited(self, what):
+        raise StepFailed("start", f"the server exited with {describe(self.server.returncode)} before it answered {what}")
+
+    def wait_until_ready(self, mcp_path, timeout, deadline):
+        last = None
+        while True:
+            if self.server.poll() is not None:
+                self.server_exited(f"on port {self.port}")
+            status = probe(self.port, mcp_path)
+            if status in READY_STATUSES:
+                return
+            last = status or last
+            if monotonic() >= deadline:
+                answered = f" (last answer: {last})" if last else ""
+                raise StepFailed("start", f"the server did not answer {mcp_path} on port {self.port} "
+                                 f"{self.limit_reached(timeout, deadline)}{answered}")
+            time.sleep(POLL_INTERVAL)
+
+    def probe_start_url(self, start_url, timeout, deadline):
+        while True:
+            read_timeout = max(min(START_URL_READ_TIMEOUT, deadline - monotonic()), 1)
+            status = probe(self.port, start_url, accept="text/html,*/*", timeout=read_timeout)
+            if status:
+                if status >= 500:
+                    raise StepFailed("start", f"GET {start_url} answered {status}")
+                return
+            if self.server.poll() is not None:
+                self.server_exited(f"GET {start_url}")
+            if monotonic() >= deadline:
+                raise StepFailed("start", f"GET {start_url} got no answer {self.limit_reached(timeout, deadline)}")
+            time.sleep(POLL_INTERVAL)
+
+    def wait_for_forwarder(self, mcp_path, deadline):
+        until = min(deadline, monotonic() + FORWARDER_TIMEOUT)
+        while True:
+            if probe(self.listen_port, mcp_path) in READY_STATUSES:
+                return
+            if self.forwarder.poll() is not None or monotonic() >= until:
+                raise StepFailed("start", f"port {self.listen_port} does not reach the server on port {self.port}")
+            time.sleep(POLL_INTERVAL)
+
+    # --- Outcome ------------------------------------------------------------
+
+    def succeed(self):
+        self.state.update(status="ready", finished_at=now_iso())
+        self.save_state()
+
+    def fail(self, step, problem):
+        """Records the failed boot, stops the server, and returns the message:
+        the failure and the end of the failing step's log.
+        """
+        stop_group(self.server.pid if self.server else None, process=self.server)
+        stop_group(self.forwarder.pid if self.forwarder else None, process=self.forwarder)
+        problem = self.scrub(problem)
+        self.state.update(status="failed", failed_step=self.current or step, detail=problem, finished_at=now_iso(),
+                          kept=self.spec.get("keep_on_failure") is True, server_pid=None, forwarder_pid=None)
+        self.save_state()
+        message = f"Sandbox {step} failed: {problem}"
+        tail = self.log_tail(step)
+        if tail:
+            message += f"\n--- last lines of logs/{step}.log ---\n{tail}"
+        return message
+
+
+def interrupt(signum, _frame):
+    raise Interrupted(signal.Signals(signum).name)
+
+
+def main(argv=None):
+    parser = argparse.ArgumentParser(prog="sandbox-app-boot", description="Boot the sandbox's checkout from its boot spec.")
+    parser.add_argument("--spec", default=DEFAULT_SPEC, help=f"the boot spec (default {DEFAULT_SPEC})")
+    parser.add_argument("--from", dest="from_step", help="rerun a failed boot from this step")
+    args = parser.parse_args(argv)
+
+    try:
+        spec = load_spec(args.spec)
+        boot = Boot(spec, args.spec, read_secrets(spec))
+        boot.acquire_lock()
+        start_at = boot.prepare(args.from_step)
+    except Refused as error:
+        print(f"sandbox-app-boot: {error}", file=sys.stderr)
+        return 2
+
+    signal.signal(signal.SIGTERM, interrupt)
+    signal.signal(signal.SIGINT, interrupt)
+    try:
+        boot.execute(start_at)
+    except StepFailed as failure:
+        print(boot.fail(failure.step, failure.problem), file=sys.stderr)
+        return 1
+    except Interrupted as stop:
+        print(boot.fail(boot.current or "toolchain", f"the boot was stopped ({stop})"), file=sys.stderr)
+        return 1
+    except Exception as error:  # Anything else fails the step that was running.
+        print(boot.fail(boot.current or "toolchain", f"{type(error).__name__}: {error}"), file=sys.stderr)
+        return 1
+    boot.succeed()
+    print(json.dumps({"status": "ready"}))
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

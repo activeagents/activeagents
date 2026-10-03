@@ -1,0 +1,15 @@
+#!/bin/bash
+# Starts the image's PostgreSQL cluster unless it is running, and waits until
+# it accepts connections on its socket.
+set -euo pipefail
+
+version=$(find /etc/postgresql -mindepth 1 -maxdepth 1 -printf '%f\n' | sort -V | tail -1)
+if ! pg_ctlcluster "$version" main status >/dev/null 2>&1; then
+  pg_ctlcluster "$version" main start
+fi
+for _ in $(seq 1 120); do
+  pg_isready -q -h /var/run/postgresql && exit 0
+  sleep 0.5
+done
+echo "PostgreSQL $version did not accept connections within 60s" >&2
+exit 1

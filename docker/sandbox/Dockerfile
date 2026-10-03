@@ -153,3 +153,21 @@ RUN pip3 install --no-cache-dir \
     seaborn \
     jupyter \
     ipython
+
+# -------------------------------------------------------------------
+# App runtime variant: boots a checkout of a Rails app with
+# sandbox-app-boot. Incus hosts build it with
+# scripts/build-app-runtime-image.sh; this target runs the same
+# provisioning, to try the image and its boot script locally:
+#   docker build --target app-runtime -t sandbox-app-runtime -f docker/sandbox/Dockerfile .
+# -------------------------------------------------------------------
+FROM ubuntu:24.04 AS app-runtime
+
+ARG RUBY_SERIES="3.2 3.3 3.4"
+
+COPY docker/sandbox/app-runtime /tmp/app-runtime
+RUN SOURCE_DIR=/tmp/app-runtime RUBY_SERIES="${RUBY_SERIES}" bash /tmp/app-runtime/provision.sh && \
+    rm -rf /tmp/app-runtime
+
+WORKDIR /workspace
+CMD ["sleep", "infinity"]
