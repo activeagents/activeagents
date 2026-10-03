@@ -30,7 +30,10 @@ class WorkspaceInvitationsController < ApplicationController
 
   def private_response
     response.headers["Cache-Control"] = "no-store"
-    response.headers["Referrer-Policy"] = "no-referrer"
+    # strict-origin sends only the origin as the Referer, so the token in the
+    # URL never leaves in one, and browsers still send a real Origin with the
+    # accept form, which Rails' forgery protection checks.
+    response.headers["Referrer-Policy"] = "strict-origin"
   end
 
   def load_invitation
