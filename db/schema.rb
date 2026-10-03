@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.2].define(version: 2026_09_30_000001) do
+ActiveRecord::Schema[8.2].define(version: 2026_10_03_012840) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
 
@@ -786,6 +786,18 @@ ActiveRecord::Schema[8.2].define(version: 2026_09_30_000001) do
     t.index ["video_timeline_id"], name: "index_timeline_videos_on_video_timeline_id"
   end
 
+  create_table "user_identities", force: :cascade do |t|
+    t.datetime "created_at", null: false
+    t.string "email"
+    t.string "login"
+    t.string "provider", null: false
+    t.string "uid", null: false
+    t.datetime "updated_at", null: false
+    t.bigint "user_id", null: false
+    t.index ["provider", "uid"], name: "index_user_identities_on_provider_and_uid", unique: true
+    t.index ["user_id", "provider"], name: "index_user_identities_on_user_id_and_provider", unique: true
+  end
+
   create_table "users", force: :cascade do |t|
     t.boolean "admin", default: false, null: false
     t.string "company_name"
@@ -798,6 +810,7 @@ ActiveRecord::Schema[8.2].define(version: 2026_09_30_000001) do
     t.string "job_title"
     t.string "last_name"
     t.string "password_digest", null: false
+    t.boolean "password_set", default: true, null: false
     t.boolean "profile_completed", default: false, null: false
     t.string "signup_source"
     t.boolean "synced_to_resend", default: false, null: false
@@ -923,6 +936,7 @@ ActiveRecord::Schema[8.2].define(version: 2026_09_30_000001) do
   add_foreign_key "sessions", "users"
   add_foreign_key "timeline_videos", "video_timelines"
   add_foreign_key "timeline_videos", "videos"
+  add_foreign_key "user_identities", "users"
   add_foreign_key "video_events", "videos"
   add_foreign_key "video_timelines", "users"
   add_foreign_key "videos", "users"

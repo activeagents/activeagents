@@ -75,15 +75,19 @@
           </div>
 
           <!-- Password -->
+          <% password_optional = @user.github_identity.present? %>
           <div class="border-t border-gray-200 pt-6 mt-6">
             <h3 class="text-lg font-medium text-gray-900 mb-4">
-              Set your password
+              <%= password_optional ? "Set a password (optional)" : "Set your password" %>
             </h3>
+            <% if password_optional %>
+              <p class="text-sm text-gray-600 mb-4">You sign in with GitHub. A password also lets you sign in with your email address.</p>
+            <% end %>
             <div class="grid grid-cols-1 gap-6 sm:grid-cols-2">
               <div>
                 <%= form.label :password, class: "block text-sm font-medium text-gray-700" %>
                 <div class="mt-1">
-                  <%= form.password_field :password, required: true,
+                  <%= form.password_field :password, required: !password_optional,
                       autocomplete: "new-password",
                       placeholder: "At least 8 characters",
                       class: "appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-rose-500 focus:border-rose-500 sm:text-sm" %>
@@ -93,7 +97,7 @@
               <div>
                 <%= form.label :password_confirmation, "Confirm password", class: "block text-sm font-medium text-gray-700" %>
                 <div class="mt-1">
-                  <%= form.password_field :password_confirmation, required: true,
+                  <%= form.password_field :password_confirmation, required: !password_optional,
                       autocomplete: "new-password",
                       placeholder: "Confirm your password",
                       class: "appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-rose-500 focus:border-rose-500 sm:text-sm" %>
