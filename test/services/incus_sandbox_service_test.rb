@@ -310,8 +310,8 @@ class IncusSandboxServiceTest < ActiveSupport::TestCase
 
   def stored_document(boot_config)
     files = IncusSandboxService::BootSpec::FILES.index_with { |path| checkout_files["#{APP}/#{path}"] }
-    IncusSandboxService::BootSpec.build(boot_config: boot_config, files: files,
-      session_id: SecureRandom.uuid, repository: "acme/shop").document
+    IncusSandboxService::BootSpec.build(boot_config: boot_config, files: files, session_id: SecureRandom.uuid,
+      repository: "acme/shop", recorded_steps: [ { name: "checkout", status: "succeeded" } ]).document
   end
 
   test "a kept boot resumes from the step that failed, with its spec passed again" do
@@ -327,6 +327,8 @@ class IncusSandboxServiceTest < ActiveSupport::TestCase
     assert_equal "sandbox-kept-1", result[:container_name]
     assert_equal "http://10.0.0.5:8080/dashboard/mcp", result[:mcp_url]
     assert_equal [ IncusSandboxService::BOOT_SPEC_PATH ], incus.writes.map { |write| write[:path] }, "the spec is rewritten; nothing is fetched again"
+    assert_equal %w[checkout preflight], incus.written(IncusSandboxService::BOOT_SPEC_PATH)["recorded_steps"].map { |step| step["name"] },
+      "the rewritten spec keeps the steps the first boot recorded"
   end
 
   test "a kept boot whose spec had secrets cannot resume without it" do
