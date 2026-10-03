@@ -18,10 +18,11 @@ class WorkspaceInvitation < ApplicationRecord
   scope :teammate, -> { where.not(role: nil) }
   scope :outstanding, -> { where(accepted_at: nil, revoked_at: nil) }
   # A teammate invitation holds one of the workspace's seats until it is
-  # accepted, revoked or expires. While its email is queued it has no expiry
-  # yet, and holds the seat.
+  # accepted, revoked or expires, or its email fails to send. While its email
+  # is queued it has no expiry yet, and holds the seat.
   scope :holding_seat, -> {
-    teammate.outstanding.where(token_expires_at: nil).or(teammate.outstanding.where(token_expires_at: Time.current..))
+    awaiting = teammate.outstanding.where.not(delivery_state: "delivery_failed")
+    awaiting.where(token_expires_at: nil).or(awaiting.where(token_expires_at: Time.current..))
   }
 
   normalizes :email_address, with: ->(email) { email.strip.downcase }
