@@ -1,0 +1,66 @@
+name: Terraform
+
+on:
+  pull_request:
+    paths:
+      - "terraform/**"
+      - "scripts/setup-incus-host.sh"
+      - "scripts/check-incus-host-iam.sh"
+      - "scripts/test/**"
+      - ".github/workflows/terraform.yml"
+  push:
+    branches: [ main ]
+    paths:
+      - "terraform/**"
+      - "scripts/setup-incus-host.sh"
+      - "scripts/check-incus-host-iam.sh"
+      - "scripts/test/**"
+      - ".github/workflows/terraform.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  checks:
+    runs-on: ubuntu-latest
+    env:
+      TF_PLUGIN_CACHE_DIR: ${{ github.workspace }}/.terraform-plugin-cache
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+
+      - name: Set up Terraform
+        uses: hashicorp/setup-terraform@v4
+        with:
+          terraform_version: 1.10.0
+          terraform_wrapper: false
+
+      - name: Create the plugin cache
+        run: mkdir -p "$TF_PLUGIN_CACHE_DIR"
+
+      - name: Incus host has no project-level secret or storage access
+        run: |
+          scripts/check-incus-host-iam.sh
+          bash scripts/test/check_incus_host_iam_test.sh
+
+      - name: Sandbox egress ACL script
+        run: bash scripts/test/setup_incus_host_egress_acl_test.sh
+
+      # Other directories predate terraform fmt and are not formatted yet.
+      - name: Format
+        run: terraform fmt -check -recursive terraform/modules/incus-host terraform/environments/sandbox-staging terraform/tests
+
+      - name: Test the incus-host module
+        working-directory: terraform/modules/incus-host
+        run: terraform init -backend=false -input=false && terraform test
+
+      - name: Test the root module
+        working-directory: terraform
+        run: terraform init -backend=false -input=false && terraform test
+
+      - name: Validate each environment
+        run: |
+          for environment in staging production sandbox-staging; do
+            (cd "terraform/environments/$environment" && terraform init -backend=false -input=false && terraform validate)
+          done
