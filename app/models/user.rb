@@ -20,6 +20,17 @@ class User < ApplicationRecord
   # Email verification
   before_create :generate_email_verification_token
 
+  # Saves the user together with the workspace they own, as every signup does.
+  # Returns false, saving nothing, when the user is invalid.
+  def save_with_workspace
+    transaction do
+      return false unless save
+      account = Account.create!(name: "#{display_name}'s Workspace", owner: self)
+      AccountMembership.create!(account: account, user: self, role: "owner")
+    end
+    true
+  end
+
   def display_name
     if first_name.present? || last_name.present?
       [ first_name, last_name ].compact.join(" ")
