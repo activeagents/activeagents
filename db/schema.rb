@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.2].define(version: 2026_09_30_000001) do
+ActiveRecord::Schema[8.2].define(version: 2026_10_03_012801) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
 
@@ -858,9 +858,10 @@ ActiveRecord::Schema[8.2].define(version: 2026_09_30_000001) do
     t.string "email_address", null: false
     t.datetime "grant_expires_at"
     t.bigint "invited_by_id", null: false
-    t.text "reason", null: false
-    t.date "review_on", null: false
+    t.text "reason"
+    t.date "review_on"
     t.datetime "revoked_at"
+    t.string "role"
     t.datetime "sent_at"
     t.string "source", default: "retainer_pilot", null: false
     t.string "token_digest"
@@ -868,10 +869,13 @@ ActiveRecord::Schema[8.2].define(version: 2026_09_30_000001) do
     t.datetime "updated_at", null: false
     t.string "workspace_name", null: false
     t.index ["accepted_by_id"], name: "index_workspace_invitations_on_accepted_by_id"
+    t.index ["account_id", "email_address"], name: "index_pending_teammate_invitation_email", unique: true, where: "((role IS NOT NULL) AND (accepted_at IS NULL) AND (revoked_at IS NULL))"
     t.index ["account_id"], name: "index_workspace_invitations_on_account_id"
-    t.index ["email_address"], name: "index_pending_invitation_email", unique: true, where: "((accepted_at IS NULL) AND (revoked_at IS NULL))"
+    t.index ["email_address"], name: "index_pending_pilot_invitation_email", unique: true, where: "((role IS NULL) AND (accepted_at IS NULL) AND (revoked_at IS NULL))"
     t.index ["invited_by_id"], name: "index_workspace_invitations_on_invited_by_id"
     t.index ["token_digest"], name: "index_workspace_invitations_on_token_digest", unique: true
+    t.check_constraint "role IS NULL OR (role::text = ANY (ARRAY['admin'::character varying, 'member'::character varying]::text[]))", name: "workspace_invitations_role_allowed"
+    t.check_constraint "role IS NULL OR account_id IS NOT NULL", name: "workspace_invitations_teammate_account"
   end
 
   add_foreign_key "account_memberships", "accounts"

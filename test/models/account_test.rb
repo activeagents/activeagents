@@ -1,8 +1,11 @@
 # frozen_string_literal: true
 
 require "test_helper"
+require_relative "../support/teammate_helpers"
 
 class AccountTest < ActiveSupport::TestCase
+  include TeammateHelpers
+
   setup do
     @account = create_account(owner: create_user)
   end
@@ -30,5 +33,46 @@ class AccountTest < ActiveSupport::TestCase
 
     assert_equal "enterprise", @account.reload.current_plan.slug
     assert_equal(-1, @account.effective_trace_limit, "an enterprise comp lifts the trace quota")
+  end
+
+  test "#seat_limit comes from the plan's included seats" do
+    create_seat_plans
+
+    assert_equal 1, @account.seat_limit, "Free includes one seat"
+    assert_equal 3, team_account(plan: "pro").seat_limit
+    assert_equal(-1, team_account(plan: "enterprise").seat_limit)
+  end
+
+  test "#seats_in_use counts members and invitations still holding a seat" do
+    create_seat_plans
+    account = team_account(plan: "pro")
+    add_member(account)
+    invitation = WorkspaceMembers.new(account, actor: account.owner).invite!(email_address: "pending@example.com", role: "member")
+
+    assert_equal 3, account.seats_in_use
+    assert_equal 2, account.seats_in_use(except: invitation)
+    assert_not account.seat_available?
+    assert account.seat_available?(except: invitation)
+
+    invitation.update!(token_expires_at: 1.minute.ago)
+    assert_equal 2, account.seats_in_use, "an expired invitation frees its seat"
+  end
+
+  test "#seat_available? is always true on an unlimited plan" do
+    create_seat_plans
+    account = team_account(plan: "enterprise")
+    5.times { add_member(account) }
+
+    assert account.seat_available?
+  end
+
+  test "destroying a workspace deletes its teammate invitations" do
+    create_seat_plans
+    account = team_account(plan: "pro")
+    WorkspaceMembers.new(account, actor: account.owner).invite!(email_address: "pending@example.com", role: "member")
+
+    assert_difference "WorkspaceInvitation.count", -1 do
+      account.destroy!
+    end
   end
 end
