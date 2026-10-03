@@ -44,6 +44,8 @@ run_configure() {
       case "$*" in
         "network get incusbr0 ipv6.address --project default") echo "${STUB_IPV6:-none}" ;;
         "network get incusbr0 security.acls --project default") echo "${STUB_ACLS:-}" ;;
+        "network get incusbr0 security.acls.default.egress.action --project default") echo "${STUB_EGRESS_DEFAULT:-}" ;;
+        "network get incusbr0 security.acls.default.ingress.action --project default") echo "${STUB_INGRESS_DEFAULT:-}" ;;
         "network acl show sandbox-egress --project default") [[ "${STUB_ACL_EXISTS:-0}" == 1 ]] ;;
         "network acl edit sandbox-egress --project default") cat > "$WORK/acl.yaml" ;;
       esac
@@ -83,17 +85,25 @@ status=$?
 assert_contains "$WORK/acl.yaml" 'destination: "10.10.0.5/32,10.100.0.1/32"'
 
 current="run again"
-STUB_ACL_EXISTS=1 STUB_ACLS=sandbox-egress run_configure
+STUB_ACL_EXISTS=1 STUB_ACLS=sandbox-egress STUB_EGRESS_DEFAULT=allow STUB_INGRESS_DEFAULT=allow run_configure
 status=$?
 [[ $status -eq 0 ]] || fail "exited $status: $(cat "$WORK/output")"
 assert_not_contains "$WORK/calls" "network acl create"
-assert_contains "$WORK/calls" "security.acls=sandbox-egress security.acls.default.egress.action=allow"
+assert_contains "$WORK/calls" "incus network set incusbr0 --project default security.acls=sandbox-egress"
+assert_not_contains "$WORK/calls" "action=allow"
 
 current="keeps other ACLs"
 STUB_ACL_EXISTS=1 STUB_ACLS=operator-acl run_configure
 status=$?
 [[ $status -eq 0 ]] || fail "exited $status: $(cat "$WORK/output")"
 assert_contains "$WORK/calls" "security.acls=operator-acl,sandbox-egress "
+
+current="keeps a reject default someone set"
+STUB_ACL_EXISTS=1 STUB_ACLS=operator-allowlist STUB_EGRESS_DEFAULT=reject run_configure
+status=$?
+[[ $status -eq 0 ]] || fail "exited $status: $(cat "$WORK/output")"
+assert_not_contains "$WORK/calls" "security.acls.default.egress.action=allow"
+assert_contains "$WORK/calls" "incus network set incusbr0 --project default security.acls=operator-allowlist,sandbox-egress security.acls.default.ingress.action=allow"
 
 current="custom ranges"
 SANDBOX_EGRESS_REJECT=169.254.0.0/16,100.64.0.0/10 run_configure
