@@ -17,7 +17,7 @@ class PilotOnboardingTest < ActionDispatch::IntegrationTest
       get workspace_invitation_path(token: @token)
       assert_response :success
     end
-    assert_equal "no-referrer", response.headers["Referrer-Policy"]
+    assert_equal "strict-origin", response.headers["Referrer-Policy"]
     assert_equal "no-store", response.headers["Cache-Control"]
     assert_nil @invitation.reload.accepted_at
     assert_difference [ "User.count", "Account.count", "AccountMembership.count", "ProAccessGrant.count" ], 1 do
