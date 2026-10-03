@@ -12,6 +12,7 @@ class Account < ApplicationRecord
   # app-level constant is an alias rather than a class of its own.
   has_many :api_keys, class_name: "ActionAgent::ApiKey", dependent: :destroy
   has_many :provider_keys, class_name: "ActionAgent::ProviderKey", dependent: :destroy
+  has_one :github_connection, class_name: "ActionAgent::GithubConnection", dependent: :destroy
   has_one :pro_access_grant, dependent: :destroy
   has_many :workspace_invitations, dependent: :restrict_with_error
 
