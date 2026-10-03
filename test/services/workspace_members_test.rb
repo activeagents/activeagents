@@ -84,7 +84,7 @@ class WorkspaceMembersTest < ActiveSupport::TestCase
     assert_raises(WorkspaceMembers::Refused) { members(account.owner, account).invite!(email_address: "x@example.com", role: "member") }
   end
 
-  test "#resend! rotates the link and needs a free seat for an expired invitation" do
+  test "#resend! rotates the link and needs a free seat, not counting the invitation itself" do
     invitation, first_token = send_teammate_invitation(account: @account, actor: @owner, email: "new@example.com")
     members(@owner).resend!(invitation)
     second_token = deliver_teammate_invitation(invitation)
@@ -96,6 +96,15 @@ class WorkspaceMembersTest < ActiveSupport::TestCase
     add_member(@account)
     members(@owner).invite!(email_address: "other@example.com", role: "member")
     assert_raises(WorkspaceMembers::Refused) { members(@owner).resend!(invitation) }
+  end
+
+  test "#resend! refuses a revoked invitation as not resendable, even with every seat taken" do
+    invitation, = send_teammate_invitation(account: @account, actor: @owner, email: "new@example.com")
+    members(@owner).revoke!(invitation)
+    add_member(@account)
+    add_member(@account)
+
+    assert_raises(ActiveRecord::RecordInvalid) { members(@owner).resend!(invitation.reload) }
   end
 
   test "#revoke! invalidates the link, and only for the workspace's owners and admins" do

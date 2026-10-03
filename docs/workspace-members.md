@@ -19,11 +19,11 @@ Teammate invitations reuse `WorkspaceInvitation`. A row with a `role` is a teamm
 - Accepting requires a signed-in user whose verified email equals the invited email, ignoring case. The link alone never creates a user. Someone without an account signs up and verifies first, then reopens the link.
 - Acceptance locks the workspace, then the invitation, and consumes the token in the same transaction, so a link works once.
 - A link stops working when its sender is no longer an owner or admin. Removing or demoting an admin revokes the invitations they sent.
-- Sends (new and resent) are limited to 20 per workspace per hour.
+- Sends (new and resent) are limited to 20 per workspace per hour. Requests refused because the sender isn't an owner or admin don't count.
 
 ## Seats
 
-`Plan#included_seats` (-1 for unlimited) caps members plus teammate invitations that are outstanding, unexpired and not failed (an invitation whose email failed to send frees its seat until it is resent). Sending, resending an expired invitation and accepting all check it under the workspace lock. Free includes one seat, which is the owner's, so inviting needs a paid plan.
+`Plan#included_seats` (-1 for unlimited) caps members plus teammate invitations that are outstanding, unexpired and not failed (an invitation whose email failed to send frees its seat until it is resent). Sending, resending and accepting all check it under the workspace lock. A resend needs a free seat, not counting the invitation being resent. A workspace over its limit, after a downgrade for example, can't resend a pending invitation, which couldn't be accepted anyway. Free includes one seat, which is the owner's, so inviting needs a paid plan.
 
 ## Removing a member
 
