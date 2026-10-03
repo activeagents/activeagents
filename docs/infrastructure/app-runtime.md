@@ -149,7 +149,9 @@ output and outlives the script, so the service masks it when it reads it.
 through the file API, in the shapes the engine's
 `SandboxOrchestrator#boot_status` and `#boot_log` document, masked of the
 session's secrets. The service reads the state and the spec only while root
-owns them.
+owns them. `#boot_log` fetches one page at a time with a Range request, so a
+log of any size can be paged, including `start.log`, which grows for as long
+as the server runs.
 
 When a boot fails and its spec has `keep_on_failure`, the container stays.
 `IncusSandboxService#resume_boot(session, from:, boot_config:)` then runs
