@@ -42,7 +42,9 @@
       </tbody>
     </table>
   </div>
-  <p><small>Removing someone ends their access to this workspace, deletes the API keys they created here and signs them out of it.</small></p>
+  <% if manager %>
+    <p><small>Removing someone ends their access to this workspace and signs them out of it. API keys belong to the workspace, so any key they could see keeps working until you revoke it under <%= link_to "Settings → API Keys", "/dashboard/settings" %>. The workspace's telemetry key can't be rotated yet and keeps working too.</small></p>
+  <% end %>
 </section>
 
 <% if @invitations.any? %>

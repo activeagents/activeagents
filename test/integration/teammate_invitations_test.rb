@@ -195,6 +195,17 @@ class TeammateInvitationsTest < ActionDispatch::IntegrationTest
     assert_not invitation.reload.revoked_at?
   end
 
+  test "managers are told that removal leaves workspace API keys working" do
+    sign_in_as(@owner)
+    get workspace_members_path
+    assert_select "a[href=?]", "/dashboard/settings", text: "Settings → API Keys"
+
+    sign_in_as(add_member(@account))
+    patch workspace_path, params: { account_id: @account.id }
+    get workspace_members_path
+    assert_select "a[href=?]", "/dashboard/settings", count: 0
+  end
+
   test "invitation sends are rate limited per workspace" do
     sign_in_as(@owner)
 
