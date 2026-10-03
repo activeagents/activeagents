@@ -66,6 +66,8 @@ ROLES=(
   "roles/cloudsql.admin"
   "roles/compute.networkAdmin"
   "roles/vpcaccess.admin"
+  "roles/iam.serviceAccountAdmin"        # creates service accounts and sets IAM on them
+  "roles/serviceusage.serviceUsageAdmin" # enables the APIs listed in terraform/main.tf
 )
 
 for ROLE in "${ROLES[@]}"; do
@@ -177,6 +179,226 @@ echo -n "sk_live_..." | gcloud secrets versions add activeagents-production-stri
 echo -n "whsec_..." | gcloud secrets versions add activeagents-staging-stripe-webhook-secret --data-file=-
 echo -n "whsec_..." | gcloud secrets versions add activeagents-production-stripe-webhook-secret --data-file=-
 ```
+
+## Every setting lives in the tf files
+
+Every environment variable, secret and setting the platform reads is declared in Terraform:
+
+- secrets go in the `module "secrets"` map in `terraform/main.tf` and reach Cloud Run through `local.cloud_run_secret_env_vars`;
+- plain values go in `local.cloud_run_env_vars`;
+- every input variable is declared in `terraform/variables.tf` and in the environment's `variables.tf`;
+- per-environment values go in a committed `*.auto.tfvars` file in `terraform/environments/<env>/`, which Terraform loads without CLI flags. `.gitignore` ignores only `terraform.tfvars`.
+
+Never set anything with `gcloud run services update` or the console: the next `terraform apply` in the deploy workflow removes it. Secret values are the one exception. Terraform manages each secret but not its versions, so values are added with `gcloud secrets versions add`. The rule covers the Incus host too: its ACL and IAM live in `terraform/modules/incus-host` and `scripts/setup-incus-host.sh`, not in hand-run `incus` or `gcloud` commands.
+
+Cloud Run refuses a revision that reads a secret with no version. A new secret is therefore declared first, given a version by hand, and only then passed to the app, behind a flag that defaults to off.
+
+## GitHub App, encryption keys and recordings storage
+
+Terraform creates these in both environments, and none of them reaches the app until its flag is on:
+
+| Secret (`activeagents-<env>-…`) | Variable the app reads | Flag |
+| --- | --- | --- |
+| `github-app-client-id` | `GITHUB_APP_CLIENT_ID` | `enable_github_sign_in` |
+| `github-app-client-secret` | `GITHUB_APP_CLIENT_SECRET` | `enable_github_sign_in` |
+| `github-app-private-key` | `GITHUB_APP_PRIVATE_KEY` | `enable_github_app` |
+| `github-app-webhook-secret` | `GITHUB_APP_WEBHOOK_SECRET` | `enable_github_app` |
+| `active-record-encryption-primary-key` | `ACTIVE_RECORD_ENCRYPTION_PRIMARY_KEY` | `enable_active_record_encryption_keys` |
+| `active-record-encryption-deterministic-key` | `ACTIVE_RECORD_ENCRYPTION_DETERMINISTIC_KEY` | `enable_active_record_encryption_keys` |
+| `active-record-encryption-key-derivation-salt` | `ACTIVE_RECORD_ENCRYPTION_KEY_DERIVATION_SALT` | `enable_active_record_encryption_keys` |
+
+| Plain value | Variable the app reads | Flag |
+| --- | --- | --- |
+| `github_app_id` (committed) | `GITHUB_APP_ID` | `enable_github_app` |
+| `github_app_slug` (committed) | `GITHUB_APP_SLUG` | `enable_github_app` |
+| the recordings bucket | `RECORDINGS_BUCKET` | `enable_recordings_storage` |
+| the recordings signer | `RECORDINGS_SIGNER_EMAIL` | `enable_recordings_storage` |
+
+The bucket is `<project>-recordings-<env>`, with uniform bucket-level access and public access prevention enforced. The app's service account has `roles/storage.objectAdmin` on that bucket only. The signer (`recordings-signer-<env>`) has `roles/storage.objectViewer` on it, and the app may mint tokens for the signer and nothing else, so it can sign read-only URLs through the IAM Credentials API without a key file. Those two bindings are the bucket's whole IAM policy: Terraform sets it authoritatively, which removes the bindings GCS gives a new bucket for the project's owners, editors and viewers. Project-level roles such as `roles/storage.admin` still reach the bucket, and a binding added by hand is removed by the next apply.
+
+### 1. Register one GitHub App per environment
+
+GitHub's Terraform provider cannot create Apps, so register them at <https://github.com/organizations/activeagents/settings/apps/new> (or the manifest flow). One App serves both repository access through installations and Sign in with GitHub through user authorization.
+
+- **Name**: `ActiveAgents (staging)` for staging, `ActiveAgents` for production.
+- **Homepage URL**: the environment's public URL.
+- **Callback URL**: the Sign in with GitHub callback, `https://<host>/auth/github/callback`, once for every host that serves the environment.
+- **Setup URL**: leave empty until the installation flow ships. Callback and setup URLs can be added later without registering again.
+- **Webhook**: generate the secret now so the registration does not change later, and leave **Active** unchecked until a receiver exists:
+
+  ```bash
+  WEBHOOK_SECRET=$(openssl rand -hex 32)
+  printf %s "$WEBHOOK_SECRET" | pbcopy   # paste into the App's webhook secret field
+  ```
+
+- **Repository permissions**: Contents read and write, Pull requests read and write, Metadata read.
+- **Account permissions**: Email addresses read (`/user/emails` needs it).
+- Nothing else: no Workflows, Administration, Secrets or Actions permission.
+- **Where can this GitHub App be installed?** Any account.
+
+After creating it, note the App ID, the client ID and the slug (the last part of `https://github.com/apps/<slug>`), generate a client secret, and generate a private key (a `.pem` download).
+
+### 2. Add the App's secrets
+
+Run once per environment, with `DEPLOY_ENV=staging` or `DEPLOY_ENV=production`. `read -rs` keeps values out of your shell history.
+
+```bash
+DEPLOY_ENV=staging
+PROJECT=active-agents-platform
+
+gcloud secrets versions add "activeagents-$DEPLOY_ENV-github-app-private-key" --project=$PROJECT \
+  --data-file=path/to/the-app.private-key.pem &&
+  rm path/to/the-app.private-key.pem
+
+read -rs CLIENT_ID && printf %s "$CLIENT_ID" |
+  gcloud secrets versions add "activeagents-$DEPLOY_ENV-github-app-client-id" --project=$PROJECT --data-file=-
+read -rs CLIENT_SECRET && printf %s "$CLIENT_SECRET" |
+  gcloud secrets versions add "activeagents-$DEPLOY_ENV-github-app-client-secret" --project=$PROJECT --data-file=-
+printf %s "$WEBHOOK_SECRET" |
+  gcloud secrets versions add "activeagents-$DEPLOY_ENV-github-app-webhook-secret" --project=$PROJECT --data-file=-
+
+unset CLIENT_ID CLIENT_SECRET WEBHOOK_SECRET
+```
+
+### 3. Add the encryption keys
+
+Without these variables, `config/initializers/active_record_encryption.rb` derives each key from `secret_key_base`. The explicit keys must **equal those derived values**. Fresh values from `bin/rails db:encryption:init` would leave every stored provider key, GitHub token and API key unreadable, and `ApiKey.authenticate` would stop finding keys. Once the explicit keys are live, rotating `secret_key_base` no longer touches stored credentials.
+
+Compute each value once per environment from a checkout of the revision that environment runs. The command boots the app in production mode with the environment's master key, so `secret_key_base` comes from the same credentials as on Cloud Run; it needs no database. Boot output goes to stdout, so the value is written to file descriptor 3 and never printed. Boot errors still reach the terminal. All three values are computed before any is added, so a failed boot adds nothing:
+
+```bash
+DEPLOY_ENV=staging
+PROJECT=active-agents-platform
+export RAILS_MASTER_KEY="$(gcloud secrets versions access latest --secret="activeagents-$DEPLOY_ENV-rails-master-key" --project=$PROJECT)"
+
+derive() {
+  env -u SECRET_KEY_BASE -u SECRET_KEY_BASE_DUMMY RAILS_ENV=production bin/rails runner \
+    'IO.for_fd(3).write(Rails.application.key_generator.generate_key("active_record_encryption.#{ARGV.first}", 32).unpack1("H*"))' \
+    "$1" 3>&1 1>/dev/null
+}
+
+PRIMARY_KEY=$(derive primary_key)
+DETERMINISTIC_KEY=$(derive deterministic_key)
+KEY_DERIVATION_SALT=$(derive key_derivation_salt)
+
+if [[ "$PRIMARY_KEY$DETERMINISTIC_KEY$KEY_DERIVATION_SALT" =~ ^[0-9a-f]{192}$ ]]; then
+  printf %s "$PRIMARY_KEY" |
+    gcloud secrets versions add "activeagents-$DEPLOY_ENV-active-record-encryption-primary-key" --project=$PROJECT --data-file=-
+  printf %s "$DETERMINISTIC_KEY" |
+    gcloud secrets versions add "activeagents-$DEPLOY_ENV-active-record-encryption-deterministic-key" --project=$PROJECT --data-file=-
+  printf %s "$KEY_DERIVATION_SALT" |
+    gcloud secrets versions add "activeagents-$DEPLOY_ENV-active-record-encryption-key-derivation-salt" --project=$PROJECT --data-file=-
+else
+  echo "The app did not produce three keys; nothing was added"
+fi
+
+unset PRIMARY_KEY DETERMINISTIC_KEY KEY_DERIVATION_SALT RAILS_MASTER_KEY
+```
+
+The explicit keys must be live in both environments before the platform takes an engine release that adds encrypted columns.
+
+### 4. Turn the values on
+
+Commit `terraform/environments/<env>/github_app.auto.tfvars` (staging first, then production) and let the deploy workflow apply it. Turn a flag on only once every secret it reads has a version:
+
+```hcl
+# GitHub App and encryption keys for this environment. See
+# docs/infrastructure/gcp-cicd-setup.md before changing a flag.
+github_app_id                        = "123456"
+github_app_slug                      = "activeagents-staging"
+enable_github_app                    = true
+enable_github_sign_in                = true
+enable_active_record_encryption_keys = true
+```
+
+`enable_recordings_storage = true` goes in the same file once the app stores recordings on GCS.
+
+### 5. Check
+
+Right after the deploy that turns on `enable_active_record_encryption_keys`:
+
+- an API key created before the deploy still authenticates against `/v1/traces`;
+- a provider key saved before the deploy still works from Settings.
+
+If either fails, set the flag back to `false` at once. The app then derives its keys again, but anything encrypted while the wrong keys were live stays unreadable.
+
+The `github_app_install_url` output of the environment shows where an account installs the App.
+
+## Incus host: sandbox egress and IAM
+
+`terraform/modules/incus-host` (used by `terraform/environments/sandbox-staging`, which no workflow applies) keeps code running in a sandbox away from cloud credentials and private networks:
+
+- **Egress ACL.** `scripts/setup-incus-host.sh egress-acl` creates the `sandbox-egress` network ACL and attaches it to `incusbr0`, so it covers every container on the bridge whichever profile created it. It rejects `169.254.0.0/16` (which holds the metadata server behind `metadata.google.internal`), `10.0.0.0/8`, `172.16.0.0/12`, `192.168.0.0/16` and every address of the host. Incus accepts DNS and DHCP to the host ahead of any ACL rule, and replies to connections the host opens, so both keep working. Everything else, including the public internet, is allowed: the step sets the bridge's default ACL actions to `allow`, but only while they are unset, so a default someone already set (such as `reject` for a later allowlist ACL) survives a rerun. The ranges are the module's `sandbox_egress_reject_ranges`. IPv6 stays off on the bridge, and the script refuses to run if it is on.
+- **IAM.** The host's service account holds only `roles/logging.logWriter` and `roles/monitoring.metricWriter` at project level. It may add versions to `incus-client-cert-<env>` and `incus-client-key-<env>`, which Terraform creates, and read nothing. The app's service account (`app_service_account`) may read those two secrets. A precondition on `host_project_roles` accepts only the log, metric and trace writer roles. `scripts/check-incus-host-iam.sh` fails CI on any other project-, folder- or organization-level IAM resource in the module. Outside the module it matches by name: it fails on such a resource only when the resource mentions `incus_host` or `incus-host`.
+
+The VM keeps the startup script it was created with (`metadata_startup_script` is in `ignore_changes`), so a running host that predates the ACL gets it from step 4 below.
+
+### Apply
+
+1. `cd terraform/environments/sandbox-staging && terraform init && terraform plan`. Check that `project_id` is the project the host actually runs in.
+2. Look for `incus-client-cert-staging` and `incus-client-key-staging` with `gcloud secrets describe <name> --project=<project_id>`. If both exist, an earlier host or a person created them outside Terraform: run `terraform apply -var adopt_existing_incus_secrets=true` once to import both. If neither exists, run `terraform apply`. If only one exists, delete it, then run `terraform apply`.
+3. If `gcloud secrets versions list incus-client-cert-staging --project=<project_id>` lists no version, the running host never published its credentials: the project-level role it held could not create secrets, so its first boot stopped there. Publish the certificate and key it already trusts, which its new `secretVersionAdder` binding allows:
+
+   ```bash
+   gcloud compute ssh incus-host-staging --project=<project_id> --zone=<zone> --command='
+     sudo gcloud secrets versions add incus-client-cert-staging --project=<project_id> --data-file=/etc/incus/certs/client.crt &&
+     sudo gcloud secrets versions add incus-client-key-staging --project=<project_id> --data-file=/etc/incus/certs/client.key'
+   ```
+
+4. From the repository root, run the command printed by `terraform -chdir=terraform/environments/sandbox-staging output -raw egress_acl_command`. It streams `scripts/setup-incus-host.sh` to the host over `gcloud compute ssh` and runs its `egress-acl` step. Add `--tunnel-through-iap` if the host takes no direct SSH.
+
+A host built from the module applies the ACL itself, before any container exists.
+
+The ACL lists the host's addresses as they were when it was applied. The host's external IP is ephemeral and changes when the VM is stopped and started, so run step 4 again after that.
+
+### Check from a container
+
+On the host, as root. First check that the ACL is attached, and look at the rules Incus generated from it:
+
+```bash
+incus network get incusbr0 security.acls --project default   # lists sandbox-egress
+incus network acl show sandbox-egress --project default
+nft list chain inet incus acl.incusbr0                        # reject rules for the ranges and the host's addresses
+```
+
+Then probe from a container. The ACL refuses a connection at once with an ICMP port unreachable, which `bash` reports as `Connection refused`, and `probe` prints `rejected`. Nothing listens at the private addresses below except the host, so without the ACL a probe prints `TIMEOUT` or `REACHABLE` instead:
+
+```bash
+HOST_VPC_IP=$(ip -4 route get 8.8.8.8 | awk '{ for (i = 1; i < NF; i++) if ($i == "src") print $(i + 1) }')
+HOST_EXTERNAL_IP=$(curl -fsS -H 'Metadata-Flavor: Google' \
+  http://169.254.169.254/computeMetadata/v1/instance/network-interfaces/0/access-configs/0/external-ip)
+
+incus launch images:ubuntu/22.04 egress-check --project agent-sandboxes --profile default --profile sandbox-restricted
+incus exec egress-check --project agent-sandboxes --env HOST_VPC_IP="$HOST_VPC_IP" --env HOST_EXTERNAL_IP="$HOST_EXTERNAL_IP" -- bash -c '
+  apt-get update -qq && apt-get install -y -qq git ruby python3 >/dev/null
+  probe() {
+    local error status
+    error=$(timeout 5 bash -c "</dev/tcp/$1/$2" 2>&1); status=$?
+    case "$status:$error" in
+      0:*) echo "REACHABLE $1:$2" ;;
+      124:*) echo "TIMEOUT   $1:$2" ;;
+      *"Connection refused"*) echo "rejected  $1:$2" ;;
+      *) echo "ERROR     $1:$2 $error" ;;
+    esac
+  }
+  probe 169.254.169.254 80
+  probe metadata.google.internal 80
+  probe 10.10.0.1 443
+  probe 172.16.0.1 443
+  probe 192.168.0.1 443
+  probe "$HOST_VPC_IP" 8443        # the host on the VPC, where Incus listens
+  probe "$HOST_EXTERNAL_IP" 8443
+  probe 10.100.0.1 8443            # the host on the bridge
+  probe 10.100.0.1 22
+  git ls-remote https://github.com/rails/rails HEAD && gem fetch rack
+'
+incus exec egress-check --project agent-sandboxes -- systemd-run --unit=egress-check-http python3 -m http.server 8080
+sleep 2
+curl -sS -o /dev/null -w '%{http_code}\n' "http://$(incus list egress-check --project agent-sandboxes -c 4 -f csv | cut -d' ' -f1):8080/"
+incus delete egress-check --project agent-sandboxes --force
+```
+
+Every probe prints `rejected`. A `TIMEOUT` or `REACHABLE` line means the ACL does not cover that address. `apt-get`, `git ls-remote` and `gem fetch` succeed, so DNS works, and the final `curl` from the host gets `200`.
 
 ## Deployment Workflow
 

@@ -47,6 +47,8 @@ resource "google_project_service" "apis" {
     "cloudtasks.googleapis.com",
     "pubsub.googleapis.com",
     "dns.googleapis.com",
+    "storage.googleapis.com",
+    "iamcredentials.googleapis.com",
   ])
 
   project = var.project_id
@@ -158,11 +160,137 @@ module "secrets" {
     resend-api-key = {
       description = "Resend API key for email delivery"
     }
+    github-app-client-id = {
+      description = "Client ID of this environment's GitHub App, for Sign in with GitHub"
+    }
+    github-app-client-secret = {
+      description = "Client secret of this environment's GitHub App, for Sign in with GitHub"
+    }
+    github-app-private-key = {
+      description = "PEM private key of this environment's GitHub App, for signing App JWTs"
+    }
+    github-app-webhook-secret = {
+      description = "Webhook secret of this environment's GitHub App"
+    }
+    active-record-encryption-primary-key = {
+      description = "Active Record encryption primary key (must equal the value derived from secret_key_base)"
+    }
+    active-record-encryption-deterministic-key = {
+      description = "Active Record encryption deterministic key (must equal the value derived from secret_key_base)"
+    }
+    active-record-encryption-key-derivation-salt = {
+      description = "Active Record encryption key derivation salt (must equal the value derived from secret_key_base)"
+    }
   }
 
   labels = local.common_labels
 
   depends_on = [google_project_service.apis]
+}
+
+# Session recordings. The app reads and writes objects as its own service
+# account. Browsers get V4 URLs signed as the signer through the IAM
+# Credentials API, so a signed URL can only read and no key file exists.
+resource "google_storage_bucket" "recordings" {
+  project  = var.project_id
+  name     = "${var.project_id}-recordings-${var.environment}"
+  location = upper(var.region)
+
+  uniform_bucket_level_access = true
+  public_access_prevention    = "enforced"
+
+  labels = local.common_labels
+
+  depends_on = [google_project_service.apis]
+}
+
+resource "google_service_account" "recordings_signer" {
+  project      = var.project_id
+  account_id   = "recordings-signer-${var.environment}"
+  display_name = "ActiveAgents recordings URL signer (${var.environment})"
+
+  depends_on = [google_project_service.apis]
+}
+
+# The bucket's whole IAM policy. It replaces the bindings GCS gives a new
+# bucket for the project's owners, editors and viewers, so a project viewer
+# cannot read recordings. Project-level roles such as roles/storage.admin
+# still apply.
+data "google_iam_policy" "recordings" {
+  binding {
+    role    = "roles/storage.objectAdmin"
+    members = ["serviceAccount:${google_service_account.cloud_run.email}"]
+  }
+
+  binding {
+    role    = "roles/storage.objectViewer"
+    members = ["serviceAccount:${google_service_account.recordings_signer.email}"]
+  }
+}
+
+resource "google_storage_bucket_iam_policy" "recordings" {
+  bucket      = google_storage_bucket.recordings.name
+  policy_data = data.google_iam_policy.recordings.policy_data
+}
+
+resource "google_service_account_iam_member" "recordings_signer_token_creator" {
+  service_account_id = google_service_account.recordings_signer.name
+  role               = "roles/iam.serviceAccountTokenCreator"
+  member             = "serviceAccount:${google_service_account.cloud_run.email}"
+}
+
+# Cloud Run refuses a revision that reads a secret with no version, and every
+# secret added for the GitHub App and the encryption keys starts empty. Each
+# group is therefore passed only once its flag is on, after a human has added
+# the values (docs/infrastructure/gcp-cicd-setup.md).
+locals {
+  cloud_run_env_vars = merge(
+    {
+      RAILS_ENV                = "production"
+      RAILS_LOG_TO_STDOUT      = "true"
+      RAILS_SERVE_STATIC_FILES = "true"
+      SOLID_QUEUE_IN_PUMA      = "true"
+      # Migrations run via the dedicated Cloud Run migrate job; the web
+      # container boots straight to the server (see bin/docker-entrypoint)
+      SKIP_DB_PREPARE     = "true"
+      DB_HOST             = "/cloudsql/${module.cloud_sql.connection_name}"
+      DB_NAME             = module.cloud_sql.database_name
+      DB_USER             = module.cloud_sql.database_user
+      MAILER_FROM_ADDRESS = var.mailer_from_address
+    },
+    var.enable_github_app ? {
+      GITHUB_APP_ID   = var.github_app_id
+      GITHUB_APP_SLUG = var.github_app_slug
+    } : {},
+    var.enable_recordings_storage ? {
+      RECORDINGS_BUCKET       = google_storage_bucket.recordings.name
+      RECORDINGS_SIGNER_EMAIL = google_service_account.recordings_signer.email
+    } : {},
+  )
+
+  cloud_run_secret_env_vars = merge(
+    {
+      RAILS_MASTER_KEY      = module.secrets.secret_ids["rails-master-key"]
+      DB_PASSWORD           = module.cloud_sql.password_secret_id
+      STRIPE_API_KEY        = module.secrets.secret_ids["stripe-api-key"]
+      STRIPE_WEBHOOK_SECRET = module.secrets.secret_ids["stripe-webhook-secret"]
+      RESEND_AUDIENCE_ID    = module.secrets.secret_ids["resend-audience-id"]
+      RESEND_API_KEY        = module.secrets.secret_ids["resend-api-key"]
+    },
+    var.enable_github_sign_in ? {
+      GITHUB_APP_CLIENT_ID     = module.secrets.secret_ids["github-app-client-id"]
+      GITHUB_APP_CLIENT_SECRET = module.secrets.secret_ids["github-app-client-secret"]
+    } : {},
+    var.enable_github_app ? {
+      GITHUB_APP_PRIVATE_KEY    = module.secrets.secret_ids["github-app-private-key"]
+      GITHUB_APP_WEBHOOK_SECRET = module.secrets.secret_ids["github-app-webhook-secret"]
+    } : {},
+    var.enable_active_record_encryption_keys ? {
+      ACTIVE_RECORD_ENCRYPTION_PRIMARY_KEY         = module.secrets.secret_ids["active-record-encryption-primary-key"]
+      ACTIVE_RECORD_ENCRYPTION_DETERMINISTIC_KEY   = module.secrets.secret_ids["active-record-encryption-deterministic-key"]
+      ACTIVE_RECORD_ENCRYPTION_KEY_DERIVATION_SALT = module.secrets.secret_ids["active-record-encryption-key-derivation-salt"]
+    } : {},
+  )
 }
 
 # Cloud Run service
@@ -183,28 +311,8 @@ module "cloud_run" {
 
   cloud_sql_connection = module.cloud_sql.connection_name
 
-  env_vars = {
-    RAILS_ENV              = "production"
-    RAILS_LOG_TO_STDOUT    = "true"
-    RAILS_SERVE_STATIC_FILES = "true"
-    SOLID_QUEUE_IN_PUMA    = "true"
-    # Migrations run via the dedicated Cloud Run migrate job; the web
-    # container boots straight to the server (see bin/docker-entrypoint)
-    SKIP_DB_PREPARE        = "true"
-    DB_HOST                = "/cloudsql/${module.cloud_sql.connection_name}"
-    DB_NAME                = module.cloud_sql.database_name
-    DB_USER                = module.cloud_sql.database_user
-    MAILER_FROM_ADDRESS    = var.mailer_from_address
-  }
-
-  secret_env_vars = {
-    RAILS_MASTER_KEY       = module.secrets.secret_ids["rails-master-key"]
-    DB_PASSWORD            = module.cloud_sql.password_secret_id
-    STRIPE_API_KEY         = module.secrets.secret_ids["stripe-api-key"]
-    STRIPE_WEBHOOK_SECRET  = module.secrets.secret_ids["stripe-webhook-secret"]
-    RESEND_AUDIENCE_ID     = module.secrets.secret_ids["resend-audience-id"]
-    RESEND_API_KEY         = module.secrets.secret_ids["resend-api-key"]
-  }
+  env_vars        = local.cloud_run_env_vars
+  secret_env_vars = local.cloud_run_secret_env_vars
 
   labels = local.common_labels
 
