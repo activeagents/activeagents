@@ -1,11 +1,15 @@
 #!/usr/bin/env bash
 #
-# Fails when Terraform could grant the Incus host's service account a role at
-# project, folder or organization level anywhere other than
-# google_project_iam_member.host_project_roles in terraform/modules/incus-host.
-# That resource's precondition refuses every role matching the module's
-# forbidden_host_project_roles, so the host can only reach a secret or a
-# bucket through a binding on that one secret or bucket.
+# Fails when a project-, folder- or organization-level IAM resource could grant
+# the Incus host's service account a role outside
+# google_project_iam_member.host_project_roles in terraform/modules/incus-host,
+# whose precondition accepts only the module's permitted_host_project_roles.
+#
+# The check matches text, not the plan. Inside the module it flags every such
+# resource. Elsewhere it flags one only when its block contains `incus_host` or
+# `incus-host`, so a grant whose member comes from a variable or output with
+# another name passes. Grants on a single resource, such as a service account or
+# a bucket, are not checked.
 #
 #   scripts/check-incus-host-iam.sh [terraform-dir]
 

@@ -175,7 +175,57 @@ run "refuses_project_level_viewer" {
   expect_failures = [google_project_iam_member.host_project_roles]
 }
 
-run "allows_other_observability_roles" {
+run "refuses_project_level_workload_identity_user" {
+  command = plan
+
+  variables {
+    host_project_roles = ["roles/logging.logWriter", "roles/iam.workloadIdentityUser"]
+  }
+
+  expect_failures = [google_project_iam_member.host_project_roles]
+}
+
+run "refuses_project_level_role_admin" {
+  command = plan
+
+  variables {
+    host_project_roles = ["roles/logging.logWriter", "roles/iam.roleAdmin"]
+  }
+
+  expect_failures = [google_project_iam_member.host_project_roles]
+}
+
+run "refuses_project_level_compute_instance_admin" {
+  command = plan
+
+  variables {
+    host_project_roles = ["roles/logging.logWriter", "roles/compute.instanceAdmin.v1"]
+  }
+
+  expect_failures = [google_project_iam_member.host_project_roles]
+}
+
+run "refuses_project_level_cloud_build_editor" {
+  command = plan
+
+  variables {
+    host_project_roles = ["roles/logging.logWriter", "roles/cloudbuild.builds.editor"]
+  }
+
+  expect_failures = [google_project_iam_member.host_project_roles]
+}
+
+run "refuses_project_level_custom_role" {
+  command = plan
+
+  variables {
+    host_project_roles = ["roles/logging.logWriter", "projects/example-project/roles/sandboxHost"]
+  }
+
+  expect_failures = [google_project_iam_member.host_project_roles]
+}
+
+run "allows_the_trace_writer_role" {
   command = plan
 
   variables {
@@ -184,7 +234,7 @@ run "allows_other_observability_roles" {
 
   assert {
     condition     = length(google_project_iam_member.host_project_roles) == 3
-    error_message = "Roles outside the refused families must still be grantable."
+    error_message = "Every permitted telemetry role must be grantable."
   }
 }
 
