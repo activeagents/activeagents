@@ -3,6 +3,8 @@ class User < ApplicationRecord
   generates_token_for :password_reset, expires_in: 15.minutes
 
   has_many :sessions, dependent: :destroy
+  has_many :identities, class_name: "UserIdentity", dependent: :destroy
+  has_one :github_identity, -> { where(provider: "github") }, class_name: "UserIdentity", inverse_of: :user
   # Lives in the dashboard engine now, so the association names it explicitly:
   # Rails resolves a bare :agents to a class literally named Agent, and the
   # app-level constant is an alias rather than a class of its own.
@@ -17,8 +19,34 @@ class User < ApplicationRecord
   validates :email_address, presence: true, uniqueness: true, length: { maximum: 254 }, format: { with: URI::MailTo::EMAIL_REGEXP }
   validates :password, length: { minimum: 8 }, if: -> { new_record? || password.present? }
 
-  # Email verification
-  before_create :generate_email_verification_token
+  # Email verification. The token signs its holder in, so a user whose email
+  # is already verified gets none.
+  before_create :generate_email_verification_token, unless: :email_verified?
+
+  # Marks the password as one the person chose, so an account created through
+  # GitHub knows when it gains a second way to sign in.
+  def password=(value)
+    super
+    self.password_set = true if password_digest_changed?
+  end
+
+  # Gives the user a random password nobody knows, for an account that signs
+  # in another way until the person chooses one.
+  def assign_random_password
+    self.password = SecureRandom.base58(32)
+    self.password_set = false
+  end
+
+  # Saves the user together with the workspace they own, as every signup does.
+  # Returns false, saving nothing, when the user is invalid.
+  def save_with_workspace
+    transaction do
+      return false unless save
+      account = Account.create!(name: "#{display_name}'s Workspace", owner: self)
+      AccountMembership.create!(account: account, user: self, role: "owner")
+    end
+    true
+  end
 
   def display_name
     if first_name.present? || last_name.present?
