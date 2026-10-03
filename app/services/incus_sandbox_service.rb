@@ -17,37 +17,70 @@
 #   service.terminate(container_name)
 #
 # An app_runtime session (a checkout of one of the account's GitHub
-# repositories) boots from the sandbox-app-runtime image: the repository is
-# fetched into APP_DIR, the image's BOOT_COMMAND starts the app, and the
-# runtime manifest it writes tells the dashboard where the app's MCP facade
-# answers. The image contract and what remains (the image itself, Claude
-# Code sessions, isolation) are tracked in activeagents/activeagent#489.
+# repositories) boots from the sandbox-app-runtime image, built by
+# scripts/build-app-runtime-image.sh from docker/sandbox/app-runtime. The
+# repository is fetched into APP_DIR as the image's unprivileged user, the
+# boot is resolved into a boot spec (BootSpec) written into the container, and
+# the image's BOOT_COMMAND runs it: each step with its own timeout and log,
+# then the app on :8080, which is ready once the MCP path of the runtime
+# manifest it writes answers. Secrets reach the boot only as exec environment,
+# never instance config, files or argv.
 #
 class IncusSandboxService
   CONTAINER_PREFIX = "sandbox"
   DEFAULT_TIMEOUT = 900 # 15 minutes
   POLL_INTERVAL = 1 # seconds
 
-  # The app_runtime image contract: the checkout lands in APP_DIR,
-  # BOOT_COMMAND APP_DIR installs and starts the app on :8080 (returning once
-  # it is up), and writes RUNTIME_MANIFEST as JSON:
-  #   { "mcp_path": "/activeagents/mcp", "mcp_token": "aa_..." }
   APP_RUNTIME_IMAGE = "sandbox-app-runtime"
   APP_DIR = "/workspace/app"
   BOOT_COMMAND = "sandbox-app-boot"
   RUNTIME_MANIFEST = "/workspace/runtime.json"
-  BOOT_TIMEOUT = 900
+  BOOT_DIR = "/workspace/boot"
+  BOOT_SPEC_PATH = "#{BOOT_DIR}/spec.json"
+  BOOT_STATE_PATH = "#{BOOT_DIR}/state.json"
+  # The version of the boot spec this service writes. The image records the
+  # version its sandbox-app-boot runs as the image property
+  # boot_spec_version, and the two must match.
+  BOOT_SPEC_VERSION = 1
+  # The image's user, which owns /workspace and runs every boot command.
+  SANDBOX_UID = 1000
+  STORAGE_POOL = "default"
+  CHECKOUT_TIMEOUT = 300
+  # A GET on the MCP path answers 405 once the engine is mounted and serving;
+  # 401 and 200 also mean something is up and answering there.
+  READY_STATUSES = [ 405, 401, 200 ].freeze
+  # How long the app may take to answer on the container's address once
+  # sandbox-app-boot saw it answer inside.
+  OUTSIDE_READY_TIMEOUT = 30
+  MAX_FILE_BYTES = 256 * 1024
+  # sandbox-app-boot cuts a step's log at 8 MB; the server's own log is not cut.
+  MAX_LOG_BYTES = 16 * 1024 * 1024
+  LOG_PAGE_BYTES = 64 * 1024
+  MAX_LOG_PAGE_BYTES = 1024 * 1024
+  LOG_NAME = /\A[a-z][a-z0-9_]{0,39}\z/
+  OPERATION_TIMED_OUT = "Operation timed out"
 
-  # Fetches exactly the requested ref (branch, tag, or commit) without
-  # writing the token anywhere: it travels in the exec environment and an
-  # ephemeral http.extraHeader, never in .git/config or the remote URL.
+  # The per-environment switch for checkout sandboxes, set by Terraform
+  # (incus_app_runtime_enabled). It stays off until the environment's Incus
+  # host has its egress controls.
+  APP_RUNTIME_SWITCH = "INCUS_APP_RUNTIME_ENABLED"
+  APP_RUNTIME_CACHE_KEY = "incus_sandbox_service/app_runtime_available"
+
+  # Fetches exactly the requested ref (branch, tag, or commit). Git gets the
+  # token through GIT_CONFIG_* for the one fetch: never in argv, which every
+  # process in the container can read, and never in .git/config, which the
+  # checked-out app can. No credential helper is asked.
   CHECKOUT_SCRIPT = <<~'SH'
     set -eu
-    auth=$(printf '%s:%s' "$CHECKOUT_USER" "$CHECKOUT_TOKEN" | base64 | tr -d '\n')
     git init -q "$APP_DIR"
     cd "$APP_DIR"
     git remote add origin "$CHECKOUT_URL"
-    git -c "http.extraHeader=Authorization: Basic $auth" fetch -q --depth 1 origin "$CHECKOUT_REF"
+    header="Authorization: Basic $(printf '%s:%s' "$CHECKOUT_USER" "$CHECKOUT_TOKEN" | base64 | tr -d '\n')"
+    unset CHECKOUT_TOKEN
+    GIT_CONFIG_COUNT=2 \
+      GIT_CONFIG_KEY_0=credential.helper GIT_CONFIG_VALUE_0= \
+      GIT_CONFIG_KEY_1=http.extraHeader GIT_CONFIG_VALUE_1="$header" \
+      git fetch -q --depth 1 origin "$CHECKOUT_REF"
     git checkout -q --detach FETCH_HEAD
   SH
 
@@ -63,16 +96,61 @@ class IncusSandboxService
     @project = config[:project] || ENV.fetch("INCUS_PROJECT", "agent-sandboxes")
   end
 
+  # Whether checkout sandboxes are switched on in this environment
+  # (APP_RUNTIME_SWITCH).
+  def self.app_runtime_enabled?
+    ActiveModel::Type::Boolean.new.cast(ENV[APP_RUNTIME_SWITCH]) == true
+  end
+
+  # Whether this platform can boot checkouts: the switch is on, and the daemon
+  # carries the app-runtime image at the boot spec version this service
+  # writes. The daemon's answer is cached, for five minutes when it is yes and
+  # one when it is no, so a rebuilt image is noticed soon.
+  #
+  # The dashboard reads it through #features, the hook the engine's sandbox
+  # orchestrator asks a backend to describe itself with.
+  #
+  # @param service [IncusSandboxService, nil] the client to ask the daemon
+  #   through; a new one when nil
+  def self.app_runtime_available?(service: nil)
+    return false unless app_runtime_enabled?
+
+    cached = Rails.cache.read(APP_RUNTIME_CACHE_KEY)
+    return cached unless cached.nil?
+
+    supported = begin
+      (service || new).app_runtime_image[:supported]
+    rescue StandardError => e
+      Rails.logger.warn("[IncusSandboxService] could not check the app-runtime image: #{e.message}")
+      false
+    end
+    Rails.cache.write(APP_RUNTIME_CACHE_KEY, supported, expires_in: supported ? 5.minutes : 1.minute)
+    supported
+  end
+
   # Create a new sandbox container for the given session
+  #
+  # An app_runtime session boots its checkout as +boot_config+ says (the
+  # engine's ActionAgent::SandboxBootSpec#to_h), or as the checkout's own
+  # .activeagents/sandbox.yml does without one (see BootSpec). A failed boot
+  # whose spec asks to keep_on_failure keeps its container, so #resume_boot
+  # can continue it; any other failure removes it.
   #
   # @param sandbox_session [SandboxSession] The session to create a container for
   # @param instance_tier [SandboxInstanceTier, String, nil] Optional instance tier for resource allocation
+  # @param boot_config [Hash, nil] how to boot an app_runtime checkout
   # @return [Hash] Container details including name and IP
-  def create_sandbox(sandbox_session, instance_tier: nil)
-    container_name = generate_container_name(sandbox_session.session_id)
+  # @raise [ContainerError] when the container cannot be created or booted, or
+  #   checkout sandboxes are switched off
+  def create_sandbox(sandbox_session, instance_tier: nil, boot_config: nil)
+    app_runtime = sandbox_session.sandbox_type == "app_runtime"
+    if app_runtime && !self.class.app_runtime_enabled?
+      raise ContainerError, "Checkout sandboxes are switched off on this platform (#{APP_RUNTIME_SWITCH})"
+    end
 
-    # Resolve instance tier
+    container_name = generate_container_name(sandbox_session.session_id)
     tier = resolve_instance_tier(instance_tier, sandbox_session)
+    timeout = sandbox_session.timeout_seconds || DEFAULT_TIMEOUT
 
     config = build_container_config(
       name: container_name,
@@ -80,16 +158,17 @@ class IncusSandboxService
       # The engine's sessions answer #owner (Ownable), not #owner_id.
       owner_id: sandbox_session.try(:owner)&.id,
       sandbox_type: sandbox_session.sandbox_type,
-      timeout: sandbox_session.timeout_seconds || DEFAULT_TIMEOUT,
+      timeout: timeout,
+      expires_at: sandbox_session.try(:expires_at) || timeout.seconds.from_now,
       instance_tier: tier
     )
 
+    secrets = []
+    keep = false
     begin
-      # Create the container
       response = api_request(:post, "/1.0/instances", config)
       wait_for_operation(response["operation"]) if response["operation"]
 
-      # Start the container
       start_response = api_request(:put, "/1.0/instances/#{container_name}/state", {
         action: "start",
         timeout: 30
@@ -100,10 +179,17 @@ class IncusSandboxService
       # only the network is awaited before that.
       checkout = sandbox_session.try(:checkout_spec)
       container_ip = wait_for_container_ready(container_name, require_service: checkout.nil?)
-      runtime = boot_app_runtime(container_name, container_ip, checkout, sandbox_session.try(:runtime_environment)) if checkout
+      runtime = nil
+      if checkout
+        secrets = [ checkout[:token], *boot_config_secrets(boot_config), *session_secrets(sandbox_session) ]
+        boot = prepare_boot(container_name, sandbox_session, checkout, boot_config)
+        # From here on the container holds everything a resume needs.
+        keep = boot.keep_on_failure?
+        runtime = run_boot(container_name, container_ip, boot, secrets)
+      end
 
       {
-        mcp_url: runtime && "http://#{container_ip}:8080#{runtime.fetch("mcp_path")}",
+        mcp_url: runtime && "http://#{container_ip}:#{BootSpec::LISTEN_PORT}#{runtime.fetch("mcp_path")}",
         mcp_token: runtime&.dig("mcp_token"),
         container_name: container_name,
         container_ip: container_ip,
@@ -119,11 +205,153 @@ class IncusSandboxService
         hourly_cost: tier.hourly_cost.to_f
       }
     rescue => e
-      # Cleanup on failure
-      terminate(container_name) rescue nil
-      Rails.logger.error("Failed to create sandbox container: #{e.message}")
-      raise ContainerError, "Failed to create sandbox: #{e.message}"
+      terminate(container_name) unless keep
+      message = ActionAgent::SecretScrubber.scrub(e.message, secrets)
+      Rails.logger.error("Failed to create sandbox container: #{message}")
+      raise ContainerError, "Failed to create sandbox: #{message}#{" (its container is kept for a resume)" if keep}"
     end
+  end
+
+  # Continues a failed boot that kept its container: reruns it from the step
+  # named +from+, or from the step that failed when +from+ is nil, on the same
+  # checkout and databases. Nothing is fetched again and no earlier step runs
+  # again. +boot_config+ replaces the spec the boot started with, for new env
+  # or secrets; without one the spec in the container is used, which holds no
+  # secret values, so a boot whose spec had secrets needs it passed again.
+  #
+  # @return [Hash] what #create_sandbox returns, without the tier
+  # @raise [ContainerNotFoundError] when the session has no container
+  # @raise [ContainerError] when there is no kept boot to resume, or it fails again
+  def resume_boot(sandbox_session, from:, boot_config: nil)
+    session_id = sandbox_session.session_id
+    container_name = handle_for(sandbox_session) or raise ContainerNotFoundError, "Sandbox #{session_id} has no container to resume"
+    state = read_json_file(container_name, BOOT_STATE_PATH)
+    unless state.is_a?(Hash) && state["kept"] == true && state["status"] == "failed"
+      raise ContainerError, "Sandbox #{session_id} has no failed boot kept to resume: start it again"
+    end
+
+    previous = read_json_file(container_name, BOOT_SPEC_PATH)
+    raise ContainerError, "Sandbox #{session_id} has no boot spec to resume from: start it again" unless previous.is_a?(Hash)
+
+    checkout = begin
+      sandbox_session.try(:checkout_spec)
+    rescue StandardError
+      nil
+    end
+    boot =
+      if boot_config
+        BootSpec.build(boot_config: boot_config, files: read_checkout_files(container_name), session_id: session_id,
+          repository: checkout&.dig(:repository), previous: previous)
+      else
+        BootSpec.from_document(previous)
+      end
+    if boot.missing_secrets.any?
+      raise ContainerError, "Resuming sandbox #{session_id} needs its boot spec again: the values of " \
+        "#{boot.missing_secrets.join(", ")} are never kept"
+    end
+
+    step = (from.presence || state["failed_step"]).to_s
+    unless boot.resumable_steps.include?(step)
+      raise ContainerError, "#{step.inspect} is not a step this boot can resume from (#{boot.resumable_steps.join(", ")})"
+    end
+
+    write_container_file(container_name, BOOT_SPEC_PATH, JSON.pretty_generate(boot.document)) if boot_config
+    secrets = [ checkout&.dig(:token), *boot.secrets.values, *session_secrets(sandbox_session) ]
+    container_ip = wait_for_container_ready(container_name, require_service: false)
+    runtime = begin
+      run_boot(container_name, container_ip, boot, secrets, from: step)
+    rescue ContainerError => e
+      terminate(container_name) unless boot.keep_on_failure?
+      raise ContainerError, "#{ActionAgent::SecretScrubber.scrub(e.message, secrets)}" \
+        "#{" (its container is kept for a resume)" if boot.keep_on_failure?}"
+    end
+
+    {
+      mcp_url: "http://#{container_ip}:#{BootSpec::LISTEN_PORT}#{runtime.fetch("mcp_path")}",
+      mcp_token: runtime["mcp_token"],
+      container_name: container_name,
+      container_ip: container_ip,
+      url: "http://#{container_ip}:8080",
+      project: @project,
+      created_at: Time.current
+    }
+  rescue BootSpec::Refused => e
+    raise ContainerError, e.message
+  end
+
+  # How the session's boot went, step by step, while its container holds it:
+  # the shape the engine's SandboxOrchestrator#boot_status documents. Nil when
+  # the session has no container, or the container no boot.
+  def boot_status(sandbox_session)
+    container_name = handle_for(sandbox_session) or return nil
+    state = read_json_file(container_name, BOOT_STATE_PATH)
+    return nil unless state.is_a?(Hash) && state["steps"].is_a?(Array)
+
+    secrets = session_secrets(sandbox_session)
+    {
+      mode: state["mode"],
+      kind: state["kind"],
+      failed_step: state["failed_step"],
+      kept: state["kept"] == true,
+      resumable_steps: Array(state["resumable_steps"]).map(&:to_s),
+      steps: state["steps"].filter_map do |step|
+        next unless step.is_a?(Hash)
+
+        {
+          name: step["name"], status: step["status"], started_at: step["started_at"], finished_at: step["finished_at"],
+          duration_ms: step["duration_ms"],
+          detail: step["detail"] && ActionAgent::SecretScrubber.scrub(step["detail"].to_s, secrets)
+        }
+      end
+    }
+  end
+
+  # One page of a boot step's log, scrubbed of the session's secrets and of
+  # +secrets+ (see the engine's SandboxOrchestrator#boot_log). Pages end at a
+  # line break where they can, so a value is never split between two of them.
+  #
+  # @return [Hash, nil] { step:, offset:, next_offset:, size:, eof:, text: },
+  #   or nil when the step has no log
+  def boot_log(sandbox_session, step:, offset: 0, limit: LOG_PAGE_BYTES, secrets: [])
+    container_name = handle_for(sandbox_session) or return nil
+    state = read_json_file(container_name, BOOT_STATE_PATH)
+    steps = state.is_a?(Hash) && state["steps"].is_a?(Array) ? state["steps"] : []
+    entry = steps.find { |candidate| candidate.is_a?(Hash) && candidate["name"] == step.to_s }
+    return nil unless entry && LOG_NAME.match?(entry["log"].to_s)
+
+    content = read_container_file(container_name, "#{BOOT_DIR}/logs/#{entry["log"]}.log", limit: MAX_LOG_BYTES)
+    return nil if content.nil?
+
+    size = content.bytesize
+    offset = Integer(offset, exception: false).to_i.clamp(0, size)
+    limit = Integer(limit, exception: false).to_i.clamp(1, MAX_LOG_PAGE_BYTES)
+    data = content.byteslice(offset, limit).to_s
+    if offset + data.bytesize < size && (newline = data.rindex("\n"))
+      data = data.byteslice(0, newline + 1)
+    end
+    next_offset = offset + data.bytesize
+
+    {
+      step: entry["name"], offset: offset, next_offset: next_offset, size: size, eof: next_offset >= size,
+      text: ActionAgent::SecretScrubber.scrub(data.force_encoding(Encoding::UTF_8).scrub,
+        session_secrets(sandbox_session) + Array(secrets))
+    }
+  end
+
+  # How this backend describes itself to the engine's sandbox orchestrator
+  # (SandboxOrchestrator#backend_info). +app_runtime+ says whether checkouts
+  # can boot here (see .app_runtime_available?).
+  def features
+    {
+      cloud_agnostic: true,
+      isolation: "namespaces + apparmor",
+      networking: "bridge",
+      persistent_storage: true,
+      live_migration: true,
+      self_hosted: true,
+      app_runtime: self.class.app_runtime_available?(service: self),
+      boot_spec_version: BOOT_SPEC_VERSION
+    }
   end
 
   # Get the status of a sandbox container
@@ -202,6 +430,7 @@ class IncusSandboxService
         name: instance["name"],
         status: instance["status"],
         created_at: instance["created_at"],
+        expires_at: instance.dig("config", "user.expires_at"),
         session_id: instance.dig("config", "user.session_id")
       }
     end
@@ -245,7 +474,10 @@ class IncusSandboxService
     ""
   end
 
-  # Cleanup expired sandbox containers
+  # Removes the sandbox containers whose time is up: past the user.expires_at
+  # copied from their session, or DEFAULT_TIMEOUT after creation for one
+  # without it. The hosts' cron reaper (scripts/incus/cleanup-sandboxes.sh)
+  # applies the same rule.
   #
   # @return [Integer] Number of containers cleaned up
   def cleanup_expired
@@ -253,12 +485,12 @@ class IncusSandboxService
     cleaned = 0
 
     sandboxes.each do |sandbox|
-      created_at = Time.parse(sandbox[:created_at])
-      if Time.current - created_at > DEFAULT_TIMEOUT
-        terminate(sandbox[:name])
-        cleaned += 1
-        Rails.logger.info("Cleaned up expired sandbox: #{sandbox[:name]}")
-      end
+      deadline = expiry_of(sandbox)
+      next unless deadline && Time.current > deadline
+
+      terminate(sandbox[:name])
+      cleaned += 1
+      Rails.logger.info("Cleaned up expired sandbox: #{sandbox[:name]}")
     end
 
     cleaned
@@ -331,70 +563,228 @@ class IncusSandboxService
 
   # Read-only checks before provisioning anything. Credentials never appear
   # in the report; being able to reach the daemon is not proof of trust.
-  # app_runtime_supported says whether the daemon carries the checkout image;
-  # code_sessions_supported whether this backend runs Claude Code sessions,
-  # which the orchestrator decides by the presence of run_code_session.
+  # app_runtime_supported says whether checkouts can boot: the switch is on
+  # and the daemon carries the checkout image at this service's boot spec
+  # version (app_runtime_image says which it has). code_sessions_supported
+  # says whether this backend runs Claude Code sessions, which the
+  # orchestrator decides by the presence of run_code_session.
   def preflight
     server = api_request(:get, "/1.0").fetch("metadata")
     raise ConnectionError, "Incus did not authenticate this client certificate" unless server["auth"] == "trusted"
 
     api_request(:get, "/1.0/projects/#{@project}")
     api_request(:get, "/1.0/profiles/sandbox-restricted")
+    image = app_runtime_image
     {
       connected: true, project: @project,
       server_version: server.dig("environment", "server_version"),
       sandbox_count: list_sandboxes.size,
-      app_runtime_supported: image_alias?(APP_RUNTIME_IMAGE),
+      app_runtime_enabled: self.class.app_runtime_enabled?,
+      app_runtime_image: { present: image[:present], boot_spec_version: image[:boot_spec_version],
+                           expected_boot_spec_version: BOOT_SPEC_VERSION },
+      app_runtime_supported: self.class.app_runtime_enabled? && image[:supported],
       code_sessions_supported: respond_to?(:run_code_session)
     }
   end
 
+  # The checkout image on the daemon: whether it is there, the boot spec
+  # version it records, and whether that is the version this service writes.
+  #
+  # @return [Hash] { present:, boot_spec_version:, supported: }
+  def app_runtime_image
+    target = api_request(:get, "/1.0/images/aliases/#{APP_RUNTIME_IMAGE}").dig("metadata", "target")
+    version = api_request(:get, "/1.0/images/#{target}").dig("metadata", "properties", "boot_spec_version")
+    { present: true, boot_spec_version: version, supported: version.to_s == BOOT_SPEC_VERSION.to_s }
+  rescue Faraday::ResourceNotFound
+    { present: false, boot_spec_version: nil, supported: false }
+  end
+
   private
 
-  # Fetches the checkout, boots the app, and returns its runtime manifest.
-  # The GitHub token and the account's Claude Code credential reach the
-  # container only as exec environment, never as persisted instance config.
-  def boot_app_runtime(container_name, container_ip, checkout, runtime_environment)
-    run_in_container!(container_name, [ "sh", "-c", CHECKOUT_SCRIPT ], environment: {
+  # Fetches the checkout as the image's user, reads the files that decide how
+  # it boots, and writes the resolved boot spec into the container. The token
+  # reaches the container only as the fetch's exec environment.
+  #
+  # @return [BootSpec]
+  def prepare_boot(container_name, sandbox_session, checkout, boot_config)
+    started = Time.current
+    run_in_container!(container_name, [ "sh", "-c", CHECKOUT_SCRIPT ], user: SANDBOX_UID, timeout: CHECKOUT_TIMEOUT, environment: {
+      "HOME" => "/home/sandbox",
       "APP_DIR" => APP_DIR,
       "CHECKOUT_URL" => checkout.fetch(:clone_url),
       "CHECKOUT_REF" => checkout.fetch(:ref),
       "CHECKOUT_USER" => checkout.fetch(:username),
       "CHECKOUT_TOKEN" => checkout.fetch(:token)
     })
+    finished = Time.current
+    checkout_step = { name: "checkout", status: "succeeded", started_at: started.iso8601(3), finished_at: finished.iso8601(3),
+                      duration_ms: ((finished - started) * 1000).round, detail: "#{checkout[:repository]}@#{checkout[:ref]}" }
 
-    run_in_container!(container_name, [ BOOT_COMMAND, APP_DIR ],
-      environment: runtime_environment.to_h, timeout: BOOT_TIMEOUT)
-    raise ContainerError, "The app did not answer on :8080 after booting" unless service_ready?(container_ip)
+    boot = BootSpec.build(boot_config: boot_config, files: read_checkout_files(container_name),
+      session_id: sandbox_session.session_id, repository: checkout[:repository], recorded_steps: [ checkout_step ])
+    write_container_file(container_name, BOOT_DIR, nil, type: "directory", mode: "0700")
+    write_container_file(container_name, BOOT_SPEC_PATH, JSON.pretty_generate(boot.document))
+    boot
+  rescue BootSpec::Refused => e
+    raise ContainerError, e.message
+  end
 
-    manifest = JSON.parse(run_in_container!(container_name, [ "cat", RUNTIME_MANIFEST ]))
-    raise ContainerError, "#{RUNTIME_MANIFEST} names no mcp_path" if manifest["mcp_path"].blank?
+  # Runs the boot spec in the container (from step +from+ for a resume) and
+  # returns the runtime manifest once the app answers on the container's
+  # address. The spec's secrets are the boot's exec environment and nothing
+  # else; +secrets+ are what its failure message is scrubbed of.
+  def run_boot(container_name, container_ip, boot, secrets, from: nil)
+    command = [ BOOT_COMMAND, "--spec", BOOT_SPEC_PATH ]
+    command += [ "--from", from ] if from
+    result = begin
+      exec_command(container_name, command, environment: boot.secrets, timeout: boot.exec_timeout)
+    rescue ContainerError => e
+      raise unless e.message == OPERATION_TIMED_OUT
 
+      raise ContainerError, "#{BOOT_COMMAND} did not finish within #{boot.exec_timeout}s"
+    end
+    unless result[:exit_code].to_i.zero?
+      problem = result[:stderr].strip.presence || "#{BOOT_COMMAND} exited #{result[:exit_code]}"
+      raise ContainerError, ActionAgent::SecretScrubber.scrub(problem.last(8_000), secrets)
+    end
+
+    manifest = ActionAgent::SandboxManifest.parse(read_container_file(container_name, RUNTIME_MANIFEST))
+    wait_for_mcp!(container_ip, manifest["mcp_path"])
     manifest
+  rescue ActionAgent::SandboxManifest::Error => e
+    raise ContainerError, "#{RUNTIME_MANIFEST}: #{e.message}"
+  end
+
+  # Polls until the app's MCP path answers on the container's address, the
+  # one agents reach it at.
+  def wait_for_mcp!(container_ip, mcp_path)
+    deadline = Process.clock_gettime(Process::CLOCK_MONOTONIC) + OUTSIDE_READY_TIMEOUT
+    last = nil
+    loop do
+      status = mcp_status(container_ip, mcp_path)
+      return if READY_STATUSES.include?(status)
+
+      last = status || last
+      if Process.clock_gettime(Process::CLOCK_MONOTONIC) >= deadline
+        raise ContainerError, "The app answered #{mcp_path} inside the sandbox but not on #{container_ip}:#{BootSpec::LISTEN_PORT}" \
+          "#{" (last answer: #{last})" if last}"
+      end
+      sleep POLL_INTERVAL
+    end
+  end
+
+  def mcp_status(ip, path)
+    Net::HTTP.start(ip, BootSpec::LISTEN_PORT, open_timeout: 2, read_timeout: 5) do |http|
+      http.get(path, "Accept" => "application/json").code.to_i
+    end
+  rescue StandardError
+    nil
+  end
+
+  # The files BootSpec decides a boot from, as checked out.
+  def read_checkout_files(container_name)
+    BootSpec::FILES.index_with { |path| read_container_file(container_name, "#{APP_DIR}/#{path}") }
+  end
+
+  def read_json_file(container_name, path)
+    content = read_container_file(container_name, path, limit: MAX_FILE_BYTES)
+    content && JSON.parse(content)
   rescue JSON::ParserError
-    raise ContainerError, "#{RUNTIME_MANIFEST} is not JSON"
+    nil
+  end
+
+  # Reads +path+ through the instance file API. Nil when nothing is there,
+  # or something other than a regular file: a symlink is never followed.
+  #
+  # @raise [ContainerError] for a file larger than +limit+ bytes
+  def read_container_file(container_name, path, limit: MAX_FILE_BYTES)
+    response = build_connection.get("/1.0/instances/#{container_name}/files", { "path" => path, "project" => @project })
+    return nil unless response.headers["X-Incus-Type"] == "file"
+
+    # The connection parses a body served as JSON, whatever file it came from.
+    content = response.body.is_a?(String) ? response.body : response.body.to_json
+    raise ContainerError, "#{path} in the sandbox is larger than #{limit} bytes" if content.bytesize > limit
+
+    content.dup.force_encoding(Encoding::BINARY)
+  rescue Faraday::ResourceNotFound
+    nil
+  end
+
+  # Writes +content+ to +path+ through the instance file API, owned by root:
+  # what the platform writes is for sandbox-app-boot, not the app.
+  def write_container_file(container_name, path, content, type: "file", mode: "0600")
+    build_connection.post("/1.0/instances/#{container_name}/files") do |request|
+      request.params = { "path" => path, "project" => @project }
+      request.headers.update(
+        "Content-Type" => "application/octet-stream", "X-Incus-Type" => type, "X-Incus-Uid" => "0",
+        "X-Incus-Gid" => "0", "X-Incus-Mode" => mode, "X-Incus-Write" => "overwrite"
+      )
+      request.body = content.to_s
+    end
+  end
+
+  # The secret values a boot spec carries, for scrubbing.
+  def boot_config_secrets(boot_config)
+    secrets = boot_config.is_a?(Hash) ? (boot_config[:secrets] || boot_config["secrets"]) : nil
+    secrets.is_a?(Hash) ? secrets.values.map(&:to_s) : []
+  end
+
+  # What a sandbox's stored output is scrubbed of when it is read back: its
+  # checkout token and the credentials its sessions get.
+  def session_secrets(sandbox_session)
+    token = begin
+      sandbox_session.try(:checkout_spec)&.dig(:token)
+    rescue StandardError
+      nil
+    end
+    environment = begin
+      sandbox_session.try(:runtime_environment).to_h
+    rescue StandardError
+      {}
+    end
+    [ token, *environment.values ].compact.map(&:to_s)
+  end
+
+  # When +sandbox+ (a #list_sandboxes entry) expires, or nil when it cannot
+  # be told.
+  def expiry_of(sandbox)
+    expires_at = Time.iso8601(sandbox[:expires_at].to_s) if sandbox[:expires_at].present?
+    expires_at || (Time.parse(sandbox[:created_at].to_s) + DEFAULT_TIMEOUT if sandbox[:created_at].present?)
+  rescue ArgumentError
+    nil
   end
 
   # Runs +command+ and returns its stdout, raising with stderr when it exits
   # non-zero.
-  def run_in_container!(container_name, command, environment: {}, timeout: 120)
-    response = api_request(:post, "/1.0/instances/#{container_name}/exec", {
+  def run_in_container!(container_name, command, environment: {}, timeout: 120, user: nil)
+    result = exec_command(container_name, command, environment: environment, timeout: timeout, user: user)
+    unless result[:exit_code].to_i.zero?
+      raise ContainerError, "#{command.first} exited #{result[:exit_code]}: #{result[:stderr].strip.last(500)}"
+    end
+
+    result[:stdout]
+  end
+
+  # Runs +command+ (as +user+, a uid, when given) and returns its output and
+  # exit status. +environment+ is the exec's alone: Incus keeps it out of the
+  # instance's configuration.
+  def exec_command(container_name, command, environment: {}, timeout: 120, user: nil)
+    body = {
       command: command,
       environment: environment,
       "wait-for-websocket": false,
       interactive: false,
       "record-output": true
-    })
+    }
+    body.merge!(user: user, group: user) if user
+    response = api_request(:post, "/1.0/instances/#{container_name}/exec", body)
     operation = wait_for_operation(response["operation"], timeout: timeout)
-    exit_code = operation.dig("metadata", "return")
     output = operation.dig("metadata", "output") || {}
-
-    unless exit_code.to_i.zero?
-      stderr = recorded_output(container_name, output["2"]).strip.last(500)
-      raise ContainerError, "#{command.first} exited #{exit_code}: #{stderr}"
-    end
-
-    recorded_output(container_name, output["1"])
+    {
+      stdout: recorded_output(container_name, output["1"]),
+      stderr: recorded_output(container_name, output["2"]),
+      exit_code: operation.dig("metadata", "return")
+    }
   end
 
   # Incus records stdout/stderr as log resources, not inline strings.
@@ -411,19 +801,45 @@ class IncusSandboxService
     api_request(:get, uri.path).to_s
   end
 
-  # Whether the daemon carries an image under +alias_name+.
-  def image_alias?(alias_name)
-    api_request(:get, "/1.0/images/aliases/#{alias_name}")
-    true
-  rescue Faraday::ResourceNotFound
-    false
-  end
-
   def generate_container_name(session_id)
     "#{CONTAINER_PREFIX}-#{session_id[0..7]}-#{SecureRandom.hex(4)}"
   end
 
-  def build_container_config(name:, session_id:, owner_id:, sandbox_type:, timeout:, instance_tier:)
+  def build_container_config(name:, session_id:, owner_id:, sandbox_type:, timeout:, expires_at:, instance_tier:)
+    config = {
+      # Metadata
+      "user.session_id" => session_id,
+      "user.owner_id" => owner_id.to_s,
+      "user.sandbox_type" => sandbox_type,
+      "user.instance_tier" => instance_tier.id,
+      "user.created_at" => Time.current.iso8601,
+      # The reapers remove the container once this has passed.
+      "user.expires_at" => expires_at.utc.iso8601,
+
+      # Security
+      "security.nesting" => "false",
+      "security.privileged" => "false",
+
+      # Resource limits from instance tier
+      **instance_tier.to_incus_limits
+    }
+    devices = nil
+
+    if sandbox_type == "app_runtime"
+      # The checkout boots with the environment its boot spec gives it, so
+      # none of the platform's variables are set on its container. Its root
+      # disk is the tier's, which holds a bundle and a database.
+      devices = { "root" => { "type" => "disk", "path" => "/", "pool" => STORAGE_POOL, "size" => "#{instance_tier.disk_gb}GB" } }
+    else
+      config.merge!(
+        "environment.RAILS_ENV" => "sandbox",
+        "environment.SANDBOX_MODE" => "true",
+        "environment.SANDBOX_SESSION_ID" => session_id,
+        "environment.SANDBOX_TIMEOUT" => timeout.to_s,
+        "environment.INSTANCE_TIER" => instance_tier.id
+      )
+    end
+
     {
       name: name,
       architecture: "x86_64",
@@ -432,29 +848,9 @@ class IncusSandboxService
         type: "image",
         alias: sandbox_image_for_type(sandbox_type, instance_tier)
       },
-      config: {
-        # Metadata
-        "user.session_id" => session_id,
-        "user.owner_id" => owner_id.to_s,
-        "user.sandbox_type" => sandbox_type,
-        "user.instance_tier" => instance_tier.id,
-        "user.created_at" => Time.current.iso8601,
-
-        # Security
-        "security.nesting" => "false",
-        "security.privileged" => "false",
-
-        # Resource limits from instance tier
-        **instance_tier.to_incus_limits,
-
-        # Environment variables
-        "environment.RAILS_ENV" => "sandbox",
-        "environment.SANDBOX_MODE" => "true",
-        "environment.SANDBOX_SESSION_ID" => session_id,
-        "environment.SANDBOX_TIMEOUT" => timeout.to_s,
-        "environment.INSTANCE_TIER" => instance_tier.id
-      }
-    }
+      config: config,
+      devices: devices
+    }.compact
   end
 
   def sandbox_image_for_type(sandbox_type, instance_tier)
@@ -471,8 +867,9 @@ class IncusSandboxService
       "sandbox-base"
     end
 
-    # Use GPU-enabled image if tier has GPU
-    if instance_tier.has_gpu?
+    # Use GPU-enabled image if tier has GPU. The checkout image has no such
+    # variant.
+    if instance_tier.has_gpu? && sandbox_type != "app_runtime"
       "#{base_image}-gpu"
     else
       base_image
@@ -505,8 +902,10 @@ class IncusSandboxService
       # Research may need more memory
       SandboxInstanceTier.find(:cpu_small)
     when "app_runtime"
-      # A whole Rails app: bundle install, a database, the server
-      SandboxInstanceTier.find(:cpu_medium)
+      # A whole Rails app (bundle install, a database, the server) in 2 CPUs
+      # and 8 GB, so one checkout's limit is half a 16 GB host rather than
+      # all of it. See docs/infrastructure/app-runtime.md for sizing.
+      SandboxInstanceTier.find(:cpu_small)
     else
       SandboxInstanceTier.find(:free)
     end
@@ -634,7 +1033,7 @@ class IncusSandboxService
       end
 
       if Time.current - start_time > timeout
-        raise ContainerError, "Operation timed out"
+        raise ContainerError, OPERATION_TIMED_OUT
       end
 
       sleep 0.5
