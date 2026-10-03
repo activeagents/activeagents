@@ -69,6 +69,9 @@ gem "kaminari"
 # Google Cloud client libraries for Cloud Run sandbox management
 gem "google-cloud-run-v2"
 gem "google-cloud-logging"
+# Active Storage's GCS service (config/storage.yml). Active Storage requires it
+# itself, and only when that service is built.
+gem "google-cloud-storage", "~> 1.11", require: false
 
 # Deploy this application anywhere as a Docker container [https://kamal-deploy.org]
 gem "kamal", require: false
