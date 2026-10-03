@@ -37,6 +37,7 @@ After commit, their Action Cable connections opened for the workspace are discon
 
 Known gaps:
 
-- The 1.7 engine does not write `api_keys.user_id`, so keys created through the dashboard today carry no creator and survive a removal. Removal revokes them once the engine records the creator.
+- The 1.7 engine does not write `api_keys.user_id`, so keys created through the dashboard today carry no creator and survive a removal. Removal deletes them once the engine records the creator. Until then the members page tells managers to revoke keys by hand under Settings → API Keys; reword that note when the engine change ships.
+- The workspace's telemetry key (`accounts.telemetry_api_key`) is shown to every member in the dashboard and authenticates trace ingest. Removal doesn't rotate it, and nothing in the app rotates it yet.
 - Provider keys are workspace-wide. There are no personal provider keys to delete yet.
 - Engine permission checks (who may manage provider keys, API keys and the GitHub connection) still allow every member.
