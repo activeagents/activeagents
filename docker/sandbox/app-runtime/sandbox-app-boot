@@ -36,6 +36,11 @@ State and logs live in the spec's directory:
 --from STEP reruns a failed boot from STEP. The steps before it are not run
 again; the toolchain step always is, since it restarts the services.
 
+Run as root, the script refuses a spec that anyone but root could have
+written or replaced: the spec, its directory and every directory above them
+must be root's and writable by root alone. A checkout that could swap in its
+own spec and state would otherwise have a resume run its commands as root.
+
 Exit status: 0 when the app is ready; 1 when a step failed, with the
 failure and the end of that step's log on stderr; 2 when the spec or the
 request cannot be run at all.
@@ -44,6 +49,7 @@ request cannot be run at all.
 import argparse
 import base64
 import datetime
+import errno
 import fcntl
 import http.client
 import json
@@ -51,6 +57,7 @@ import os
 import pwd
 import re
 import signal
+import stat
 import subprocess
 import sys
 import threading
@@ -85,6 +92,8 @@ LOG_TAIL_LINES = 20
 LOG_TAIL_BYTES = 64 * 1024
 TASK_LIST_BYTES = 1024 * 1024
 TASK_LIST_TIMEOUT = 120
+# The largest manifest the platform reads (IncusSandboxService::MAX_FILE_BYTES).
+MANIFEST_BYTES = 256 * 1024
 STOP_GRACE = 10
 POLL_INTERVAL = 0.25
 PROBE_TIMEOUT = 2
@@ -158,6 +167,26 @@ class User:
 
 
 # --- The spec -------------------------------------------------------------
+
+
+def require_root_only(spec_path):
+    """Refuses `spec_path` unless it, and every directory from its own up to
+    /, is root's, writable by root alone, and not a symlink. Its directory
+    holds the state a resume trusts.
+    """
+    path = os.path.abspath(spec_path)
+    while True:
+        try:
+            info = os.lstat(path)
+        except OSError as error:
+            raise Refused(f"cannot check {path}: {error.strerror}")
+        if stat.S_ISLNK(info.st_mode) or info.st_uid != 0 or info.st_mode & 0o022:
+            raise Refused(f"{path} must be root's, writable by root alone and not a symlink: "
+                          "this script runs as root from the spec and state there")
+        parent = os.path.dirname(path)
+        if parent == path:
+            return
+        path = parent
 
 
 def require(condition, message):
@@ -627,8 +656,10 @@ class Boot:
         entries = self.entries()
         for directory in self.spec.get("directories", []):
             os.makedirs(directory, mode=0o700, exist_ok=True)
+            if not stat.S_ISDIR(os.lstat(directory).st_mode):
+                raise StepFailed("toolchain", f"{directory} is not a directory")
             if self.user is not None:
-                os.chown(directory, self.user.uid, self.user.gid)
+                os.chown(directory, self.user.uid, self.user.gid, follow_symlinks=False)
         path = os.environ.get("PATH", SYSTEM_PATH)
         if entries[0].kind == "toolchain":
             # Bounded by its own limit only: installing a Ruby the image lacks
@@ -711,19 +742,29 @@ class Boot:
             pass
         self.run("manifest", ["/bin/sh", "-c", entry.command], env=env, cwd=self.app_dir, timeout=entry.timeout,
                  user=self.user, label=entry.command)
-        if not os.path.isfile(path):
-            raise StepFailed("manifest", f"`{entry.command}` wrote nothing to $ACTION_AGENT_SANDBOX_MANIFEST")
-        return self.read_manifest()
+        return self.read_manifest(missing=f"`{entry.command}` wrote nothing to $ACTION_AGENT_SANDBOX_MANIFEST")
 
-    def read_manifest(self):
+    def read_manifest(self, missing="there is no manifest to resume from: resume from manifest"):
         path = self.spec["manifest_path"]
-        if not os.path.isfile(path):
-            raise StepFailed("manifest", "there is no manifest to resume from: resume from manifest")
-        # The token in it is for the platform alone.
-        os.chmod(path, 0o600)
+        # The app wrote it, in a directory it owns: a symlink there is not
+        # followed, and nothing but a regular file is read.
         try:
-            with open(path, "rb") as file:
-                manifest = json.load(file)
+            descriptor = os.open(path, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK)
+        except FileNotFoundError:
+            raise StepFailed("manifest", missing)
+        except OSError as error:
+            problem = "is not a regular file" if error.errno == errno.ELOOP else f"cannot be read ({error.strerror})"
+            raise StepFailed("manifest", f"the manifest {problem}")
+        with os.fdopen(descriptor, "rb") as file:
+            if not stat.S_ISREG(os.fstat(descriptor).st_mode):
+                raise StepFailed("manifest", "the manifest is not a regular file")
+            # The token in it is for the platform alone.
+            os.fchmod(descriptor, 0o600)
+            data = file.read(MANIFEST_BYTES + 1)
+        if len(data) > MANIFEST_BYTES:
+            raise StepFailed("manifest", f"the manifest is larger than {MANIFEST_BYTES} bytes")
+        try:
+            manifest = json.loads(data)
         except ValueError as error:
             raise StepFailed("manifest", f"the manifest is not JSON ({str(error)[:120]})")
         mcp_path = manifest.get("mcp_path") if isinstance(manifest, dict) else None
@@ -831,6 +872,8 @@ def main(argv=None):
     args = parser.parse_args(argv)
 
     try:
+        if os.geteuid() == 0:
+            require_root_only(args.spec)
         spec = load_spec(args.spec)
         boot = Boot(spec, args.spec, read_secrets(spec))
         boot.acquire_lock()

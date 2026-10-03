@@ -32,9 +32,13 @@ class IncusSandboxService
   POLL_INTERVAL = 1 # seconds
 
   APP_RUNTIME_IMAGE = "sandbox-app-runtime"
+  # The image's /workspace is root's. The sandbox user owns APP_DIR, and the
+  # boot creates RUNTIME_DIR and BootSpec::DATA_DIR for it. BOOT_DIR is root's
+  # alone, because sandbox-app-boot runs as root from what it holds.
   APP_DIR = "/workspace/app"
   BOOT_COMMAND = "sandbox-app-boot"
-  RUNTIME_MANIFEST = "/workspace/runtime.json"
+  RUNTIME_DIR = "/workspace/run"
+  RUNTIME_MANIFEST = "#{RUNTIME_DIR}/runtime.json"
   BOOT_DIR = "/workspace/boot"
   BOOT_SPEC_PATH = "#{BOOT_DIR}/spec.json"
   BOOT_STATE_PATH = "#{BOOT_DIR}/state.json"
@@ -42,7 +46,7 @@ class IncusSandboxService
   # version its sandbox-app-boot runs as the image property
   # boot_spec_version, and the two must match.
   BOOT_SPEC_VERSION = 1
-  # The image's user, which owns /workspace and runs every boot command.
+  # The image's user, which owns APP_DIR and runs every boot command.
   SANDBOX_UID = 1000
   STORAGE_POOL = "default"
   CHECKOUT_TIMEOUT = 300
@@ -225,12 +229,12 @@ class IncusSandboxService
   def resume_boot(sandbox_session, from:, boot_config: nil)
     session_id = sandbox_session.session_id
     container_name = handle_for(sandbox_session) or raise ContainerNotFoundError, "Sandbox #{session_id} has no container to resume"
-    state = read_json_file(container_name, BOOT_STATE_PATH)
+    state = read_boot_json(container_name, BOOT_STATE_PATH)
     unless state.is_a?(Hash) && state["kept"] == true && state["status"] == "failed"
       raise ContainerError, "Sandbox #{session_id} has no failed boot kept to resume: start it again"
     end
 
-    previous = read_json_file(container_name, BOOT_SPEC_PATH)
+    previous = read_boot_json(container_name, BOOT_SPEC_PATH)
     raise ContainerError, "Sandbox #{session_id} has no boot spec to resume from: start it again" unless previous.is_a?(Hash)
 
     checkout = begin
@@ -284,7 +288,7 @@ class IncusSandboxService
   # the session has no container, or the container no boot.
   def boot_status(sandbox_session)
     container_name = handle_for(sandbox_session) or return nil
-    state = read_json_file(container_name, BOOT_STATE_PATH)
+    state = read_boot_json(container_name, BOOT_STATE_PATH)
     return nil unless state.is_a?(Hash) && state["steps"].is_a?(Array)
 
     secrets = session_secrets(sandbox_session)
@@ -314,7 +318,7 @@ class IncusSandboxService
   #   or nil when the step has no log
   def boot_log(sandbox_session, step:, offset: 0, limit: LOG_PAGE_BYTES, secrets: [])
     container_name = handle_for(sandbox_session) or return nil
-    state = read_json_file(container_name, BOOT_STATE_PATH)
+    state = read_boot_json(container_name, BOOT_STATE_PATH)
     steps = state.is_a?(Hash) && state["steps"].is_a?(Array) ? state["steps"] : []
     entry = steps.find { |candidate| candidate.is_a?(Hash) && candidate["name"] == step.to_s }
     return nil unless entry && LOG_NAME.match?(entry["log"].to_s)
@@ -686,28 +690,40 @@ class IncusSandboxService
     BootSpec::FILES.index_with { |path| read_container_file(container_name, "#{APP_DIR}/#{path}") }
   end
 
-  def read_json_file(container_name, path)
-    content = read_container_file(container_name, path, limit: MAX_FILE_BYTES)
+  # A JSON file the boot keeps in BOOT_DIR (its spec or its state), parsed.
+  # Nil when it is missing, is not JSON, or is not root's: nothing else
+  # writes there.
+  def read_boot_json(container_name, path)
+    content = read_container_file(container_name, path, owner: 0)
     content && JSON.parse(content)
   rescue JSON::ParserError
     nil
   end
 
   # Reads +path+ through the instance file API. Nil when nothing is there,
-  # or something other than a regular file: a symlink is never followed.
+  # when it is something other than a regular file (a symlink is never
+  # followed), or when +owner+ is given and another uid owns it.
   #
   # @raise [ContainerError] for a file larger than +limit+ bytes
-  def read_container_file(container_name, path, limit: MAX_FILE_BYTES)
+  def read_container_file(container_name, path, limit: MAX_FILE_BYTES, owner: nil)
     response = build_connection.get("/1.0/instances/#{container_name}/files", { "path" => path, "project" => @project })
-    return nil unless response.headers["X-Incus-Type"] == "file"
+    return nil unless regular_file?(response.headers, owner)
 
-    # The connection parses a body served as JSON, whatever file it came from.
-    content = response.body.is_a?(String) ? response.body : response.body.to_json
+    content = response_bytes(response.body)
     raise ContainerError, "#{path} in the sandbox is larger than #{limit} bytes" if content.bytesize > limit
 
-    content.dup.force_encoding(Encoding::BINARY)
+    content
   rescue Faraday::ResourceNotFound
     nil
+  end
+
+  def regular_file?(headers, owner)
+    headers["X-Incus-Type"] == "file" && (owner.nil? || headers["X-Incus-Uid"] == owner.to_s)
+  end
+
+  # The connection parses a body served as JSON, whatever file it came from.
+  def response_bytes(body)
+    (body.is_a?(String) ? body : body.to_json).b
   end
 
   # Writes +content+ to +path+ through the instance file API, owned by root:

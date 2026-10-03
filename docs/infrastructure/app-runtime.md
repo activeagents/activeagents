@@ -50,8 +50,27 @@ docker build --target app-runtime -t sandbox-app-runtime -f docker/sandbox/Docke
 - PostgreSQL, MySQL, Redis, SQLite and libvips. The servers are installed
   stopped, and a boot starts only those the checkout uses.
 - socat, which forwards the container's port 8080 to the app
-- the unprivileged user `sandbox` (uid 1000), which owns `/workspace` and runs
-  every command of the checkout
+- the unprivileged user `sandbox` (uid 1000), which runs every command of the
+  checkout
+
+### The workspace
+
+| Path | Owner | Holds |
+| --- | --- | --- |
+| `/workspace` | root | nothing of its own |
+| `/workspace/app` | `sandbox` | the checkout |
+| `/workspace/boot` | root, `0700` | `spec.json`, `state.json` and `logs/` |
+| `/workspace/run` | `sandbox` | `runtime.json`, the manifest the app writes |
+| `/workspace/db` | `sandbox` | SQLite databases, when the checkout uses SQLite |
+
+The image creates `/workspace` and `/workspace/app`. The service creates
+`/workspace/boot`, and `sandbox-app-boot` creates the last two for the
+`sandbox` user. `/workspace` belongs to root so that the checkout's code
+cannot rename `/workspace/boot` and put a spec and state of its own in its
+place, which a resume would then run as root. Run as root, `sandbox-app-boot`
+refuses a spec that it, its directory or any directory above them would let
+another user write or replace, and it never follows a symlink the app left
+in `/workspace/run`.
 
 There is no browser in the image. Browser sessions run in a container of their
 own.
@@ -98,12 +117,12 @@ own.
 | --- | --- |
 | `version` | the spec format version |
 | `mode`, `kind` | `"spec"` (the engine's spec applied, `kind` bootstrap or custom) or `"config"` (sandbox.yml) |
-| `app_dir`, `manifest_path` | `/workspace/app`, `/workspace/runtime.json` |
+| `app_dir`, `manifest_path` | `/workspace/app`, `/workspace/run/runtime.json` |
 | `user` | `sandbox` |
 | `port`, `listen_port` | `3000` for the app, `8080` forwarded to it |
 | `timeout` | seconds for the steps, manifest and start together |
 | `toolchain` | `{ ruby, node, services, timeout }`. `null` versions mean the image's defaults. |
-| `directories` | directories created for the user first (SQLite's `/workspace/db`) |
+| `directories` | directories created for the user first: `/workspace/run`, and `/workspace/db` for SQLite |
 | `env` | environment for every command: database URLs, then the spec's own env |
 | `secret_names` | variables whose values arrive only in the boot's exec environment |
 | `steps` | `[{ name, command, timeout, skip, if_task }]`. `skip` carries a reason decided in advance. `if_task` skips the step when `bin/rails -T -A` lists no such task. |
@@ -126,7 +145,8 @@ output and outlives the script, so the service masks it when it reads it.
 `IncusSandboxService#boot_status` and `#boot_log` read the state and logs
 through the file API, in the shapes the engine's
 `SandboxOrchestrator#boot_status` and `#boot_log` document, masked of the
-session's secrets.
+session's secrets. The service reads the state and the spec only while root
+owns them.
 
 When a boot fails and its spec has `keep_on_failure`, the container stays.
 `IncusSandboxService#resume_boot(session, from:, boot_config:)` then runs

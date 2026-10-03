@@ -66,7 +66,7 @@ class IncusSandboxServiceTest < ActiveSupport::TestCase
       end
     end
 
-    def read_container_file(_container_name, path, limit: MAX_FILE_BYTES)
+    def read_container_file(_container_name, path, limit: MAX_FILE_BYTES, owner: nil)
       @files[path]
     end
 
@@ -577,6 +577,15 @@ class IncusSandboxServiceTransportTest < ActiveSupport::TestCase
     assert_raises(IncusSandboxService::ContainerError) do
       @service.send(:read_container_file, "sandbox-fixture", "/workspace/boot/logs/big.log", limit: 10)
     end
+  end
+
+  test "a file read for its owner is nil when another uid owns it" do
+    path = "/1.0/instances/sandbox-fixture/files?path=%2Fworkspace%2Fboot%2Fstate.json&project=fixture-project"
+    @stubs.get(path) { [ 200, { "Content-Type" => "application/octet-stream", "X-Incus-Type" => "file", "X-Incus-Uid" => "1000" }, "{}" ] }
+    @stubs.get(path) { [ 200, { "Content-Type" => "application/octet-stream", "X-Incus-Type" => "file", "X-Incus-Uid" => "0" }, "{}" ] }
+
+    assert_nil @service.send(:read_container_file, "sandbox-fixture", "/workspace/boot/state.json", owner: 0)
+    assert_equal "{}", @service.send(:read_container_file, "sandbox-fixture", "/workspace/boot/state.json", owner: 0)
   end
 
   test "a file is written into the container owned by root and private" do
