@@ -33,10 +33,10 @@ The signer account can only read the bucket, so a signed URL can download a file
 
 ## Turning it on
 
-Terraform creates the bucket, the signer account and their IAM bindings, and passes `RECORDINGS_BUCKET` and `RECORDINGS_SIGNER_EMAIL` to the service and the migrate job only while `enable_recordings_storage` is on. `docs/infrastructure/gcp-cicd-setup.md` describes those resources and the committed `github_app.auto.tfvars` file that holds the flags.
+Terraform creates the bucket, the signer account and their IAM bindings, and passes `RECORDINGS_BUCKET` and `RECORDINGS_SIGNER_EMAIL` to the service and the migrate job only while `enable_recordings_storage` is on. `docs/infrastructure/gcp-cicd-setup.md` describes those resources and the `github_app.auto.tfvars` file that holds the flags.
 
 1. Deploy an app version that contains `lib/storage_service_selector.rb`. With the flag off it keeps using the disk.
-2. Set `enable_recordings_storage = true` in `terraform/environments/staging/github_app.auto.tfvars` and let the deploy workflow apply it. The new revision boots on `google`, and the boot log no longer carries the disk warning.
+2. Add `enable_recordings_storage = true` to `terraform/environments/staging/github_app.auto.tfvars`, creating and committing the file if it does not exist yet, and let the deploy workflow apply it. The new revision boots on `google`, and the boot log no longer carries the disk warning.
 3. Check staging:
    - Attach a file to a run, let the service scale to zero, then let the run execute. The job reads the file.
    - `RecordingSnapshot#signed_url` returns a `storage.googleapis.com` URL, and the URL stops working once it expires.
