@@ -21,6 +21,12 @@ module ManagesWorkspaceMembers
     redirect_to plans_path, alert: "Choose a plan to set up a workspace." unless @account
   end
 
+  # Stops a request from anyone who may not manage the workspace's members.
+  # WorkspaceMembers checks again under the workspace lock.
+  def require_member_manager
+    WorkspaceMembers.authorize!(@account, Current.user)
+  end
+
   def workspace_members
     WorkspaceMembers.new(@account, actor: Current.user)
   end

@@ -206,16 +206,40 @@ class TeammateInvitationsTest < ActionDispatch::IntegrationTest
     assert_select "a[href=?]", "/dashboard/settings", count: 0
   end
 
-  test "invitation sends are rate limited per workspace" do
-    sign_in_as(@owner)
+  # The test cache store keeps no counts, so the limiter's store is a hash
+  # that never expires.
+  test "new and resent invitations share one hourly limit per workspace, counting only managers' requests" do
+    owner = create_user
+    account = team_account(owner: owner, plan: "enterprise")
+    member = add_member(account)
+    other_owner = create_user
+    other_account = team_account(owner: other_owner, plan: "enterprise")
+    counts = Hash.new(0)
+    too_many = "This workspace has sent too many invitations. Try again in an hour."
 
-    with_method(Rails.cache, :increment, ->(*, **) { 21 }) do
-      assert_no_enqueued_jobs only: WorkspaceInvitationDeliveryJob do
-        post workspace_teammate_invitations_path, params: { invitation: { email_address: "x@example.com", role: "member" } }
+    with_method(Rails.cache, :increment, ->(key, amount = 1, **) { counts[key] += amount }) do
+      sign_in_as(member)
+      patch workspace_path, params: { account_id: account.id }
+      25.times { post workspace_teammate_invitations_path, params: { invitation: { email_address: "x@example.com", role: "member" } } }
+      assert_equal "Only the workspace's owners and admins can manage members.", flash[:alert]
+
+      sign_in_as(owner)
+      post workspace_teammate_invitations_path, params: { invitation: { email_address: "first@example.com", role: "member" } }
+      invitation = account.teammate_invitations.sole
+      19.times do
+        post resend_workspace_teammate_invitation_path(invitation)
+        assert_nil flash[:alert]
       end
+      post workspace_teammate_invitations_path, params: { invitation: { email_address: "second@example.com", role: "member" } }
+      assert_equal too_many, flash[:alert]
+      post resend_workspace_teammate_invitation_path(invitation)
+      assert_equal too_many, flash[:alert]
+      assert_equal [ invitation ], account.teammate_invitations.to_a
+
+      sign_in_as(other_owner)
+      post workspace_teammate_invitations_path, params: { invitation: { email_address: "second@example.com", role: "member" } }
+      assert_equal "Invitation sent to second@example.com.", flash[:notice]
+      assert_equal 1, other_account.teammate_invitations.count
     end
-    assert_redirected_to workspace_members_path
-    assert_equal "This workspace has sent too many invitations. Try again in an hour.", flash[:alert]
-    assert_equal 0, @account.teammate_invitations.count
   end
 end
