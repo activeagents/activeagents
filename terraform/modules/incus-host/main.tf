@@ -119,7 +119,7 @@ variable "sandbox_egress_reject_ranges" {
 }
 
 variable "host_project_roles" {
-  description = "Project-level roles for the host's service account. Secret Manager, Cloud Storage, service account, IAM admin and basic roles are refused; grant access on the one resource that needs it."
+  description = "Project-level roles for the host's service account. Only the log, metric and trace writer roles are accepted. Grant any other access on the one resource that needs it."
   type        = list(string)
   default = [
     "roles/logging.logWriter",
@@ -128,10 +128,14 @@ variable "host_project_roles" {
 }
 
 locals {
-  # Roles that let the holder read any secret or object in the project,
-  # directly, by acting as another service account, or by granting itself
-  # another role.
-  forbidden_host_project_roles = "^roles/(secretmanager\\..+|storage\\..+|iam\\.serviceAccount.+|iam\\.securityAdmin|resourcemanager\\..+|owner|editor|viewer)$"
+  # The only roles the host's service account may hold project-wide. Each one
+  # writes telemetry and reads nothing. Before adding a role, check that it has
+  # no path to data or to another service account.
+  permitted_host_project_roles = [
+    "roles/logging.logWriter",
+    "roles/monitoring.metricWriter",
+    "roles/cloudtrace.agent",
+  ]
 
   # Installed on the host so the egress ACL has one implementation, shared with
   # hosts built without Terraform.
@@ -155,8 +159,8 @@ resource "google_service_account" "incus_host" {
 }
 
 # Sandbox code runs on this host and can be hostile, so the account stops at
-# writing logs and metrics project-wide. scripts/check-incus-host-iam.sh fails
-# CI on any other project-level grant to it.
+# writing telemetry project-wide. scripts/check-incus-host-iam.sh catches a
+# project-level grant to it declared outside this resource.
 resource "google_project_iam_member" "host_project_roles" {
   for_each = toset(var.host_project_roles)
 
@@ -166,8 +170,8 @@ resource "google_project_iam_member" "host_project_roles" {
 
   lifecycle {
     precondition {
-      condition     = !can(regex(local.forbidden_host_project_roles, each.value))
-      error_message = "${each.value} would let the Incus host read secrets or objects across the project. Grant access on the one secret or bucket it needs instead."
+      condition     = contains(local.permitted_host_project_roles, each.value)
+      error_message = "${each.value} is not one of the project-level roles the Incus host may hold (${join(", ", local.permitted_host_project_roles)}). Grant access on the one resource it needs instead."
     }
   }
 }

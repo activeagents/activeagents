@@ -39,7 +39,7 @@ jobs:
       - name: Create the plugin cache
         run: mkdir -p "$TF_PLUGIN_CACHE_DIR"
 
-      - name: Incus host has no project-level secret or storage access
+      - name: Incus host project-level IAM guard
         run: |
           scripts/check-incus-host-iam.sh
           bash scripts/test/check_incus_host_iam_test.sh
