@@ -91,7 +91,10 @@ own.
      `config/application.rb` at the root
    - which steps are skipped because the checkout already locks their gem
    - the sandbox's own database URLs, from the engine's `LocalSandboxDatabases`
-   - the database servers those URLs need, and Redis when the bundle uses it
+   - the servers that the database and Redis URLs need in the container,
+     whether the database plan, the spec's env or `sandbox.yml`'s env set
+     them, and Redis when the bundle uses it. A URL naming another host gets
+     no server.
    - the Ruby and Node versions the checkout pins
 
    Without an engine spec, the checkout boots as its `.activeagents/sandbox.yml`

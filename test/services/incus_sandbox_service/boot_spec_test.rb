@@ -193,6 +193,30 @@ class IncusSandboxService::BootSpecTest < ActiveSupport::TestCase
     assert_equal "redis://cache.internal:6379/1", elsewhere.document.dig("env", "REDIS_URL")
   end
 
+  test "a database or Redis URL the env points at this container gets its server, whoever set it" do
+    toolchain = ->(boot) { boot.document["toolchain"]["services"] }
+    sandbox_yml = ->(env) { { ".activeagents/sandbox.yml": { "env" => env }.to_yaml } }
+
+    assert_equal [ "postgresql" ], toolchain.call(build(files: checkout(**sandbox_yml.call("DATABASE_URL" => "postgresql://localhost/shop_sandbox"))))
+    assert_equal [ "mysql" ], toolchain.call(build(boot_config: bootstrap_spec(env: { "DATABASE_URL" => "mysql2://127.0.0.1/other" })))
+    assert_equal %w[postgresql mysql], toolchain.call(build(files: checkout(**sandbox_yml.call("QUEUE_DATABASE_URL" => "trilogy:///queue"))))
+    assert_equal [ "redis" ], toolchain.call(build(files: checkout("config/database.yml": nil, **sandbox_yml.call("REDIS_URL" => "redis://localhost:6379/2"))))
+  end
+
+  test "a URL naming another host, or a variable that is not a database's, gets no server" do
+    toolchain = ->(env) { build(boot_config: bootstrap_spec(env: env)).document["toolchain"]["services"] }
+
+    assert_empty toolchain.call("DATABASE_URL" => "postgresql://db.internal/shop")
+    assert_empty toolchain.call("DATABASE_URL" => "postgresql://db.internal/shop", "ANALYTICS_URL" => "postgresql://localhost/events")
+  end
+
+  test "a SQLite database the env places in the data directory gets the directory and no server" do
+    document = build(boot_config: bootstrap_spec(env: { "DATABASE_URL" => "sqlite3:#{BootSpec::DATA_DIR}/shop.sqlite3" })).document
+
+    assert_empty document["toolchain"]["services"]
+    assert_equal [ IncusSandboxService::RUNTIME_DIR, BootSpec::DATA_DIR ], document["directories"]
+  end
+
   test "the spec's own database variables win over the sandbox's" do
     document = build(boot_config: bootstrap_spec(env: { "DATABASE_URL" => "postgresql:///chosen" })).document
 
@@ -209,8 +233,8 @@ class IncusSandboxService::BootSpecTest < ActiveSupport::TestCase
     assert_nil build(files: checkout(".nvmrc": "lts/iron\n")).document.dig("toolchain", "node"), "an alias falls back to the image's Node"
   end
 
-  test "a resumed boot keeps its first decision and what the lock held as checked out" do
-    first = build(boot_config: bootstrap_spec(apply: "without_engine"))
+  test "a resumed boot keeps its first decision, its recorded steps, and what the lock held as checked out" do
+    first = build(boot_config: bootstrap_spec(apply: "without_engine"), recorded_steps: [ { name: "checkout", status: "succeeded" } ])
     previous = JSON.parse(first.document.to_json)
     # By now add_engine has written the engine into the lock, and the lock
     # alone would say the spec no longer applies.
@@ -221,6 +245,7 @@ class IncusSandboxService::BootSpecTest < ActiveSupport::TestCase
     steps = resumed.document["steps"].index_by { |step| step["name"] }
     assert_nil steps["add_engine"]["skip"]
     assert_nil steps["install_framework"]["skip"]
+    assert_equal %w[checkout preflight], resumed.document["recorded_steps"].map { |step| step["name"] }, "the preflight is not run again"
   end
 
   test "the steps a resume may start from" do

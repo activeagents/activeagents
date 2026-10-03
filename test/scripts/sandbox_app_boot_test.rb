@@ -156,7 +156,8 @@ class SandboxAppBootTest < ActiveSupport::TestCase
     assert_equal 0, status, stderr
     assert_equal "once\n", counter.read, "the step before the resumed one did not run again"
     assert_equal "flaky", state["resumed_from"]
-    assert_equal({ "greet" => "succeeded", "flaky" => "succeeded", "manifest" => "succeeded", "start" => "succeeded" }, steps.except("checkout"))
+    assert_equal({ "checkout" => "succeeded", "greet" => "succeeded", "flaky" => "succeeded", "manifest" => "succeeded", "start" => "succeeded" },
+      steps, "the platform's recorded steps are kept too")
   end
 
   test "a manifest the app left as a symlink is not followed" do

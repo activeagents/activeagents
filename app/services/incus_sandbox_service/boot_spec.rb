@@ -13,8 +13,8 @@ class IncusSandboxService
   #     later, and config/application.rb at the repository root
   #   - which steps are skipped because the checkout already locks their gem
   #   - the sandbox's own databases (ActionAgent::LocalSandboxDatabases), the
-  #     servers they need, Redis for a bundle that uses it, and the Ruby and
-  #     Node versions the checkout pins
+  #     servers its database and Redis URLs need in the container, Redis for a
+  #     bundle that uses it, and the Ruby and Node versions the checkout pins
   #
   # Without an engine spec, or when it does not apply, the checkout boots as
   # its .activeagents/sandbox.yml says (ActionAgent::LocalSandboxBackend::Config).
@@ -64,7 +64,14 @@ class IncusSandboxService
     DEFAULT_START = "bin/rails server -b 127.0.0.1 -p $PORT"
     REDIS_GEMS = %w[redis redis-client sidekiq].freeze
     REDIS_URL = "redis://127.0.0.1:6379/0"
-    DATABASE_SERVICES = { "postgresql" => "postgresql", "postgis" => "postgresql", "mysql2" => "mysql", "trilogy" => "mysql" }.freeze
+    # The image's servers, by the URL schemes that reach them.
+    SERVICES = {
+      "postgresql" => "postgresql", "postgres" => "postgresql", "postgis" => "postgresql",
+      "mysql2" => "mysql", "trilogy" => "mysql", "redis" => "redis"
+    }.freeze
+    SERVICE_URL_NAME = /\A(?:(?:[A-Z0-9_]+_)?DATABASE_URL|REDIS_URL)\z/
+    # A URL without a host reaches the server through its socket.
+    LOCAL_HOSTS = [ "", "localhost", "127.0.0.1", "::1" ].freeze
 
     # What is read from the checkout, relative to its root.
     FILES = %w[
@@ -84,8 +91,9 @@ class IncusSandboxService
       # @param recorded_steps [Array<Hash>] the backend's own steps so far
       #   (the checkout), for the boot's progress
       # @param previous [Hash, nil] the document of the boot being resumed:
-      #   whether its spec applied, and what its Gemfile.lock locked as checked
-      #   out, are kept from it, and the preflight is not run again
+      #   whether its spec applied, its recorded steps, and what its
+      #   Gemfile.lock locked as checked out, are kept from it, and the
+      #   preflight is not run again
       # @raise [Refused] for an invalid spec, a malformed sandbox.yml, or a
       #   checkout the preflight refuses
       def build(boot_config:, files:, session_id:, repository: nil, recorded_steps: [], previous: nil)
@@ -105,7 +113,7 @@ class IncusSandboxService
       @session_id = session_id.to_s
       @repository = repository.presence || previous&.dig("facts", "repository")
       @previous = previous
-      @recorded_steps = recorded_steps.map { |step| step.to_h.stringify_keys }
+      @recorded_steps = [ *Array(previous&.dig("recorded_steps")).grep(Hash), *recorded_steps ].map { |step| step.to_h.stringify_keys }
       @spec = boot_config && parse_spec(boot_config.to_h.deep_stringify_keys)
       @secrets = @spec ? @spec["secrets"] : {}
       @document = resolve
@@ -144,8 +152,8 @@ class IncusSandboxService
       document = mode == "spec" ? spec_boot : config_boot
       databases, notes = database_plan(document["env"].merge(@secrets))
       document["env"] = databases.merge(document["env"])
-      services = database_services(databases)
-      if (redis_bundle? || services.include?("redis")) && !document["env"].key?("REDIS_URL") && !@secrets.key?("REDIS_URL")
+      services = local_services(document["env"].merge(@secrets))
+      if redis_bundle? && !document["env"].key?("REDIS_URL") && !@secrets.key?("REDIS_URL")
         services << "redis"
         document["env"]["REDIS_URL"] = REDIS_URL
       end
@@ -161,7 +169,7 @@ class IncusSandboxService
         "toolchain" => {
           "ruby" => ruby_version, "node" => node_version, "services" => services.uniq, "timeout" => TOOLCHAIN_TIMEOUT
         },
-        "directories" => [ IncusSandboxService::RUNTIME_DIR, (DATA_DIR if databases.values.any? { |url| url.start_with?("sqlite3:") }) ].compact,
+        "directories" => [ IncusSandboxService::RUNTIME_DIR, (DATA_DIR if data_dir_used?(document["env"])) ].compact,
         "recorded_steps" => @recorded_steps,
         "facts" => {
           "repository" => @repository, "locked_gems" => locked_gems.to_a.sort, "ruby" => lock_facts["ruby"],
@@ -332,8 +340,26 @@ class IncusSandboxService
       raise Refused, "Sandbox configuration failed: #{e.message}"
     end
 
-    def database_services(env)
-      env.values.filter_map { |url| DATABASE_SERVICES[url[/\A([a-z0-9]+):/, 1]] }.uniq
+    # The image's servers that +env+'s database and Redis URLs point at in
+    # this container, whoever set them: the database plan, the spec's env or
+    # sandbox.yml's. A URL naming another host gets no server.
+    def local_services(env)
+      env.filter_map do |name, url|
+        next unless SERVICE_URL_NAME.match?(name)
+
+        uri = begin
+          URI.parse(url)
+        rescue URI::InvalidURIError
+          nil
+        end
+        SERVICES[uri.scheme] if uri&.scheme && LOCAL_HOSTS.include?(uri.hostname.to_s)
+      end.uniq
+    end
+
+    # Whether a SQLite database in +env+ lives under DATA_DIR, which the
+    # boot creates for the user: the image's /workspace is root's.
+    def data_dir_used?(env)
+      env.any? { |name, url| SERVICE_URL_NAME.match?(name) && url.start_with?("sqlite3:#{DATA_DIR}/") }
     end
 
     # Yields an app directory holding the files read from the checkout, and
