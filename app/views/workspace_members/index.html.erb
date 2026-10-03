@@ -1,0 +1,97 @@
+<% manager = @current_membership&.manages_members? %>
+<% seat_limit = @account.seat_limit %>
+<p class="pilot-eyebrow">Workspace members</p>
+<h1><%= @account.name %></h1>
+<p class="pilot-muted">
+  <% if seat_limit.negative? %>
+    <%= pluralize(@account.seats_in_use, "seat") %> in use. Your plan includes unlimited seats.
+  <% else %>
+    <%= @account.seats_in_use %> of <%= pluralize(seat_limit, "seat") %> in use. Pending invitations hold a seat until they're accepted, revoked or expire.
+  <% end %>
+</p>
+
+<section class="pilot-card">
+  <h2>Members</h2>
+  <div class="pilot-table-wrap">
+    <table>
+      <thead><tr><th>Member</th><th>Role</th><% if manager %><th>Actions</th><% end %></tr></thead>
+      <tbody>
+        <% @memberships.each do |membership| %>
+          <tr>
+            <td>
+              <strong><%= membership.user.display_name %></strong><%= " (you)" if membership == @current_membership %><br>
+              <%= membership.user.email_address %>
+            </td>
+            <td><%= membership.role.humanize %></td>
+            <% if manager %>
+              <td>
+                <% unless membership.owner? %>
+                  <div class="pilot-actions">
+                    <%= form_with scope: :membership, url: workspace_member_path(membership), method: :patch do |form| %>
+                      <%= form.label :role, "Role", for: "role_#{membership.id}" %>
+                      <%= form.select :role, [ [ "Member", "member" ], [ "Admin", "admin" ] ], { selected: membership.role }, id: "role_#{membership.id}" %>
+                      <%= form.submit "Change role" %>
+                    <% end %>
+                    <%= button_to(membership == @current_membership ? "Leave workspace" : "Remove from workspace", workspace_member_path(membership), method: :delete) %>
+                  </div>
+                <% end %>
+              </td>
+            <% end %>
+          </tr>
+        <% end %>
+      </tbody>
+    </table>
+  </div>
+  <p><small>Removing someone ends their access to this workspace, deletes the API keys they created here and signs them out of it.</small></p>
+</section>
+
+<% if @invitations.any? %>
+  <section class="pilot-card">
+    <h2>Pending invitations</h2>
+    <div class="pilot-table-wrap">
+      <table>
+        <thead><tr><th>Email</th><th>Role</th><th>Status</th><% if manager %><th>Actions</th><% end %></tr></thead>
+        <tbody>
+          <% @invitations.each do |invitation| %>
+            <tr>
+              <td><%= invitation.email_address %><br><small>Invited by <%= invitation.invited_by.email_address %></small></td>
+              <td><%= invitation.role.humanize %></td>
+              <td><%= invitation.status.humanize %><% if invitation.token_expires_at && invitation.status == "pending" %><br><small>Link expires <%= l(invitation.token_expires_at.to_date, format: :long) %></small><% end %></td>
+              <% if manager %>
+                <td>
+                  <div class="pilot-actions">
+                    <%= button_to "Resend with a new link", resend_workspace_teammate_invitation_path(invitation) unless invitation.delivery_state == "queued" %>
+                    <%= button_to "Revoke", workspace_teammate_invitation_path(invitation), method: :delete %>
+                  </div>
+                </td>
+              <% end %>
+            </tr>
+          <% end %>
+        </tbody>
+      </table>
+    </div>
+  </section>
+<% end %>
+
+<% if manager %>
+  <section class="pilot-card">
+    <h2>Invite a teammate</h2>
+    <% if @account.seat_available? %>
+      <p>They'll get an email with a link that works for 7 days. They accept by signing in with the invited email address.</p>
+      <%= form_with scope: :invitation, url: workspace_teammate_invitations_path do |form| %>
+        <div class="pilot-grid">
+          <div><%= form.label :email_address, "Email address" %><%= form.email_field :email_address, required: true, autocomplete: "off" %></div>
+          <div><%= form.label :role, "Role" %><%= form.select :role, [ [ "Member", "member" ], [ "Admin (can manage members)", "admin" ] ] %></div>
+        </div>
+        <%= form.submit "Send invitation" %>
+      <% end %>
+    <% else %>
+      <p>Every seat on your plan is taken. Remove a member or revoke an invitation to free one, or upgrade for more seats.</p>
+      <%= link_to "View plans", plans_path, class: "pilot-button" %>
+    <% end %>
+  </section>
+<% else %>
+  <p class="pilot-muted">Ask an owner or admin of this workspace to invite or remove members.</p>
+<% end %>
+
+<p><%= link_to "Back to workspace", workspace_path %></p>
