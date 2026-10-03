@@ -1,5 +1,8 @@
 class TeammateInvitationsController < ApplicationController
   include ManagesWorkspaceMembers
+  # Declared before the rate limit, so refused requests don't use up the
+  # workspace's sends.
+  before_action :require_member_manager
   # Each send emails someone outside the workspace.
   rate_limit to: 20, within: 1.hour, by: -> { @account.id }, only: %i[create resend],
     with: -> { redirect_to workspace_members_path, alert: "This workspace has sent too many invitations. Try again in an hour." }
