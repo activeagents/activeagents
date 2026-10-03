@@ -49,7 +49,7 @@ class IncusSandboxServiceTest < ActiveSupport::TestCase
       in [ :post, %r{\A/1\.0/instances/([^/]+)/exec\z} ]
         @container = $1
         { "operation" => "/1.0/operations/exec-#{@requests.count { |r| r[1].end_with?('/exec') }}" }
-      in [ :get, %r{/operations/exec-(\d+)\z} ]
+      in [ :get, %r{/operations/exec-(\d+)/wait\z} ]
         number = $1
         result = @exec_results.fetch(number.to_i - 1)
         logs = "/1.0/instances/#{@container}/logs/exec-output"
@@ -68,6 +68,11 @@ class IncusSandboxServiceTest < ActiveSupport::TestCase
 
     def read_container_file(_container_name, path, limit: MAX_FILE_BYTES, owner: nil)
       @files[path]
+    end
+
+    def read_container_range(_container_name, path, offset, length, owner: nil)
+      content = @files[path] or return nil
+      { data: content.b.byteslice(offset, length).to_s, size: content.bytesize }
     end
 
     def write_container_file(_container_name, path, content, type: "file", mode: "0600")
@@ -424,6 +429,8 @@ class IncusSandboxServiceTest < ActiveSupport::TestCase
     rest = incus.boot_log(session, step: "bundle_install", offset: page[:next_offset], limit: 1024)
     assert_equal "using [REDACTED]\nInstalling pg 1.5.9\n", rest[:text]
     assert rest[:eof]
+    past = incus.boot_log(session, step: "bundle_install", offset: 10_000)
+    assert_equal({ offset: log.bytesize, next_offset: log.bytesize, eof: true, text: "" }, past.slice(:offset, :next_offset, :eof, :text))
     assert_nil incus.boot_log(session, step: "checkout")
   end
 
@@ -590,6 +597,31 @@ class IncusSandboxServiceTransportTest < ActiveSupport::TestCase
     assert_equal "{}", @service.send(:read_container_file, "sandbox-fixture", "/workspace/boot/state.json", owner: 0)
   end
 
+  test "a range of a file is fetched with a Range request, with the file's size" do
+    path = "/1.0/instances/sandbox-fixture/files?path=%2Fworkspace%2Fboot%2Flogs%2Fstart.log&project=fixture-project"
+    file = { "X-Incus-Type" => "file", "X-Incus-Uid" => "0" }
+    @stubs.get(path, { "Range" => "bytes=10-14" }) do
+      [ 206, file.merge("Content-Type" => "application/octet-stream", "Content-Range" => "bytes 10-14/40"), "klmno" ]
+    end
+    @stubs.get(path, { "Range" => "bytes=40-44" }) do
+      [ 416, file.merge("Content-Type" => "text/plain", "Content-Range" => "bytes */40"), "invalid range: failed to overlap" ]
+    end
+    @stubs.get(path, { "Range" => "bytes=2-4" }) { [ 200, file.merge("Content-Type" => "application/octet-stream"), "abcdefgh" ] }
+
+    read = ->(offset, length) { @service.send(:read_container_range, "sandbox-fixture", "/workspace/boot/logs/start.log", offset, length, owner: 0) }
+    assert_equal({ data: "klmno", size: 40 }, read.call(10, 5))
+    assert_equal({ data: "", size: 40 }, read.call(40, 5), "an offset at the end reads as empty")
+    assert_equal({ data: "cde", size: 8 }, read.call(2, 3), "a daemon that ignores Range answers with the whole file")
+  end
+
+  test "an operation is long-polled, and one still running when its time is up times out" do
+    @stubs.get("/1.0/operations/fixture-op/wait?project=fixture-project&timeout=0") { json(metadata: { status: "Running" }) }
+
+    error = assert_raises(IncusSandboxService::ContainerError) { @service.send(:wait_for_operation, "/1.0/operations/fixture-op", timeout: 0) }
+
+    assert_equal IncusSandboxService::OPERATION_TIMED_OUT, error.message
+  end
+
   test "a file is written into the container owned by root and private" do
     @stubs.post("/1.0/instances/sandbox-fixture/files?path=%2Fworkspace%2Fboot%2Fspec.json&project=fixture-project") do |env|
       assert_equal "{}", env.body
@@ -608,7 +640,7 @@ class IncusSandboxServiceTransportTest < ActiveSupport::TestCase
       assert_equal({ "HOME" => "/home/sandbox" }, body["environment"])
       json(operation: "/1.0/operations/fixture-exec")
     end
-    @stubs.get("/1.0/operations/fixture-exec?project=fixture-project") { json(metadata: { status: "Success", metadata: { return: 0, output: {} } }) }
+    @stubs.get("/1.0/operations/fixture-exec/wait?project=fixture-project&timeout=20") { json(metadata: { status: "Success", metadata: { return: 0, output: {} } }) }
 
     result = @service.send(:exec_command, "sandbox-fixture", [ "true" ], environment: { "HOME" => "/home/sandbox" }, user: 1000)
 
@@ -646,7 +678,7 @@ class IncusSandboxServiceTransportTest < ActiveSupport::TestCase
       assert_equal false, body["wait-for-websocket"]
       json(operation: "/1.0/operations/fixture-exec")
     end
-    @stubs.get("/1.0/operations/fixture-exec?project=fixture-project") do
+    @stubs.get("/1.0/operations/fixture-exec/wait?project=fixture-project&timeout=20") do
       json(metadata: { status: "Success", metadata: { return: exit_code, output: output } })
     end
   end

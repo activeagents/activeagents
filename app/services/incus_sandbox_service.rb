@@ -57,12 +57,13 @@ class IncusSandboxService
   # sandbox-app-boot saw it answer inside.
   OUTSIDE_READY_TIMEOUT = 30
   MAX_FILE_BYTES = 256 * 1024
-  # sandbox-app-boot cuts a step's log at 8 MB; the server's own log is not cut.
-  MAX_LOG_BYTES = 16 * 1024 * 1024
   LOG_PAGE_BYTES = 64 * 1024
   MAX_LOG_PAGE_BYTES = 1024 * 1024
   LOG_NAME = /\A[a-z][a-z0-9_]{0,39}\z/
   OPERATION_TIMED_OUT = "Operation timed out"
+  # How long one long-poll of an operation lasts, inside the connection's
+  # 30-second read timeout.
+  OPERATION_WAIT_SECONDS = 20
 
   # The per-environment switch for checkout sandboxes, set by Terraform
   # (incus_app_runtime_enabled). It stays off until the environment's Incus
@@ -313,6 +314,8 @@ class IncusSandboxService
   # One page of a boot step's log, scrubbed of the session's secrets and of
   # +secrets+ (see the engine's SandboxOrchestrator#boot_log). Pages end at a
   # line break where they can, so a value is never split between two of them.
+  # Only the page is fetched from the container, so a log of any size can be
+  # paged: start.log, the server's own output, grows for as long as it runs.
   #
   # @return [Hash, nil] { step:, offset:, next_offset:, size:, eof:, text: },
   #   or nil when the step has no log
@@ -323,13 +326,14 @@ class IncusSandboxService
     entry = steps.find { |candidate| candidate.is_a?(Hash) && candidate["name"] == step.to_s }
     return nil unless entry && LOG_NAME.match?(entry["log"].to_s)
 
-    content = read_container_file(container_name, "#{BOOT_DIR}/logs/#{entry["log"]}.log", limit: MAX_LOG_BYTES)
-    return nil if content.nil?
-
-    size = content.bytesize
-    offset = Integer(offset, exception: false).to_i.clamp(0, size)
+    offset = [ Integer(offset, exception: false).to_i, 0 ].max
     limit = Integer(limit, exception: false).to_i.clamp(1, MAX_LOG_PAGE_BYTES)
-    data = content.byteslice(offset, limit).to_s
+    page = read_container_range(container_name, "#{BOOT_DIR}/logs/#{entry["log"]}.log", offset, limit, owner: 0)
+    return nil if page.nil?
+
+    size = page[:size]
+    offset = [ offset, size ].min
+    data = page[:data]
     if offset + data.bytesize < size && (newline = data.rindex("\n"))
       data = data.byteslice(0, newline + 1)
     end
@@ -337,7 +341,7 @@ class IncusSandboxService
 
     {
       step: entry["name"], offset: offset, next_offset: next_offset, size: size, eof: next_offset >= size,
-      text: ActionAgent::SecretScrubber.scrub(data.force_encoding(Encoding::UTF_8).scrub,
+      text: ActionAgent::SecretScrubber.scrub(data.dup.force_encoding(Encoding::UTF_8).scrub,
         session_secrets(sandbox_session) + Array(secrets))
     }
   end
@@ -717,6 +721,31 @@ class IncusSandboxService
     nil
   end
 
+  # Up to +length+ bytes of +path+ from +offset+, fetched with a Range
+  # request, and the file's size. Nil as #read_container_file says.
+  #
+  # @return [Hash, nil] { data:, size: }
+  def read_container_range(container_name, path, offset, length, owner: nil)
+    response = build_connection.get("/1.0/instances/#{container_name}/files", { "path" => path, "project" => @project },
+      { "Range" => "bytes=#{offset}-#{offset + length - 1}" })
+    return nil unless regular_file?(response.headers, owner)
+
+    content = response_bytes(response.body)
+    if response.status == 206
+      { data: content, size: range_size(response.headers) }
+    else
+      # A daemon that ignores Range answers with the whole file.
+      { data: content.byteslice(offset, length).to_s, size: content.bytesize }
+    end
+  rescue Faraday::ResourceNotFound
+    nil
+  rescue Faraday::ClientError => e
+    # 416 answers an offset at or past the end of the file.
+    raise unless e.response_status == 416 && regular_file?(e.response_headers, owner)
+
+    { data: "".b, size: range_size(e.response_headers) }
+  end
+
   def regular_file?(headers, owner)
     headers["X-Incus-Type"] == "file" && (owner.nil? || headers["X-Incus-Uid"] == owner.to_s)
   end
@@ -724,6 +753,12 @@ class IncusSandboxService
   # The connection parses a body served as JSON, whatever file it came from.
   def response_bytes(body)
     (body.is_a?(String) ? body : body.to_json).b
+  end
+
+  # The file size a Content-Range header ("bytes 0-99/1234" or "bytes */1234")
+  # ends with.
+  def range_size(headers)
+    headers["Content-Range"].to_s[%r{/(\d+)\z}, 1].to_i
   end
 
   # Writes +content+ to +path+ through the instance file API, owned by root:
@@ -1028,6 +1063,9 @@ class IncusSandboxService
     end
   end
 
+  # Waits up to +timeout+ seconds for an operation to finish. Each request
+  # long-polls: Incus answers when the operation finishes, or with it still
+  # running after OPERATION_WAIT_SECONDS.
   def wait_for_operation(operation_url, timeout: 60)
     return unless operation_url
 
@@ -1035,7 +1073,8 @@ class IncusSandboxService
     start_time = Time.current
 
     loop do
-      response = api_request(:get, "/1.0/operations/#{operation_id}")
+      wait = (timeout - (Time.current - start_time)).ceil.clamp(0, OPERATION_WAIT_SECONDS)
+      response = api_request(:get, "/1.0/operations/#{operation_id}/wait", { "timeout" => wait })
       status = response.dig("metadata", "status")
 
       case status
