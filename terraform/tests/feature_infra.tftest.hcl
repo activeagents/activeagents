@@ -71,8 +71,15 @@ run "recordings_bucket_is_private_and_scoped" {
   }
 
   assert {
-    condition     = google_storage_bucket_iam_member.recordings_app.role == "roles/storage.objectAdmin" && google_storage_bucket_iam_member.recordings_signer.role == "roles/storage.objectViewer"
-    error_message = "The app administers objects in the bucket; the signer only reads them."
+    condition = toset([
+      for binding in data.google_iam_policy.recordings.binding : binding.role
+    ]) == toset(["roles/storage.objectAdmin", "roles/storage.objectViewer"])
+    error_message = "The bucket policy must hold only the app's objectAdmin and the signer's objectViewer bindings."
+  }
+
+  assert {
+    condition     = google_storage_bucket_iam_policy.recordings.bucket == "example-project-recordings-staging"
+    error_message = "The authoritative policy must be set on the recordings bucket."
   }
 
   assert {
