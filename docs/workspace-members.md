@@ -23,7 +23,7 @@ Teammate invitations reuse `WorkspaceInvitation`. A row with a `role` is a teamm
 
 ## Seats
 
-`Plan#included_seats` (-1 for unlimited) caps members plus teammate invitations that are outstanding and unexpired. Sending, resending an expired invitation and accepting all check it under the workspace lock. Free includes one seat, which is the owner's, so inviting needs a paid plan.
+`Plan#included_seats` (-1 for unlimited) caps members plus teammate invitations that are outstanding, unexpired and not failed (an invitation whose email failed to send frees its seat until it is resent). Sending, resending an expired invitation and accepting all check it under the workspace lock. Free includes one seat, which is the owner's, so inviting needs a paid plan.
 
 ## Removing a member
 

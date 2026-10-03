@@ -1,7 +1,9 @@
 require "test_helper"
+require_relative "../support/pilot_helpers"
 require_relative "../support/teammate_helpers"
 
 class WorkspaceInvitationTest < ActiveSupport::TestCase
+  include PilotHelpers
   include TeammateHelpers
 
   setup do
@@ -70,6 +72,17 @@ class WorkspaceInvitationTest < ActiveSupport::TestCase
     revoked.update!(revoked_at: Time.current)
 
     assert_equal [ holding.id ], WorkspaceInvitation.holding_seat.pluck(:id)
+  end
+
+  test "::holding_seat frees the seat of an invitation whose email failed to send" do
+    invitation = WorkspaceMembers.new(@account, actor: @owner).invite!(email_address: "new@example.com", role: "member")
+    assert_equal [ invitation.id ], WorkspaceInvitation.holding_seat.pluck(:id), "a queued email holds the seat"
+
+    with_method(TeammateMailer, :invitation, ->(*) { raise IOError, "Synthetic delivery failure" }) do
+      WorkspaceInvitationDeliveryJob.perform_now(invitation.id, invitation.reload.delivery_version)
+    end
+    assert_equal "delivery_failed", invitation.reload.status
+    assert_empty WorkspaceInvitation.holding_seat
   end
 
   test "#inviter_authorized? follows the inviter's current role in the workspace" do
