@@ -11,9 +11,15 @@
 #   or
 #   sudo ./setup-incus-host.sh
 #
+#   sudo ./setup-incus-host.sh egress-acl
+#     Applies only the sandbox egress ACL. Safe to run again on a host that
+#     is already set up; the ACL ends up with the same rules each time.
+#
 # After setup:
 #   - Incus will be running with a "agent-sandboxes" project
 #   - A restricted sandbox profile will be created
+#   - Containers on the bridge cannot reach link-local, private or host
+#     addresses
 #   - Remote access will be configured (optional)
 #
 set -euo pipefail
@@ -23,6 +29,12 @@ INCUS_PROJECT="agent-sandboxes"
 STORAGE_POOL="default"
 NETWORK_NAME="incusbr0"
 SANDBOX_PROFILE="sandbox-restricted"
+EGRESS_ACL="sandbox-egress"
+
+# Comma-separated IPv4 ranges no container may reach: link-local (which holds
+# the cloud metadata server) and the private ranges. The host's own addresses
+# are added when the ACL is applied.
+SANDBOX_EGRESS_REJECT="${SANDBOX_EGRESS_REJECT:-169.254.0.0/16,10.0.0.0/8,172.16.0.0/12,192.168.0.0/16}"
 
 log() {
   echo "[$(date '+%Y-%m-%d %H:%M:%S')] $*"
@@ -136,6 +148,79 @@ projects: []
 EOF
 
   log "Incus configured successfully"
+}
+
+# Prints every IPv4 address of this host as comma-separated /32 CIDRs. A GCE
+# external address is NATed outside the VM and sits on no interface, so it is
+# read from the metadata server when there is one.
+host_address_cidrs() {
+  local external
+  external=$(curl -fsS --max-time 2 -H "Metadata-Flavor: Google" \
+    "http://169.254.169.254/computeMetadata/v1/instance/network-interfaces/0/access-configs/0/external-ip" 2>/dev/null || true)
+
+  { ip -4 -o addr show | awk '{ split($4, address, "/"); print address[1] }'; echo "$external"; } |
+    awk '/^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$/ && !/^127\./ && !seen[$0]++ { printf "%s%s/32", separator, $0; separator = "," }'
+}
+
+validate_egress_ranges() {
+  local range ranges
+  IFS=',' read -r -a ranges <<< "$SANDBOX_EGRESS_REJECT"
+  [[ ${#ranges[@]} -gt 0 ]] || error "SANDBOX_EGRESS_REJECT is empty"
+
+  for range in "${ranges[@]}"; do
+    [[ "$range" =~ ^[0-9]{1,3}(\.[0-9]{1,3}){3}/[0-9]{1,2}$ ]] || error "Not an IPv4 CIDR in SANDBOX_EGRESS_REJECT: $range"
+  done
+}
+
+# Attaches the egress ACL to the bridge rather than to a profile, so it covers
+# every container on the bridge whichever profile created it.
+configure_egress_acl() {
+  log "Restricting sandbox egress on $NETWORK_NAME..."
+
+  validate_egress_ranges
+
+  local ipv6 host_cidrs acls
+  ipv6=$(incus network get "$NETWORK_NAME" ipv6.address --project default)
+  if [[ -n "$ipv6" && "$ipv6" != "none" ]]; then
+    error "$NETWORK_NAME has IPv6 ($ipv6), which $EGRESS_ACL does not cover. Add IPv6 reject rules before turning IPv6 on."
+  fi
+
+  host_cidrs=$(host_address_cidrs)
+  [[ -n "$host_cidrs" ]] || error "Found no IPv4 address on this host"
+
+  if ! incus network acl show "$EGRESS_ACL" --project default >/dev/null 2>&1; then
+    incus network acl create "$EGRESS_ACL" --project default
+  fi
+
+  # Incus accepts DNS and DHCP to the host ahead of any ACL rule, and replies to
+  # connections opened from the host, so both keep working through the rejects.
+  incus network acl edit "$EGRESS_ACL" --project default << EOF
+description: Rejects sandbox egress to link-local, private and host addresses
+egress:
+  - action: reject
+    state: enabled
+    description: Link-local (including the cloud metadata server) and private ranges
+    destination: "$SANDBOX_EGRESS_REJECT"
+  - action: reject
+    state: enabled
+    description: Every address of this host
+    destination: "$host_cidrs"
+ingress: []
+EOF
+
+  acls=$(incus network get "$NETWORK_NAME" security.acls --project default)
+  if [[ ",$acls," != *",$EGRESS_ACL,"* ]]; then
+    acls="${acls:+$acls,}$EGRESS_ACL"
+  fi
+
+  # Both defaults are reject; the ACL lists what to refuse, so everything else
+  # is allowed.
+  incus network set "$NETWORK_NAME" --project default \
+    security.acls="$acls" \
+    security.acls.default.egress.action=allow \
+    security.acls.default.ingress.action=allow
+
+  log "Egress ACL $EGRESS_ACL on $NETWORK_NAME rejects $SANDBOX_EGRESS_REJECT and $host_cidrs"
 }
 
 create_sandbox_project() {
@@ -357,6 +442,7 @@ print_summary() {
 Project:        $INCUS_PROJECT
 Profile:        $SANDBOX_PROFILE
 Network:        $NETWORK_NAME (10.100.0.0/24)
+Egress ACL:     $EGRESS_ACL (rejects $SANDBOX_EGRESS_REJECT and this host)
 Storage:        $STORAGE_POOL
 
 Available Images:
@@ -382,21 +468,36 @@ EOF
 }
 
 main() {
-  log "Starting Incus sandbox host setup..."
+  case "${1:-}" in
+    egress-acl)
+      check_root
+      configure_egress_acl
+      ;;
+    "")
+      log "Starting Incus sandbox host setup..."
 
-  check_root
-  detect_distro
-  install_incus
-  configure_incus
-  create_sandbox_project
-  create_sandbox_profile
-  create_sandbox_images
-  setup_firewall
-  setup_remote_access
-  create_cleanup_cron
-  print_summary
+      check_root
+      detect_distro
+      install_incus
+      configure_incus
+      configure_egress_acl
+      create_sandbox_project
+      create_sandbox_profile
+      create_sandbox_images
+      setup_firewall
+      setup_remote_access
+      create_cleanup_cron
+      print_summary
 
-  log "Setup complete!"
+      log "Setup complete!"
+      ;;
+    *)
+      error "Unknown command: $1 (run with no arguments for a full setup, or with egress-acl)"
+      ;;
+  esac
 }
 
-main "$@"
+# Skipped when the file is sourced, so tests can call the functions directly.
+if ! (return 0 2>/dev/null); then
+  main "$@"
+fi
