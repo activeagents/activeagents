@@ -225,3 +225,11 @@ variable "sandbox_memory" {
   type        = string
   default     = "4Gi"  # 4Gi for LLM context and agent workloads
 }
+
+# Sign in with GitHub. Turn on only after both
+# activeagents-staging-github-app-client-id and -client-secret have a version.
+variable "enable_github_sign_in" {
+  description = "Pass the GitHub App client ID and secret to the app, which turns on Sign in with GitHub"
+  type        = bool
+  default     = false
+}
