@@ -66,6 +66,8 @@ ROLES=(
   "roles/cloudsql.admin"
   "roles/compute.networkAdmin"
   "roles/vpcaccess.admin"
+  "roles/iam.serviceAccountAdmin"        # creates service accounts and sets IAM on them
+  "roles/serviceusage.serviceUsageAdmin" # enables the APIs listed in terraform/main.tf
 )
 
 for ROLE in "${ROLES[@]}"; do
@@ -245,8 +247,8 @@ DEPLOY_ENV=staging
 PROJECT=active-agents-platform
 
 gcloud secrets versions add "activeagents-$DEPLOY_ENV-github-app-private-key" --project=$PROJECT \
-  --data-file=path/to/the-app.private-key.pem
-rm path/to/the-app.private-key.pem
+  --data-file=path/to/the-app.private-key.pem &&
+  rm path/to/the-app.private-key.pem
 
 read -rs CLIENT_ID && printf %s "$CLIENT_ID" |
   gcloud secrets versions add "activeagents-$DEPLOY_ENV-github-app-client-id" --project=$PROJECT --data-file=-
@@ -351,19 +353,42 @@ The ACL lists the host's addresses as they were when it was applied. The host's 
 
 ### Check from a container
 
-On the host:
+On the host, as root. First check that the ACL is attached, and look at the rules Incus generated from it:
 
 ```bash
+incus network get incusbr0 security.acls --project default   # lists sandbox-egress
+incus network acl show sandbox-egress --project default
+nft list chain inet incus acl.incusbr0                        # reject rules for the ranges and the host's addresses
+```
+
+Then probe from a container. The ACL refuses a connection at once with an ICMP port unreachable, which `bash` reports as `Connection refused`, and `probe` prints `rejected`. Nothing listens at the private addresses below except the host, so without the ACL a probe prints `TIMEOUT` or `REACHABLE` instead:
+
+```bash
+HOST_VPC_IP=$(ip -4 route get 8.8.8.8 | awk '{ for (i = 1; i < NF; i++) if ($i == "src") print $(i + 1) }')
+HOST_EXTERNAL_IP=$(curl -fsS -H 'Metadata-Flavor: Google' \
+  http://169.254.169.254/computeMetadata/v1/instance/network-interfaces/0/access-configs/0/external-ip)
+
 incus launch images:ubuntu/22.04 egress-check --project agent-sandboxes --profile default --profile sandbox-restricted
-incus exec egress-check --project agent-sandboxes -- bash -c '
+incus exec egress-check --project agent-sandboxes --env HOST_VPC_IP="$HOST_VPC_IP" --env HOST_EXTERNAL_IP="$HOST_EXTERNAL_IP" -- bash -c '
   apt-get update -qq && apt-get install -y -qq git ruby python3 >/dev/null
-  probe() { timeout 5 bash -c "</dev/tcp/$1/$2" 2>/dev/null && echo "REACHABLE $1:$2" || echo "rejected  $1:$2"; }
+  probe() {
+    local error status
+    error=$(timeout 5 bash -c "</dev/tcp/$1/$2" 2>&1); status=$?
+    case "$status:$error" in
+      0:*) echo "REACHABLE $1:$2" ;;
+      124:*) echo "TIMEOUT   $1:$2" ;;
+      *"Connection refused"*) echo "rejected  $1:$2" ;;
+      *) echo "ERROR     $1:$2 $error" ;;
+    esac
+  }
   probe 169.254.169.254 80
   probe metadata.google.internal 80
   probe 10.10.0.1 443
   probe 172.16.0.1 443
   probe 192.168.0.1 443
-  probe 10.100.0.1 8443      # the host, on the bridge
+  probe "$HOST_VPC_IP" 8443        # the host on the VPC, where Incus listens
+  probe "$HOST_EXTERNAL_IP" 8443
+  probe 10.100.0.1 8443            # the host on the bridge
   probe 10.100.0.1 22
   git ls-remote https://github.com/rails/rails HEAD && gem fetch rack
 '
@@ -373,7 +398,7 @@ curl -sS -o /dev/null -w '%{http_code}\n' "http://$(incus list egress-check --pr
 incus delete egress-check --project agent-sandboxes --force
 ```
 
-Every probe prints `rejected`, `apt-get`, `git ls-remote` and `gem fetch` succeed (so DNS works), and the final `curl` from the host gets `200`. Probe the host's VPC address (`hostname -I` on the host) and its external IP the same way.
+Every probe prints `rejected`. A `TIMEOUT` or `REACHABLE` line means the ACL does not cover that address. `apt-get`, `git ls-remote` and `gem fetch` succeed, so DNS works, and the final `curl` from the host gets `200`.
 
 ## Deployment Workflow
 
