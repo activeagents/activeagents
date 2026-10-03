@@ -213,12 +213,18 @@ EOF
     acls="${acls:+$acls,}$EGRESS_ACL"
   fi
 
-  # Both defaults are reject; the ACL lists what to refuse, so everything else
-  # is allowed.
-  incus network set "$NETWORK_NAME" --project default \
-    security.acls="$acls" \
-    security.acls.default.egress.action=allow \
-    security.acls.default.ingress.action=allow
+  # Incus rejects traffic no ACL rule matches unless a default says otherwise.
+  # This ACL lists only what to refuse, so an unset default becomes allow. A
+  # default that is already set is kept, so an allowlist ACL that needs reject
+  # stays closed when this step runs again.
+  local direction settings=("security.acls=$acls")
+  for direction in egress ingress; do
+    if [[ -z "$(incus network get "$NETWORK_NAME" "security.acls.default.$direction.action" --project default)" ]]; then
+      settings+=("security.acls.default.$direction.action=allow")
+    fi
+  done
+
+  incus network set "$NETWORK_NAME" --project default "${settings[@]}"
 
   log "Egress ACL $EGRESS_ACL on $NETWORK_NAME rejects $SANDBOX_EGRESS_REJECT and $host_cidrs"
 }
