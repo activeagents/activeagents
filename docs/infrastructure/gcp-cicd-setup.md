@@ -212,7 +212,7 @@ Terraform creates these in both environments, and none of them reaches the app u
 | the recordings bucket | `RECORDINGS_BUCKET` | `enable_recordings_storage` |
 | the recordings signer | `RECORDINGS_SIGNER_EMAIL` | `enable_recordings_storage` |
 
-The bucket is `<project>-recordings-<env>`, with uniform bucket-level access and public access prevention enforced. The app's service account has `roles/storage.objectAdmin` on that bucket only. The signer (`recordings-signer-<env>`) has `roles/storage.objectViewer` on it, and the app may mint tokens for the signer and nothing else, so it can sign read-only URLs through the IAM Credentials API without a key file.
+The bucket is `<project>-recordings-<env>`, with uniform bucket-level access and public access prevention enforced. The app's service account has `roles/storage.objectAdmin` on that bucket only. The signer (`recordings-signer-<env>`) has `roles/storage.objectViewer` on it, and the app may mint tokens for the signer and nothing else, so it can sign read-only URLs through the IAM Credentials API without a key file. Those two bindings are the bucket's whole IAM policy: Terraform sets it authoritatively, which removes the bindings GCS gives a new bucket for the project's owners, editors and viewers. Project-level roles such as `roles/storage.admin` still reach the bucket, and a binding added by hand is removed by the next apply.
 
 ### 1. Register one GitHub App per environment
 

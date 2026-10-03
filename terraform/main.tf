@@ -212,16 +212,25 @@ resource "google_service_account" "recordings_signer" {
   depends_on = [google_project_service.apis]
 }
 
-resource "google_storage_bucket_iam_member" "recordings_app" {
-  bucket = google_storage_bucket.recordings.name
-  role   = "roles/storage.objectAdmin"
-  member = "serviceAccount:${google_service_account.cloud_run.email}"
+# The bucket's whole IAM policy. It replaces the bindings GCS gives a new
+# bucket for the project's owners, editors and viewers, so a project viewer
+# cannot read recordings. Project-level roles such as roles/storage.admin
+# still apply.
+data "google_iam_policy" "recordings" {
+  binding {
+    role    = "roles/storage.objectAdmin"
+    members = ["serviceAccount:${google_service_account.cloud_run.email}"]
+  }
+
+  binding {
+    role    = "roles/storage.objectViewer"
+    members = ["serviceAccount:${google_service_account.recordings_signer.email}"]
+  }
 }
 
-resource "google_storage_bucket_iam_member" "recordings_signer" {
-  bucket = google_storage_bucket.recordings.name
-  role   = "roles/storage.objectViewer"
-  member = "serviceAccount:${google_service_account.recordings_signer.email}"
+resource "google_storage_bucket_iam_policy" "recordings" {
+  bucket      = google_storage_bucket.recordings.name
+  policy_data = data.google_iam_policy.recordings.policy_data
 }
 
 resource "google_service_account_iam_member" "recordings_signer_token_creator" {
