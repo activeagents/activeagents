@@ -29,7 +29,8 @@ Rails.application.configure do
   if StorageServiceSelector.disk_fallback?
     config.after_initialize do
       Rails.logger.warn "Active Storage keeps files on this instance's disk, which Cloud Run discards when the instance stops. " \
-        "Set RECORDINGS_BUCKET to store them in Google Cloud Storage, or ACTIVE_STORAGE_SERVICE=local to keep the disk on purpose."
+        "Set RECORDINGS_BUCKET and RECORDINGS_SIGNER_EMAIL to store them in Google Cloud Storage, " \
+        "or ACTIVE_STORAGE_SERVICE=local to keep the disk on purpose."
     end
   end
 

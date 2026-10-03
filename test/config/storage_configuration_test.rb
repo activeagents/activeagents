@@ -12,12 +12,6 @@ class StorageConfigurationTest < ActiveSupport::TestCase
     assert_equal({ "service" => "GCS", "bucket" => BUCKET, "iam" => true, "gsa_email" => SIGNER }, google)
   end
 
-  test "google leaves the signer to the service account when none is set" do
-    google = storage_configuration("RECORDINGS_BUCKET" => BUCKET, "RECORDINGS_SIGNER_EMAIL" => nil)["google"]
-
-    assert_nil google["gsa_email"]
-  end
-
   test "google builds a GCS service without contacting Google" do
     configurations = storage_configuration("RECORDINGS_BUCKET" => BUCKET, "RECORDINGS_SIGNER_EMAIL" => SIGNER)
     service = ActiveStorage::Service.configure(:google, configurations)
