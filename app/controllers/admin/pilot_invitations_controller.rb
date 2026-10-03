@@ -17,14 +17,14 @@ module Admin
     end
 
     def deliver
-      WorkspaceInvitation.find(params[:id]).queue_delivery!(actor: Current.user)
+      WorkspaceInvitation.pilot.find(params[:id]).queue_delivery!(actor: Current.user)
       redirect_to admin_pilots_path, notice: "Invitation delivery queued. Previous links are no longer valid."
     rescue ActiveRecord::RecordInvalid
       redirect_to admin_pilots_path, alert: "Accepted or revoked invitations cannot be resent."
     end
 
     def revoke
-      WorkspaceInvitation.find(params[:id]).revoke!(actor: Current.user)
+      WorkspaceInvitation.pilot.find(params[:id]).revoke!(actor: Current.user)
       redirect_to admin_pilots_path, notice: "Invitation revoked. Accepted workspace access is managed separately."
     end
 
