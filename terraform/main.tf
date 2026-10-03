@@ -158,6 +158,12 @@ module "secrets" {
     resend-api-key = {
       description = "Resend API key for email delivery"
     }
+    github-app-client-id = {
+      description = "Client ID of this environment's GitHub App, for Sign in with GitHub"
+    }
+    github-app-client-secret = {
+      description = "Client secret of this environment's GitHub App, for Sign in with GitHub"
+    }
   }
 
   labels = local.common_labels
@@ -197,14 +203,22 @@ module "cloud_run" {
     MAILER_FROM_ADDRESS    = var.mailer_from_address
   }
 
-  secret_env_vars = {
-    RAILS_MASTER_KEY       = module.secrets.secret_ids["rails-master-key"]
-    DB_PASSWORD            = module.cloud_sql.password_secret_id
-    STRIPE_API_KEY         = module.secrets.secret_ids["stripe-api-key"]
-    STRIPE_WEBHOOK_SECRET  = module.secrets.secret_ids["stripe-webhook-secret"]
-    RESEND_AUDIENCE_ID     = module.secrets.secret_ids["resend-audience-id"]
-    RESEND_API_KEY         = module.secrets.secret_ids["resend-api-key"]
-  }
+  # The GitHub App pair is gated because Cloud Run refuses a revision that reads
+  # a secret with no version, and both start out empty.
+  secret_env_vars = merge(
+    {
+      RAILS_MASTER_KEY      = module.secrets.secret_ids["rails-master-key"]
+      DB_PASSWORD           = module.cloud_sql.password_secret_id
+      STRIPE_API_KEY        = module.secrets.secret_ids["stripe-api-key"]
+      STRIPE_WEBHOOK_SECRET = module.secrets.secret_ids["stripe-webhook-secret"]
+      RESEND_AUDIENCE_ID    = module.secrets.secret_ids["resend-audience-id"]
+      RESEND_API_KEY        = module.secrets.secret_ids["resend-api-key"]
+    },
+    var.enable_github_sign_in ? {
+      GITHUB_APP_CLIENT_ID     = module.secrets.secret_ids["github-app-client-id"]
+      GITHUB_APP_CLIENT_SECRET = module.secrets.secret_ids["github-app-client-secret"]
+    } : {},
+  )
 
   labels = local.common_labels
 

@@ -31,4 +31,7 @@ module "activeagents" {
 
   # Database configuration (production-scale)
   database_tier = "db-custom-2-4096"  # 2 vCPUs, 4GB RAM
+
+  # Sign in with GitHub, through this environment's GitHub App
+  enable_github_sign_in = var.enable_github_sign_in
 }

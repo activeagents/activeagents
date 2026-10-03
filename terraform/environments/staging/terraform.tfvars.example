@@ -4,3 +4,7 @@
 project_id = "active-agents-platform"
 region     = "us-central1"
 image      = "us-central1-docker.pkg.dev/active-agents-platform/activeagents/activeagents:staging"
+
+# Sign in with GitHub, once activeagents-staging-github-app-client-id and
+# -client-secret each have a version. CI applies the default in variables.tf.
+# enable_github_sign_in = true

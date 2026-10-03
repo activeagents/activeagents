@@ -158,6 +158,14 @@ variable "alias_domains" {
   default     = []
 }
 
+# -- Sign in with GitHub ----------------------------------------------------
+
+variable "enable_github_sign_in" {
+  description = "Pass this environment's GitHub App client ID and secret to the app as GITHUB_APP_CLIENT_ID/SECRET, which turns on Sign in with GitHub. Add a version to activeagents-<env>-github-app-client-id and -client-secret first."
+  type        = bool
+  default     = false
+}
+
 # -- Demo app (examples/support_inbox) --------------------------------------
 
 variable "enable_demo_app" {

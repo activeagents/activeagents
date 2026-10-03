@@ -91,4 +91,7 @@ module "activeagents" {
   demo_telemetry_endpoint   = var.demo_telemetry_endpoint
   demo_activeagents_api_key = var.demo_activeagents_api_key
   demo_ai_provider          = var.demo_ai_provider
+
+  # Sign in with GitHub, through this environment's GitHub App
+  enable_github_sign_in = var.enable_github_sign_in
 }
