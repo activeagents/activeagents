@@ -28,6 +28,8 @@ User Request
 
 **Files:**
 - `scripts/setup-incus-host.sh` - Host setup script
+- `scripts/build-app-runtime-image.sh` - Builds the checkout image
+  (see [app-runtime.md](app-runtime.md))
 - `app/services/incus_sandbox_service.rb` - Incus API client
 - `ActionAgent::SandboxOrchestrator` - Unified orchestrator, in the
   `actionagent` dashboard engine (`app/services/sandbox_orchestrator.rb`
