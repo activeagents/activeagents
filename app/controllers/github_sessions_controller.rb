@@ -23,7 +23,7 @@ class GithubSessionsController < ApplicationController
       return redirect_to(new_session_path, alert: "Sign in again to connect GitHub.")
     end
     if params[:error].present? || params[:code].blank?
-      return redirect_to(return_path(connecting), alert: "GitHub sign-in was cancelled.")
+      return redirect_to(return_path(connecting), alert: connecting ? "Connecting GitHub was cancelled." : "GitHub sign-in was cancelled.")
     end
 
     github = GithubSignIn.identity_for(code: params[:code].to_s, redirect_uri: github_callback_url)
@@ -95,7 +95,13 @@ class GithubSessionsController < ApplicationController
       Current.user.identities.create!(provider: "github", uid: github.uid, login: github.login, email: github.email)
       redirect_to settings_path, notice: "Connected GitHub as @#{github.login}."
     end
+  # A concurrent connect, by this user or another, can claim either unique
+  # index between the checks above and the insert.
   rescue ActiveRecord::RecordNotUnique, ActiveRecord::RecordInvalid
-    redirect_to settings_path, alert: "That GitHub account is connected to another ActiveAgents account."
+    if (current = Current.user.reload_github_identity)
+      redirect_to settings_path, notice: "GitHub is already connected as @#{current.login}."
+    else
+      redirect_to settings_path, alert: "That GitHub account is connected to another ActiveAgents account."
+    end
   end
 end

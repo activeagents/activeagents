@@ -169,8 +169,32 @@ class SignInWithGithubTest < ActionDispatch::IntegrationTest
 
     get "/auth/github/callback", params: { error: "access_denied", state: state }
     assert_redirected_to "/session/new"
-    assert_match "cancelled", flash[:alert]
+    assert_equal "GitHub sign-in was cancelled.", flash[:alert]
     assert_not_requested :post, TOKEN_URL
+  end
+
+  test "a cancelled connect returns to Settings" do
+    user = create_user(email: "connect@example.com")
+    create_account(owner: user)
+    sign_in_as(user)
+    state = start_github("/settings/github")
+
+    get "/auth/github/callback", params: { error: "access_denied", state: state }
+    assert_redirected_to "/settings"
+    assert_equal "Connecting GitHub was cancelled.", flash[:alert]
+    assert_nil user.reload.github_identity
+    assert_not_requested :post, TOKEN_URL
+  end
+
+  test "a GitHub email the account rules reject creates nothing" do
+    state = start_github
+    stub_github(emails: [ { "email" => "#{"m" * 250}@example.com", "primary" => true, "verified" => true } ])
+
+    assert_no_difference [ "User.count", "Account.count", "UserIdentity.count", "Session.count" ] do
+      finish_github(state)
+    end
+    assert_redirected_to "/session/new"
+    assert_match "We couldn't create an account from GitHub: Email address is too long", flash[:alert]
   end
 
   test "a code GitHub refuses, or GitHub being unreachable, signs nobody in" do
@@ -223,6 +247,58 @@ class SignInWithGithubTest < ActionDispatch::IntegrationTest
     assert_match "connected to another ActiveAgents account", flash[:alert]
     assert_nil user.reload.github_identity
     assert_equal other, UserIdentity.find_by!(uid: "4242").user
+  end
+
+  test "connecting the GitHub account already connected refreshes its login" do
+    user = create_user(email: "connect@example.com")
+    create_account(owner: user)
+    user.identities.create!(provider: "github", uid: "4242", login: "old-login")
+    sign_in_as(user)
+
+    state = start_github("/settings/github")
+    stub_github(login: "new-login")
+    assert_no_difference "UserIdentity.count" do
+      finish_github(state)
+    end
+    assert_redirected_to "/settings"
+    assert_equal "GitHub is already connected.", flash[:notice]
+    assert_equal "new-login", user.github_identity.reload.login
+  end
+
+  test "connecting a second GitHub account is refused until the first is disconnected" do
+    user = create_user(email: "connect@example.com")
+    create_account(owner: user)
+    user.identities.create!(provider: "github", uid: "1111", login: "first-login")
+    sign_in_as(user)
+
+    state = start_github("/settings/github")
+    stub_github(id: 4242, login: "second-login")
+    assert_no_difference "UserIdentity.count" do
+      finish_github(state)
+    end
+    assert_redirected_to "/settings"
+    assert_equal "Disconnect @first-login before connecting another GitHub account.", flash[:alert]
+    assert_equal "1111", user.github_identity.reload.uid
+  end
+
+  test "a connect that loses a race for the GitHub account to another user is refused" do
+    other = create_user(email: "other@example.com")
+    other.identities.create!(provider: "github", uid: "4242", login: "octocat")
+    user = create_user(email: "connect@example.com")
+    create_account(owner: user)
+    sign_in_as(user)
+    state = start_github("/settings/github")
+    stub_github
+
+    # The other user's connect lands after the controller looked the uid up.
+    with_method(UserIdentity, :find_by, ->(*) { nil }) do
+      assert_no_difference "UserIdentity.count" do
+        finish_github(state)
+      end
+    end
+    assert_redirected_to "/settings"
+    assert_equal "That GitHub account is connected to another ActiveAgents account.", flash[:alert]
+    assert_nil user.reload.github_identity
   end
 
   test "a connect completes only for the user and session that started it" do
