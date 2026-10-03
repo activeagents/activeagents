@@ -386,6 +386,12 @@ class SignInWithGithubTest < ActionDispatch::IntegrationTest
     assert_redirected_to "/session/new"
   end
 
+  test "the callback's authorization code is filtered from the logs" do
+    filter = ActiveSupport::ParameterFilter.new(Rails.application.config.filter_parameters)
+
+    assert_equal({ "code" => "[FILTERED]", "country_code" => "US" }, filter.filter("code" => "oauth-code", "country_code" => "US"))
+  end
+
   test "a user with a password disconnects GitHub" do
     user = create_user(email: "connected@example.com")
     create_account(owner: user)
