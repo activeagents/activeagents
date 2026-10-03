@@ -265,6 +265,51 @@ class SignInWithGithubTest < ActionDispatch::IntegrationTest
     assert_nil user.reload.github_identity
   end
 
+  test "a GitHub-only user emails themselves a password link from Settings, and can disconnect once a password is set" do
+    stub_github
+    state = start_github
+    finish_github(state)
+    user = User.find_by!(email_address: "mona@example.com")
+
+    get "/settings"
+    assert_select "p", "You haven't set a password, so GitHub is the only way to sign in to this account."
+    assert_enqueued_email_with PasswordsMailer, :reset, args: [ user ] do
+      post "/settings/password_link"
+    end
+    assert_redirected_to "/settings"
+    assert_equal "We emailed you a link to set a password.", flash[:notice]
+
+    patch "/passwords/#{user.password_reset_token}", params: { password: "chosen-password", password_confirmation: "chosen-password" }
+    assert user.reload.password_set?
+
+    post "/session", params: { email_address: user.email_address, password: "chosen-password" }
+    get "/settings"
+    assert_select "button", "Disconnect GitHub"
+    assert_difference "UserIdentity.count", -1 do
+      delete "/settings/github"
+    end
+  end
+
+  test "Settings offers a password link without claiming GitHub is the only sign-in when nothing is connected" do
+    post "/registration", params: { email_address: "landing@example.com" }
+    user = User.find_by!(email_address: "landing@example.com")
+    get "/verify_email", params: { token: user.email_verification_token }
+    assert_not user.reload.password_set?
+
+    get "/settings"
+    assert_response :success
+    assert_select "p", "You haven't chosen a password yet."
+    assert_select "p", text: /GitHub is the only way/, count: 0
+    assert_select "button", "Email me a link to set a password"
+  end
+
+  test "the password link needs a signed-in user" do
+    assert_no_enqueued_emails do
+      post "/settings/password_link"
+    end
+    assert_redirected_to "/session/new"
+  end
+
   test "a user with a password disconnects GitHub" do
     user = create_user(email: "connected@example.com")
     create_account(owner: user)

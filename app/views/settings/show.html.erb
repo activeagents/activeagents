@@ -8,8 +8,12 @@
     <% if @user.password_set? %>
       <p>You can sign in with your email address and password.</p>
     <% else %>
-      <p>You haven't set a password, so GitHub is the only way to sign in to this account.</p>
-      <%= button_to "Email me a link to set a password", passwords_path, params: { email_address: @user.email_address } %>
+      <% if @github_identity %>
+        <p>You haven't set a password, so GitHub is the only way to sign in to this account.</p>
+      <% else %>
+        <p>You haven't chosen a password yet.</p>
+      <% end %>
+      <%= button_to "Email me a link to set a password", password_link_path %>
     <% end %>
   </section>
 
