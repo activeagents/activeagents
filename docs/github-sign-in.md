@@ -9,7 +9,7 @@ People can sign up and sign in with GitHub, and a signed-in user can connect or 
 - A GitHub account that is not connected, whose verified primary email has no account here, creates one: a verified user named from the GitHub profile, a random password they never see (`users.password_set = false`), and an owned workspace. The person continues to profile completion and plan selection, as an email signup does after verifying, and the password there is optional.
 - A GitHub account that is not connected, whose email already has an account here, is never linked automatically. The person is sent to the password sign-in, then to Settings to connect GitHub. This holds whether or not that existing account's email is verified.
 - A GitHub account with no verified primary email cannot sign up.
-- Settings refuses to connect a GitHub account that another user has connected, and refuses to disconnect GitHub while it is the account's only way to sign in (no password chosen). **Email me a link to set a password** on the same page sends the password-reset email.
+- Settings refuses to connect a GitHub account that another user has connected, and refuses to disconnect GitHub while it is the account's only way to sign in (no password chosen). **Email me a link to set a password** on the same page sends the signed-in user the password-reset email.
 
 The user access token from GitHub is used for `GET /user` and `GET /user/emails` during the callback and then dropped. It is never stored or logged.
 
@@ -18,7 +18,7 @@ Each round trip carries a random `state` kept in the browser's session for ten m
 ## Configuring an environment
 
 1. In the environment's GitHub App settings:
-   - add `https://<host>/auth/github/callback` to **Callback URL**;
+   - add a **Callback URL** of `https://<host>/auth/github/callback` for every host that serves the app, up to the App's limit of 10. The callback goes to the host the person started on, because the pending sign-in lives in that host's session cookie, and GitHub refuses a callback that is not registered exactly. For staging these are `activeagents.ai`, `www.activeagents.ai`, `staging.activeagents.ai` and each host in `lb_extra_managed_domains` (`terraform/environments/staging/dns.tfvars`). A development App takes `http://localhost:3000/auth/github/callback`;
    - under **Permissions → Account permissions**, set **Email addresses** to read-only;
    - generate a client secret.
 2. Give the app the App's client ID and secret, through either:
