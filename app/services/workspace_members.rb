@@ -47,10 +47,13 @@ class WorkspaceMembers
   end
 
   # Emails +invitation+ again with a new link. The previous link stops
-  # working. An expired invitation needs a free seat to be resent.
+  # working. Raises ActiveRecord::RecordInvalid for an accepted or revoked
+  # invitation, then Refused unless a seat is free, not counting the
+  # invitation itself.
   def resend!(invitation)
     account.with_lock do
       self.class.authorize!(account, actor)
+      raise ActiveRecord::RecordInvalid, invitation unless invitation.outstanding?
       ensure_seat_available!(except: invitation)
       invitation.queue_delivery!(actor: actor)
     end
