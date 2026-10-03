@@ -332,37 +332,15 @@ resource "google_compute_instance" "incus_host" {
       --data-file=/etc/incus/certs/client.key \
       --project=${var.project_id}
 
-    # Create cleanup cron job
-    cat > /etc/cron.d/incus-sandbox-cleanup << 'CRON'
-    */5 * * * * root /usr/local/bin/cleanup-sandboxes.sh
-    CRON
-
-    cat > /usr/local/bin/cleanup-sandboxes.sh << 'CLEANUP'
-    #!/bin/bash
-    PROJECT="agent-sandboxes"
-    MAX_AGE=900
-
-    incus project switch "$PROJECT" 2>/dev/null || exit 0
-
-    for container in $(incus list --format csv -c n 2>/dev/null | grep "^sandbox-"); do
-      created=$(incus config get "$container" user.created_at 2>/dev/null || echo "")
-      if [[ -n "$created" ]]; then
-        created_ts=$(date -d "$created" +%s 2>/dev/null || echo 0)
-        now_ts=$(date +%s)
-        age=$((now_ts - created_ts))
-
-        if [[ $age -gt $MAX_AGE ]]; then
-          incus stop "$container" --force 2>/dev/null
-          incus delete "$container" 2>/dev/null
-          logger "Cleaned up expired sandbox: $container (age: $age seconds)"
-        fi
-      fi
-    done
-
-    incus project switch default 2>/dev/null
-    CLEANUP
-
+    # Remove each sandbox once its session's user.expires_at has passed. The
+    # startup script runs only when the VM is created; a running host gets a
+    # newer reaper from scripts/build-app-runtime-image.sh.
+    echo '${base64encode(file("${path.module}/../../../scripts/incus/cleanup-sandboxes.sh"))}' | base64 -d > /usr/local/bin/cleanup-sandboxes.sh
     chmod +x /usr/local/bin/cleanup-sandboxes.sh
+
+    cat > /etc/cron.d/incus-sandbox-cleanup << 'CRON'
+    */5 * * * * root INCUS_PROJECT=agent-sandboxes /usr/local/bin/cleanup-sandboxes.sh
+    CRON
 
     # Enable and start services
     systemctl enable incus
