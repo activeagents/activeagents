@@ -1,150 +1,149 @@
-<%# demo_mode is set when loaded in an iframe to prevent infinite recursion %>
+<%# demo_mode was used by the previous hero's session-replay iframe; the
+    controller still passes it, so it stays a declared local. %>
 <% demo_mode ||= false %>
-
-<section>
-  <div class="heading hero centered">
-    <h1 class="balanced">
-      <span class="color-accent">Active Agent</span><br />
-      Build AI in Rails
-    </h1>
+<section class="lp-hero">
+  <div class="lp-hero-copy">
+    <span class="eyebrow lp-eyebrow"><span class="lp-dot"></span>Framework &middot; Dashboard &middot; Platform</span>
+    <h1 class="balanced">Build AI in Rails.<br /><span class="lp-accent-line">See everything it does.</span></h1>
     <p class="paragraph l secondary balanced">
-      Production observability for Rails AI agents — traces, evaluations,
-      costs, and team workspaces, built on the open-source
-      <%= link_to "Active Agent framework", "https://activeagent.dev" %>.
-      Point your telemetry at us and ship.
+      Active Agent is the framework: agents are controllers, prompts are views, tools are methods.
+      Action Agent is the dashboard that mounts beside it, so every generation lands as a trace in
+      your own app. Point the same telemetry at activeagents.ai when the team needs it in production.
     </p>
-    <div class="button-group margin-paragraph centered">
-      <%= link_to "Start Free", "/registration/new", class: "button primary" %>
-      <%= link_to "Open Source", "https://activeagent.dev", class: "button tertiary" %>
+    <div class="button-group centered">
+      <a class="button primary" href="/registration/new">Start free</a>
+      <a class="button tertiary" href="https://docs.activeagents.ai/getting_started" target="_blank" rel="noopener noreferrer">Read the docs</a>
     </div>
+    <div class="lp-install">
+      <code><span class="lp-p">$</span> bundle add activeagent actionagent</code>
+      <span class="lp-sep">&middot;</span>
+      <code><span class="lp-p">$</span> rails g action_agent:install &amp;&amp; rails db:migrate</code>
+    </div>
+    <ul class="lp-trust" aria-label="At a glance">
+      <li><span class="lp-g">*</span>MIT licensed</li>
+      <li><span class="lp-g">#</span>Rails 7.2 &middot; 8.0 &middot; 8.1</li>
+      <li><span class="lp-g">@</span>Ruby 3.2+</li>
+      <li><span class="lp-g">{}</span>10 providers</li>
+      <li><span class="lp-g">-&gt;</span>Telemetry built in</li>
+    </ul>
   </div>
 
-  <% unless demo_mode %>
-  <!-- Session Replay Hero - Real Lander Demo -->
-  <div class="session-replay-hero"
-       data-controller="session-replay"
-       data-session-replay-handoff-enabled-value="true"
-       data-session-replay-handoff-step-value="4"
-       data-session-replay-demo-mode-value="iframe"
-       data-session-replay-lander-url-value="<%= request.base_url %>">
-
-    <!-- Browser + Sidebar Row -->
-    <div class="session-replay-hero-main">
-      <div class="replay-browser-hero">
-      <div class="browser-chrome">
-        <div class="browser-dots">
-          <span class="dot"></span><span class="dot"></span><span class="dot"></span>
-        </div>
-        <div class="browser-address">
-          <i class="fa-solid fa-lock"></i>
-          <span class="address-text" data-session-replay-target="addressBar">activeagents.ai</span>
-        </div>
-        <div class="cassette-badge" data-session-replay-target="cassetteBadge">
-          <i class="fa-solid fa-circle recording"></i>
-          <span>REC</span>
-        </div>
+  <div class="lp-stage" aria-label="An agent class and the trace it produces">
+    <div class="lp-pane code">
+      <div class="lp-pane-head">
+        <span class="lp-glyph accent">@</span>
+        <span class="lp-title">app/agents/support_agent.rb</span>
+        <span class="lp-right">ruby</span>
       </div>
+      <div class="lp-pane-body">
+<pre class="lp-code"><code><span class="k">class</span> <span class="c">SupportAgent</span> &lt; <span class="c">ApplicationAgent</span>
+  <span class="m">generate_with</span> <span class="y">:anthropic</span>, <span class="y">model:</span> <span class="s">"claude-sonnet-4-5"</span>
 
-      <div class="browser-viewport-hero"
-           data-session-replay-target="viewport"
-           data-action="mouseenter->session-replay#pauseOnHover mouseleave->session-replay#resumeOnLeave">
+  <span class="cm"># current_user is whoever made the call</span>
+  <span class="m">before_action</span> <span class="y">:authorize_tickets!</span>
+  <span class="m">delegate_to</span> <span class="c">RefundAgent</span>, <span class="y">budget:</span> { <span class="y">max_calls:</span> <span class="n">1</span> }
 
-        <%# Iframe showing the real lander (scaled down) %>
-        <div class="lander-iframe-container" data-session-replay-target="iframeContainer">
-          <iframe
-            src="<%= request.base_url %>/?demo_mode=true"
-            data-session-replay-target="landerIframe"
-            class="lander-iframe"
-            sandbox="allow-same-origin allow-scripts allow-forms"
-            loading="lazy"
-            title="Active Agent Lander Preview"></iframe>
+  <span class="k">def</span> <span class="m">reply</span>
+    <span class="m">prompt</span>(
+      <span class="y">message:</span> params[<span class="y">:message</span>],
+      <span class="y">tools:</span> <span class="c">TicketTools</span>.tool_definitions,
+      <span class="y">mcps:</span> [ { <span class="y">url:</span> <span class="s">"https://mcp.stripe.com"</span> } ]
+    )
+  <span class="k">end</span>
+
+  <span class="k">def</span> <span class="m">find_tickets</span>(**filters)
+    <span class="c">TicketTools</span>.call(<span class="s">"find_tickets"</span>,
+                     <span class="y">actor:</span> current_user, **filters)
+  <span class="k">end</span>
+<span class="k">end</span>
+
+<span class="cm"># system prompt: app/views/agents/support/instructions.md</span>
+<span class="c">SupportAgent</span>.as(current_user)
+            .with(<span class="y">message:</span> <span class="s">"Where is my order 4821?"</span>)
+            .reply.generate_now</code></pre>
+      </div>
+    </div>
+
+    <div class="lp-pane">
+      <div class="lp-pane-head">
+        <span class="lp-glyph accent">-&gt;</span>
+        <span class="lp-title">Traces &middot; SupportAgent#reply</span>
+        <span class="lp-right"><span class="lp-live">live</span></span>
+      </div>
+      <div class="lp-pane-body">
+        <div class="lp-rows">
+          <div class="lp-row open">
+            <span class="lp-chev">&gt;</span>
+            <span class="lp-glyph">-&gt;</span>
+            <span class="lp-id">tr_9f2e41</span>
+            <span class="lp-name">SupportAgent#reply</span>
+            <span class="lp-meta"><span>2.4s</span><span>~$0.0182</span></span>
+            <span class="lp-badge ok">200</span>
+          </div>
         </div>
 
-        <%# Agent Cursor (overlaid on iframe) %>
-        <div class="agent-cursor" data-session-replay-target="cursor">
-          <svg class="cursor-icon" viewBox="0 0 24 24" fill="currentColor">
-            <path d="M4 4l16 8-7 2-2 7z"/>
-          </svg>
-          <span class="cursor-label">Agent</span>
+        <div class="lp-wf" aria-label="Span waterfall">
+          <div class="lp-wf-scale"><span>0ms</span><span>600ms</span><span>1.2s</span><span>1.8s</span><span>2.4s</span></div>
+          <div class="lp-wf-row">
+            <span class="lp-wf-label"><i class="lp-sp sp-root"></i>SupportAgent#reply</span>
+            <span class="lp-wf-track"><span class="lp-wf-bar sp-root" style="left: 0%; width: 100%"></span></span>
+            <span class="lp-wf-dur">2.4s</span>
+          </div>
+          <div class="lp-wf-row d1">
+            <span class="lp-wf-label"><span class="lp-tree">&#9500;</span><i class="lp-sp sp-prompt"></i>prompt</span>
+            <span class="lp-wf-track"><span class="lp-wf-bar sp-prompt" style="left: 0.5%; width: 2%"></span></span>
+            <span class="lp-wf-dur">38ms</span>
+          </div>
+          <div class="lp-wf-row d1">
+            <span class="lp-wf-label"><span class="lp-tree">&#9500;</span><i class="lp-sp sp-llm"></i>anthropic.messages</span>
+            <span class="lp-wf-track"><span class="lp-wf-bar sp-llm" style="left: 3%; width: 45%"></span></span>
+            <span class="lp-wf-dur">1.1s</span>
+          </div>
+          <div class="lp-wf-row d2">
+            <span class="lp-wf-label"><span class="lp-tree">&#9492;</span><i class="lp-sp sp-thinking"></i>thinking</span>
+            <span class="lp-wf-track"><span class="lp-wf-bar sp-thinking" style="left: 3%; width: 14%"></span></span>
+            <span class="lp-wf-dur">340ms</span>
+          </div>
+          <div class="lp-wf-row d1">
+            <span class="lp-wf-label"><span class="lp-tree">&#9500;</span><i class="lp-sp sp-tool"></i>find_tickets</span>
+            <span class="lp-wf-track"><span class="lp-wf-bar sp-tool" style="left: 49%; width: 9%"></span></span>
+            <span class="lp-wf-dur">212ms</span>
+          </div>
+          <div class="lp-wf-row d1">
+            <span class="lp-wf-label"><span class="lp-tree">&#9500;</span><i class="lp-sp sp-llm"></i>anthropic.messages</span>
+            <span class="lp-wf-track"><span class="lp-wf-bar sp-llm" style="left: 59%; width: 38%"></span></span>
+            <span class="lp-wf-dur">0.9s</span>
+          </div>
+          <div class="lp-wf-row d1">
+            <span class="lp-wf-label"><span class="lp-tree">&#9492;</span><i class="lp-sp sp-response"></i>response</span>
+            <span class="lp-wf-track"><span class="lp-wf-bar sp-response" style="left: 98%; width: 1.5%"></span></span>
+            <span class="lp-wf-dur">21ms</span>
+          </div>
+          <div class="lp-wf-foot">
+            <span><b>T</b> <span class="lp-tin">&darr; 4,812</span> <span class="lp-tout">&uarr; 388</span> &middot; 1,240 cached &middot; 612 thinking</span>
+            <span><b>@</b> user/4821</span>
+            <span><b>v7</b> 3f9c1a</span>
+            <span><b>finish</b> stop</span>
+          </div>
         </div>
 
-        <%# Handoff Overlay %>
-        <div class="handoff-overlay" data-session-replay-target="handoffOverlay" style="display: none;">
-          <div class="handoff-prompt">
-            <div class="handoff-icon">
-              <i class="fa-solid fa-hand"></i>
-            </div>
-            <h3>Your turn!</h3>
-            <p>Take over and sign up for free</p>
-            <button class="handoff-btn" data-action="click->session-replay#takeOverSignup">
-              <i class="fa-solid fa-hand-pointer"></i> Take Over
-            </button>
-            <p class="handoff-hint">You'll control the demo above</p>
+        <div class="lp-ctx">
+          <div class="lp-ctx-head"><b>Context at call</b><span>41.7k / 200k &middot; 21%</span></div>
+          <div class="lp-ctx-bar">
+            <span class="c1" style="width: 9.1%"></span><span class="c2" style="width: 4.7%"></span>
+            <span class="c3" style="width: 0.9%"></span><span class="c4" style="width: 1.1%"></span><span class="c5" style="width: 5.1%"></span>
+          </div>
+          <div class="lp-ctx-legend">
+            <span><i style="background:#1d4ed8"></i>messages 18.2k</span>
+            <span><i style="background:#3b82f6"></i>tool results 9.4k</span>
+            <span><i style="background:#60a5fa"></i>instructions 1.8k</span>
+            <span><i style="background:#93c5fd"></i>tool schemas 2.1k</span>
+            <span><i style="background:#bfdbfe"></i>MCP schemas 10.2k</span>
           </div>
         </div>
       </div>
     </div>
-
-    <div class="replay-sidebar-hero">
-      <div class="sidebar-header">
-        <span class="cassette-icon"><i class="fa-solid fa-tape"></i></span>
-        <span class="cassette-name">signup_demo.vcr</span>
-      </div>
-      <div class="action-list" data-session-replay-target="actionList">
-        <%# Actions populated by Stimulus controller %>
-      </div>
-
-      <%# Trace Log %>
-      <div class="trace-log" data-session-replay-target="traceLog" style="display: none;">
-        <div class="trace-log-header">
-          <i class="fa-solid fa-wave-square"></i> Trace Log
-        </div>
-        <div class="trace-entries"></div>
-      </div>
-    </div>
-    </div><!-- /.session-replay-hero-main -->
-
-    <div class="replay-controls-hero">
-      <div class="replay-timeline"
-           data-session-replay-target="timeline"
-           data-action="click->session-replay#seekTimeline">
-        <div class="timeline-track">
-          <div class="timeline-progress" data-session-replay-target="timelineProgress" style="width: 0%;"></div>
-          <div class="timeline-snapshots">
-            <span class="snapshot-marker" style="left: 5%;" title="Page load"
-                  data-action="click->session-replay#jumpToSnapshot" data-step="0"><i class="fa-solid fa-camera"></i></span>
-            <span class="snapshot-marker" style="left: 50%;" title="Newsletter section"
-                  data-action="click->session-replay#jumpToSnapshot" data-step="3"><i class="fa-solid fa-camera"></i></span>
-            <span class="snapshot-marker pending" style="left: 95%;" title="Subscribed"
-                  data-action="click->session-replay#jumpToSnapshot" data-step="5"><i class="fa-solid fa-camera"></i></span>
-          </div>
-          <div class="timeline-playhead" data-session-replay-target="playhead" style="left: 0%;"></div>
-        </div>
-      </div>
-      <div class="replay-buttons">
-        <button class="replay-btn" data-action="click->session-replay#stepBackward" title="Previous step">
-          <i class="fa-solid fa-backward-step"></i>
-        </button>
-        <button class="replay-btn play-btn" data-session-replay-target="playPauseBtn" data-action="click->session-replay#togglePlayPause" title="Play/Pause">
-          <i class="fa-solid fa-pause" data-session-replay-target="playPauseIcon"></i>
-        </button>
-        <button class="replay-btn" data-action="click->session-replay#stepForward" title="Next step">
-          <i class="fa-solid fa-forward-step"></i>
-        </button>
-        <button class="replay-btn speed-btn" data-session-replay-target="speedBtn" data-action="click->session-replay#cycleSpeed" title="Playback speed">
-          <span data-session-replay-target="speedDisplay">1x</span>
-        </button>
-        <button class="replay-btn restart-btn" data-action="click->session-replay#restart" title="Restart">
-          <i class="fa-solid fa-rotate-left"></i>
-        </button>
-        <span class="replay-time" data-session-replay-target="stepCounter">Step 1/6</span>
-      </div>
-    </div>
   </div>
-  <% end %><%# unless demo_mode %>
 
-  <a href="#features" class="scroll-indicator">
-    <span>See what's included</span>
-    <i class="fa-solid fa-chevron-down chevron"></i>
-  </a>
+  <div class="lp-stage-link"><span class="lp-line"></span><span>one class &middot; one trace &middot; zero config</span><span class="lp-line"></span></div>
 </section>

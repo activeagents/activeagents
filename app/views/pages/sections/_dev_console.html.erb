@@ -12,9 +12,10 @@
     <div class="feature-card">
       <div class="feature-heading">
         <h3 class="color-accent no-top-margin">One command</h3>
-        <p class="paragraph s secondary">Install the console and its migrations, then flip local telemetry on.</p>
+        <p class="paragraph s secondary">Add the <code>actionagent</code> gem, run its install generator, then flip local telemetry on.</p>
       </div>
-      <pre class="code-block"><code>$ rails generate active_agent:dashboard:install
+      <pre class="code-block"><code>$ bundle add actionagent
+$ rails generate action_agent:install
 $ rails db:migrate
 
 # config/active_agent.yml
@@ -26,10 +27,11 @@ telemetry:
       <div class="feature-heading">
         <h3 class="color-accent no-top-margin">Everything a generation did</h3>
         <p class="paragraph s secondary">
-          Open <code>/active_agent</code> and every prompt shows up as a
+          Open <code>/activeagents</code> and every prompt shows up as a
           trace: prompt &rarr; LLM &rarr; tool spans with timings, token
-          counts (input / output / thinking), provider and model. Metrics
-          roll up per agent over the last 24 hours.
+          counts (input / output / cached / thinking), provider, model and
+          the agent release that produced it. Metrics roll up per agent
+          over 1h, 24h or 7d.
         </p>
         <p class="paragraph s secondary">
           For production — retention, evaluations, cost estimates, team

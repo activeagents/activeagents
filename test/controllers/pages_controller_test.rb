@@ -26,6 +26,9 @@ class PagesControllerTest < ActionDispatch::IntegrationTest
     get "/"
 
     assert_response :success
+    assert_match "See everything it does", response.body             # hero
+    assert_match "Three gems. One wire format.", response.body       # pipeline
+    assert_match "See inside every agent decision", response.body    # dashboard
     assert_match "Production observability for Rails AI agents", response.body
     assert_match "Pro Platform", response.body
     assert_match "https://activeagent.dev", response.body     # cross-link to OSS

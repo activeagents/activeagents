@@ -9,7 +9,12 @@
     <div>
       <div class="link-list">
         <%= link_to "Documentation", "https://docs.activeagents.ai", class: "ui s" %>
-        <%= link_to "Gems", "#gems", class: "ui s" %>
+        <% if defined?(oss_site?) && oss_site? %>
+          <%= link_to "Gems", "#gems", class: "ui s" %>
+        <% else %>
+          <%= link_to "Pricing", "#pricing", class: "ui s" %>
+        <% end %>
+        <%= link_to "Changelog", "https://github.com/activeagents/activeagent/blob/main/CHANGELOG.md", class: "ui s", target: "_blank" %>
         <%= link_to "GitHub", "https://github.com/activeagents/activeagent", class: "ui s", target: "_blank" %>
         <% if defined?(oss_site?) && oss_site? %>
           <%= link_to "Platform (activeagents.ai)", "https://activeagents.ai", class: "ui s" %>
