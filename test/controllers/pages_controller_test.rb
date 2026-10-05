@@ -11,6 +11,7 @@ class PagesControllerTest < ActionDispatch::IntegrationTest
     assert_match "provider-agnostic", response.body           # OSS hero
     assert_match "See your agents while you build", response.body # dev console section
     assert_match "Free, and free forever.", response.body     # the gems
+    assert_match "Release notes, in your inbox.", response.body # newsletter signup
     assert_match "Agents are controllers", response.body      # shared framework section
     assert_no_match(/Pro Platform/, response.body)            # no hosted pricing
     assert_match "https://activeagents.ai", response.body     # cross-link to commercial

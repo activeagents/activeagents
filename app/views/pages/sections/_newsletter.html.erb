@@ -1,102 +1,24 @@
-<section class="newsletter-section" id="newsletter">
-  <div class="heading centered">
-    <h2>Stay up to date</h2>
-    <p class="paragraph l secondary balanced">
-      Get the latest news, updates, and releases delivered to your inbox.
+<section id="newsletter" class="lp-anchor">
+  <div class="lp-cta">
+    <span class="eyebrow lp-eyebrow">Newsletter</span>
+    <h2 class="no-top-margin balanced">Release notes, in your inbox.</h2>
+    <p class="paragraph m secondary balanced">
+      One email per release: what changed in the gems and the dashboard, and what to run when you upgrade.
+      Double opt-in, unsubscribe in any issue.
     </p>
-  </div>
-
-  <div class="newsletter-form-container">
-    <form
-      action="/newsletter_subscription"
-      method="POST"
-      id="newsletter-form"
-      class="newsletter-form"
-    >
-      <%= hidden_field_tag :authenticity_token, form_authenticity_token %>
-      <div class="newsletter-input-group">
-        <input
-          type="email"
-          name="email_address"
-          placeholder="Enter your email"
-          required
-          class="newsletter-input"
-          id="newsletter-email"
-        >
-        <button type="submit" class="button primary newsletter-submit">
-          <span class="submit-text">Subscribe</span>
-          <span class="submit-loading" style="display: none;">
-            <i class="fa-solid fa-spinner fa-spin"></i>
-          </span>
-        </button>
-      </div>
-    </form>
-
-    <div id="newsletter-response" class="newsletter-response"></div>
-
-    <p class="paragraph s tertiary margin-top-m">
-      No spam. Unsubscribe anytime.
-    </p>
+    <%= form_with url: newsletter_subscription_path, method: :post, id: "newsletter-form", class: "lp-form",
+          data: { turbo: false, controller: "newsletter", action: "submit->newsletter#submit" } do |f| %>
+      <%= f.email_field :email_address,
+            placeholder: "you@example.com",
+            required: true,
+            autocomplete: "email",
+            class: "lp-input",
+            id: "newsletter-email",
+            aria: { label: "Email address" },
+            data: { newsletter_target: "email" } %>
+      <button type="submit" class="button primary" data-newsletter-target="submit">Subscribe</button>
+      <p class="lp-form-response lp-mono" data-newsletter-target="response" aria-live="polite"></p>
+    <% end %>
+    <p class="paragraph s tertiary" style="margin: 0;">No spam. Unsubscribe anytime.</p>
   </div>
 </section>
-
-<script>
-document.addEventListener('DOMContentLoaded', function() {
-  const form = document.getElementById('newsletter-form');
-  const responseDiv = document.getElementById('newsletter-response');
-  const submitBtn = form.querySelector('.newsletter-submit');
-  const submitText = submitBtn.querySelector('.submit-text');
-  const submitLoading = submitBtn.querySelector('.submit-loading');
-
-  form.addEventListener('submit', function(e) {
-    e.preventDefault();
-
-    const email = document.getElementById('newsletter-email').value;
-    if (!email) return;
-
-    // Show loading state
-    submitText.style.display = 'none';
-    submitLoading.style.display = 'inline';
-    submitBtn.disabled = true;
-    responseDiv.innerHTML = '';
-    responseDiv.className = 'newsletter-response';
-
-    fetch('/newsletter_subscription', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Accept': 'application/json',
-        'X-CSRF-Token': document.querySelector('meta[name="csrf-token"]')?.content
-      },
-      body: JSON.stringify({ email_address: email, source: 'newsletter' })
-    })
-    .then(function(response) {
-      return response.json().then(function(data) {
-        return { ok: response.ok, data: data };
-      });
-    })
-    .then(function(result) {
-      submitText.style.display = 'inline';
-      submitLoading.style.display = 'none';
-      submitBtn.disabled = false;
-
-      if (result.ok || result.data.success) {
-        responseDiv.innerHTML = '<i class="fa-solid fa-check"></i> Check your email to confirm your newsletter subscription.';
-        responseDiv.className = 'newsletter-response success';
-        form.reset();
-      } else {
-        var msg = result.data.error || 'An error occurred. Please try again.';
-        responseDiv.textContent = msg;
-        responseDiv.className = 'newsletter-response error';
-      }
-    })
-    .catch(function() {
-      submitText.style.display = 'inline';
-      submitLoading.style.display = 'none';
-      submitBtn.disabled = false;
-      responseDiv.innerHTML = '<i class="fa-solid fa-exclamation-circle"></i> Connection error. Please try again.';
-      responseDiv.className = 'newsletter-response error';
-    });
-  });
-});
-</script>

@@ -1832,3 +1832,81 @@
   font-style: normal;
   font-size: var(--font-size-m);
 }
+
+/* Email-only forms (newsletter) */
+
+.lp-form {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 8px;
+  width: 100%;
+  max-width: 520px;
+  margin-top: 8px;
+}
+
+.lp-input {
+  flex: 1 1 240px;
+  min-width: 0;
+  padding: 11px 14px;
+  border: 1px solid var(--color-border-level-3);
+  border-radius: var(--radius-m);
+  background: var(--color-background);
+  color: var(--color-text-primary);
+  font-family: var(--font-text);
+  font-size: var(--font-size-s);
+  line-height: var(--line-height-ui-m);
+}
+
+.lp-input::placeholder {
+  color: var(--color-text-tertiary);
+}
+
+.lp-input:focus {
+  outline: none;
+  box-shadow: 0 0 0 2px var(--color-accent);
+  border-color: transparent;
+}
+
+.lp-form .button[aria-busy="true"] {
+  opacity: 0.7;
+  cursor: progress;
+}
+
+.lp-form-response {
+  flex-basis: 100%;
+  margin: 0;
+  min-height: 18px;
+  font-size: var(--lp-mono-xs);
+  color: var(--color-text-secondary);
+  text-align: center;
+}
+
+.lp-form-response.success { color: var(--lp-success-text); }
+.lp-form-response.error { color: var(--lp-error-text); }
+
+.lp-form-hero {
+  margin-top: 4px;
+}
+
+.lp-form-hero .lp-input {
+  font-size: var(--font-size-m);
+  padding: 11px 16px;
+}
+
+.lp-hero-links {
+  margin: 0;
+  font-size: var(--font-size-s);
+  line-height: var(--line-height-paragraph-s);
+  color: var(--color-text-secondary);
+  text-align: center;
+}
+
+.lp-hero-links a {
+  color: var(--color-text-primary);
+  text-decoration-color: var(--color-border-level-3);
+}
+
+.lp-hero-links a:hover {
+  color: var(--color-accent);
+}

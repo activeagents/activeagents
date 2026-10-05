@@ -6,10 +6,25 @@
       The open-source framework for AI agents in Rails: actions, callbacks and views you already know,
       provider-agnostic, with a dashboard engine that mounts beside your app. MIT licensed, free forever.
     </p>
-    <div class="button-group centered">
-      <a class="button primary" href="https://docs.activeagents.ai/getting_started" target="_blank" rel="noopener noreferrer">Get started</a>
-      <a class="button tertiary" href="https://github.com/activeagents/activeagent" target="_blank" rel="noopener noreferrer">Star on GitHub</a>
-    </div>
+    <%= form_with url: newsletter_subscription_path, method: :post, id: "hero-newsletter", class: "lp-form lp-form-hero",
+          data: { turbo: false, controller: "newsletter", action: "submit->newsletter#submit" } do |f| %>
+      <%= f.email_field :email_address,
+            placeholder: "you@example.com",
+            required: true,
+            autocomplete: "email",
+            class: "lp-input",
+            id: "hero-newsletter-email",
+            aria: { label: "Email address" },
+            data: { newsletter_target: "email" } %>
+      <button type="submit" class="button primary" data-newsletter-target="submit">Get release notes</button>
+      <p class="lp-form-response lp-mono" data-newsletter-target="response" aria-live="polite"></p>
+    <% end %>
+    <p class="lp-hero-links">
+      One email per release, double opt-in.
+      <a href="https://docs.activeagents.ai/getting_started" target="_blank" rel="noopener noreferrer">Get started with the docs</a>
+      <span class="lp-muted">&middot;</span>
+      <a href="https://github.com/activeagents/activeagent" target="_blank" rel="noopener noreferrer">Star on GitHub</a>
+    </p>
     <div class="lp-install">
       <code><span class="lp-p">$</span> bundle add activeagent</code>
       <span class="lp-sep">&middot;</span>

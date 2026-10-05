@@ -31,7 +31,9 @@ Platform instead.
 - Body: Active Agent is the framework (agents are controllers, prompts are views, tools are
   methods). Action Agent is the dashboard that mounts beside it. Point the same telemetry at
   activeagents.ai for production.
-- CTAs: Start free (`/registration/new`), Read the docs.
+- Above the fold: the account signup form (email field + Start free), posted to
+  `registration_path` by the `signup` Stimulus controller, then "Free workspace, no credit card"
+  with links to the docs and GitHub.
 - Install strip: `bundle add activeagent actionagent` · `rails g action_agent:install && rails db:migrate`
 - Trust chips: MIT licensed · Rails 7.2 / 8.0 / 8.1 · Ruby 3.2+ · 10 providers · Telemetry built in
 - Stage: `app/agents/support_agent.rb` (generate_with, before_action, delegate_to, schema
@@ -119,9 +121,11 @@ other site, plus GitHub, Discord, Twitter and Bluesky.
 Header: Framework · Dev Console · Gems · Platform (activeagents.ai) · Docs.
 
 1. **Hero** (`_hero_oss.html.erb`). Eyebrow `OPEN SOURCE · MIT`. "Build AI in Rails. / Agents
-   are controllers." Body keeps the phrase "provider-agnostic". CTAs: Get started (docs), Star
-   on GitHub. Install strip `bundle add activeagent` · `rails generate active_agent:install`.
-   The shared stage follows, then a one-line pointer to activeagents.ai.
+   are controllers." Body keeps the phrase "provider-agnostic". Above the fold: the newsletter
+   signup (email field + Get release notes), posted to `newsletter_subscription_path` by the
+   `newsletter` Stimulus controller, then links to the docs and GitHub. Install strip
+   `bundle add activeagent` · `rails generate active_agent:install`. The shared stage follows,
+   then a one-line pointer to activeagents.ai.
 2. **Pipeline** and **Framework**: shared with the commercial lander.
 3. **Dev console** (`_dev_console.html.erb`, id `dev-console`). "See your agents while you
    build": the `actionagent` install block and the shared dashboard mockups, with a footnote on
@@ -130,8 +134,12 @@ Header: Framework · Dev Console · Gems · Platform (activeagents.ai) · Docs.
    `activeagent`, `actionagent`, `solid_agent`, `activeagents-telemetry`, each with its install
    chips and a docs link, then a wide "Need it hosted?" card pointing at the platform. No prices
    on this host: `PagesControllerTest` asserts "Pro Platform" never appears here.
-5. **FAQ** (`_faq_oss.html.erb`) and **CTA** (`_cta_oss.html.erb`, "Ship your first agent this
-   afternoon."). No signup form on the OSS host.
+5. **Newsletter** (`_newsletter.html.erb`, id `newsletter`). "Release notes, in your inbox." An
+   email field posted to `/newsletter_subscription`: the server stores the consent, sends a
+   confirmation email, and `SyncNewsletterToResendJob` adds the contact to the Resend newsletter
+   audience once confirmed. No account is created on this host.
+6. **FAQ** (`_faq_oss.html.erb`) and **CTA** (`_cta_oss.html.erb`, "Ship your first agent this
+   afternoon.").
 
 ---
 
