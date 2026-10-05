@@ -10,10 +10,28 @@
       Action Agent is the dashboard that mounts beside it, so every generation lands as a trace in
       your own app. Point the same telemetry at activeagents.ai when the team needs it in production.
     </p>
-    <div class="button-group centered">
-      <a class="button primary" href="/registration/new">Start free</a>
-      <a class="button tertiary" href="https://docs.activeagents.ai/getting_started" target="_blank" rel="noopener noreferrer">Read the docs</a>
-    </div>
+    <%= form_with url: registration_path, method: :post, id: "hero-signup", class: "lp-form lp-form-hero",
+          data: { turbo: false, controller: "signup" } do |f| %>
+      <%= f.email_field :email_address,
+            placeholder: "you@company.com",
+            required: true,
+            autocomplete: "email",
+            class: "lp-input",
+            id: "hero-signup-email",
+            aria: { label: "Email address" },
+            data: { signup_target: "email" } %>
+      <button type="submit" class="button primary" data-signup-target="submit">
+        <span data-signup-target="submitText">Start free</span>
+        <span data-signup-target="submitLoading" style="display: none;">Sending&hellip;</span>
+      </button>
+      <p class="lp-form-response lp-mono" data-signup-target="response" data-response-class="lp-form-response lp-mono" aria-live="polite"></p>
+    <% end %>
+    <p class="lp-hero-links">
+      Free workspace, no credit card.
+      <a href="https://docs.activeagents.ai/getting_started" target="_blank" rel="noopener noreferrer">Read the docs</a>
+      <span class="lp-muted">&middot;</span>
+      <a href="https://github.com/activeagents/activeagent" target="_blank" rel="noopener noreferrer">GitHub</a>
+    </p>
     <div class="lp-install">
       <code><span class="lp-p">$</span> bundle add activeagent actionagent</code>
       <span class="lp-sep">&middot;</span>
