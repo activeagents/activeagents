@@ -1,441 +1,120 @@
 # Active Agent Landing Page Content
 
-This document outlines all sections of the landing page for content editing.
+The commercial lander (activeagents.ai / activeagent.pro) is `app/views/pages/home.html.erb`;
+it renders one partial per section from `app/views/pages/sections/`. The open-source lander
+on activeagent.dev is `home_oss.html.erb` and shares the framework section. Styles for the
+sections live in `app/assets/stylesheets/landing/lander.css` (namespaced `lp-`), on top of
+the theme tokens and primitives in `base.css`.
+
+The product mockups are hand-built HTML in the dashboard's own grammar (JetBrains Mono, the
+TUI glyphs `@ -> # = <> [] {} [>]`, span colors, soft status badges), not screenshots. Keep
+the numbers in them plausible and consistent with the dashboard: fractions carry their percent
+(`14/16 · 88%`), estimated money carries a `~`, and tokens read `↓ in ↑ out`.
+
+Every claim below is drawn from the gem's docs and CHANGELOG (activeagent / actionagent 1.8).
+When a feature changes, change the copy here and in the partial.
 
 ---
 
-## 1. Header Navigation
+## 1. Header (`layouts/landing/_header.html.erb`)
 
-**Logo:** Active Agent (with icon)
+Logo, then Framework · Dashboard · Platform · Pricing · Docs. GitHub stars, theme toggle,
+Sign In, and a Start Free button in the mobile menu. The OSS host shows Dev Console · Gems ·
+Platform instead.
 
-**Nav Links:**
-- Gems
-- Services
-- Hosting
-- Docs (external link to docs.activeagents.ai)
+## 2. Hero (`_hero.html.erb`)
 
-**Actions:**
-- Discord icon link
-- GitHub Stars badge
-- Dark/Light mode toggle
-- Sign In button
+- Eyebrow: `FRAMEWORK · DASHBOARD · PLATFORM`
+- Headline: **Build AI in Rails. / See everything it does.**
+- Body: Active Agent is the framework (agents are controllers, prompts are views, tools are
+  methods). Action Agent is the dashboard that mounts beside it. Point the same telemetry at
+  activeagents.ai for production.
+- CTAs: Start free (`/registration/new`), Read the docs.
+- Install strip: `bundle add activeagent actionagent` · `rails g action_agent:install && rails db:migrate`
+- Trust chips: MIT licensed · Rails 7.2 / 8.0 / 8.1 · Ruby 3.2+ · 10 providers · Telemetry built in
+- Stage: `app/agents/support_agent.rb` (generate_with, before_action, delegate_to, schema
+  tools, an MCP server, `as(current_user)`) beside the trace it produces (span waterfall,
+  tokens, caller, release, context meter).
 
----
+## 3. How it fits together (`_pipeline.html.erb`)
 
-## 2. Hero Section
+**Three gems. One wire format.** `activeagent` (framework, MIT) → `local_storage: true` →
+`actionagent` (dashboard, MIT) → `endpoint: api.activeagents.ai` → activeagents.ai (platform,
+hosted). Footnote for `solid_agent` and `activeagents-telemetry`.
 
-**Badge:** `FRAMEWORK + MANAGED SERVICES`
+## 4. The framework (`_features.html.erb`, id `framework`)
 
-**Headline:**
-```
-AI Agents in Rails.
-One Framework.
-```
+**Agents are controllers.** Two-column grid of code cards:
 
-**Subheadline:**
-```
-Build, observe, evaluate, and scale AI Agents with a Rails framework
-and managed services designed for AI-first applications.
-```
+1. Agents are controllers — actions, `before_action`, `generate_now` / `generate_later`
+2. Action Prompt — `app/views/agents/<name>/instructions.md`, `<action>.md.erb`, `<action>.json`
+3. Any provider — OpenAI, Anthropic, Gemini, Bedrock, Azure, Ollama, OpenRouter, Requesty, DeepSeek, RubyLLM
+4. Tools from your schema — `ActiveAgent::SchemaTools`, `filterable`, `returns`, `scope_by_policy`
+5. MCP servers — remote `url:` and local `command:` servers
+6. Delegation — `delegation` contracts, `delegate_to` with a budget
+7. Evaluations as tests (wide) — `ActiveAgent::Evals::Runner`, scenarios, models, report
 
-**CTA Buttons:**
-- Getting Started (primary) → activeagents.ai/dashboard
-- Doc → docs.activeagents.ai/getting_started
-- GitHub (secondary) → github.com/activeagents/activeagent
+Chips: structured output, streaming, retries, callbacks, `current_user`, releases, embeddings,
+mock provider, token usage and cost.
 
-**Trust Badges:**
-- Open Source badge (with GitHub icon)
-- Rails Compatible badge (with Rails logo)
-- Production Ready badge (with shield icon)
+## 5. The dashboard (`_dashboard.html.erb`, id `dashboard`)
 
----
+**See inside every agent decision.** Install block, then the bento:
 
-## 3. What's in the Box (Framework Features)
+- Traces (list with release chips and status)
+- Metrics (five golden signals, requests chart with a deploy marker and an incident marker)
+- Evaluations (scenario × model matrix, judge's pick, costs, What to fix card)
+- Interactions (transcript with a tool call, context meter)
+- Run Agent (generative UI blocks, composer)
+- MCP server (`<mount>/mcp`: `run_<agent>`, schema tools, `evaluations_run`, `traces_search`)
+- Integrations (GitHub connection, checkout sandbox, Claude Code or Codex session, suite re-run, diff)
+- Also on the sidebar: Agents, Tools and MCP Services, Session Replay, Ask ActiveAgents
 
-**Section Title:** `WHAT'S IN THE BOX`
+## 6. The platform (`_platform.html.erb`, id `platform`)
 
-**Headline:**
-```
-Develop AI Agents with Rails Conventions
-```
+**Same engine. Run for you.** The development vs production YAML, then: workspaces and seats,
+hosted ingestion (`/v1/traces`, `/v1/evaluations`), evaluation reports from CI, retention and
+quotas by plan, your agents as an MCP server, managed sandboxes. Footnote links to the
+self-hosted guide.
 
-**Subheadline:**
-```
-Active Agent brings a familiar Rails approach to building AI agents,
-with powerful conventions and integrations baked in.
-```
+## 7. Pricing (`_pricing.html.erb`, id `pricing`)
 
-### Feature Cards:
+**The gems are free. The platform scales with you.** Plans mirror `db/seeds.rb` and
+`Account::USAGE_LIMITS` / `TRACE_LIMITS` / `TRACE_RETENTION`:
 
-#### Card 1: Agent Definition DSL
-```
-Define agents with a clean, Rails-like DSL that handles prompts,
-tools, and model configuration in one place.
-```
-Code example shown
+| Plan | Price | Seats / workspaces | Traces / mo | Retention | Executions / mo |
+|---|---|---|---|---|---|
+| Free | $0 | 1 / 1 | 250 | 3 days | 25 |
+| Pro Platform | $99 / mo or $995 / yr, 14-day trial | 5 / 1 | 25,000 | 14 days | 10,000 |
+| Enterprise | $269 / mo or $2,690 / yr | Unlimited | 500,000+ | 400 days | Unlimited |
 
-#### Card 2: Provider Adapters
-```
-Swap between OpenAI, Anthropic, Gemini, and more with a single
-config change. No vendor lock-in.
-```
-Code example shown
+The comparison table adds a Self-hosted column and the add-on prices.
 
-#### Card 3: Action Prompt Views
-```
-Build dynamic prompts with ERB templates, partials, and layouts—
-just like Rails views.
-```
-Code example shown
+## 8. Services (`_services.html.erb`, id `services`)
 
-#### Card 4: Streaming Support
-```
-Real-time token streaming out of the box. Build responsive AI
-interfaces with ActionCable integration.
-```
-Code example shown
+Workshops ($2,500 half day / $4,500 full day), Advisory (from $3,000 a month), Development
+($250 an hour or fixed price). Mailto CTAs.
 
-#### Card 5: Tool Definitions
-```
-Define tools with type-safe schemas that automatically validate
-inputs and generate documentation.
-```
-Code example shown
+## 9. FAQ (`_faq.html.erb`)
 
-#### Card 6: Multi-Model Orchestration
-```
-Chain agents together, route between specialists, and build
-complex workflows with ease.
-```
-Code example shown
+What is free and what is paid · How do I install it · Which providers · Does MCP work with
+every provider · How does the platform get my data · Can I self-host for a team · What do
+evaluations test · Does it work with an existing Rails app.
+
+## 10. Signup (`_signup.html.erb`)
+
+Email form posting to `registration_path`. "Free forever · No credit card required".
+
+## 11. Footer (`layouts/landing/_footer.html.erb`)
+
+Documentation · Pricing (or Gems on the OSS host) · Changelog · GitHub · cross-link to the
+other site, plus GitHub, Discord, Twitter and Bluesky.
 
 ---
 
-## 4. Observability Platform Section
-
-**Section Title:** `OBSERVABILITY PLATFORM`
-
-**Headline:**
-```
-See Inside Every Agent Decision
-```
-
-**Subheadline:**
-```
-Production-grade observability built for AI agents.
-Track costs, latency, and behavior across your entire fleet.
-```
-
-### Feature Cards (Bento Grid):
-
-#### Traces (Large Card)
-```
-End-to-end visibility into every agent execution with full
-context and tool calls.
-```
-
-#### Metrics (Medium Card)
-```
-Track token usage, costs, and latency with automatic provider detection.
-```
-
-#### Session Replay (Medium Card)
-```
-Watch exactly what your agents do—every click, every decision,
-every outcome.
-```
-
-#### Evaluations (Small Card)
-```
-Automated quality checks across accuracy, hallucination, and safety metrics.
-```
-
-#### Benchmarks (Small Card)
-```
-Compare model performance with custom datasets and automated scoring.
-```
-
----
-
-## 5. Gems Pricing Section
-
-**Section Title:** `GEMS`
-
-**Headline:**
-```
-Open Source
-```
-
-### Gem Cards:
-
-#### Active Agent
-**Tagline:** `AI agents for Rails applications`
-**Price:** Free (Open Source)
-**Features:**
-- Agent DSL with prompts, tools, and model configuration
-- Provider adapters for OpenAI, Anthropic, Gemini, and more
-- Action prompt views with ERB templates
-- Streaming support with ActionCable
-**CTA:** View on GitHub
-
-#### Solid Agent
-**Tagline:** `Persistent and durable agent execution`
-**Price:** Free (Open Source)
-**Features:**
-- Background agent execution with persistence
-- Automatic retries and error recovery
-- Scheduled and recurring agent tasks
-- PostgreSQL-backed job queue
-**CTA:** View on GitHub
-
-#### Active Instrumentation
-**Tagline:** `OpenTelemetry instrumentation for AI providers`
-**Price:** Free (Open Source)
-**Features:**
-- Automatic tracing for LLM calls
-- Token usage and cost tracking
-- Latency metrics and histograms
-- Compatible with any OTEL backend
-**CTA:** View on GitHub
-
----
-
-## 6. Platform Pricing Section
-
-**Section Title:** `PLATFORM`
-
-**Headline:**
-```
-Observability & Hosting
-```
-
-### Pricing Tiers:
-
-#### Developer Tier
-**Price:** $0/month
-**Tagline:** For individual developers and small projects
-**Features:**
-- 10K traces/month
-- 7-day retention
-- Basic metrics dashboard
-- Community support
-- 1 team member
-**CTA:** Get Started
-
-#### Team Tier
-**Price:** $49/month
-**Tagline:** For growing teams with production workloads
-**Features:**
-- 100K traces/month
-- 30-day retention
-- Session replay
-- Evaluations & benchmarks
-- Slack integration
-- 5 team members
-**CTA:** Get Started
-
-#### Scale Tier
-**Price:** $199/month
-**Tagline:** For organizations with demanding requirements
-**Features:**
-- 1M traces/month
-- 90-day retention
-- Custom dashboards
-- SSO/SAML
-- Priority support
-- Unlimited team members
-**CTA:** Get Started
-
-#### Enterprise Tier
-**Price:** Contact Us
-**Tagline:** For large organizations with custom needs
-**Features:**
-- Unlimited traces
-- Custom retention
-- Dedicated infrastructure
-- Custom integrations
-- SLA guarantees
-- Dedicated support
-**CTA:** Contact Sales
-
----
-
-## 7. Services Section
-
-**Section Title:** `SERVICES`
-
-**Headline:**
-```
-Expert AI Agent Development
-```
-
-**Subheadline:**
-```
-Our team of Rails and AI specialists can help you build,
-deploy, and scale production AI agents.
-```
-
-### Service Cards:
-
-#### Strategy & Architecture
-```
-Define your AI agent strategy and technical architecture
-with our expert guidance.
-```
-- Use case discovery workshops
-- Architecture design
-- Technology selection
-- Roadmap planning
-
-#### Development & Integration
-```
-We build production-ready AI agents integrated with your
-existing Rails applications.
-```
-- Custom agent development
-- Tool and API integration
-- Testing and QA
-- Deployment support
-
-#### Training & Enablement
-```
-Empower your team to build and maintain AI agents with
-hands-on training.
-```
-- Team workshops
-- Code reviews
-- Best practices
-- Ongoing mentorship
-
----
-
-## 8. FAQ Section
-
-**Section Title:** `FAQ`
-
-**Headline:**
-```
-Frequently Asked Questions
-```
-
-### Questions:
-
-#### Q: What is Active Agent?
-```
-Active Agent is an open-source Rails framework for building AI agents.
-It provides a clean DSL for defining agents, managing prompts, and
-orchestrating tool calls—all with Rails conventions you already know.
-```
-
-#### Q: Which AI providers are supported?
-```
-Active Agent supports OpenAI, Anthropic Claude, Google Gemini,
-and more through our provider adapter system. You can easily swap
-providers without changing your agent code.
-```
-
-#### Q: How does pricing work?
-```
-Our gems are completely free and open source. The observability
-platform has a free tier for developers and paid tiers for teams
-that need more traces, retention, and features.
-```
-
-#### Q: Can I self-host the platform?
-```
-The gems can be used anywhere. Add the actionagent gem
-alongside activeagent and you get the whole dashboard as a
-mountable Rails engine — traces, metrics, agents, evaluations,
-interactions, and session replay all run on your own
-infrastructure. The managed service runs that same engine and
-adds hosted ingestion, retention, team accounts, and billing.
-```
-
-#### Q: Do you offer professional services?
-```
-Yes! Our team offers strategy consulting, custom development,
-and training services. Contact us to discuss your project.
-```
-
----
-
-## 9. Email Signup CTA Section
-
-**Headline:**
-```
-Start Building AI Agents Today
-```
-
-**Subheadline:**
-```
-Join developers building the next generation of AI-powered
-Rails applications.
-```
-
-**Form:**
-- Email input field
-- "Get Started" button
-
----
-
-## 10. Final CTA Section
-
-**Headline:**
-```
-Ready to build intelligent agents?
-```
-
-**Subheadline:**
-```
-Start with our open-source framework or talk to us about
-managed services for your team.
-```
-
-**CTA Buttons:**
-- Getting Started (primary)
-- Contact Sales (secondary)
-
----
-
-## 11. Footer
-
-**Logo:** Active Agent
-
-**Navigation Columns:**
-
-### Product
-- Framework
-- Platform
-- Pricing
-- Documentation
-
-### Company
-- About
-- Blog
-- Careers
-- Contact
-
-### Resources
-- GitHub
-- Discord
-- Status
-- Changelog
-
-### Legal
-- Privacy
-- Terms
-- Security
-
-**Bottom Bar:**
-- Copyright: © 2024 Active Agent. All rights reserved.
-- Social Links: Discord, GitHub, Twitter/X
-
----
-
-## Notes for Editing
-
-- **Badges/Labels:** Text in backticks like `THIS` are displayed as badges
-- **Code Examples:** Some sections show code snippets - these are in the actual ERB/view files
-- **Links:** External links are noted where applicable
-- **Pricing:** All prices and feature lists can be adjusted
-- **CTAs:** Call-to-action buttons and their destinations
+## Retired with this lander
+
+The session-replay hero (the lander inside an iframe with an agent cursor), the flip cards,
+the separate "Gems" pricing tier for a PRO gem, and the `_product_preview` mockups are no
+longer rendered from `home.html.erb`. Their partials, Stimulus controllers and CSS are still in
+the repository; remove them once nothing else needs them.

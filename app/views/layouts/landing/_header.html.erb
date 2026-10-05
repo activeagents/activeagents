@@ -12,14 +12,15 @@
       <%= link_to "Gems", "#gems", class: "nav-link", data: { action: "click->mobile-menu#close" } %>
       <%= link_to "Platform", "https://activeagents.ai", class: "nav-link", data: { action: "click->mobile-menu#close" } %>
     <% else %>
-      <%= link_to "Gems", "#gems", class: "nav-link", data: { action: "click->mobile-menu#close" } %>
-      <%= link_to "Services", "#services", class: "nav-link", data: { action: "click->mobile-menu#close" } %>
-      <%= link_to "Hosting", "#hosting", class: "nav-link", data: { action: "click->mobile-menu#close" } %>
+      <%= link_to "Framework", "#framework", class: "nav-link", data: { action: "click->mobile-menu#close" } %>
+      <%= link_to "Dashboard", "#dashboard", class: "nav-link", data: { action: "click->mobile-menu#close" } %>
+      <%= link_to "Platform", "#platform", class: "nav-link", data: { action: "click->mobile-menu#close" } %>
+      <%= link_to "Pricing", "#pricing", class: "nav-link", data: { action: "click->mobile-menu#close" } %>
     <% end %>
     <%= link_to "Docs", "https://docs.activeagents.ai", class: "nav-link", target: "_blank", rel: "noopener noreferrer", data: { action: "click->mobile-menu#close" } %>
     <div class="button-group stacked margin-top-l mobile-only">
       <%= link_to "Sign In", dashboard_path, class: "button tertiary" %>
-      <%= link_to "Getting Started", "https://docs.activeagents.ai/getting_started", class: "button primary", target: "_blank", rel: "noopener noreferrer" %>
+      <%= link_to "Start Free", "/registration/new", class: "button primary" %>
     </div>
   </nav>
   <div class="button-group">

@@ -1,0 +1,325 @@
+<section id="dashboard" class="lp-anchor">
+  <div class="lp-section-head">
+    <span class="eyebrow lp-eyebrow">The dashboard &middot; actionagent</span>
+    <h2 class="no-top-margin">See inside every agent decision.</h2>
+    <p class="paragraph m secondary">
+      Mount the engine in your app. Every generation becomes a trace, every conversation an interaction,
+      every scenario suite a run you can compare against the last one. MIT, on your own database,
+      from the first generation.
+    </p>
+  </div>
+
+  <pre class="lp-code"><code><span class="p">$</span> bundle add actionagent
+<span class="p">$</span> rails generate action_agent:install <span class="dim">&amp;&amp;</span> rails db:migrate
+
+<span class="cm"># config/active_agent.yml</span>
+<span class="y">telemetry</span>:
+  <span class="y">enabled</span>: <span class="k">true</span>
+  <span class="y">local_storage</span>: <span class="k">true</span>      <span class="cm"># open /activeagents</span></code></pre>
+
+  <div class="lp-bento">
+    <%# Traces %>
+    <div class="lp-pane span3">
+      <div class="lp-pane-head">
+        <span class="lp-glyph accent">-&gt;</span>
+        <span class="lp-title">Traces</span>
+        <span class="lp-right">All &middot; Errors &middot; <span class="lp-live">30s</span></span>
+      </div>
+      <div class="lp-pane-body">
+        <div class="lp-rows">
+          <div class="lp-row">
+            <span class="lp-chev">&gt;</span>
+            <span class="lp-glyph">-&gt;</span>
+            <span class="lp-id">tr_9f2e41</span>
+            <span class="lp-name">SupportAgent#reply</span>
+            <span class="lp-meta"><span>2.4s</span><span>~$0.0182</span><span class="lp-chip">v7</span></span>
+            <span class="lp-badge ok">200</span>
+          </div>
+          <div class="lp-row">
+            <span class="lp-chev">&gt;</span>
+            <span class="lp-glyph">-&gt;</span>
+            <span class="lp-id">tr_9f2e3c</span>
+            <span class="lp-name">TriageAgent#triage</span>
+            <span class="lp-meta"><span>5.8s</span><span>~$0.0410</span><span class="lp-chip">v7</span></span>
+            <span class="lp-badge ok">200</span>
+          </div>
+          <div class="lp-row">
+            <span class="lp-chev">&gt;</span>
+            <span class="lp-glyph">-&gt;</span>
+            <span class="lp-id">tr_9f2e2a</span>
+            <span class="lp-name">ResearchAgent#research</span>
+            <span class="lp-meta"><span>12.1s</span><span>~$0.1120</span><span class="lp-chip">v6</span></span>
+            <span class="lp-badge err">429</span>
+          </div>
+          <div class="lp-row">
+            <span class="lp-chev">&gt;</span>
+            <span class="lp-glyph">-&gt;</span>
+            <span class="lp-id">tr_9f2e19</span>
+            <span class="lp-name">TranslationAgent#translate</span>
+            <span class="lp-meta"><span>0.9s</span><span>~$0.0021</span><span class="lp-chip">v3</span></span>
+            <span class="lp-badge ok">200</span>
+          </div>
+        </div>
+      </div>
+      <div class="lp-pane-caption">
+        <b>Traces.</b> Every generation, with its prompt, LLM, tool and thinking spans, token counts
+        (input, output, cached, thinking), provider, model and the release of the agent that produced it.
+      </div>
+    </div>
+
+    <%# Metrics %>
+    <div class="lp-pane span3">
+      <div class="lp-pane-head">
+        <span class="lp-glyph accent">#</span>
+        <span class="lp-title">Metrics</span>
+        <span class="lp-right">1h &middot; <b>24h</b> &middot; 7d &middot; <span class="lp-live">15 min buckets</span></span>
+      </div>
+      <div class="lp-pane-body">
+        <div class="lp-signals">
+          <div class="lp-signal">
+            <span class="lp-l">Requests</span>
+            <span class="lp-v">12.8<small>K</small></span>
+            <span class="lp-d up">+23% vs prior 24h</span>
+            <svg viewBox="0 0 60 18" preserveAspectRatio="none" aria-hidden="true"><polyline points="0,14 8,12 16,13 24,9 32,10 40,6 48,7 60,4" /></svg>
+          </div>
+          <div class="lp-signal">
+            <span class="lp-l">Latency</span>
+            <span class="lp-v">847<small>ms</small></span>
+            <span class="lp-d up">p50 &middot; p95 2.1s</span>
+            <svg viewBox="0 0 60 18" preserveAspectRatio="none" aria-hidden="true"><polyline class="g" points="0,5 8,7 16,6 24,9 32,10 40,12 48,12 60,14" /></svg>
+          </div>
+          <div class="lp-signal">
+            <span class="lp-l">Error rate</span>
+            <span class="lp-v">0.4<small>%</small></span>
+            <span class="lp-d bad">+0.2pt &middot; 51</span>
+            <svg viewBox="0 0 60 18" preserveAspectRatio="none" aria-hidden="true"><polyline class="n" points="0,15 8,15 16,14 24,15 32,9 40,15 48,14 60,13" /></svg>
+          </div>
+          <div class="lp-signal">
+            <span class="lp-l">Tokens</span>
+            <span class="lp-v">2.4<small>M</small></span>
+            <span class="lp-d"><span class="lp-tin">&darr;1.8M</span> <span class="lp-tout">&uarr;0.6M</span></span>
+            <svg viewBox="0 0 60 18" preserveAspectRatio="none" aria-hidden="true"><polyline class="n" points="0,12 8,11 16,12 24,9 32,10 40,8 48,8 60,6" /></svg>
+          </div>
+          <div class="lp-signal">
+            <span class="lp-l">Cost</span>
+            <span class="lp-v">$42.18</span>
+            <span class="lp-d">~$0.0033 / req</span>
+            <svg viewBox="0 0 60 18" preserveAspectRatio="none" aria-hidden="true"><polyline class="n" points="0,12 8,12 16,11 24,10 32,10 40,9 48,9 60,8" /></svg>
+          </div>
+        </div>
+        <div class="lp-chart">
+          <div class="lp-chart-head"><span>Requests, stacked by agent</span><span>deploy and incident markers</span></div>
+          <div class="lp-chart-plot">
+            <i style="height: 38%"></i><i style="height: 42%"></i><i style="height: 36%"></i><i style="height: 51%"></i>
+            <i style="height: 47%"></i><i style="height: 58%"></i><i style="height: 62%"></i><i style="height: 55%"></i>
+            <i style="height: 70%"></i><i style="height: 66%"></i><i style="height: 74%"></i><i style="height: 61%"></i>
+            <i class="err" style="height: 92%"></i><i style="height: 68%"></i><i style="height: 72%"></i><i style="height: 77%"></i>
+            <i style="height: 81%"></i><i style="height: 69%"></i><i style="height: 75%"></i><i style="height: 83%"></i>
+            <i style="height: 88%"></i><i style="height: 79%"></i><i style="height: 84%"></i><i style="height: 90%"></i>
+            <span class="lp-marker" style="left: 25%"><span>v7 SupportAgent</span></span>
+            <span class="lp-marker incident" style="left: 50%"><span>429 &middot; ResearchAgent</span></span>
+          </div>
+        </div>
+      </div>
+      <div class="lp-pane-caption">
+        <b>Metrics.</b> The on-call view: golden signals, six time series over 1h, 24h or 7d, and the top agents,
+        models, actions, tools and error types. A deploy marker names the version that moved the line.
+      </div>
+    </div>
+
+    <%# Evaluations %>
+    <div class="lp-pane span4">
+      <div class="lp-pane-head">
+        <span class="lp-glyph accent">=</span>
+        <span class="lp-title">Evaluations &middot; Support suite &middot; run #12</span>
+        <span class="lp-right">+3 passed vs #11</span>
+      </div>
+      <div class="lp-pane-body">
+        <table class="lp-matrix">
+          <thead>
+            <tr>
+              <th>Scenario</th>
+              <th>claude-sonnet-4-5 <span class="lp-badge info">judge's pick</span></th>
+              <th>ollama/qwen3:8b</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>Passed</td>
+              <td><span class="lp-passbar"><i style="--pct: 88%"></i>14/16 &middot; 88%</span></td>
+              <td><span class="lp-passbar"><i class="mid" style="--pct: 69%"></i>11/16 &middot; 69%</span></td>
+            </tr>
+            <tr>
+              <td>Cost per run</td>
+              <td>~$0.0243 <span class="lp-muted">&middot; judge ~$0.0015</span></td>
+              <td>~$0.0000</td>
+            </tr>
+            <tr>
+              <td>Where is my order 4821? <span class="lp-chip">find_tickets</span></td>
+              <td><span class="g-ok">[+]</span> 0.96 <span class="lp-chip ok">find_tickets</span></td>
+              <td><span class="g-ok">[+]</span> 0.81 <span class="lp-chip ok">find_tickets</span></td>
+            </tr>
+            <tr>
+              <td>Refund my last invoice <span class="lp-chip">refund</span></td>
+              <td><span class="g-err">[!]</span> 0.42 missing_tool</td>
+              <td><span class="g-err">[!]</span> 0.31 missing_tool</td>
+            </tr>
+            <tr>
+              <td>Cancel my subscription</td>
+              <td><span class="g-ok">[+]</span> 0.91</td>
+              <td><span class="g-err">[!]</span> 0.55 ungrounded_answer</td>
+            </tr>
+          </tbody>
+        </table>
+        <div class="lp-fix">
+          <div class="lp-fix-head">
+            <b>What to fix</b>
+            <span>missing_tool &middot; 1 scenario &middot; both models</span>
+            <span class="lp-chip">refund</span>
+            <span>served by Stripe</span>
+          </div>
+          <span>Both models asked for a refund tool that this agent has available but not enabled.</span>
+          <span class="lp-fix-action">Enable Stripe for SupportAgent -&gt;</span>
+        </div>
+      </div>
+      <div class="lp-pane-caption">
+        <b>Evaluations.</b> Paste scenarios, pick the models to compare, and get a pass rate per model,
+        a fault per failure and the fix each one calls for. Runs are pinned to the agent release they scored,
+        so a stale suite says so.
+      </div>
+    </div>
+
+    <%# Interactions %>
+    <div class="lp-pane">
+      <div class="lp-pane-head">
+        <span class="lp-glyph accent">&lt;&gt;</span>
+        <span class="lp-title">Interactions</span>
+        <span class="lp-right">ctx_4b1</span>
+      </div>
+      <div class="lp-pane-body">
+        <div class="lp-msgs">
+          <div class="lp-msg user"><span class="lp-role">user</span><span class="lp-body">Where is my order 4821?</span></div>
+          <div class="lp-msg assistant"><span class="lp-role">agent</span><span class="lp-body"><span class="lp-call"><b>find_tickets</b> order: 4821</span></span></div>
+          <div class="lp-msg tool"><span class="lp-role">tool</span><span class="lp-body"><span class="lp-call">1 result &middot; shipped &middot; 212ms</span></span></div>
+          <div class="lp-msg assistant"><span class="lp-role">agent</span><span class="lp-body">Order 4821 shipped yesterday and arrives Thursday.</span></div>
+        </div>
+        <div class="lp-ctx">
+          <div class="lp-ctx-head"><b>Context</b><span>41.7k / 200k &middot; 21%</span></div>
+          <div class="lp-ctx-bar">
+            <span class="c1" style="width: 9.1%"></span><span class="c2" style="width: 4.7%"></span>
+            <span class="c3" style="width: 1%"></span><span class="c4" style="width: 1.1%"></span><span class="c5" style="width: 5.1%"></span>
+          </div>
+          <div class="lp-ctx-legend">
+            <span><i style="background:#1d4ed8"></i>messages</span>
+            <span><i style="background:#3b82f6"></i>tool results</span>
+            <span><i style="background:#60a5fa"></i>instructions</span>
+            <span><i style="background:#93c5fd"></i>schemas</span>
+            <span><i style="background:#bfdbfe"></i>MCP</span>
+          </div>
+        </div>
+      </div>
+      <div class="lp-pane-caption">
+        <b>Interactions.</b> The conversation behind each trace, with the context window as the model saw it.
+      </div>
+    </div>
+
+    <%# Run Agent workbench %>
+    <div class="lp-pane">
+      <div class="lp-pane-head">
+        <span class="lp-glyph accent">&gt;</span>
+        <span class="lp-title">Run Agent</span>
+        <span class="lp-right">SalesAgent</span>
+      </div>
+      <div class="lp-pane-body">
+        <div class="lp-msgs">
+          <div class="lp-msg user"><span class="lp-role">user</span><span class="lp-body">How did EMEA do this quarter? <span class="lp-chip">pipeline.csv</span></span></div>
+        </div>
+        <div class="lp-ui">
+          <div class="lp-ui-stats">
+            <div>Revenue<b>$3.36M</b></div>
+            <div>Deals<b>113</b></div>
+            <div>Win rate<b>31%</b></div>
+          </div>
+          <div class="lp-ui-choices">
+            <span class="on">Break down by region</span><span>Book a follow-up</span>
+          </div>
+        </div>
+        <div class="lp-composer"><span>Message SalesAgent&hellip;</span><span class="lp-send">Run &#8984;&#9166;</span></div>
+      </div>
+      <div class="lp-pane-caption">
+        <b>Run Agent.</b> Test an agent as a user would: a pinned conversation, editable context, file attachments,
+        and generative UI the model renders back as cards, charts, forms and choices.
+      </div>
+    </div>
+
+    <%# MCP server %>
+    <div class="lp-pane">
+      <div class="lp-pane-head">
+        <span class="lp-glyph accent">{}</span>
+        <span class="lp-title">MCP server</span>
+        <span class="lp-right">/activeagents/mcp</span>
+      </div>
+      <div class="lp-pane-body">
+        <div class="lp-term">
+          <div><span class="p">$</span> claude mcp add activeagents \</div>
+          <div>&nbsp;&nbsp;&nbsp;https://app.example.com/activeagents/mcp</div>
+          <div class="d">tools/list</div>
+          <div><span class="h">run_support_agent</span> <span class="d">&middot; run an agent</span></div>
+          <div><span class="h">find_tickets</span> <span class="d">&middot; schema tool, scoped to the key's caller</span></div>
+          <div><span class="h">evaluations_run</span> <span class="d">&middot; replay a suite</span></div>
+          <div><span class="h">traces_search</span> <span class="d">&middot; read failing traces</span></div>
+        </div>
+      </div>
+      <div class="lp-pane-caption">
+        <b>Agents as tools.</b> The dashboard is itself an MCP server. Your coding harness can run agents,
+        read records through schema tools, run evaluations and pull traces, all as the API key's caller.
+      </div>
+    </div>
+
+    <%# Integrations %>
+    <div class="lp-pane">
+      <div class="lp-pane-head">
+        <span class="lp-glyph accent">[]</span>
+        <span class="lp-title">Integrations</span>
+        <span class="lp-right">Settings</span>
+      </div>
+      <div class="lp-pane-body">
+        <ul class="lp-steps">
+          <li><span class="lp-s">01</span><span>GitHub connected &middot; acme/support-app</span><span class="lp-badge ok">[+]</span></li>
+          <li><span class="lp-s">02</span><span>Checkout sandbox booted &middot; main</span><span class="lp-badge ok">ready</span></li>
+          <li><span class="lp-s">03</span><span>Claude Code session &middot; sonnet</span><span class="lp-badge info">running</span></li>
+          <li><span class="lp-s">04</span><span>Suite re-run against the sandbox</span><span class="lp-badge muted">queued</span></li>
+          <li><span class="lp-s">05</span><span>Diff: +41 -6 &middot; instructions.md</span><span class="lp-badge muted">review</span></li>
+        </ul>
+      </div>
+      <div class="lp-pane-caption">
+        <b>Integrations.</b> Connect GitHub and an Anthropic or OpenAI key. A repository checkout boots as a sandbox,
+        Claude Code or Codex works in it, and an evaluation runs against the checkout before anything merges.
+      </div>
+    </div>
+
+    <%# More on the nav %>
+    <div class="lp-pane span6">
+      <div class="lp-pane-head">
+        <span class="lp-glyph accent">+</span>
+        <span class="lp-title">Also on the sidebar</span>
+      </div>
+      <div class="lp-pane-body">
+        <div class="lp-grid two" style="gap: 10px 24px;">
+          <div class="lp-steps" style="gap: 10px;">
+            <ul class="lp-steps">
+              <li><span class="lp-glyph">@</span><span><b>Agents.</b> Scorecards, versions, releases and the pooled eval pass rate per agent.</span><span></span></li>
+              <li><span class="lp-glyph">[]</span><span><b>Tools and MCP Services.</b> The roster each agent is offered, with the server that serves each tool.</span><span></span></li>
+            </ul>
+          </div>
+          <div class="lp-steps" style="gap: 10px;">
+            <ul class="lp-steps">
+              <li><span class="lp-glyph">[&gt;]</span><span><b>Session Replay.</b> Watch an agent-driven session step by step with its trace log beside it.</span><span></span></li>
+              <li><span class="lp-glyph">&gt;</span><span><b>Ask ActiveAgents.</b> Ask which scenarios failed and why, with links to the evidence. Development and test only.</span><span></span></li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
