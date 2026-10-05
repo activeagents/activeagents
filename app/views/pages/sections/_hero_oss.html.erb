@@ -1,26 +1,33 @@
-<section>
-  <div class="heading hero centered">
-    <h1 class="balanced">
-      <span class="color-accent">Active Agent</span><br />
-      Build AI in Rails
-    </h1>
+<section class="lp-hero">
+  <div class="lp-hero-copy">
+    <span class="eyebrow lp-eyebrow"><span class="lp-dot"></span>Open source &middot; MIT</span>
+    <h1 class="balanced">Build AI in Rails.<br /><span class="lp-accent-line">Agents are controllers.</span></h1>
     <p class="paragraph l secondary balanced">
-      The open-source framework for AI agents in Rails — agents, actions,
-      and prompts that feel like the Rails you already know. MIT licensed,
-      provider-agnostic, free forever.
+      The open-source framework for AI agents in Rails: actions, callbacks and views you already know,
+      provider-agnostic, with a dashboard engine that mounts beside your app. MIT licensed, free forever.
     </p>
-    <div class="button-group margin-paragraph centered">
-      <%= link_to "Get Started", "https://docs.activeagents.ai/getting_started", class: "button primary" %>
-      <%= link_to "GitHub", "https://github.com/activeagents/activeagent", class: "button tertiary" %>
+    <div class="button-group centered">
+      <a class="button primary" href="https://docs.activeagents.ai/getting_started" target="_blank" rel="noopener noreferrer">Get started</a>
+      <a class="button tertiary" href="https://github.com/activeagents/activeagent" target="_blank" rel="noopener noreferrer">Star on GitHub</a>
     </div>
-    <p class="paragraph s secondary">
-      Running agents in production?
-      <%= link_to "Monitor them at activeagents.ai", "https://activeagents.ai" %>
-    </p>
+    <div class="lp-install">
+      <code><span class="lp-p">$</span> bundle add activeagent</code>
+      <span class="lp-sep">&middot;</span>
+      <code><span class="lp-p">$</span> rails generate active_agent:install</code>
+    </div>
+    <ul class="lp-trust" aria-label="At a glance">
+      <li><span class="lp-g">*</span>MIT licensed</li>
+      <li><span class="lp-g">#</span>Rails 7.2 &middot; 8.0 &middot; 8.1</li>
+      <li><span class="lp-g">@</span>Ruby 3.2+</li>
+      <li><span class="lp-g">{}</span>10 providers</li>
+      <li><span class="lp-g">?</span>No keys needed to start</li>
+    </ul>
   </div>
 
-  <a href="#features" class="scroll-indicator">
-    <span>See what's included</span>
-    <i class="fa-solid fa-chevron-down chevron"></i>
-  </a>
+  <%= render "pages/sections/stage" %>
+
+  <p class="paragraph s secondary text-centered" style="margin: 0;">
+    Running agents in production for a team?
+    <a href="https://activeagents.ai">Monitor them at activeagents.ai</a>
+  </p>
 </section>

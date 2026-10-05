@@ -1,45 +1,28 @@
-<section id="dev-console">
-  <div class="text-centered full-width">
-    <h2>See your agents while you build</h2>
+<section id="dev-console" class="lp-anchor">
+  <div class="lp-section-head">
+    <span class="eyebrow lp-eyebrow">The dev console &middot; actionagent</span>
+    <h2 class="no-top-margin">See your agents while you build</h2>
     <p class="paragraph m secondary">
-      The gem ships a local dev console — every generation recorded as a
-      trace with a span waterfall, token usage, and per-agent metrics,
-      entirely in your development database.
+      The dashboard is its own MIT gem: a Rails engine that mounts in your app. Add it, turn on local
+      telemetry, and every generation appears at <code class="lp-inline-code">/activeagents</code> as a
+      trace with a span waterfall, token counts and the agent release that produced it. It is the same
+      engine the hosted platform runs, against your own database.
     </p>
   </div>
 
-  <div class="grid columns-2 margin-top-xl">
-    <div class="feature-card">
-      <div class="feature-heading">
-        <h3 class="color-accent no-top-margin">One command</h3>
-        <p class="paragraph s secondary">Add the <code>actionagent</code> gem, run its install generator, then flip local telemetry on.</p>
-      </div>
-      <pre class="code-block"><code>$ bundle add actionagent
-$ rails generate action_agent:install
-$ rails db:migrate
+  <pre class="lp-code"><code><span class="p">$</span> bundle add actionagent
+<span class="p">$</span> rails generate action_agent:install <span class="dim">&amp;&amp;</span> rails db:migrate
 
-# config/active_agent.yml
-telemetry:
-  enabled: true
-  local_storage: true</code></pre>
-    </div>
-    <div class="feature-card">
-      <div class="feature-heading">
-        <h3 class="color-accent no-top-margin">Everything a generation did</h3>
-        <p class="paragraph s secondary">
-          Open <code>/activeagents</code> and every prompt shows up as a
-          trace: prompt &rarr; LLM &rarr; tool spans with timings, token
-          counts (input / output / cached / thinking), provider, model and
-          the agent release that produced it. Metrics roll up per agent
-          over 1h, 24h or 7d.
-        </p>
-        <p class="paragraph s secondary">
-          For production — retention, evaluations, cost estimates, team
-          workspaces — point the same telemetry at
-          <%= link_to "activeagents.ai", "https://activeagents.ai" %> with
-          one YAML change.
-        </p>
-      </div>
-    </div>
-  </div>
+<span class="cm"># config/active_agent.yml</span>
+<span class="y">telemetry</span>:
+  <span class="y">enabled</span>: <span class="k">true</span>
+  <span class="y">local_storage</span>: <span class="k">true</span>      <span class="cm"># open /activeagents</span></code></pre>
+
+  <%= render "pages/sections/dashboard_bento" %>
+
+  <p class="lp-family">
+    <span>For a team or a fleet of apps,</span>
+    <span>mount it in one shared app and point the others' telemetry at <code>&lt;mount&gt;/api/traces</code>, with your own authentication in front.</span>
+    <a href="https://docs.activeagents.ai/framework/self-hosted-observability" target="_blank" rel="noopener noreferrer">Self-hosted guide</a>
+  </p>
 </section>

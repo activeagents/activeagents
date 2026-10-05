@@ -2,9 +2,11 @@
 
 The commercial lander (activeagents.ai / activeagent.pro) is `app/views/pages/home.html.erb`;
 it renders one partial per section from `app/views/pages/sections/`. The open-source lander
-on activeagent.dev is `home_oss.html.erb` and shares the framework section. Styles for the
-sections live in `app/assets/stylesheets/landing/lander.css` (namespaced `lp-`), on top of
-the theme tokens and primitives in `base.css`.
+on activeagent.dev is `home_oss.html.erb`; `PagesController` picks it by host (`?site=oss` or
+`?site=commercial` forces a variant). The two share the pipeline and framework sections, the
+hero stage (`_stage.html.erb`) and the dashboard mockups (`_dashboard_bento.html.erb`). Styles
+for the sections live in `app/assets/stylesheets/landing/lander.css` (namespaced `lp-`), on
+top of the theme tokens and primitives in `base.css`.
 
 The product mockups are hand-built HTML in the dashboard's own grammar (JetBrains Mono, the
 TUI glyphs `@ -> # = <> [] {} [>]`, span colors, soft status badges), not screenshots. Keep
@@ -109,6 +111,27 @@ Email form posting to `registration_path`. "Free forever · No credit card requi
 
 Documentation · Pricing (or Gems on the OSS host) · Changelog · GitHub · cross-link to the
 other site, plus GitHub, Discord, Twitter and Bluesky.
+
+---
+
+## The open-source lander (activeagent.dev, `home_oss.html.erb`)
+
+Header: Framework · Dev Console · Gems · Platform (activeagents.ai) · Docs.
+
+1. **Hero** (`_hero_oss.html.erb`). Eyebrow `OPEN SOURCE · MIT`. "Build AI in Rails. / Agents
+   are controllers." Body keeps the phrase "provider-agnostic". CTAs: Get started (docs), Star
+   on GitHub. Install strip `bundle add activeagent` · `rails generate active_agent:install`.
+   The shared stage follows, then a one-line pointer to activeagents.ai.
+2. **Pipeline** and **Framework**: shared with the commercial lander.
+3. **Dev console** (`_dev_console.html.erb`, id `dev-console`). "See your agents while you
+   build": the `actionagent` install block and the shared dashboard mockups, with a footnote on
+   mounting it for a team and the self-hosted guide.
+4. **Gems** (`_gems_oss.html.erb`, id `gems`). "Free, and free forever." One card per MIT gem:
+   `activeagent`, `actionagent`, `solid_agent`, `activeagents-telemetry`, each with its install
+   chips and a docs link, then a wide "Need it hosted?" card pointing at the platform. No prices
+   on this host: `PagesControllerTest` asserts "Pro Platform" never appears here.
+5. **FAQ** (`_faq_oss.html.erb`) and **CTA** (`_cta_oss.html.erb`, "Ship your first agent this
+   afternoon."). No signup form on the OSS host.
 
 ---
 

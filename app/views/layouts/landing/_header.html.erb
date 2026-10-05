@@ -8,6 +8,7 @@
   <% end %>
   <nav role="navigation" class="nav-menu" data-mobile-menu-target="menu">
     <% if defined?(oss_site?) && oss_site? %>
+      <%= link_to "Framework", "#framework", class: "nav-link", data: { action: "click->mobile-menu#close" } %>
       <%= link_to "Dev Console", "#dev-console", class: "nav-link", data: { action: "click->mobile-menu#close" } %>
       <%= link_to "Gems", "#gems", class: "nav-link", data: { action: "click->mobile-menu#close" } %>
       <%= link_to "Platform", "https://activeagents.ai", class: "nav-link", data: { action: "click->mobile-menu#close" } %>
