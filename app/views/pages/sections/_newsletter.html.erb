@@ -3,8 +3,7 @@
     <span class="eyebrow lp-eyebrow">Newsletter</span>
     <h2 class="no-top-margin balanced">Release notes, in your inbox.</h2>
     <p class="paragraph m secondary balanced">
-      One email per release: what changed in the gems and the dashboard, and what to run when you upgrade.
-      Double opt-in, unsubscribe in any issue.
+      Weekly release notes, event announcements and updates from the Active Agent team.
     </p>
     <%= form_with url: newsletter_subscription_path, method: :post, id: "newsletter-form", class: "lp-form",
           data: { turbo: false, controller: "newsletter", action: "submit->newsletter#submit" } do |f| %>
@@ -19,6 +18,6 @@
       <button type="submit" class="button primary" data-newsletter-target="submit">Subscribe</button>
       <p class="lp-form-response lp-mono" data-newsletter-target="response" aria-live="polite"></p>
     <% end %>
-    <p class="paragraph s tertiary" style="margin: 0;">No spam. Unsubscribe anytime.</p>
+    <p class="paragraph s tertiary" style="margin: 0;">One email a week. Unsubscribe anytime.</p>
   </div>
 </section>

@@ -3,8 +3,8 @@
     <span class="eyebrow lp-eyebrow"><span class="lp-dot"></span>Open source &middot; MIT</span>
     <h1 class="balanced">Build AI in Rails.<br /><span class="lp-accent-line">Agents are controllers.</span></h1>
     <p class="paragraph l secondary balanced">
-      The open-source framework for AI agents in Rails: actions, callbacks and views you already know,
-      provider-agnostic, with a dashboard engine that mounts beside your app. MIT licensed, free forever.
+      Open-source, provider-agnostic AI agents for Rails. Actions, callbacks and views you already know.
+      MIT, free forever.
     </p>
     <%= form_with url: newsletter_subscription_path, method: :post, id: "hero-newsletter", class: "lp-form lp-form-hero",
           data: { turbo: false, controller: "newsletter", action: "submit->newsletter#submit" } do |f| %>
@@ -16,14 +16,14 @@
             id: "hero-newsletter-email",
             aria: { label: "Email address" },
             data: { newsletter_target: "email" } %>
-      <button type="submit" class="button primary" data-newsletter-target="submit">Get release notes</button>
+      <button type="submit" class="button primary" data-newsletter-target="submit">Subscribe</button>
       <p class="lp-form-response lp-mono" data-newsletter-target="response" aria-live="polite"></p>
     <% end %>
     <p class="lp-hero-links">
-      One email per release, double opt-in.
-      <a href="https://docs.activeagents.ai/getting_started" target="_blank" rel="noopener noreferrer">Get started with the docs</a>
+      Weekly release notes, event announcements and updates.
+      <a href="https://docs.activeagents.ai/getting_started" target="_blank" rel="noopener noreferrer">Docs</a>
       <span class="lp-muted">&middot;</span>
-      <a href="https://github.com/activeagents/activeagent" target="_blank" rel="noopener noreferrer">Star on GitHub</a>
+      <a href="https://github.com/activeagents/activeagent" target="_blank" rel="noopener noreferrer">GitHub</a>
     </p>
     <div class="lp-install">
       <code><span class="lp-p">$</span> bundle add activeagent</code>
@@ -31,18 +31,16 @@
       <code><span class="lp-p">$</span> rails generate active_agent:install</code>
     </div>
     <ul class="lp-trust" aria-label="At a glance">
-      <li><span class="lp-g">*</span>MIT licensed</li>
-      <li><span class="lp-g">#</span>Rails 7.2 &middot; 8.0 &middot; 8.1</li>
+      <li><span class="lp-g">*</span>MIT</li>
+      <li><span class="lp-g">#</span>Rails 7.2 to 8.1</li>
       <li><span class="lp-g">@</span>Ruby 3.2+</li>
       <li><span class="lp-g">{}</span>10 providers</li>
-      <li><span class="lp-g">?</span>No keys needed to start</li>
     </ul>
   </div>
 
   <%= render "pages/sections/stage" %>
 
   <p class="paragraph s secondary text-centered" style="margin: 0;">
-    Running agents in production for a team?
-    <a href="https://activeagents.ai">Monitor them at activeagents.ai</a>
+    Running agents in production? <a href="https://activeagents.ai">Monitor them at activeagents.ai</a>
   </p>
 </section>
