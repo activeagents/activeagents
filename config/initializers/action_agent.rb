@@ -132,7 +132,7 @@ end
 Rails.application.config.to_prepare do
   # The engine supports both owners. This hosted app uses accounts; keeping
   # user as optional attribution must not make it the authorization boundary.
-  [ ActionAgent::Agent, ActionAgent::SandboxSession, ActionAgent::SessionRecording ].each do |model|
+  [ ActionAgent::Agent, ActionAgent::SandboxSession, ActionAgent::SessionRecording, ActionAgent::CodeSession ].each do |model|
     model.owned_by :account, :user
   end
   ActionAgent::Agent.include WorkspaceAgentAttribution
