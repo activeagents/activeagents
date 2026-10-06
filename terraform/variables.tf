@@ -166,6 +166,52 @@ variable "enable_github_sign_in" {
   default     = false
 }
 
+# -- GitHub App repository access -------------------------------------------
+
+variable "enable_github_app" {
+  description = "Pass this environment's GitHub App to the app: GITHUB_APP_ID and GITHUB_APP_SLUG from github_app_id and github_app_slug, GITHUB_APP_PRIVATE_KEY and GITHUB_APP_WEBHOOK_SECRET from Secret Manager. Add a version to activeagents-<env>-github-app-private-key and -webhook-secret first."
+  type        = bool
+  default     = false
+}
+
+variable "github_app_id" {
+  description = "Numeric App ID of this environment's GitHub App. Not a secret; committed per environment."
+  type        = string
+  default     = ""
+
+  validation {
+    condition     = can(regex("^[0-9]*$", var.github_app_id))
+    error_message = "github_app_id is the App's numeric ID, or empty."
+  }
+}
+
+variable "github_app_slug" {
+  description = "Slug of this environment's GitHub App, as in https://github.com/apps/<slug>. Not a secret; committed per environment."
+  type        = string
+  default     = ""
+
+  validation {
+    condition     = can(regex("^[a-z0-9-]*$", var.github_app_slug))
+    error_message = "github_app_slug is the lowercase slug from the App's public URL, or empty."
+  }
+}
+
+# -- Active Record encryption keys ------------------------------------------
+
+variable "enable_active_record_encryption_keys" {
+  description = "Pass ACTIVE_RECORD_ENCRYPTION_PRIMARY_KEY, _DETERMINISTIC_KEY and _KEY_DERIVATION_SALT from Secret Manager. Each secret must first hold the value the app derives from secret_key_base today (docs/infrastructure/gcp-cicd-setup.md); any other value makes every encrypted column unreadable and stops existing API keys from authenticating."
+  type        = bool
+  default     = false
+}
+
+# -- Session recordings storage ---------------------------------------------
+
+variable "enable_recordings_storage" {
+  description = "Pass RECORDINGS_BUCKET and RECORDINGS_SIGNER_EMAIL to the app. The bucket, the signer account and their IAM bindings exist whether or not this is on."
+  type        = bool
+  default     = false
+}
+
 # -- Demo app (examples/support_inbox) --------------------------------------
 
 variable "enable_demo_app" {

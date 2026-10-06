@@ -239,3 +239,38 @@ variable "enable_github_sign_in" {
   type        = bool
   default     = false
 }
+
+# GitHub App repository access. Turn on only after
+# activeagents-staging-github-app-private-key and -webhook-secret have a version,
+# in a committed github_app.auto.tfvars next to this file.
+variable "enable_github_app" {
+  description = "Pass the GitHub App ID, slug, private key and webhook secret to the app"
+  type        = bool
+  default     = false
+}
+
+variable "github_app_id" {
+  description = "Numeric App ID of the staging GitHub App"
+  type        = string
+  default     = ""
+}
+
+variable "github_app_slug" {
+  description = "Slug of the staging GitHub App (https://github.com/apps/<slug>)"
+  type        = string
+  default     = ""
+}
+
+# Turn on only after the three activeagents-staging-active-record-encryption-*
+# secrets hold the values the app derives from secret_key_base today.
+variable "enable_active_record_encryption_keys" {
+  description = "Pass the explicit Active Record encryption keys to the app"
+  type        = bool
+  default     = false
+}
+
+variable "enable_recordings_storage" {
+  description = "Pass the recordings bucket and URL signer to the app"
+  type        = bool
+  default     = false
+}
