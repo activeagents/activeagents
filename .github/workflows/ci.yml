@@ -60,6 +60,18 @@ jobs:
           SECRET_KEY_BASE_DUMMY: "1"
         run: bin/rails zeitwerk:check
 
+      # Building the GCS service loads google-cloud-storage, which the Gemfile
+      # does not require, and contacts nothing, so no credentials are needed.
+      - name: Boot production on Google Cloud Storage once its bucket and signer are set
+        env:
+          RAILS_ENV: production
+          SECRET_KEY_BASE_DUMMY: "1"
+          RECORDINGS_BUCKET: ci-recordings
+          RECORDINGS_SIGNER_EMAIL: recordings-signer-ci@example.iam.gserviceaccount.com
+        run: >-
+          bin/rails runner 'service = ActiveStorage::Blob.service;
+          abort "Active Storage is on #{service.class}, not GCS" unless service.class.name == "ActiveStorage::Service::GCSService"'
+
   test:
     runs-on: ubuntu-latest
 
