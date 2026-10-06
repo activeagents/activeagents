@@ -28,9 +28,8 @@ Platform instead.
 
 - Eyebrow: `FRAMEWORK · DASHBOARD · PLATFORM`
 - Headline: **Build AI in Rails. / See everything it does.**
-- Body: Active Agent is the framework (agents are controllers, prompts are views, tools are
-  methods). Action Agent is the dashboard that mounts beside it. Point the same telemetry at
-  activeagents.ai for production.
+- Body: agents are controllers, prompts are views, tools are methods; the dashboard mounts beside
+  your app; the same telemetry points at activeagents.ai for production. Two sentences.
 - Above the fold: the account signup form (email field + Start free), posted to
   `registration_path` by the `signup` Stimulus controller, then "Free workspace, no credit card"
   with links to the docs and GitHub.
@@ -122,8 +121,9 @@ Header: Framework · Dev Console · Gems · Platform (activeagents.ai) · Docs.
 
 1. **Hero** (`_hero_oss.html.erb`). Eyebrow `OPEN SOURCE · MIT`. "Build AI in Rails. / Agents
    are controllers." Body keeps the phrase "provider-agnostic". Above the fold: the newsletter
-   signup (email field + Get release notes), posted to `newsletter_subscription_path` by the
-   `newsletter` Stimulus controller, then links to the docs and GitHub. Install strip
+   signup (email field + Subscribe), posted to `newsletter_subscription_path` by the `newsletter`
+   Stimulus controller, framed as "Weekly release notes, event announcements and updates", then
+   Docs and GitHub links. Body copy is two short sentences. Install strip
    `bundle add activeagent` · `rails generate active_agent:install`. The shared stage follows,
    then a one-line pointer to activeagents.ai.
 2. **Pipeline** and **Framework**: shared with the commercial lander.
@@ -134,8 +134,9 @@ Header: Framework · Dev Console · Gems · Platform (activeagents.ai) · Docs.
    `activeagent`, `actionagent`, `solid_agent`, `activeagents-telemetry`, each with its install
    chips and a docs link, then a wide "Need it hosted?" card pointing at the platform. No prices
    on this host: `PagesControllerTest` asserts "Pro Platform" never appears here.
-5. **Newsletter** (`_newsletter.html.erb`, id `newsletter`). "Release notes, in your inbox." An
-   email field posted to `/newsletter_subscription`: the server stores the consent, sends a
+5. **Newsletter** (`_newsletter.html.erb`, id `newsletter`). "Release notes, in your inbox.",
+   weekly release notes, event announcements and updates. An email field posted to
+   `/newsletter_subscription`: the server stores the consent, sends a
    confirmation email, and `SyncNewsletterToResendJob` adds the contact to the Resend newsletter
    audience once confirmed. No account is created on this host.
 6. **FAQ** (`_faq_oss.html.erb`) and **CTA** (`_cta_oss.html.erb`, "Ship your first agent this
