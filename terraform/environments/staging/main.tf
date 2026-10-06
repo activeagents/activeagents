@@ -31,6 +31,7 @@ module "activeagents" {
 
   # Email configuration
   mailer_from_address = var.mailer_from_address
+  app_host            = var.app_host
 
   # Sandbox configuration for agent execution (ephemeral containers)
   sandbox_cpu              = var.sandbox_cpu     # 4 vCPUs for parallel Ractor/Thread execution
