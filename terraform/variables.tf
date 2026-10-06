@@ -102,6 +102,12 @@ variable "max_persistent_sandboxes" {
   default     = 10
 }
 
+variable "incus_app_runtime_enabled" {
+  description = "Whether the app boots checkout sandboxes (app_runtime) on its Incus host. Keep it off until that host's egress controls are applied: a checkout runs a repository's own code."
+  type        = bool
+  default     = false
+}
+
 # Access control
 variable "allow_public_access" {
   description = "Allow unauthenticated public access to Cloud Run. Set to false if GCP org policy restricts it."
