@@ -176,6 +176,11 @@ jobs:
 
   migrate:
     needs: deploy
+    # build-production only runs for releases. On a manual dispatch it is
+    # skipped, and a skipped job upstream skips every dependent job unless
+    # that job says otherwise, so without this condition migrations never
+    # ran on a dispatched deploy. Run them whenever the deploy itself passed.
+    if: always() && needs.deploy.result == 'success'
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -195,10 +200,22 @@ jobs:
         run: |
           gcloud run jobs execute activeagents-production-migrate \
             --region=${{ env.REGION }} \
-            --wait
+            --wait \
+          || {
+            echo "--- migrate job logs (last hour) ---"
+            gcloud logging read \
+              'resource.type="cloud_run_job" AND resource.labels.job_name="activeagents-production-migrate"' \
+              --project=${{ env.PROJECT_ID }} \
+              --freshness=1h \
+              --limit=200 \
+              --order=asc \
+              --format="value(textPayload)" || true
+            exit 1
+          }
 
   smoke-test:
     needs: [deploy, migrate]
+    if: always() && needs.deploy.result == 'success' && needs.migrate.result == 'success'
     runs-on: ubuntu-latest
 
     steps:
