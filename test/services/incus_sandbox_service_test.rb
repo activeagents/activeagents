@@ -8,7 +8,8 @@ require "test_helper"
 # MCP endpoint. The Incus API is replaced by a recording fake.
 class IncusSandboxServiceTest < ActiveSupport::TestCase
   # Stands in for the Incus REST API: operations succeed immediately, the
-  # container reports an address, and each exec answers from +exec_results+.
+  # container reports an address, and each exec answers from +exec_results+
+  # through log resources under the instance that ran it.
   class FakeIncus < IncusSandboxService
     attr_reader :requests
 
@@ -27,12 +28,15 @@ class IncusSandboxServiceTest < ActiveSupport::TestCase
       in [ :get, %r{/state\z} ]
         { "metadata" => { "status" => "Running",
                           "network" => { "eth0" => { "addresses" => [ { "family" => "inet", "scope" => "global", "address" => "10.0.0.5" } ] } } } }
-      in [ :post, %r{/exec\z} ]
+      in [ :post, %r{\A/1\.0/instances/([^/]+)/exec\z} ]
+        @container = $1
         { "operation" => "/1.0/operations/exec-#{@requests.count { |r| r[1].end_with?('/exec') }}" }
       in [ :get, %r{/operations/exec-(\d+)\z} ]
-        result = @exec_results.fetch($1.to_i - 1)
+        number = $1
+        result = @exec_results.fetch(number.to_i - 1)
+        logs = "/1.0/instances/#{@container}/logs/exec-output"
         { "metadata" => { "status" => "Success",
-                          "metadata" => { "return" => result[:exit], "output" => { "1" => "/stdout-#{$1}", "2" => "/stderr-#{$1}" } } } }
+                          "metadata" => { "return" => result[:exit], "output" => { "1" => "#{logs}/stdout-#{number}", "2" => "#{logs}/stderr-#{number}" } } } }
       in [ :get, %r{/stdout-(\d+)\z} ]
         @exec_results.fetch($1.to_i - 1)[:stdout].to_s
       in [ :get, %r{/stderr-(\d+)\z} ]
@@ -120,5 +124,128 @@ class IncusSandboxServiceTest < ActiveSupport::TestCase
 
     assert_nil result[:mcp_url]
     assert_empty incus.requests.select { |_, path, _| path.end_with?("/exec") }
+  end
+end
+
+# The transport the service speaks to a daemon over: query parameters on GET,
+# recorded exec output fetched from the instance that produced it, the HTTPS
+# requirements, and the read-only preflight. Faraday's test adapter stands in
+# for the daemon.
+class IncusSandboxServiceTransportTest < ActiveSupport::TestCase
+  setup do
+    @stubs = Faraday::Adapter::Test::Stubs.new
+    connection = Faraday.new do |f|
+      f.request :json
+      f.response :json
+      f.response :raise_error
+      f.adapter :test, @stubs
+    end
+    @service = IncusSandboxService.new(host: "https://incus.example.test:8443", project: "fixture-project")
+    @service.define_singleton_method(:build_connection) { connection }
+  end
+
+  teardown do
+    @stubs.verify_stubbed_calls
+  end
+
+  test "listing sends recursion and project and filters sandbox names" do
+    @stubs.get("/1.0/instances?project=fixture-project&recursion=1") do
+      json(metadata: [
+        { name: "sandbox-fixture", status: "Running", config: { "user.session_id" => "fixture" } },
+        { name: "sandboxing-unrelated" }, "/1.0/instances/not-expanded"
+      ])
+    end
+
+    assert_equal [ { name: "sandbox-fixture", status: "Running", created_at: nil, session_id: "fixture" } ], @service.list_sandboxes
+  end
+
+  test "exec downloads recorded output and keeps exit status" do
+    stub_exec(output: { "1" => "/1.0/instances/sandbox-fixture/logs/exec-output/fixture.stdout",
+      "2" => "/1.0/instances/sandbox-fixture/logs/exec-output/fixture.stderr" }, exit_code: 7)
+    @stubs.get("/1.0/instances/sandbox-fixture/logs/exec-output/fixture.stdout?project=fixture-project") { [ 200, { "Content-Type" => "application/octet-stream" }, "hello\n" ] }
+    @stubs.get("/1.0/instances/sandbox-fixture/logs/exec-output/fixture.stderr?project=fixture-project") { [ 200, { "Content-Type" => "application/octet-stream" }, "failed\n" ] }
+
+    assert_equal({ stdout: "hello\n", stderr: "failed\n", exit_code: 7 }, @service.exec_in_container("sandbox-fixture", [ "echo", "hello" ]))
+  end
+
+  test "exec never fetches an output URL on another host or instance" do
+    [ "https://elsewhere.test/output", "/1.0/instances/another-instance/logs/out", "/1.0/instances/sandbox-fixture/logs/../secret" ].each do |url|
+      assert_raises(IncusSandboxService::ContainerError) { @service.send(:recorded_output, "sandbox-fixture", url) }
+    end
+  end
+
+  test "logs return content rather than a resource URL" do
+    @service.define_singleton_method(:exec_in_container) do |_container, command|
+      raise "wrong command" unless command == [ "cat", "/var/log/sandbox.log" ]
+
+      { stdout: "sandbox ready\n", stderr: "", exit_code: 0 }
+    end
+
+    assert_equal "sandbox ready\n", @service.container_logs("sandbox-fixture")
+  end
+
+  test "preflight checks trust, project, profile and the checkout image without provisioning" do
+    stub_preflight(image_status: 200)
+
+    report = @service.preflight
+
+    assert report[:connected]
+    assert_equal "fixture-project", report[:project]
+    assert_equal "fixture-version", report[:server_version]
+    assert_equal 0, report[:sandbox_count]
+    assert report[:app_runtime_supported], "the daemon carries the checkout image"
+    assert_not report[:code_sessions_supported], "this backend has no run_code_session"
+  end
+
+  test "preflight reports a daemon without the checkout image" do
+    stub_preflight(image_status: 404)
+
+    assert_not @service.preflight[:app_runtime_supported]
+  end
+
+  test "preflight rejects an untrusted connection" do
+    @stubs.get("/1.0?project=fixture-project") { json(metadata: { auth: "untrusted" }) }
+
+    assert_raises(IncusSandboxService::ConnectionError) { @service.preflight }
+  end
+
+  test "transport configuration errors are actionable" do
+    [
+      [ { host: "unix:///missing/incus.socket" }, /Unix socket transport is not implemented/ ],
+      [ { host: "http://incus.example.test" }, /HTTPS endpoint/ ],
+      [ { host: "https://incus.example.test" }, /INCUS_CERT_PATH and INCUS_KEY_PATH/ ]
+    ].each do |config, message|
+      error = assert_raises(IncusSandboxService::ConnectionError) { IncusSandboxService.new(config).send(:build_connection) }
+      assert_match message, error.message
+    end
+  end
+
+  private
+
+  def json(body, status = 200)
+    [ status, { "Content-Type" => "application/json" }, JSON.generate(body) ]
+  end
+
+  def stub_exec(output:, exit_code:)
+    @stubs.post("/1.0/instances/sandbox-fixture/exec?project=fixture-project") do |env|
+      body = JSON.parse(env.body)
+      assert_equal [ "echo", "hello" ], body["command"]
+      assert_equal true, body["record-output"]
+      assert_equal false, body["wait-for-websocket"]
+      json(operation: "/1.0/operations/fixture-exec")
+    end
+    @stubs.get("/1.0/operations/fixture-exec?project=fixture-project") do
+      json(metadata: { status: "Success", metadata: { return: exit_code, output: output } })
+    end
+  end
+
+  def stub_preflight(image_status:)
+    @stubs.get("/1.0?project=fixture-project") { json(metadata: { auth: "trusted", environment: { server_version: "fixture-version" } }) }
+    @stubs.get("/1.0/projects/fixture-project?project=fixture-project") { json(metadata: {}) }
+    @stubs.get("/1.0/profiles/sandbox-restricted?project=fixture-project") { json(metadata: {}) }
+    @stubs.get("/1.0/instances?project=fixture-project&recursion=1") { json(metadata: []) }
+    @stubs.get("/1.0/images/aliases/sandbox-app-runtime?project=fixture-project") do
+      image_status == 200 ? json(metadata: { name: "sandbox-app-runtime" }) : json({ error: "not found" }, 404)
+    end
   end
 end

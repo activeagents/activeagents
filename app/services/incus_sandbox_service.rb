@@ -32,6 +32,7 @@ class IncusSandboxService
   # BOOT_COMMAND APP_DIR installs and starts the app on :8080 (returning once
   # it is up), and writes RUNTIME_MANIFEST as JSON:
   #   { "mcp_path": "/activeagents/mcp", "mcp_token": "aa_..." }
+  APP_RUNTIME_IMAGE = "sandbox-app-runtime"
   APP_DIR = "/workspace/app"
   BOOT_COMMAND = "sandbox-app-boot"
   RUNTIME_MANIFEST = "/workspace/runtime.json"
@@ -58,6 +59,7 @@ class IncusSandboxService
     @host = config[:host] || ENV.fetch("INCUS_HOST", "unix:///var/lib/incus/unix.socket")
     @cert_path = config[:cert_path] || ENV["INCUS_CERT_PATH"]
     @key_path = config[:key_path] || ENV["INCUS_KEY_PATH"]
+    @server_ca_path = config[:server_ca_path] || ENV["INCUS_SERVER_CA_PATH"]
     @project = config[:project] || ENV.fetch("INCUS_PROJECT", "agent-sandboxes")
   end
 
@@ -195,7 +197,7 @@ class IncusSandboxService
     response = api_request(:get, "/1.0/instances", { "recursion" => 1 })
     instances = response["metadata"] || []
 
-    instances.select { |i| i["name"].start_with?(CONTAINER_PREFIX) }.map do |instance|
+    instances.select { |i| i.is_a?(Hash) && i["name"].to_s.start_with?("#{CONTAINER_PREFIX}-") }.map do |instance|
       {
         name: instance["name"],
         status: instance["status"],
@@ -218,7 +220,14 @@ class IncusSandboxService
       "record-output": true
     })
 
-    wait_for_operation(response["operation"])
+    operation = wait_for_operation(response["operation"])
+    metadata = operation.fetch("metadata")
+    output = metadata.fetch("output", {})
+    {
+      stdout: recorded_output(container_name, output["1"]),
+      stderr: recorded_output(container_name, output["2"]),
+      exit_code: metadata.fetch("return")
+    }
   end
 
   # Get logs from a sandbox container
@@ -228,7 +237,9 @@ class IncusSandboxService
   # @return [String] Log contents
   def container_logs(container_name, log_file: "/var/log/sandbox.log")
     result = exec_in_container(container_name, [ "cat", log_file ])
-    result.dig("metadata", "output", "1") || ""
+    raise ContainerError, "Reading the sandbox log exited with status #{result[:exit_code]}" unless result[:exit_code] == 0
+
+    result[:stdout]
   rescue => e
     Rails.logger.warn("Failed to get logs for #{container_name}: #{e.message}")
     ""
@@ -318,6 +329,26 @@ class IncusSandboxService
     end
   end
 
+  # Read-only checks before provisioning anything. Credentials never appear
+  # in the report; being able to reach the daemon is not proof of trust.
+  # app_runtime_supported says whether the daemon carries the checkout image;
+  # code_sessions_supported whether this backend runs Claude Code sessions,
+  # which the orchestrator decides by the presence of run_code_session.
+  def preflight
+    server = api_request(:get, "/1.0").fetch("metadata")
+    raise ConnectionError, "Incus did not authenticate this client certificate" unless server["auth"] == "trusted"
+
+    api_request(:get, "/1.0/projects/#{@project}")
+    api_request(:get, "/1.0/profiles/sandbox-restricted")
+    {
+      connected: true, project: @project,
+      server_version: server.dig("environment", "server_version"),
+      sandbox_count: list_sandboxes.size,
+      app_runtime_supported: image_alias?(APP_RUNTIME_IMAGE),
+      code_sessions_supported: respond_to?(:run_code_session)
+    }
+  end
+
   private
 
   # Fetches the checkout, boots the app, and returns its runtime manifest.
@@ -359,17 +390,33 @@ class IncusSandboxService
     output = operation.dig("metadata", "output") || {}
 
     unless exit_code.to_i.zero?
-      stderr = exec_log(output["2"]).to_s.strip.last(500)
+      stderr = recorded_output(container_name, output["2"]).strip.last(500)
       raise ContainerError, "#{command.first} exited #{exit_code}: #{stderr}"
     end
 
-    exec_log(output["1"]).to_s
+    recorded_output(container_name, output["1"])
   end
 
-  def exec_log(path)
+  # Incus records stdout/stderr as log resources, not inline strings.
+  # Only fetch resources from this instance on the configured daemon.
+  def recorded_output(container_name, path)
     return "" if path.blank?
 
-    api_request(:get, path)
+    uri = URI.parse(path)
+    prefix = "/1.0/instances/#{container_name}/logs/"
+    unless uri.scheme.nil? && uri.host.nil? && uri.path.start_with?(prefix) && !uri.path.include?("..")
+      raise ContainerError, "Incus returned an unexpected exec output URL"
+    end
+
+    api_request(:get, uri.path).to_s
+  end
+
+  # Whether the daemon carries an image under +alias_name+.
+  def image_alias?(alias_name)
+    api_request(:get, "/1.0/images/aliases/#{alias_name}")
+    true
+  rescue Faraday::ResourceNotFound
+    false
   end
 
   def generate_container_name(session_id)
@@ -419,7 +466,7 @@ class IncusSandboxService
     when "research"
       "sandbox-research"
     when "app_runtime"
-      "sandbox-app-runtime"
+      APP_RUNTIME_IMAGE
     else
       "sandbox-base"
     end
@@ -508,7 +555,7 @@ class IncusSandboxService
 
   def api_request(method, path, body = nil)
     conn = build_connection
-    params = { project: @project }
+    params = (method == :get ? (body || {}).stringify_keys : {}).merge("project" => @project)
 
     response = case method
     when :get
@@ -536,25 +583,25 @@ class IncusSandboxService
   end
 
   def build_connection
+    if @host.start_with?("unix://")
+      raise ConnectionError, "The Rails Incus adapter requires an HTTPS endpoint; set INCUS_HOST, INCUS_CERT_PATH and INCUS_KEY_PATH (Unix socket transport is not implemented)"
+    end
+    uri = URI.parse(@host)
+    raise ConnectionError, "INCUS_HOST must be an HTTPS endpoint" unless uri.scheme == "https" && uri.host.present?
+    raise ConnectionError, "Set both INCUS_CERT_PATH and INCUS_KEY_PATH" unless @cert_path.present? && @key_path.present?
+
     @connection ||= Faraday.new(url: api_url) do |f|
+      f.options.open_timeout = 5
+      f.options.timeout = 30
       f.request :json
       f.response :json
       f.response :raise_error
 
-      if @host.start_with?("unix://")
-        # Unix socket connection
-        f.adapter :net_http do |http|
-          http.socket_class = UnixSocket
-        end
-      else
-        # HTTPS connection with client certs
-        if @cert_path && @key_path
-          f.ssl.client_cert = OpenSSL::X509::Certificate.new(File.read(@cert_path))
-          f.ssl.client_key = OpenSSL::PKey::RSA.new(File.read(@key_path))
-          f.ssl.verify = true
-        end
-        f.adapter Faraday.default_adapter
-      end
+      f.ssl.client_cert = OpenSSL::X509::Certificate.new(File.read(@cert_path))
+      f.ssl.client_key = OpenSSL::PKey.read(File.read(@key_path))
+      f.ssl.ca_file = @server_ca_path if @server_ca_path.present?
+      f.ssl.verify = true
+      f.adapter Faraday.default_adapter
     end
   end
 
