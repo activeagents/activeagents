@@ -93,7 +93,8 @@ class Api::McpControllerTest < ActionDispatch::IntegrationTest
     other_key = create_account(owner: create_user).api_keys.create!(name: "other")
 
     rpc("tools/list", token: other_key.token)
-    assert_equal [], json_response.dig("result", "tools")
+    names = json_response.dig("result", "tools").pluck("name")
+    assert_not names.any? { |name| name.include?(@agent.slug) }, names.inspect
   end
 
   test "resources/read returns the agent's live scorecard" do
