@@ -20,6 +20,12 @@ variable "mailer_from_address" {
   default     = "Active Agent <noreply@staging.activeagents.ai>"
 }
 
+variable "app_host" {
+  description = "Hostname staging answers on; links in transactional email (verification, newsletter confirmation) use it"
+  type        = string
+  default     = "staging.activeagents.ai"
+}
+
 variable "allow_public_access" {
   description = "Allow unauthenticated public access to Cloud Run"
   type        = bool

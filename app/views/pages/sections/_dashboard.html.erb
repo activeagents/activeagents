@@ -1,0 +1,21 @@
+<section id="dashboard" class="lp-anchor">
+  <div class="lp-section-head">
+    <span class="eyebrow lp-eyebrow">The dashboard &middot; actionagent</span>
+    <h2 class="no-top-margin">See inside every agent decision.</h2>
+    <p class="paragraph m secondary">
+      Mount the engine in your app. Every generation becomes a trace, every conversation an interaction,
+      every scenario suite a run you can compare against the last one. MIT, on your own database,
+      from the first generation.
+    </p>
+  </div>
+
+  <pre class="lp-code"><code><span class="p">$</span> bundle add actionagent
+<span class="p">$</span> rails generate action_agent:install <span class="dim">&amp;&amp;</span> rails db:migrate
+
+<span class="cm"># config/active_agent.yml</span>
+<span class="y">telemetry</span>:
+  <span class="y">enabled</span>: <span class="k">true</span>
+  <span class="y">local_storage</span>: <span class="k">true</span>      <span class="cm"># open /activeagents</span></code></pre>
+
+  <%= render "pages/sections/dashboard_bento" %>
+</section>

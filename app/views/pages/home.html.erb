@@ -1,8 +1,13 @@
+<%# The commercial lander (activeagents.ai / activeagent.pro). The open-source
+    variant on activeagent.dev is home_oss.html.erb; it shares the framework
+    section below. Sections are plain HTML partials styled by
+    app/assets/stylesheets/landing/lander.css. %>
 <%= render "pages/sections/hero", demo_mode: @demo_mode %>
+<%= render "pages/sections/pipeline" %>
 <%= render "pages/sections/features" %>
-<%= render "pages/sections/product_previews" %>
-<%= render "pages/sections/gems" %>
+<%= render "pages/sections/dashboard" %>
 <%= render "pages/sections/platform" %>
+<%= render "pages/sections/pricing" %>
 <%= render "pages/sections/services" %>
 <%= render "pages/sections/faq" %>
 <%= render "pages/sections/signup" %>

@@ -290,3 +290,15 @@ variable "additional_cname_records" {
   }))
   default = []
 }
+
+variable "app_host" {
+  description = "Hostname this deployment answers on; Rails uses it for links in transactional email (APP_HOST)"
+  type        = string
+  default     = "activeagents.ai"
+}
+
+variable "resend_newsletter_audience_id" {
+  description = "Resend audience that confirmed newsletter subscribers are synced into (RESEND_NEWSLETTER_AUDIENCE_ID). The audience id is an identifier, not a credential; the API key stays in Secret Manager."
+  type        = string
+  default     = "e47ac620-c823-4712-b0fd-f576d8ce132e"
+}
