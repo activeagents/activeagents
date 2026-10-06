@@ -83,7 +83,8 @@ export default class extends Controller {
   showResponse(message, type) {
     if (this.hasResponseTarget) {
       this.responseTarget.innerHTML = `<i class="fa-solid fa-${type === "success" ? "check" : "exclamation-circle"}"></i> ${message}`
-      this.responseTarget.className = `signup-response ${type}`
+      const baseClass = this.responseTarget.dataset.responseClass || "signup-response"
+      this.responseTarget.className = `${baseClass} ${type}`
       this.responseTarget.style.display = "block"
     }
   }

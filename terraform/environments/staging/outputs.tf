@@ -49,3 +49,18 @@ output "alias_domain_name_servers" {
   description = "Per-alias-domain Cloud DNS name servers — delegate each domain to these at its registrar"
   value       = module.activeagents.alias_domain_name_servers
 }
+
+output "github_app_install_url" {
+  description = "Where an account installs the staging GitHub App"
+  value       = module.activeagents.github_app_install_url
+}
+
+output "recordings_bucket" {
+  description = "Bucket that holds staging session recordings"
+  value       = module.activeagents.recordings_bucket
+}
+
+output "recordings_signer_email" {
+  description = "Service account that signs staging recording download URLs"
+  value       = module.activeagents.recordings_signer_email
+}

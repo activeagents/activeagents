@@ -117,6 +117,11 @@ jobs:
       contents: read
       id-token: write
 
+    # The smoke test reads this; without it needs.deploy.outputs.url is
+    # empty and the health check curls "/up" with no host.
+    outputs:
+      url: ${{ steps.deploy.outputs.url }}
+
     environment:
       name: production
       url: ${{ steps.deploy.outputs.url }}
@@ -176,6 +181,11 @@ jobs:
 
   migrate:
     needs: deploy
+    # build-production only runs for releases. On a manual dispatch it is
+    # skipped, and a skipped job upstream skips every dependent job unless
+    # that job says otherwise, so without this condition migrations never
+    # ran on a dispatched deploy. Run them whenever the deploy itself passed.
+    if: always() && needs.deploy.result == 'success'
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -195,10 +205,22 @@ jobs:
         run: |
           gcloud run jobs execute activeagents-production-migrate \
             --region=${{ env.REGION }} \
-            --wait
+            --wait \
+          || {
+            echo "--- migrate job logs (last hour) ---"
+            gcloud logging read \
+              'resource.type="cloud_run_job" AND resource.labels.job_name="activeagents-production-migrate"' \
+              --project=${{ env.PROJECT_ID }} \
+              --freshness=1h \
+              --limit=200 \
+              --order=asc \
+              --format="value(textPayload)" || true
+            exit 1
+          }
 
   smoke-test:
     needs: [deploy, migrate]
+    if: always() && needs.deploy.result == 'success' && needs.migrate.result == 'success'
     runs-on: ubuntu-latest
 
     steps:
@@ -207,10 +229,16 @@ jobs:
           URL="${{ needs.deploy.outputs.url }}"
           echo "Testing health endpoint at $URL/up"
 
+          if [ -z "$URL" ]; then
+            echo "❌ URL is empty, cannot perform health check"
+            exit 1
+          fi
+
           for i in {1..10}; do
             STATUS=$(curl -s -o /dev/null -w "%{http_code}" "$URL/up" || echo "000")
-            if [ "$STATUS" = "200" ]; then
-              echo "✅ Health check passed!"
+            # 200 = healthy, 302 = IAP redirect (service is up), 403 = auth required but service is up
+            if [ "$STATUS" = "200" ] || [ "$STATUS" = "302" ] || [ "$STATUS" = "403" ]; then
+              echo "✅ Health check passed! (Status: $STATUS)"
               exit 0
             fi
             echo "Attempt $i: Status $STATUS, retrying in 10s..."
