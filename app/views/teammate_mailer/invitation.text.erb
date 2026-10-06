@@ -1,0 +1,10 @@
+<%= @invitation.invited_by.display_name %> (<%= @invitation.invited_by.email_address %>) invited you to join the <%= @invitation.account.name %> workspace on ActiveAgents as <%= @invitation.role == "admin" ? "an admin" : "a member" %>.
+
+Open this link to accept:
+<%= @accept_url %>
+
+Accept while signed in as <%= @invitation.email_address %>. If you don't have an ActiveAgents account yet, sign up with this email address, verify it, then open the link again.
+
+The link expires in 7 days and can only be used once. Opening it alone does not add you to the workspace.
+
+If you weren't expecting this invitation, you can ignore this email.

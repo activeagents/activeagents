@@ -8,7 +8,13 @@ Rails.application.routes.draw do
   resource :password_link, only: :create, path: "settings/password_link"
   resource :registration, only: [ :new, :create ]
   resource :workspace_invitation, only: [ :show, :create ]
-  resource :workspace, only: [ :show, :update ]
+  resource :workspace, only: [ :show, :update ] do
+    resources :members, only: [ :index, :update, :destroy ], controller: "workspace_members"
+    # Named apart from the singular workspace_invitation (the acceptance page).
+    resources :teammate_invitations, path: "invitations", only: [ :create, :destroy ] do
+      post :resend, on: :member
+    end
+  end
   resource :newsletter_subscription, only: [ :create, :show, :update ]
   resources :passwords, param: :token, only: [ :new, :create, :edit, :update ]
 

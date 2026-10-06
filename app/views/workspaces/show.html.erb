@@ -1,6 +1,7 @@
 <p class="pilot-eyebrow">Your workspace</p>
 <h1><%= @account.name %></h1>
 <p class="pilot-muted">Effective plan: <strong><%= @account.current_plan&.name || "Free" %></strong> · Access: <%= @account.access_source.humanize %></p>
+<p><%= link_to "Members and invitations", workspace_members_path %> · <%= pluralize(@account.account_memberships.count, "member") %></p>
 <% if @accounts.size > 1 %>
   <%= form_with url: workspace_path, method: :patch do |form| %>
     <%= form.label :account_id, "Switch workspace" %>
