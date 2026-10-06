@@ -1,58 +1,48 @@
-<section id="services">
-  <div class="text-centered full-width">
-    <h2>Services</h2>
-    <p class="paragraph m secondary">We'll help you ship agents faster</p>
+<section id="services" class="lp-anchor">
+  <div class="lp-section-head">
+    <span class="eyebrow lp-eyebrow">Services</span>
+    <h2 class="no-top-margin">Need a hand shipping?</h2>
+    <p class="paragraph m secondary">
+      The people who build the framework can build your first agents with you, review the ones you have,
+      or take a project end to end.
+    </p>
   </div>
-  <div class="grid columns-3 margin-top-xl">
-    <%= render "pages/components/service_card",
-      icon: "fa-graduation-cap",
-      name: "Workshops",
-      price: "$2,500 half-day | $4,500 full-day",
-      features: [
-        "Build your first agent in a day",
-        "Hands-on coding, not slides",
-        "Architecture patterns that scale",
-        "Code review & Q&A",
-        "Custom curriculum available"
-      ],
-      tagline: "Learn by building",
-      cta_text: "Join a Workshop",
-      cta_link: "mailto:workshops@activeagents.ai?subject=Workshop%20Inquiry",
-      cta_style: "tertiary",
-      highlighted: false %>
 
-    <%= render "pages/components/service_card",
-      icon: "fa-compass",
-      name: "Advisory",
-      price: "From $3,000/month",
-      features: [
-        "Your dedicated AI architect",
-        "Strategy, code reviews, PR feedback",
-        "Train your team as you build",
-        "Async Slack access",
-        "Cancel anytime, 30-day notice"
-      ],
-      tagline: "Expert on your team",
-      cta_text: "Schedule a Call",
-      cta_link: "mailto:consulting@activeagents.ai?subject=Advisory%20Inquiry",
-      cta_style: "primary",
-      highlighted: true %>
+  <div class="lp-grid">
+    <div class="lp-card lp-service">
+      <h3><span class="lp-glyph accent">[]</span>Workshops</h3>
+      <p class="lp-price-line">$2,500 half day &middot; $4,500 full day</p>
+      <ul>
+        <li>Build your first agent in a day, hands-on</li>
+        <li>Architecture patterns that hold up in production</li>
+        <li>Evaluations and tracing from the first commit</li>
+        <li>Code review and Q&amp;A, custom curriculum available</li>
+      </ul>
+      <a class="button tertiary" href="mailto:workshops@activeagents.ai?subject=Workshop%20Inquiry">Book a workshop</a>
+    </div>
 
-    <%= render "pages/components/service_card",
-      icon: "fa-code",
-      name: "Development",
-      price: "$250/hr or project-based",
-      features: [
-        "We build your agents for you",
-        "Integrate with your Rails app",
-        "Optimize & deploy to production",
-        "Flexible: hourly or fixed-price",
-        "SOW with clear milestones"
-      ],
-      tagline: "We ship, you own",
-      cta_text: "Get in Touch",
-      cta_link: "mailto:dev@activeagents.ai?subject=Development%20Inquiry",
-      cta_style: "tertiary",
-      highlighted: false %>
+    <div class="lp-card lp-service">
+      <h3><span class="lp-glyph accent">@</span>Advisory</h3>
+      <p class="lp-price-line">From $3,000 a month</p>
+      <ul>
+        <li>A dedicated AI architect on your team</li>
+        <li>Strategy, code reviews and PR feedback</li>
+        <li>Async Slack access</li>
+        <li>Cancel any time with 30 days notice</li>
+      </ul>
+      <a class="button primary" href="mailto:consulting@activeagents.ai?subject=Advisory%20Inquiry">Schedule a call</a>
+    </div>
+
+    <div class="lp-card lp-service">
+      <h3><span class="lp-glyph accent">&gt;</span>Development</h3>
+      <p class="lp-price-line">$250 an hour, or fixed price</p>
+      <ul>
+        <li>We build the agents, you own the code</li>
+        <li>Integrated with your existing Rails app</li>
+        <li>Tuned, evaluated and deployed to production</li>
+        <li>A statement of work with clear milestones</li>
+      </ul>
+      <a class="button tertiary" href="mailto:dev@activeagents.ai?subject=Development%20Inquiry">Get in touch</a>
+    </div>
   </div>
 </section>

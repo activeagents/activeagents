@@ -10,6 +10,9 @@ class PagesControllerTest < ActionDispatch::IntegrationTest
     assert_response :success
     assert_match "provider-agnostic", response.body           # OSS hero
     assert_match "See your agents while you build", response.body # dev console section
+    assert_match "Free, and free forever.", response.body     # the gems
+    assert_match "Release notes, in your inbox.", response.body # newsletter signup
+    assert_match "Agents are controllers", response.body      # shared framework section
     assert_no_match(/Pro Platform/, response.body)            # no hosted pricing
     assert_match "https://activeagents.ai", response.body     # cross-link to commercial
   end
@@ -26,6 +29,9 @@ class PagesControllerTest < ActionDispatch::IntegrationTest
     get "/"
 
     assert_response :success
+    assert_match "See everything it does", response.body             # hero
+    assert_match "Three gems. One wire format.", response.body       # pipeline
+    assert_match "See inside every agent decision", response.body    # dashboard
     assert_match "Production observability for Rails AI agents", response.body
     assert_match "Pro Platform", response.body
     assert_match "https://activeagent.dev", response.body     # cross-link to OSS

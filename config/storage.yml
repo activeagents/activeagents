@@ -2,9 +2,24 @@ test:
   service: Disk
   root: <%= Rails.root.join("tmp/storage") %>
 
+# Stays declared after production moves to google: blobs stored on the disk
+# keep service_name "local", and a blob whose service is not declared here
+# raises KeyError on access.
 local:
   service: Disk
   root: <%= Rails.root.join("storage") %>
+
+# Production once RECORDINGS_BUCKET is set (config/environments/production.rb).
+# There is no keyfile. The client authenticates as the Cloud Run service account
+# through Application Default Credentials and takes the project from
+# GOOGLE_CLOUD_PROJECT or the metadata server. With `iam: true`, download URLs
+# are signed through the IAM Credentials API as RECORDINGS_SIGNER_EMAIL, which
+# production requires whenever it selects this service.
+google:
+  service: GCS
+  bucket: <%= ENV["RECORDINGS_BUCKET"] %>
+  iam: true
+  gsa_email: <%= ENV["RECORDINGS_SIGNER_EMAIL"] %>
 
 # Use bin/rails credentials:edit to set the AWS secrets (as aws:access_key_id|secret_access_key)
 # amazon:
@@ -12,13 +27,6 @@ local:
 #   access_key_id: <%= Rails.application.credentials.dig(:aws, :access_key_id) %>
 #   secret_access_key: <%= Rails.application.credentials.dig(:aws, :secret_access_key) %>
 #   region: us-east-1
-#   bucket: your_own_bucket-<%= Rails.env %>
-
-# Remember not to checkin your GCS keyfile to a repository
-# google:
-#   service: GCS
-#   project: your_project
-#   credentials: <%= Rails.root.join("path/to/gcs.keyfile") %>
 #   bucket: your_own_bucket-<%= Rails.env %>
 
 # Use bin/rails credentials:edit to set the Azure Storage secret (as azure_storage:storage_access_key)
@@ -32,10 +40,3 @@ local:
 #   service: Mirror
 #   primary: local
 #   mirrors: [ amazon, google, microsoft ]
-
-# Session recordings storage (uses GCS in production)
-# google_recordings:
-#   service: GCS
-#   project: <%= ENV['GCP_PROJECT_ID'] || 'active-agents-platform' %>
-#   credentials: <%= Rails.root.join("config/gcs_credentials.json") %>
-#   bucket: activeagents-recordings-<%= Rails.env %>

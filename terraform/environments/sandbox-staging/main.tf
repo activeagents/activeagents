@@ -10,7 +10,8 @@
 #   terraform apply
 
 terraform {
-  required_version = ">= 1.5.0"
+  # 1.7 for import blocks with for_each
+  required_version = ">= 1.7.0"
 
   required_providers {
     google = {
@@ -46,6 +47,18 @@ variable "zone" {
   description = "GCP zone"
   type        = string
   default     = "us-central1-a"
+}
+
+variable "app_service_account" {
+  description = "Service account of the staging app, which reads the Incus client certificate and key (activeagents-<env> in the platform project, created by terraform/main.tf)"
+  type        = string
+  default     = "activeagents-staging@active-agents-platform.iam.gserviceaccount.com"
+}
+
+variable "adopt_existing_incus_secrets" {
+  description = "Import incus-client-cert-staging and incus-client-key-staging into state. Set for one apply only when an earlier host created them outside Terraform."
+  type        = bool
+  default     = false
 }
 
 # -----------------------------------------------------------------------------
@@ -121,24 +134,34 @@ resource "google_compute_router_nat" "sandbox" {
 module "incus_host" {
   source = "../../modules/incus-host"
 
-  project_id   = var.project_id
-  region       = var.region
-  zone         = var.zone
-  environment  = "staging"
-  network_id   = google_compute_network.sandbox.id
-  subnet_id    = google_compute_subnetwork.sandbox.id
+  project_id  = var.project_id
+  region      = var.region
+  zone        = var.zone
+  environment = "staging"
+  network_id  = google_compute_network.sandbox.id
+  subnet_id   = google_compute_subnetwork.sandbox.id
 
   # Smaller instance for staging
-  machine_type = "n2-standard-4"  # 4 vCPU, 16GB RAM
+  machine_type = "n2-standard-4" # 4 vCPU, 16GB RAM
   disk_size_gb = 100
 
   # No GPU for staging (cost savings)
   enable_gpu = false
 
+  app_service_account = var.app_service_account
+
   depends_on = [
     google_project_service.compute,
     google_project_service.secretmanager
   ]
+}
+
+# Once both secrets are in state these blocks import nothing, so the variable
+# can go back to false.
+import {
+  for_each = var.adopt_existing_incus_secrets ? toset(["cert", "key"]) : toset([])
+  to       = module.incus_host.google_secret_manager_secret.client_credentials[each.key]
+  id       = "projects/${var.project_id}/secrets/incus-client-${each.key}-staging"
 }
 
 # -----------------------------------------------------------------------------
@@ -190,9 +213,19 @@ output "client_key_secret" {
   value       = module.incus_host.client_key_secret
 }
 
+output "incus_host_service_account" {
+  description = "Service account the Incus host runs as"
+  value       = module.incus_host.service_account_email
+}
+
+output "egress_acl_command" {
+  description = "Applies the sandbox egress ACL to the running host; run it from the repository root"
+  value       = module.incus_host.egress_acl_command
+}
+
 output "environment_config" {
   description = "Environment variables for Rails app"
-  value = <<-EOT
+  value       = <<-EOT
     # Add to your .env or Cloud Run environment:
     SANDBOX_BACKEND=incus
     INCUS_HOST=${module.incus_host.incus_api_url}
