@@ -28,6 +28,7 @@ run "defaults_pass_nothing_new_to_cloud_run" {
 
   assert {
     condition = toset(keys(local.cloud_run_env_vars)) == toset([
+      "APP_HOST",
       "DB_HOST",
       "DB_NAME",
       "DB_USER",
@@ -35,6 +36,7 @@ run "defaults_pass_nothing_new_to_cloud_run" {
       "RAILS_ENV",
       "RAILS_LOG_TO_STDOUT",
       "RAILS_SERVE_STATIC_FILES",
+      "RESEND_NEWSLETTER_AUDIENCE_ID",
       "SKIP_DB_PREPARE",
       "SOLID_QUEUE_IN_PUMA",
     ])
