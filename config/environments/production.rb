@@ -1,4 +1,5 @@
 require "active_support/core_ext/integer/time"
+require_relative "../../lib/storage_service_selector"
 
 Rails.application.configure do
   # Settings specified here will take precedence over those in config/application.rb.
@@ -21,8 +22,17 @@ Rails.application.configure do
   # Enable serving of images, stylesheets, and JavaScripts from an asset server.
   # config.asset_host = "http://assets.example.com"
 
-  # Store uploaded files on the local file system (see config/storage.yml for options).
-  config.active_storage.service = :local
+  # Store uploaded files in Google Cloud Storage once RECORDINGS_BUCKET is set,
+  # and on the instance's disk until then (lib/storage_service_selector.rb).
+  config.active_storage.service = StorageServiceSelector.service
+
+  if StorageServiceSelector.disk_fallback?
+    config.after_initialize do
+      Rails.logger.warn "Active Storage keeps files on this instance's disk, which Cloud Run discards when the instance stops. " \
+        "Set RECORDINGS_BUCKET and RECORDINGS_SIGNER_EMAIL to store them in Google Cloud Storage, " \
+        "or ACTIVE_STORAGE_SERVICE=local to keep the disk on purpose."
+    end
+  end
 
   # Assume all access to the app is happening through a SSL-terminating reverse proxy.
   # RAILS_ASSUME_SSL=false and RAILS_FORCE_SSL=false serve a container run
@@ -59,8 +69,11 @@ Rails.application.configure do
   # Raise delivery errors so failed sends surface in logs.
   config.action_mailer.raise_delivery_errors = true
 
-  # Set host to be used by links generated in mailer templates.
-  config.action_mailer.default_url_options = { host: "activeagents.ai" }
+  # Host for links generated in mailer templates (email verification,
+  # newsletter confirmation, password reset). Each deployment sets APP_HOST
+  # to the hostname it answers on, so a link sent from staging confirms on
+  # staging rather than on production, where the token could not verify.
+  config.action_mailer.default_url_options = { host: ENV.fetch("APP_HOST", "activeagents.ai"), protocol: "https" }
 
   # Resend SMTP relay for transactional email
   config.action_mailer.delivery_method = :smtp

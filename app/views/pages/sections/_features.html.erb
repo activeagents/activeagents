@@ -1,186 +1,146 @@
-<section id="features">
-  <div class="heading centered fade-in-up" data-controller="scroll-animate">
-    <h2 class="no-top-margin">What's in the Box</h2>
+<section id="framework" class="lp-anchor">
+  <div class="lp-section-head">
+    <span class="eyebrow lp-eyebrow">The framework &middot; activeagent</span>
+    <h2 class="no-top-margin">Agents are controllers.</h2>
     <p class="paragraph m secondary">
-      Everything to build agents in Rails. Free forever.
+      Actions, callbacks, params and views, for AI. Tools are Ruby methods, MCP servers are a declaration,
+      and another agent is just another tool. Everything below is in the MIT gem.
     </p>
   </div>
-  <div class="grid columns-3 stagger-children" data-controller="scroll-animate">
-    <%# Example: test/agents/examples/flip_card_examples.rb %>
-    <%= render "pages/components/flip_card",
-      title: "Agents are Controllers",
-      description: "Actions, callbacks, views. Your agents speak Rails.",
-      code: <<~CODE,
-        class TranslationAgent < ApplicationAgent
-          generate_with :openai, model: "gpt-4o"
 
-          def translate
-            prompt message: "Translate '\#{params[:text]}' to \#{params[:target_lang]}"
-          end
-        end
+  <div class="lp-grid two">
+    <div class="lp-card">
+      <h3><span class="lp-glyph accent">@</span><a href="https://docs.activeagents.ai/agents" target="_blank" rel="noopener noreferrer">Agents are controllers</a></h3>
+      <p class="paragraph s secondary">Actions, <code class="lp-inline-code">before_action</code>, params. Run now, or later on Active Job.</p>
+<pre class="lp-code"><code><span class="k">class</span> <span class="c">TranslationAgent</span> &lt; <span class="c">ApplicationAgent</span>
+  <span class="m">generate_with</span> <span class="y">:openai</span>, <span class="y">model:</span> <span class="s">"gpt-4o-mini"</span>
+  <span class="m">before_action</span> <span class="y">:load_glossary</span>
 
-        TranslationAgent.with(text: "Hello", target_lang: "es").translate.generate_now
-      CODE
-      docs_link: "https://docs.activeagents.ai/agents",
-      docs_text: "docs/agents" %>
+  <span class="k">def</span> <span class="m">translate</span>
+    <span class="m">prompt</span>   <span class="cm"># renders translate.md.erb</span>
+  <span class="k">end</span>
+<span class="k">end</span>
 
-    <%# Example: test/agents/examples/flip_card_examples.rb %>
-    <%= render "pages/components/flip_card",
-      title: "Action Prompt",
-      description: "Composable prompts. Like Action Mailer, but for AI.",
-      code: <<~CODE,
-        def summarize
-          prompt(
-            instructions: "Summarize in 2-3 sentences",
-            message: params[:text],
-            temperature: 0.3
-          )
-        end
+<span class="c">TranslationAgent</span>.with(<span class="y">text:</span> <span class="s">"Hello"</span>, <span class="y">locale:</span> <span class="s">"ja"</span>)
+                .translate.generate_now
+<span class="c">TranslationAgent</span>.with(<span class="y">text:</span> <span class="s">"Hello"</span>, <span class="y">locale:</span> <span class="s">"ja"</span>)
+                .translate.generate_later   <span class="cm"># Active Job</span></code></pre>
+      <a class="lp-docs" href="https://docs.activeagents.ai/agents" target="_blank" rel="noopener noreferrer">docs/agents -&gt;</a>
+    </div>
 
-        SummaryAgent.with(text:).summarize.generate_now
-      CODE
-      docs_link: "https://docs.activeagents.ai/actions",
-      docs_text: "docs/actions" %>
+    <div class="lp-card">
+      <h3><span class="lp-glyph accent">*</span><a href="https://docs.activeagents.ai/actions" target="_blank" rel="noopener noreferrer">Action Prompt</a></h3>
+      <p class="paragraph s secondary">Prompts are views. ERB, partials and layouts, plus an instructions file per agent.</p>
+<pre class="lp-code"><code><span class="dim">app/views/agents/translation/</span>
+  instructions.md      <span class="cm"># the system prompt</span>
+  translate.md.erb     <span class="cm"># the user turn</span>
+  translate.json       <span class="cm"># a response schema, if any</span>
 
-    <%# Example: test/agents/examples/flip_card_examples.rb %>
-    <%= render "pages/components/flip_card",
-      title: "Any LLM",
-      description: "OpenAI, Anthropic, Gemini, Bedrock, Ollama. Switch with one line.",
-      code: <<~CODE,
-        # OpenAI
-        generate_with :open_ai, model: "gpt-4o"
+<span class="cm">&lt;%# translate.md.erb %&gt;</span>
+Translate into <span class="k">&lt;%=</span> params[<span class="y">:locale</span>] <span class="k">%&gt;</span>, keeping the tone:
 
-        # Anthropic
-        generate_with :anthropic, model: "claude-sonnet-4-5-20250929"
+<span class="k">&lt;%=</span> params[<span class="y">:text</span>] <span class="k">%&gt;</span></code></pre>
+      <a class="lp-docs" href="https://docs.activeagents.ai/actions" target="_blank" rel="noopener noreferrer">docs/actions -&gt;</a>
+    </div>
 
-        # Google Gemini
-        generate_with :gemini, model: "gemini-2.0-flash"
+    <div class="lp-card">
+      <h3><span class="lp-glyph accent">&gt;&gt;</span><a href="https://docs.activeagents.ai/providers" target="_blank" rel="noopener noreferrer">Any provider</a></h3>
+      <p class="paragraph s secondary">OpenAI, Anthropic, Gemini, Bedrock, Azure, Ollama, OpenRouter, Requesty, DeepSeek, RubyLLM. One line to switch.</p>
+<pre class="lp-code"><code><span class="m">generate_with</span> <span class="y">:anthropic</span>, <span class="y">model:</span> <span class="s">"claude-sonnet-4-5"</span>
+<span class="m">generate_with</span> <span class="y">:openai</span>,    <span class="y">model:</span> <span class="s">"gpt-4o-mini"</span>
+<span class="m">generate_with</span> <span class="y">:gemini</span>,    <span class="y">model:</span> <span class="s">"gemini-2.5-flash"</span>
+<span class="m">generate_with</span> <span class="y">:ollama</span>,    <span class="y">model:</span> <span class="s">"qwen3:8b"</span>
+<span class="m">generate_with</span> <span class="y">:deepseek</span>,  <span class="y">model:</span> <span class="s">"deepseek-flash"</span>
+<span class="m">generate_with</span> <span class="y">:ruby_llm</span>,  <span class="y">model:</span> <span class="s">"mistral-large-latest"</span>
 
-        # Ollama (local)
-        generate_with :ollama, model: "llama3"
-      CODE
-      docs_link: "https://docs.activeagents.ai/providers",
-      docs_text: "docs/providers" %>
+<span class="cm"># or per environment, in config/active_agent.yml</span></code></pre>
+      <a class="lp-docs" href="https://docs.activeagents.ai/providers" target="_blank" rel="noopener noreferrer">docs/providers -&gt;</a>
+    </div>
+
+    <div class="lp-card">
+      <h3><span class="lp-glyph accent">[]</span><a href="https://docs.activeagents.ai/actions/tools" target="_blank" rel="noopener noreferrer">Tools from your schema</a></h3>
+      <p class="paragraph s secondary">Bounded, allowlisted read tools generated from a model, scoped to whoever is asking.</p>
+<pre class="lp-code"><code><span class="k">class</span> <span class="c">TicketTools</span> &lt; <span class="c">ActiveAgent::SchemaTools</span>
+  <span class="m">model</span> <span class="c">Ticket</span>
+
+  <span class="m">filterable</span> <span class="y">:status</span>, <span class="y">:assignee_id</span>, <span class="y">:opened_on</span>
+  <span class="m">returns</span>    <span class="y">:id</span>, <span class="y">:subject</span>, <span class="y">:status</span>, <span class="y">:opened_on</span>
+
+  <span class="m">scope_by_policy</span>   <span class="cm"># TicketPolicy::Scope, per caller</span>
+<span class="k">end</span>
+
+<span class="c">TicketTools</span>.tool_names
+<span class="cm"># =&gt; ["find_tickets", "count_tickets", "get_ticket"]</span></code></pre>
+      <a class="lp-docs" href="https://docs.activeagents.ai/actions/tools" target="_blank" rel="noopener noreferrer">docs/tools -&gt;</a>
+    </div>
+
+    <div class="lp-card">
+      <h3><span class="lp-glyph accent">{}</span><a href="https://docs.activeagents.ai/actions/mcps" target="_blank" rel="noopener noreferrer">MCP servers</a></h3>
+      <p class="paragraph s secondary">Remote <code class="lp-inline-code">url:</code> or local <code class="lp-inline-code">command:</code> servers. Native where the provider supports it, bridged everywhere else.</p>
+<pre class="lp-code"><code><span class="k">def</span> <span class="m">research</span>
+  <span class="m">prompt</span>(
+    params[<span class="y">:question</span>],
+    <span class="y">mcps:</span> [
+      { <span class="y">name:</span> <span class="s">"github"</span>,
+        <span class="y">url:</span> <span class="s">"https://api.githubcopilot.com/mcp/"</span>,
+        <span class="y">authorization:</span> <span class="c">ENV</span>[<span class="s">"GITHUB_TOKEN"</span>] },
+      { <span class="y">name:</span> <span class="s">"files"</span>,
+        <span class="y">command:</span> <span class="s">"mcp-server-filesystem"</span>,
+        <span class="y">args:</span> [ <span class="c">Rails</span>.root.to_s ] }
+    ]
+  )
+<span class="k">end</span></code></pre>
+      <a class="lp-docs" href="https://docs.activeagents.ai/actions/mcps" target="_blank" rel="noopener noreferrer">docs/mcps -&gt;</a>
+    </div>
+
+    <div class="lp-card">
+      <h3><span class="lp-glyph accent">-&gt;</span><a href="https://docs.activeagents.ai/actions/delegation" target="_blank" rel="noopener noreferrer">Delegation</a></h3>
+      <p class="paragraph s secondary">Another agent as a tool, under a declared schema and a cost and latency budget.</p>
+<pre class="lp-code"><code><span class="k">class</span> <span class="c">ClassifierAgent</span> &lt; <span class="c">ApplicationAgent</span>
+  <span class="m">delegation</span> <span class="y">:classify</span>, <span class="y">description:</span> <span class="s">"Classify a ticket"</span> <span class="k">do</span>
+    <span class="m">string</span> <span class="y">:body</span>, <span class="y">required:</span> <span class="k">true</span>
+    <span class="m">returns</span> { <span class="m">string</span> <span class="y">:category</span>, <span class="y">enum:</span> <span class="s">%w[billing bug account]</span> }
+  <span class="k">end</span>
+
+  <span class="k">def</span> <span class="m">classify</span>(<span class="y">body:</span>) = <span class="m">prompt</span>(<span class="y">message:</span> body)
+<span class="k">end</span>
+
+<span class="k">class</span> <span class="c">TriageAgent</span> &lt; <span class="c">ApplicationAgent</span>
+  <span class="m">delegate_to</span> <span class="c">ClassifierAgent</span>, <span class="y">budget:</span> { <span class="y">max_calls:</span> <span class="n">1</span> }
+<span class="k">end</span></code></pre>
+      <a class="lp-docs" href="https://docs.activeagents.ai/actions/delegation" target="_blank" rel="noopener noreferrer">docs/delegation -&gt;</a>
+    </div>
+
+    <div class="lp-card wide">
+      <h3><span class="lp-glyph accent">=</span><a href="https://docs.activeagents.ai/framework/evaluations" target="_blank" rel="noopener noreferrer">Evaluations as tests</a></h3>
+      <p class="paragraph s secondary">Replay scenarios across models, score them, and get one fault and one fix per failure.</p>
+<pre class="lp-code"><code>scenarios = <span class="c">ActiveAgent::Evals::ScenarioParser</span>.scenarios(<span class="s">&lt;&lt;~TEXT</span>)
+  <span class="s"># Orders
+  Where is my order 4821? | tools: find_tickets
+  Cancel my subscription  | not_contains: I cannot
+TEXT</span>
+
+report = <span class="c">ActiveAgent::Evals::Runner</span>.new(
+  <span class="y">scenarios:</span> scenarios,
+  <span class="y">models:</span> <span class="c">ActiveAgent::Evals::ModelSpec</span>.parse_all(
+    <span class="s">%w[claude-sonnet-4-5 ollama/qwen3:8b]</span>, <span class="y">default_provider:</span> <span class="s">"anthropic"</span>),
+  <span class="y">replay:</span> ->(scenario, spec) { <span class="c">SupportAgent</span>.evaluate(scenario.prompt, <span class="y">model:</span> spec.model, <span class="y">provider:</span> spec.provider) }
+).call
+
+report.to_html   <span class="cm"># or to_markdown, to_json, or publish it to the dashboard</span></code></pre>
+      <a class="lp-docs" href="https://docs.activeagents.ai/framework/evaluations" target="_blank" rel="noopener noreferrer">docs/evaluations -&gt;</a>
+    </div>
   </div>
-  <div class="grid columns-3 stagger-children" data-controller="scroll-animate">
-    <%# Example: test/agents/examples/flip_card_examples.rb %>
-    <%= render "pages/components/flip_card",
-      title: "Resilient by Default",
-      description: "Automatic retries on provider errors. Configure once, apply everywhere.",
-      code: <<~CODE,
-        # config/active_agent.yml
-        production:
-          openai:
-            service: "OpenAI"
-            model: "gpt-4o"
-            retries: true
-            retries_count: 3
-      CODE
-      docs_link: "https://docs.activeagents.ai/framework",
-      docs_text: "docs/framework" %>
 
-    <%# Example: test/agents/examples/flip_card_examples.rb %>
-    <%= render "pages/components/flip_card",
-      title: "Streaming",
-      description: "Real-time responses. Your agents think out loud.",
-      code: <<~CODE,
-        class ChatAgent < ApplicationAgent
-          generate_with :openai, model: "gpt-4o", stream: true
-
-          on_stream :handle_chunk
-
-          def chat
-            prompt message: params[:message]
-          end
-
-          private
-
-          def handle_chunk(chunk)
-            print chunk.delta if chunk.delta
-          end
-        end
-      CODE
-      docs_link: "https://docs.activeagents.ai/agents/streaming",
-      docs_text: "docs/streaming" %>
-
-    <%# Example: test/agents/examples/flip_card_examples.rb %>
-    <%= render "pages/components/flip_card",
-      title: "Structured Output",
-      description: "JSON schemas, typed data. Agents that follow instructions.",
-      code: <<~CODE,
-        def parse_resume
-          prompt(
-            message: "Extract: \#{params[:data]}",
-            response_format: :json_schema
-          )
-        end
-        # Loads schema from views/agents/*/parse_resume.json
-      CODE
-      docs_link: "https://docs.activeagents.ai/actions/structured_output",
-      docs_text: "docs/structured_output" %>
-  </div>
-  <div class="grid columns-3 stagger-children" data-controller="scroll-animate">
-    <%# Example: test/agents/examples/flip_card_examples.rb %>
-    <%= render "pages/components/flip_card",
-      title: "Tool Calling",
-      description: "AI calls Ruby methods. Fetch data, take actions, make decisions.",
-      code: <<~CODE,
-        def weather_update
-          prompt(
-            message: params[:query],
-            tools: [{
-              name: "get_weather",
-              description: "Get weather for a location",
-              parameters: { type: "object", properties: {
-                location: { type: "string" }
-              }, required: ["location"] }
-            }]
-          )
-        end
-
-        def get_weather(location:)
-          # AI calls this method automatically
-        end
-      CODE
-      docs_link: "https://docs.activeagents.ai/actions/tools",
-      docs_text: "docs/tools" %>
-
-    <%# Example: test/agents/examples/flip_card_examples.rb %>
-    <%= render "pages/components/flip_card",
-      title: "MCP Support",
-      description: "Model Context Protocol. Connect agents to remote MCP servers.",
-      code: <<~CODE,
-        generate_with :anthropic,
-          model: "claude-sonnet-4-5-20250929",
-          mcp_servers: [
-            {
-              type: "url",
-              name: "stripe",
-              url: "https://mcp.stripe.com"
-            }
-          ]
-      CODE
-      docs_link: "https://docs.activeagents.ai/agents/mcp",
-      docs_text: "docs/mcp" %>
-
-    <%# Example: test/agents/examples/flip_card_examples.rb %>
-    <%= render "pages/components/flip_card",
-      title: "Background Jobs",
-      description: "ActiveJob integration. Run agents async, at scale.",
-      code: <<~CODE,
-        # Queue for later
-        ApplicationAgent.prompt(message: "Analyze").generate_later
-
-        # With options
-        ApplicationAgent.prompt(message: "Report").generate_later(
-          queue: :reports,
-          wait: 5.minutes
-        )
-
-        # Configure queue at class level
-        self.generate_later_queue_name = :ai_tasks
-      CODE
-      docs_link: "https://docs.activeagents.ai/agents/generation#asynchronous",
-      docs_text: "docs/generation" %>
-  </div>
+  <ul class="lp-also" aria-label="Also in the box">
+    <li><span class="lp-glyph">#</span>Structured output: JSON schemas as views</li>
+    <li><span class="lp-glyph">~</span>Streaming with open, chunk and close callbacks</li>
+    <li><span class="lp-glyph">:</span>Retries with backoff, from each provider SDK</li>
+    <li><span class="lp-glyph">+</span>Callbacks before, after and around every generation</li>
+    <li><span class="lp-glyph">@</span><code class="lp-inline-code">current_user</code> on every call, tool and sub-agent</li>
+    <li><span class="lp-glyph">v</span>Releases: a digest of what the model is given, on every trace</li>
+    <li><span class="lp-glyph">*</span>Embeddings for search and RAG</li>
+    <li><span class="lp-glyph">?</span>A mock provider for tests, no keys needed</li>
+    <li><span class="lp-glyph">T</span>Token usage and cost on every response</li>
+  </ul>
 </section>
