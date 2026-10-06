@@ -1,0 +1,36 @@
+<div class="pilot-narrow">
+  <p class="pilot-eyebrow">Account settings</p>
+  <h1>How you sign in</h1>
+  <p class="pilot-muted">Signed in as <strong><%= @user.email_address %></strong>.</p>
+
+  <section class="pilot-card">
+    <h2>Email and password</h2>
+    <% if @user.password_set? %>
+      <p>You can sign in with your email address and password.</p>
+    <% else %>
+      <% if @github_identity %>
+        <p>You haven't set a password, so GitHub is the only way to sign in to this account.</p>
+      <% else %>
+        <p>You haven't chosen a password yet.</p>
+      <% end %>
+      <%= button_to "Email me a link to set a password", password_link_path %>
+    <% end %>
+  </section>
+
+  <section class="pilot-card">
+    <h2>GitHub</h2>
+    <% if @github_identity %>
+      <p>Connected as <strong>@<%= @github_identity.login %></strong>. You can sign in with GitHub.</p>
+      <% if @user.password_set? %>
+        <%= button_to "Disconnect GitHub", github_identity_path, method: :delete %>
+      <% else %>
+        <p class="pilot-muted">Set a password before you disconnect GitHub.</p>
+      <% end %>
+    <% elsif GithubSignIn.configured? %>
+      <p>Connect your GitHub account to sign in with GitHub.</p>
+      <%= button_to "Connect GitHub", github_identity_path, form: { data: { turbo: false } } %>
+    <% else %>
+      <p class="pilot-muted">Sign in with GitHub isn't available here.</p>
+    <% end %>
+  </section>
+</div>

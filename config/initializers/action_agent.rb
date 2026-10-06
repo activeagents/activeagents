@@ -105,6 +105,14 @@ ActionAgent.configure do |config|
     ActionAgent.tenant_for(owner)&.provider_key_for(provider)&.generation_options
   end
 
+  # --- GitHub -------------------------------------------------------------
+  # Settings -> Integrations connects an account's GitHub over OAuth, and a
+  # checkout sandbox clones one of the repositories it selected. The OAuth
+  # app's callback is https://<host>/dashboard/api/github_connection/callback.
+  # Left unset, the engine reads GITHUB_CLIENT_ID / GITHUB_CLIENT_SECRET.
+  config.github_client_id = Rails.application.credentials.dig(:github, :client_id)
+  config.github_client_secret = Rails.application.credentials.dig(:github, :client_secret)
+
   # --- Attribution --------------------------------------------------------
   # Observed agents belong to the publishing workspace. The host concern
   # retains its owning user as attribution, not as the tenant boundary.
@@ -124,7 +132,7 @@ end
 Rails.application.config.to_prepare do
   # The engine supports both owners. This hosted app uses accounts; keeping
   # user as optional attribution must not make it the authorization boundary.
-  [ ActionAgent::Agent, ActionAgent::SandboxSession, ActionAgent::SessionRecording ].each do |model|
+  [ ActionAgent::Agent, ActionAgent::SandboxSession, ActionAgent::SessionRecording, ActionAgent::CodeSession ].each do |model|
     model.owned_by :account, :user
   end
   ActionAgent::Agent.include WorkspaceAgentAttribution

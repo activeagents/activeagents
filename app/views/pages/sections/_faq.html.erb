@@ -1,41 +1,40 @@
-<section>
-  <div class="heading centered">
-    <h2 class="no-top-margin">FAQ</h2>
-    <p class="paragraph m secondary">
-      Common questions about Active Agent
-    </p>
+<section id="faq" class="lp-anchor lp-faq">
+  <div class="lp-section-head centered">
+    <span class="eyebrow lp-eyebrow">FAQ</span>
+    <h2 class="no-top-margin">Questions people ask first</h2>
   </div>
   <div class="accordion-container">
-    <%= render "pages/components/faq_item",
-      question: "How do I install Active Agent?",
-      answer: "Add <code>gem 'activeagent'</code> to your Gemfile and run <code>bundle install</code>. Then run <code>rails generate active_agent:install</code> to set up the initial configuration.".html_safe %>
-
-    <%= render "pages/components/faq_item",
-      question: "What's free and what's paid?",
-      answer: "The gem — the framework, every provider, and a local dev console — is MIT licensed and free forever. Production observability and monitoring live on the hosted platform: every workspace starts with a low-volume free trial, and paid plans lift the limits. Commercial gem extensions and services are separate." %>
-
-    <%= render "pages/components/faq_item",
-      question: "Which providers are supported?",
-      answer: "OpenAI, Anthropic, Google Gemini, AWS Bedrock, Azure OpenAI, Ollama, OpenRouter, Requesty, and RubyLLM (which unlocks 15+ more). Switch providers with one line of code." %>
-
-    <%= render "pages/components/faq_item",
-      question: "How does the hosted platform get my data?",
-      answer: "Your app's gem posts trace JSON to our ingest endpoint, authenticated with your workspace API key — one YAML block in <code>config/active_agent.yml</code>. In development the same traces stay local in the gem's dev console; the wire format is documented and open.".html_safe %>
-
-    <%= render "pages/components/faq_item",
-      question: "What's the difference between the free gem and Pro?",
-      answer: "The free gem covers the framework, all providers, and the local dev console. ActiveAgent.PRO ($99/mo or $995/yr) adds versioned agents and prompts, pausable multi-agent workflows, cached reasoning traces, generative UI with human-in-the-loop controls, and email support." %>
-
-    <%= render "pages/components/faq_item",
-      question: "Do I need the platform to get observability?",
-      answer: "For production, yes. The gem includes a dev console (<code>rails g active_agent:dashboard:install</code>) so you can watch traces while you build, but production monitoring — hosted ingestion, evaluations, conversation history, cost estimates, retention, and team workspaces — is the platform. Every workspace starts with a free low-volume trial.".html_safe %>
-
-    <%= render "pages/components/faq_item",
-      question: "Can I use Active Agent with existing Rails apps?",
-      answer: "Yes! Active Agent is designed to integrate seamlessly with existing Rails applications. It works alongside your existing models, controllers, and services." %>
-
-    <%= render "pages/components/faq_item",
-      question: "Can I self-host everything?",
-      answer: "The framework is MIT licensed with no limits — your agents and data never leave your infrastructure, and the gem's dev console keeps development traces local. Production observability (evaluations, retention, teams) is the hosted platform's job; if your traces can't leave your network, Enterprise includes private VPC deployment." %>
+    <details class="accordion-item" name="faq">
+      <summary class="accordion-toggle"><p class="paragraph m bold">What is free and what is paid?</p><span class="accordion-chevron lp-mono">+</span></summary>
+      <div class="accordion-content"><p>Every gem is MIT licensed: the framework, every provider, the dashboard engine, persistence and the telemetry adapters. Mount the dashboard in your own app and there are no seat or trace limits. The platform at activeagents.ai hosts that same dashboard for you, and its plans pay for ingestion, retention, quotas, managed sandboxes and support. Every workspace starts with a free trial.</p></div>
+    </details>
+    <details class="accordion-item" name="faq">
+      <summary class="accordion-toggle"><p class="paragraph m bold">How do I install it?</p><span class="accordion-chevron lp-mono">+</span></summary>
+      <div class="accordion-content"><p>Add <code>activeagent</code> and run <code>rails generate active_agent:install</code> for the framework. Add <code>actionagent</code> and run <code>rails generate action_agent:install</code> followed by <code>rails db:migrate</code> for the dashboard; it mounts at <code>/activeagents</code>. Turn on <code>telemetry.local_storage</code> in <code>config/active_agent.yml</code> and every generation appears as a trace.</p></div>
+    </details>
+    <details class="accordion-item" name="faq">
+      <summary class="accordion-toggle"><p class="paragraph m bold">Which providers are supported?</p><span class="accordion-chevron lp-mono">+</span></summary>
+      <div class="accordion-content"><p>OpenAI (Chat Completions and the Responses API), Anthropic, Google Gemini, AWS Bedrock, Azure OpenAI, Ollama, OpenRouter, Requesty, DeepSeek, and RubyLLM, which brings its own registry of models. A mock provider runs the whole pipeline in tests with no keys. Switch providers with one line.</p></div>
+    </details>
+    <details class="accordion-item" name="faq">
+      <summary class="accordion-toggle"><p class="paragraph m bold">Does MCP work with every provider?</p><span class="accordion-chevron lp-mono">+</span></summary>
+      <div class="accordion-content"><p>Yes. Every provider accepts <code>mcps:</code>. Anthropic and the OpenAI Responses API run remote servers natively; for the others, and for every local <code>command:</code> server, the framework connects, lists the tools and exposes them as functions. Tool lists are cached, so a warm cache only connects when the model calls a tool.</p></div>
+    </details>
+    <details class="accordion-item" name="faq">
+      <summary class="accordion-toggle"><p class="paragraph m bold">How does the platform get my data?</p><span class="accordion-chevron lp-mono">+</span></summary>
+      <div class="accordion-content"><p>Your app posts trace JSON to <code>https://api.activeagents.ai/v1/traces</code>, authenticated with a workspace API key, from one YAML block. Prompts, completions and tool arguments are sent only when <code>capture_bodies</code> is on; it is off by default. Error messages are truncated and backtraces are never sent. The wire format is open and the same one a self-hosted mount accepts.</p></div>
+    </details>
+    <details class="accordion-item" name="faq">
+      <summary class="accordion-toggle"><p class="paragraph m bold">Can I self-host the dashboard for a team?</p><span class="accordion-chevron lp-mono">+</span></summary>
+      <div class="accordion-content"><p>Yes. The engine is built to be mounted in a shared Rails app: it resolves the signed-in user through your own session, scopes agents through a lambda you provide, accepts traces from other apps at <code>&lt;mount&gt;/api/traces</code>, and can run multi-tenant with an account per tenant. The self-hosted guide covers authentication, ingest keys and retention jobs.</p></div>
+    </details>
+    <details class="accordion-item" name="faq">
+      <summary class="accordion-toggle"><p class="paragraph m bold">What do evaluations actually test?</p><span class="accordion-chevron lp-mono">+</span></summary>
+      <div class="accordion-content"><p>A scenario suite is a list of user messages with expectations: the tools a passing answer should call, text it must or must not contain. Each scenario replays against each candidate model, is scored by rules and optionally an LLM judge, and any failure is assigned exactly one fault with a recommendation. A run can also sample an agent's recent production generations instead of replaying. Runs are pinned to the agent release they scored, so a result from before the last instruction change reads as stale.</p></div>
+    </details>
+    <details class="accordion-item" name="faq">
+      <summary class="accordion-toggle"><p class="paragraph m bold">Does it work with an existing Rails app?</p><span class="accordion-chevron lp-mono">+</span></summary>
+      <div class="accordion-content"><p>That is the point. Agents live in <code>app/agents</code> beside your controllers, prompt templates live in <code>app/views</code>, generations run inline or on Active Job, and <code>current_user</code> flows from your authentication into every callback, tool and sub-agent so Pundit or CanCanCan authorize an agent the way they authorize a controller. Rails 7.2 through 8.1 and Ruby 3.2 and up.</p></div>
+    </details>
   </div>
 </section>

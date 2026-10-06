@@ -1,0 +1,76 @@
+<section id="pipeline" class="lp-anchor">
+  <div class="lp-section-head centered">
+    <span class="eyebrow lp-eyebrow">How it fits together</span>
+    <h2 class="no-top-margin">Three gems. One wire format.</h2>
+    <p class="paragraph m secondary">
+      The framework reports what every agent did. The dashboard stores and shows it.
+      The platform is that dashboard, hosted. The same YAML block moves a trace from one to the next.
+    </p>
+  </div>
+
+  <div class="lp-pipeline">
+    <div class="lp-node">
+      <div class="lp-node-head">
+        <span class="lp-glyph accent lg">@</span>
+        <span class="lp-gem">activeagent</span>
+      </div>
+      <span class="lp-role">The framework &middot; MIT</span>
+      <p class="paragraph s secondary">
+        Agents, actions and prompt templates. Ten providers, tools, MCP servers, delegation,
+        structured output and streaming. Evaluations and telemetry ship in the gem.
+      </p>
+      <div class="lp-node-foot">
+        <span class="lp-chip">gem "activeagent"</span>
+        <span class="lp-chip">rails g active_agent:install</span>
+      </div>
+    </div>
+
+    <div class="lp-arrow">
+      <span class="lp-arrow-line"></span>
+      <code>local_storage: true</code>
+    </div>
+
+    <div class="lp-node">
+      <div class="lp-node-head">
+        <span class="lp-glyph accent lg">-&gt;</span>
+        <span class="lp-gem">actionagent</span>
+      </div>
+      <span class="lp-role">The dashboard &middot; MIT</span>
+      <p class="paragraph s secondary">
+        A mountable Rails engine. Traces with span waterfalls, metrics, interactions, evaluations,
+        the agent builder, the Run Agent workbench, and your agents served as an MCP server. On your database.
+      </p>
+      <div class="lp-node-foot">
+        <span class="lp-chip">gem "actionagent"</span>
+        <span class="lp-chip">mount ActionAgent::Engine</span>
+      </div>
+    </div>
+
+    <div class="lp-arrow">
+      <span class="lp-arrow-line"></span>
+      <code>endpoint: api.activeagents.ai</code>
+    </div>
+
+    <div class="lp-node">
+      <div class="lp-node-head">
+        <span class="lp-glyph accent lg">#</span>
+        <span class="lp-gem">activeagents.ai</span>
+      </div>
+      <span class="lp-role">The platform &middot; Hosted</span>
+      <p class="paragraph s secondary">
+        The same engine, multi-tenant. Workspaces and seats, retention and quotas by plan,
+        published evaluation reports, managed sandboxes. Every workspace starts with a free trial.
+      </p>
+      <div class="lp-node-foot">
+        <span class="lp-chip">api_key: workspace key</span>
+        <span class="lp-chip">POST /v1/traces</span>
+      </div>
+    </div>
+  </div>
+
+  <p class="lp-family">
+    <span>Also in the family:</span>
+    <span><code>solid_agent</code> persists contexts, memory, runs and cost as models you own.</span>
+    <span><code>activeagents-telemetry</code> reports RubyLLM apps on the same wire format.</span>
+  </p>
+</section>

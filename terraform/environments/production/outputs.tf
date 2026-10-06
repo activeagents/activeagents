@@ -12,3 +12,18 @@ output "artifact_registry_url" {
   description = "Artifact Registry URL for Docker images"
   value       = module.activeagents.artifact_registry_url
 }
+
+output "github_app_install_url" {
+  description = "Where an account installs the production GitHub App"
+  value       = module.activeagents.github_app_install_url
+}
+
+output "recordings_bucket" {
+  description = "Bucket that holds production session recordings"
+  value       = module.activeagents.recordings_bucket
+}
+
+output "recordings_signer_email" {
+  description = "Service account that signs production recording download URLs"
+  value       = module.activeagents.recordings_signer_email
+}

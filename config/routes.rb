@@ -1,5 +1,11 @@
 Rails.application.routes.draw do
   resource :session, only: [ :new, :create, :destroy ]
+  # Sign in with GitHub. The callback also completes Settings -> Connect GitHub.
+  post "auth/github", to: "github_sessions#create", as: :github_session
+  get "auth/github/callback", to: "github_sessions#callback", as: :github_callback
+  resource :settings, only: :show
+  resource :github_identity, only: [ :create, :destroy ], path: "settings/github"
+  resource :password_link, only: :create, path: "settings/password_link"
   resource :registration, only: [ :new, :create ]
   resource :workspace_invitation, only: [ :show, :create ]
   resource :workspace, only: [ :show, :update ] do

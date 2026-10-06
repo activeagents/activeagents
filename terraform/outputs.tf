@@ -93,3 +93,23 @@ output "alias_domain_name_servers" {
   description = "Per-alias-domain Cloud DNS name servers — delegate each domain to these at its registrar"
   value       = { for domain, mod in module.domain_alias : domain => mod.name_servers }
 }
+
+output "github_app_install_url" {
+  description = "Where an account installs this environment's GitHub App, or null while enable_github_app is off"
+  value       = var.enable_github_app ? "https://github.com/apps/${var.github_app_slug}/installations/new" : null
+
+  precondition {
+    condition     = !var.enable_github_app || (var.github_app_id != "" && var.github_app_slug != "")
+    error_message = "enable_github_app needs github_app_id and github_app_slug, committed in the environment's github_app.auto.tfvars."
+  }
+}
+
+output "recordings_bucket" {
+  description = "Bucket that holds session recordings"
+  value       = google_storage_bucket.recordings.name
+}
+
+output "recordings_signer_email" {
+  description = "Service account that signs recording download URLs"
+  value       = google_service_account.recordings_signer.email
+}

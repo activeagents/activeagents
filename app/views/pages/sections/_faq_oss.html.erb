@@ -1,33 +1,36 @@
-<section>
-  <div class="heading centered">
-    <h2 class="no-top-margin">FAQ</h2>
-    <p class="paragraph m secondary">
-      Common questions about Active Agent
-    </p>
+<section id="faq" class="lp-anchor lp-faq">
+  <div class="lp-section-head centered">
+    <span class="eyebrow lp-eyebrow">FAQ</span>
+    <h2 class="no-top-margin">Questions people ask first</h2>
   </div>
   <div class="accordion-container">
-    <%= render "pages/components/faq_item",
-      question: "How do I install Active Agent?",
-      answer: "Add <code>gem 'activeagent'</code> to your Gemfile and run <code>bundle install</code>. Then run <code>rails generate active_agent:install</code> to set up the initial configuration.".html_safe %>
-
-    <%= render "pages/components/faq_item",
-      question: "Is it really free?",
-      answer: "Yes — the framework, every provider, solid_agent persistence, and the local dev console are MIT licensed with no usage limits. Commercial products (hosted monitoring, PRO gem extensions, enterprise licensing) are separate and live at activeagents.ai." %>
-
-    <%= render "pages/components/faq_item",
-      question: "Which providers are supported?",
-      answer: "OpenAI, Anthropic, Google Gemini, AWS Bedrock, Azure OpenAI, Ollama, OpenRouter, Requesty, and RubyLLM (which unlocks 15+ more). Switch providers with one line of code." %>
-
-    <%= render "pages/components/faq_item",
-      question: "Can I use Active Agent with existing Rails apps?",
-      answer: "Yes! Active Agent is designed to integrate seamlessly with existing Rails applications. It works alongside your existing models, controllers, and services." %>
-
-    <%= render "pages/components/faq_item",
-      question: "How do I see what my agents are doing?",
-      answer: "In development, install the dev console (<code>rails g active_agent:dashboard:install</code>) and every generation appears at <code>/active_agent</code> as a trace with a span waterfall and token counts. For production monitoring, point telemetry at the hosted platform — one YAML block, free trial tier included.".html_safe %>
-
-    <%= render "pages/components/faq_item",
-      question: "Does my data leave my infrastructure?",
-      answer: "Not unless you send it somewhere. The framework and dev console run entirely in your app against your own database. Hosted monitoring is opt-in via the telemetry config." %>
+    <details class="accordion-item" name="faq">
+      <summary class="accordion-toggle"><p class="paragraph m bold">Is it really free?</p><span class="accordion-chevron lp-mono">+</span></summary>
+      <div class="accordion-content"><p>Yes. The framework, every provider, the dashboard engine, persistence and the telemetry adapters are MIT licensed with no usage limits. The hosted platform at activeagents.ai is the commercial product: it runs the same dashboard for a team and charges for ingestion, retention, quotas, managed sandboxes and support.</p></div>
+    </details>
+    <details class="accordion-item" name="faq">
+      <summary class="accordion-toggle"><p class="paragraph m bold">How do I install it?</p><span class="accordion-chevron lp-mono">+</span></summary>
+      <div class="accordion-content"><p>Add <code>activeagent</code> and run <code>rails generate active_agent:install</code>. That writes <code>config/active_agent.yml</code> and an <code>ApplicationAgent</code>. For the dashboard, add <code>actionagent</code>, run <code>rails generate action_agent:install</code> and <code>rails db:migrate</code>, then turn on <code>telemetry.local_storage</code>.</p></div>
+    </details>
+    <details class="accordion-item" name="faq">
+      <summary class="accordion-toggle"><p class="paragraph m bold">Which providers are supported?</p><span class="accordion-chevron lp-mono">+</span></summary>
+      <div class="accordion-content"><p>OpenAI (Chat Completions and the Responses API), Anthropic, Google Gemini, AWS Bedrock, Azure OpenAI, Ollama, OpenRouter, Requesty, DeepSeek, and RubyLLM, which brings its own registry of models. A mock provider runs the whole pipeline in tests with no keys. Switch providers with one line.</p></div>
+    </details>
+    <details class="accordion-item" name="faq">
+      <summary class="accordion-toggle"><p class="paragraph m bold">Does MCP work with every provider?</p><span class="accordion-chevron lp-mono">+</span></summary>
+      <div class="accordion-content"><p>Yes. Every provider accepts <code>mcps:</code>. Anthropic and the OpenAI Responses API run remote servers natively; for the others, and for every local <code>command:</code> server, the framework connects, lists the tools and exposes them as functions. Tool lists are cached, so a warm cache only connects when the model calls a tool.</p></div>
+    </details>
+    <details class="accordion-item" name="faq">
+      <summary class="accordion-toggle"><p class="paragraph m bold">How do I see what my agents are doing?</p><span class="accordion-chevron lp-mono">+</span></summary>
+      <div class="accordion-content"><p>Mount the <code>actionagent</code> engine and every generation appears at <code>/activeagents</code> as a trace with a span waterfall, token counts (input, output, cached, thinking), provider, model and release. Interactions show the conversation behind each trace, Metrics shows the golden signals, and Evaluations replays scenario suites across models. For production monitoring without hosting it, point telemetry at activeagents.ai.</p></div>
+    </details>
+    <details class="accordion-item" name="faq">
+      <summary class="accordion-toggle"><p class="paragraph m bold">Does my data leave my infrastructure?</p><span class="accordion-chevron lp-mono">+</span></summary>
+      <div class="accordion-content"><p>Not unless you send it somewhere. The framework and the mounted dashboard run entirely in your app against your own database. Hosted telemetry is opt-in through <code>config/active_agent.yml</code>, and even then prompts and completions are sent only when <code>capture_bodies</code> is on.</p></div>
+    </details>
+    <details class="accordion-item" name="faq">
+      <summary class="accordion-toggle"><p class="paragraph m bold">Does it work with an existing Rails app?</p><span class="accordion-chevron lp-mono">+</span></summary>
+      <div class="accordion-content"><p>That is the point. Agents live in <code>app/agents</code> beside your controllers, prompt templates live in <code>app/views</code>, generations run inline or on Active Job, and <code>current_user</code> flows from your authentication into every callback, tool and sub-agent so Pundit or CanCanCan authorize an agent the way they authorize a controller. Rails 7.2 through 8.1 and Ruby 3.2 and up.</p></div>
+    </details>
   </div>
 </section>

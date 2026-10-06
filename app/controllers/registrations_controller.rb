@@ -64,13 +64,10 @@ class RegistrationsController < ApplicationController
     end
 
     # Create user with temporary password (will be set during profile completion)
-    @user = User.new(
-      email_address: email,
-      password: SecureRandom.hex(16),
-      signup_source: "public_signup"
-    )
+    @user = User.new(email_address: email, signup_source: "public_signup")
+    @user.assign_random_password
 
-    if save_user_and_workspace
+    if @user.save_with_workspace
       # Send verification email
       @user.send_verification_email!
 
@@ -93,7 +90,7 @@ class RegistrationsController < ApplicationController
   def create_from_form
     @user = User.new(user_params.merge(signup_source: "public_signup"))
 
-    if save_user_and_workspace
+    if @user.save_with_workspace
       # Send verification email
       @user.send_verification_email!
 
@@ -108,14 +105,5 @@ class RegistrationsController < ApplicationController
 
   def user_params
     params.require(:user).permit(:email_address, :password, :password_confirmation)
-  end
-
-  def save_user_and_workspace
-    User.transaction do
-      return false unless @user.save
-      account = Account.create!(name: "#{@user.display_name}'s Workspace", owner: @user)
-      AccountMembership.create!(account: account, user: @user, role: "owner")
-    end
-    true
   end
 end
