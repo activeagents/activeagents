@@ -330,6 +330,33 @@ ActiveRecord::Schema[8.2].define(version: 2026_09_30_000001) do
     t.index ["stakeholder_type"], name: "index_cap_table_entries_on_stakeholder_type"
   end
 
+  create_table "code_sessions", force: :cascade do |t|
+    t.bigint "account_id"
+    t.string "claude_session_id"
+    t.datetime "created_at", null: false
+    t.text "diff"
+    t.integer "dropped_events_count", default: 0, null: false
+    t.integer "duration_ms"
+    t.text "error_message"
+    t.jsonb "events", default: []
+    t.datetime "finished_at"
+    t.integer "input_tokens"
+    t.string "model"
+    t.integer "num_turns"
+    t.integer "output_tokens"
+    t.text "prompt", null: false
+    t.text "result"
+    t.bigint "sandbox_session_id", null: false
+    t.datetime "started_at"
+    t.integer "status", default: 0, null: false
+    t.decimal "total_cost_usd", precision: 12, scale: 6
+    t.datetime "updated_at", null: false
+    t.bigint "user_id"
+    t.index ["account_id"], name: "index_code_sessions_on_account_id"
+    t.index ["sandbox_session_id"], name: "index_code_sessions_on_sandbox_session_id"
+    t.index ["user_id"], name: "index_code_sessions_on_user_id"
+  end
+
   create_table "document_access_grants", force: :cascade do |t|
     t.datetime "created_at", null: false
     t.datetime "expires_at"
@@ -432,6 +459,21 @@ ActiveRecord::Schema[8.2].define(version: 2026_09_30_000001) do
     t.datetime "updated_at", null: false
     t.index ["agent_id", "name"], name: "index_evaluations_on_agent_id_and_name", unique: true
     t.index ["agent_id"], name: "index_evaluations_on_agent_id"
+  end
+
+  create_table "github_connections", force: :cascade do |t|
+    t.text "access_token", null: false
+    t.bigint "account_id"
+    t.string "avatar_url"
+    t.datetime "created_at", null: false
+    t.bigint "github_user_id", null: false
+    t.string "login", null: false
+    t.jsonb "repositories", default: []
+    t.string "scopes"
+    t.datetime "updated_at", null: false
+    t.bigint "user_id"
+    t.index ["account_id"], name: "index_github_connections_on_account_id", unique: true
+    t.index ["user_id"], name: "index_github_connections_on_user_id"
   end
 
   create_table "investor_documents", force: :cascade do |t|
@@ -725,8 +767,12 @@ ActiveRecord::Schema[8.2].define(version: 2026_09_30_000001) do
     t.datetime "last_activity_at"
     t.integer "max_runs", default: 10
     t.jsonb "mcp_servers", default: []
+    t.string "repository"
+    t.string "repository_ref"
     t.jsonb "runs", default: []
     t.integer "runs_count", default: 0
+    t.text "runtime_mcp_token"
+    t.string "runtime_mcp_url"
     t.string "sandbox_type", default: "playwright_mcp"
     t.string "session_id", null: false
     t.integer "status", default: 0
