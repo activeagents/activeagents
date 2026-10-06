@@ -36,10 +36,14 @@ network routes to the Incus daemon and to the sandbox runtime endpoints.
 
 A successful preflight confirms the daemon connection, not a working 1.8 checkout
 sandbox. `IncusSandboxService` boots an `app_runtime` session from the
-`sandbox-app-runtime` image: it fetches the repository into the container, runs
-the image's boot command, and reads the runtime manifest the app writes for its
-MCP endpoint. `app_runtime_supported` in the preflight report says whether the
-daemon carries that image. The service does not implement the `run_code_session`
+`sandbox-app-runtime` image, which `scripts/build-app-runtime-image.sh` builds on
+the host. It fetches the repository into the container and writes the boot spec
+there. The image's `sandbox-app-boot` runs the spec, and the service then reads
+the runtime manifest the app writes for its MCP endpoint. `app_runtime_supported`
+in the preflight report is true only when `INCUS_APP_RUNTIME_ENABLED` is on and
+the daemon carries that image at the boot spec version the service writes. See
+[the app-runtime image](../infrastructure/app-runtime.md). The service does not
+implement the `run_code_session`
 and `cancel_code_session` contract, so `code_sessions_supported` is false and the
 orchestrator refuses Claude Code and Codex sessions on this backend.
 

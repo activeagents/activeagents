@@ -1,0 +1,16 @@
+#!/bin/bash
+# Starts a Redis server on 127.0.0.1:6379 unless one answers there, and waits
+# until it does. Nothing is persisted: the sandbox is thrown away whole.
+set -euo pipefail
+
+if ! redis-cli -h 127.0.0.1 -p 6379 ping >/dev/null 2>&1; then
+  install -d -o redis -g redis -m 0750 /var/lib/redis /var/log/redis
+  runuser -u redis -- redis-server --daemonize yes --bind 127.0.0.1 --port 6379 --save '' --appendonly no \
+    --dir /var/lib/redis --logfile /var/log/redis/redis-server.log
+fi
+for _ in $(seq 1 60); do
+  redis-cli -h 127.0.0.1 -p 6379 ping >/dev/null 2>&1 && exit 0
+  sleep 0.5
+done
+echo "Redis did not answer within 30s" >&2
+exit 1
