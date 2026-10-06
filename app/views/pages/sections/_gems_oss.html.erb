@@ -1,56 +1,78 @@
-<section id="gems" class="section">
-  <div class="text-centered full-width">
-    <h2>Free, and free forever</h2>
+<section id="gems" class="lp-anchor">
+  <div class="lp-section-head centered">
+    <span class="eyebrow lp-eyebrow">The gems</span>
+    <h2 class="no-top-margin">Free, and free forever.</h2>
     <p class="paragraph m secondary">
-      The core framework is MIT licensed — every provider, streaming,
-      structured outputs, persistence via solid_agent, and the local dev
-      console included.
+      Four MIT gems with no usage limits. Take the framework alone, or add the dashboard, persistence
+      and tracing for apps that call models another way.
     </p>
   </div>
 
-  <div class="grid columns-2 margin-top-xl">
-    <%= render "pages/components/pricing_card",
-      name: "ActiveAgent.dev",
-      link: "https://github.com/activeagents/activeagent",
-      license: "MIT License",
-      price: "Free",
-      price_suffix: nil,
-      features: [
-        "Every provider: OpenAI, Anthropic, Gemini, Bedrock, Ollama & more",
-        "Action Prompt for composable prompt contexts",
-        "Solid Agent for context management and persistence",
-        "Streaming, structured outputs, error handling & retries",
-        "Local dev console (traces & metrics in development)",
-        "Community support on GitHub & Discord"
-      ],
-      tagline: "Ship your first agent today",
-      cta_text: "Get Started",
-      cta_link: "https://docs.activeagents.ai/getting_started",
-      cta_style: "primary",
-      highlighted: true %>
+  <div class="lp-grid two">
+    <div class="lp-card">
+      <h3><span class="lp-glyph accent">@</span><a href="https://github.com/activeagents/activeagent" target="_blank" rel="noopener noreferrer">activeagent</a></h3>
+      <p class="paragraph s secondary">
+        The framework. Agents, actions and prompt templates; ten providers; tools, schema tools, MCP servers
+        and delegation; structured output and streaming; evaluations and telemetry built in.
+      </p>
+      <div class="lp-node-foot">
+        <span class="lp-chip">gem "activeagent"</span>
+        <span class="lp-chip">rails g active_agent:install</span>
+      </div>
+      <a class="lp-docs" href="https://docs.activeagents.ai/framework" target="_blank" rel="noopener noreferrer">docs/framework -&gt;</a>
+    </div>
 
-    <div class="feature-card">
-      <div class="feature-heading">
-        <h3 class="no-top-margin">Need more than the framework?</h3>
-        <p class="paragraph s secondary">
-          The commercial side lives at
-          <%= link_to "activeagents.ai", "https://activeagents.ai" %>:
-        </p>
-        <ul class="paragraph s secondary">
-          <li><strong>Hosted monitoring</strong> — production traces, evaluations, cost estimates, retention, and team workspaces (free low-volume trial included)</li>
-          <li><strong>ActiveAgent.PRO</strong> — versioned agents &amp; prompts, pausable multi-agent workflows, generative UI</li>
-          <li><strong>Enterprise</strong> — SSO, SOC 2, HIPAA, private VPC, org-wide licensing</li>
-        </ul>
-        <div class="button-group margin-paragraph">
-          <%= link_to "Explore the platform", "https://activeagents.ai", class: "button tertiary" %>
-        </div>
+    <div class="lp-card">
+      <h3><span class="lp-glyph accent">-&gt;</span><a href="https://github.com/activeagents/activeagent/tree/main/actionagent" target="_blank" rel="noopener noreferrer">actionagent</a></h3>
+      <p class="paragraph s secondary">
+        The dashboard, as a mountable Rails engine. Traces, metrics, interactions and evaluations; the agent
+        builder, versions and the Run Agent workbench; your agents served as an MCP server. Prebuilt assets,
+        no JavaScript build in your app.
+      </p>
+      <div class="lp-node-foot">
+        <span class="lp-chip">gem "actionagent"</span>
+        <span class="lp-chip">rails g action_agent:install</span>
+      </div>
+      <a class="lp-docs" href="https://docs.activeagents.ai/framework/dashboard" target="_blank" rel="noopener noreferrer">docs/dashboard -&gt;</a>
+    </div>
+
+    <div class="lp-card">
+      <h3><span class="lp-glyph accent">#</span><a href="https://github.com/activeagents/solid_agent" target="_blank" rel="noopener noreferrer">solid_agent</a></h3>
+      <p class="paragraph s secondary">
+        Persistence as models you own. Conversation context, agent-curated long-term memory, durable runs
+        with progress events, tool result caching, model pricing, and portable agent manifests
+        (<code class="lp-inline-code">.agent.md</code>, dotprompt, CrewAI).
+      </p>
+      <div class="lp-node-foot">
+        <span class="lp-chip">gem "solid_agent"</span>
+        <span class="lp-chip">rails g solid_agent:install</span>
+      </div>
+      <a class="lp-docs" href="https://docs.activeagents.ai/solid_agent" target="_blank" rel="noopener noreferrer">docs/solid_agent -&gt;</a>
+    </div>
+
+    <div class="lp-card">
+      <h3><span class="lp-glyph accent">~</span><a href="https://github.com/activeagents/activeagents-telemetry" target="_blank" rel="noopener noreferrer">activeagents-telemetry</a></h3>
+      <p class="paragraph s secondary">
+        Tracing for Ruby apps that call models without the framework. The RubyLLM adapter reports every chat
+        turn as a trace on the same wire format, to a mounted dashboard or the platform. Bodies are sent only
+        when you say so.
+      </p>
+      <div class="lp-node-foot">
+        <span class="lp-chip">gem "activeagents-telemetry-ruby_llm"</span>
+      </div>
+      <a class="lp-docs" href="https://docs.activeagents.ai/framework/ruby_llm_dashboard" target="_blank" rel="noopener noreferrer">docs/ruby_llm_dashboard -&gt;</a>
+    </div>
+
+    <div class="lp-card wide">
+      <h3><span class="lp-glyph accent">+</span>Need it hosted?</h3>
+      <p class="paragraph s secondary">
+        The platform at <a href="https://activeagents.ai">activeagents.ai</a> runs the same dashboard for a team:
+        workspaces and seats, retention and quotas by plan, published evaluation reports from CI, managed
+        sandboxes and support. Every workspace starts with a free trial, and your app only needs the framework gem.
+      </p>
+      <div class="button-group">
+        <a class="button tertiary" href="https://activeagents.ai">Explore the platform</a>
       </div>
     </div>
   </div>
-
-  <!-- Gem feature comparison -->
-  <details class="accordion-item comparison-accordion margin-top-xl">
-    <summary class="paragraph m bold">Compare gem editions</summary>
-    <%= render "pages/components/gem_comparison_table" %>
-  </details>
 </section>

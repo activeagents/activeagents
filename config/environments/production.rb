@@ -59,8 +59,11 @@ Rails.application.configure do
   # Raise delivery errors so failed sends surface in logs.
   config.action_mailer.raise_delivery_errors = true
 
-  # Set host to be used by links generated in mailer templates.
-  config.action_mailer.default_url_options = { host: "activeagents.ai" }
+  # Host for links generated in mailer templates (email verification,
+  # newsletter confirmation, password reset). Each deployment sets APP_HOST
+  # to the hostname it answers on, so a link sent from staging confirms on
+  # staging rather than on production, where the token could not verify.
+  config.action_mailer.default_url_options = { host: ENV.fetch("APP_HOST", "activeagents.ai"), protocol: "https" }
 
   # Resend SMTP relay for transactional email
   config.action_mailer.delivery_method = :smtp
