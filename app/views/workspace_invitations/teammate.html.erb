@@ -1,0 +1,29 @@
+<div class="pilot-narrow">
+  <p class="pilot-eyebrow">Workspace invitation</p>
+  <h1>Join <%= @invitation.account.name %></h1>
+  <p class="pilot-muted">
+    <%= @invitation.invited_by.display_name %> invited <strong><%= @invitation.email_address %></strong>
+    to join as <%= @invitation.role == "admin" ? "an admin" : "a member" %>.
+  </p>
+  <div class="pilot-card">
+    <% if Current.user && !Current.user.email_address.casecmp?(@invitation.email_address) %>
+      <p>You're signed in as <%= Current.user.email_address %>. Sign out, then reopen this invitation and sign in as <%= @invitation.email_address %>.</p>
+      <%= button_to "Sign out", session_path, method: :delete %>
+    <% elsif Current.user && !Current.user.email_verified? %>
+      <p>Verify your email address first, then reopen this invitation.</p>
+    <% elsif Current.user %>
+      <p>Accepting adds you to this workspace. Its agents, traces and provider keys are shared with its members.</p>
+      <%= form_with url: workspace_invitation_path do |form| %>
+        <%= hidden_field_tag :token, params[:token] %>
+        <%= form.submit "Accept invitation and open workspace" %>
+      <% end %>
+    <% elsif @existing_user %>
+      <p>Sign in as <%= @invitation.email_address %> to accept. You'll come back here afterwards.</p>
+      <%= link_to "Sign in to accept", new_session_path(email_address: @invitation.email_address), class: "pilot-button" %>
+    <% else %>
+      <p>Create an ActiveAgents account with <%= @invitation.email_address %> and verify it, then reopen this invitation from your email to accept.</p>
+      <%= link_to "Create your account", new_registration_path, class: "pilot-button" %>
+    <% end %>
+  </div>
+  <p class="pilot-muted"><small>The link expires <%= l(@invitation.token_expires_at.to_date, format: :long) %> and can be used once.</small></p>
+</div>

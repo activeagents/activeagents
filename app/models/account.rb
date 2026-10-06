@@ -14,7 +14,10 @@ class Account < ApplicationRecord
   has_many :provider_keys, class_name: "ActionAgent::ProviderKey", dependent: :destroy
   has_one :github_connection, class_name: "ActionAgent::GithubConnection", dependent: :destroy
   has_one :pro_access_grant, dependent: :destroy
-  has_many :workspace_invitations, dependent: :restrict_with_error
+  # A pilot invitation records how the workspace came to have Pro, so it
+  # blocks deleting the workspace. Teammate invitations go with it.
+  has_many :pilot_invitations, -> { pilot }, class_name: "WorkspaceInvitation", dependent: :restrict_with_error
+  has_many :teammate_invitations, -> { teammate }, class_name: "WorkspaceInvitation", dependent: :delete_all
 
   # Legacy bearer token used by the activeagent gem's telemetry reporter to
   # push traces to POST /v1/traces. New keys are generated per-account as
@@ -205,5 +208,24 @@ class Account < ApplicationRecord
   # platform's ENV keys.
   def provider_key_for(provider)
     provider_keys.find_by(provider: provider.to_s)
+  end
+
+  # -- Seats -----------------------------------------------------------------
+
+  # The seats the current plan includes, or -1 for unlimited.
+  def seat_limit
+    current_plan&.included_seats || 1
+  end
+
+  # Members plus the teammate invitations still holding a seat, leaving out
+  # +except+ (an invitation about to be resent).
+  def seats_in_use(except: nil)
+    invitations = teammate_invitations.holding_seat
+    invitations = invitations.where.not(id: except.id) if except
+    account_memberships.count + invitations.count
+  end
+
+  def seat_available?(except: nil)
+    seat_limit.negative? || seats_in_use(except: except) < seat_limit
   end
 end

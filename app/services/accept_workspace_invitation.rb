@@ -1,10 +1,15 @@
 class AcceptWorkspaceInvitation
   class Invalid < StandardError; end
   class SignInRequired < StandardError; end
+  class NoSeatAvailable < StandardError; end
 
+  # A teammate invitation is accepted only by a signed-in user whose verified
+  # email is the invited one, so +password+ is read only for a pilot
+  # invitation, which can create its invitee's user.
   def self.call(token:, signed_in_user:, password: nil, password_confirmation: nil)
     invitation = WorkspaceInvitation.for_token(token)
     raise Invalid, "This invitation is invalid or no longer available." unless invitation
+    return join_workspace(invitation, token, signed_in_user) if invitation.teammate?
 
     invitation.with_lock do
       # Check again after locking: another acceptance/resend may have won.
@@ -37,4 +42,30 @@ class AcceptWorkspaceInvitation
     # A simultaneous public registration must authenticate before accepting.
     raise SignInRequired, "This email is now registered. Sign in to accept your invitation."
   end
+
+  # Adds +user+ to the invitation's workspace with the role the inviter
+  # chose. The workspace is locked before the invitation, the same order
+  # WorkspaceMembers uses, and the invitation is re-read under the lock.
+  def self.join_workspace(invitation, token, user)
+    unless user && user.email_address.casecmp?(invitation.email_address)
+      raise SignInRequired, "Sign in as #{invitation.email_address} to accept this invitation."
+    end
+    raise SignInRequired, "Verify your email address, then open this invitation again." unless user.email_verified?
+
+    account = invitation.account
+    account.with_lock do
+      invitation.lock!
+      unless invitation.usable? && invitation.token_digest == Digest::SHA256.hexdigest(token) && invitation.inviter_authorized?
+        raise Invalid, "This invitation is invalid or no longer available."
+      end
+      unless account.seat_limit.negative? || account.account_memberships.count < account.seat_limit
+        raise NoSeatAvailable, "#{account.name} has no free seats. Ask an owner or admin to free one or upgrade the plan."
+      end
+
+      account.account_memberships.create!(user: user, role: invitation.role)
+      invitation.update!(accepted_by: user, accepted_at: Time.current, token_digest: nil)
+    end
+    invitation
+  end
+  private_class_method :join_workspace
 end
