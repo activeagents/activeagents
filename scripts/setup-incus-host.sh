@@ -6,10 +6,9 @@
 # using Incus. Works on Ubuntu 22.04+, Debian 12+, or any distro with
 # Incus packages available.
 #
-# Usage:
-#   curl -fsSL https://your-domain.com/setup-incus-host.sh | sudo bash
-#   or
-#   sudo ./setup-incus-host.sh
+# Usage, from a checkout of this repository (the app-runtime image and the
+# reaper are built from files in it):
+#   sudo scripts/setup-incus-host.sh
 #
 #   sudo ./setup-incus-host.sh egress-acl
 #     Applies only the sandbox egress ACL. Safe to run again on a host that
@@ -18,11 +17,17 @@
 # After setup:
 #   - Incus will be running with a "agent-sandboxes" project
 #   - A restricted sandbox profile will be created
+#   - The sandbox images, sandbox-app-runtime among them, will be published
 #   - Containers on the bridge cannot reach link-local, private or host
 #     addresses
 #   - Remote access will be configured (optional)
 #
+# On a host that is already set up, scripts/build-app-runtime-image.sh
+# rebuilds the app-runtime image and reinstalls the reaper.
+#
 set -euo pipefail
+
+SCRIPT_DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
 
 # Configuration
 INCUS_PROJECT="agent-sandboxes"
@@ -335,6 +340,15 @@ create_sandbox_images() {
   log "Sandbox images ready"
 }
 
+create_app_runtime_image() {
+  if incus image alias list --project "$INCUS_PROJECT" --format csv | grep -q "^sandbox-app-runtime,"; then
+    log "sandbox-app-runtime already exists; rebuild it with scripts/build-app-runtime-image.sh"
+    return
+  fi
+
+  INCUS_PROJECT="$INCUS_PROJECT" "$SCRIPT_DIR/build-app-runtime-image.sh"
+}
+
 setup_firewall() {
   log "Configuring firewall..."
 
@@ -401,39 +415,12 @@ EOF
 create_cleanup_cron() {
   log "Setting up cleanup cron job..."
 
-  cat > /etc/cron.d/incus-sandbox-cleanup << 'EOF'
+  # Removes each container once its session's user.expires_at has passed.
+  install -m 0755 "$SCRIPT_DIR/incus/cleanup-sandboxes.sh" /usr/local/bin/cleanup-sandboxes.sh
+  cat > /etc/cron.d/incus-sandbox-cleanup << EOF
 # Clean up expired sandbox containers every 5 minutes
-*/5 * * * * root /usr/local/bin/cleanup-sandboxes.sh
+*/5 * * * * root INCUS_PROJECT=$INCUS_PROJECT /usr/local/bin/cleanup-sandboxes.sh
 EOF
-
-  cat > /usr/local/bin/cleanup-sandboxes.sh << 'SCRIPT'
-#!/bin/bash
-# Cleanup sandbox containers older than 15 minutes
-
-PROJECT="agent-sandboxes"
-MAX_AGE=900  # 15 minutes in seconds
-
-incus project switch "$PROJECT" 2>/dev/null || exit 0
-
-for container in $(incus list --format csv -c n 2>/dev/null | grep "^sandbox-"); do
-  created=$(incus config get "$container" volatile.base_image_date 2>/dev/null || echo "")
-  if [[ -n "$created" ]]; then
-    created_ts=$(date -d "$created" +%s 2>/dev/null || echo 0)
-    now_ts=$(date +%s)
-    age=$((now_ts - created_ts))
-
-    if [[ $age -gt $MAX_AGE ]]; then
-      incus stop "$container" --force 2>/dev/null
-      incus delete "$container" 2>/dev/null
-      logger "Cleaned up expired sandbox: $container (age: ${age}s)"
-    fi
-  fi
-done
-
-incus project switch default 2>/dev/null
-SCRIPT
-
-  chmod +x /usr/local/bin/cleanup-sandboxes.sh
 
   log "Cleanup cron job configured"
 }
@@ -452,8 +439,9 @@ Egress ACL:     $EGRESS_ACL (rejects $SANDBOX_EGRESS_REJECT and this host)
 Storage:        $STORAGE_POOL
 
 Available Images:
-  - sandbox-base       (Ubuntu 22.04 with basic tools)
-  - sandbox-playwright (with Chromium for browser automation)
+  - sandbox-base        (Ubuntu 22.04 with basic tools)
+  - sandbox-playwright  (with Chromium for browser automation)
+  - sandbox-app-runtime (boots a checkout of a Rails app)
 
 Quick Test:
   incus project switch $INCUS_PROJECT
@@ -490,6 +478,7 @@ main() {
       create_sandbox_project
       create_sandbox_profile
       create_sandbox_images
+      create_app_runtime_image
       setup_firewall
       setup_remote_access
       create_cleanup_cron

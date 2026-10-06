@@ -38,6 +38,10 @@ module "activeagents" {
   sandbox_memory           = var.sandbox_memory  # 4Gi for LLM context and agent workloads
   max_persistent_sandboxes = 3                   # Limited by quota (4 CPUs × 3 = 12 < 20 quota)
 
+  # Checkout sandboxes on the Incus host stay off until its egress controls
+  # (https://github.com/activeagents/activeagents/issues/150) are applied.
+  incus_app_runtime_enabled = false
+
   # Database configuration (smaller for staging)
   database_tier = "db-f1-micro"
 

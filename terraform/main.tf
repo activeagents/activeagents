@@ -262,6 +262,8 @@ locals {
       # Confirmed newsletter subscribers sync into this Resend audience
       # (SyncNewsletterToResendJob); RESEND_AUDIENCE_ID is the Users one.
       RESEND_NEWSLETTER_AUDIENCE_ID = var.resend_newsletter_audience_id
+      # IncusSandboxService refuses checkout sandboxes unless this is true
+      INCUS_APP_RUNTIME_ENABLED = tostring(var.incus_app_runtime_enabled)
     },
     var.enable_github_app ? {
       GITHUB_APP_ID   = var.github_app_id

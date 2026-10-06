@@ -32,6 +32,7 @@ run "defaults_pass_nothing_new_to_cloud_run" {
       "DB_HOST",
       "DB_NAME",
       "DB_USER",
+      "INCUS_APP_RUNTIME_ENABLED",
       "MAILER_FROM_ADDRESS",
       "RAILS_ENV",
       "RAILS_LOG_TO_STDOUT",
