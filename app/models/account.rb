@@ -12,6 +12,7 @@ class Account < ApplicationRecord
   # app-level constant is an alias rather than a class of its own.
   has_many :api_keys, class_name: "ActionAgent::ApiKey", dependent: :destroy
   has_many :provider_keys, class_name: "ActionAgent::ProviderKey", dependent: :destroy
+  has_one :github_connection, class_name: "ActionAgent::GithubConnection", dependent: :destroy
   has_one :pro_access_grant, dependent: :destroy
   # A pilot invitation records how the workspace came to have Pro, so it
   # blocks deleting the workspace. Teammate invitations go with it.

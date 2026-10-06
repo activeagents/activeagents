@@ -4,3 +4,15 @@
 project_id = "active-agents-platform"
 region     = "us-central1"
 image      = "us-central1-docker.pkg.dev/active-agents-platform/activeagents/activeagents:staging"
+
+# The GitHub App, encryption key and recordings switches are committed in
+# github_app.auto.tfvars next to this file rather than set here, so CI applies
+# them too. Terraform loads *.auto.tfvars after terraform.tfvars, so the
+# committed values win. Turn each on only after the step for it in
+# docs/infrastructure/gcp-cicd-setup.md.
+# enable_github_sign_in                = true
+# enable_github_app                    = true
+# github_app_id                        = "123456"
+# github_app_slug                      = "activeagents-staging"
+# enable_active_record_encryption_keys = true
+# enable_recordings_storage            = true

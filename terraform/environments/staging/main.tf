@@ -31,11 +31,16 @@ module "activeagents" {
 
   # Email configuration
   mailer_from_address = var.mailer_from_address
+  app_host            = var.app_host
 
   # Sandbox configuration for agent execution (ephemeral containers)
   sandbox_cpu              = var.sandbox_cpu     # 4 vCPUs for parallel Ractor/Thread execution
   sandbox_memory           = var.sandbox_memory  # 4Gi for LLM context and agent workloads
   max_persistent_sandboxes = 3                   # Limited by quota (4 CPUs × 3 = 12 < 20 quota)
+
+  # Checkout sandboxes on the Incus host stay off until its egress controls
+  # (https://github.com/activeagents/activeagents/issues/150) are applied.
+  incus_app_runtime_enabled = false
 
   # Database configuration (smaller for staging)
   database_tier = "db-f1-micro"
@@ -91,4 +96,16 @@ module "activeagents" {
   demo_telemetry_endpoint   = var.demo_telemetry_endpoint
   demo_activeagents_api_key = var.demo_activeagents_api_key
   demo_ai_provider          = var.demo_ai_provider
+
+  # Sign in with GitHub, through this environment's GitHub App
+  enable_github_sign_in = var.enable_github_sign_in
+
+  # GitHub App repository access, encryption keys and recordings storage.
+  # Each flag stays off until docs/infrastructure/gcp-cicd-setup.md says to
+  # turn it on.
+  enable_github_app                    = var.enable_github_app
+  github_app_id                        = var.github_app_id
+  github_app_slug                      = var.github_app_slug
+  enable_active_record_encryption_keys = var.enable_active_record_encryption_keys
+  enable_recordings_storage            = var.enable_recordings_storage
 }
