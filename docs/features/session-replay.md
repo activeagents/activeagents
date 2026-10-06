@@ -329,4 +329,4 @@ middleware.complete!
 - [ ] Connect to live Playwright MCP tools in sandbox container
 - [ ] Implement rrweb for DOM recording
 - [ ] Add comparison mode for A/B testing
-- [ ] Set up cloud storage for production (GCS)
+- [ ] Turn on cloud storage for production (GCS): `docs/infrastructure/active-storage.md`

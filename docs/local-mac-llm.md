@@ -103,9 +103,19 @@ Native Ollama is just `http://localhost:11434/v1` — no host-gateway games.
 ## 3. Wire the model in and test tool calls
 
 1. Open http://localhost:3000, register, then **Settings → Provider API
-   Keys**. Configure **Ollama** with the host URL for your setup
-   (`http://host.docker.internal:11434/v1` in compose,
-   `http://localhost:11434/v1` native). For Haiku 4.5, configure
+   Keys**. Configure **Ollama** with the server address for your setup
+   (`http://host.docker.internal:11434` in compose, `http://localhost:11434`
+   native — the `/v1` path is added for you). Click **Test** before saving:
+   it reports whether the server is reachable, the round-trip time, and the
+   models it currently serves, so a typo or a server that isn't running shows
+   up here rather than as a failed agent run. The same **Test connection**
+   button is on the card once saved. For a remote server (a LAN machine, a
+   tunnel, or Ollama Cloud at `https://ollama.com`) that requires
+   authentication, fill in the optional **API key** field; it is sent as a
+   Bearer token. When no host is configured, the card shows the platform
+   default from `OLLAMA_HOST`, if any. `OLLAMA_HOST` itself must include
+   `/v1` — only the Settings card and its Test button add it for you. For
+   Haiku 4.5, configure
    **Anthropic** with your API key instead. Credentials are encrypted at
    rest (Active Record Encryption).
 2. Create an agent: provider `ollama`, model `qwen3:8b` (or provider
