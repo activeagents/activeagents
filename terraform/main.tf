@@ -195,6 +195,11 @@ module "cloud_run" {
     DB_NAME                = module.cloud_sql.database_name
     DB_USER                = module.cloud_sql.database_user
     MAILER_FROM_ADDRESS    = var.mailer_from_address
+    # Links in transactional email point at this deployment, not the apex.
+    APP_HOST               = var.app_host
+    # Confirmed newsletter subscribers sync into this Resend audience
+    # (SyncNewsletterToResendJob); RESEND_AUDIENCE_ID below is the Users one.
+    RESEND_NEWSLETTER_AUDIENCE_ID = var.resend_newsletter_audience_id
   }
 
   secret_env_vars = {
