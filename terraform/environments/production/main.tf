@@ -34,4 +34,13 @@ module "activeagents" {
 
   # Sign in with GitHub, through this environment's GitHub App
   enable_github_sign_in = var.enable_github_sign_in
+
+  # GitHub App repository access, encryption keys and recordings storage.
+  # Each flag stays off until docs/infrastructure/gcp-cicd-setup.md says to
+  # turn it on.
+  enable_github_app                    = var.enable_github_app
+  github_app_id                        = var.github_app_id
+  github_app_slug                      = var.github_app_slug
+  enable_active_record_encryption_keys = var.enable_active_record_encryption_keys
+  enable_recordings_storage            = var.enable_recordings_storage
 }
