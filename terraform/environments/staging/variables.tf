@@ -3,6 +3,36 @@ variable "project_id" {
   type        = string
 }
 
+variable "stripe_expected_account_id" {
+  description = "Verified Stripe sandbox account ID; setup refuses a different account"
+  type        = string
+  default     = ""
+  validation {
+    condition     = var.stripe_expected_account_id == "" || can(regex("^acct_[A-Za-z0-9]+$", var.stripe_expected_account_id))
+    error_message = "Expected a Stripe account ID."
+  }
+}
+
+variable "stripe_pro_monthly_price_id" {
+  description = "Existing $99/month Pro test price; blank discovers or creates it safely"
+  type        = string
+  default     = ""
+  validation {
+    condition     = var.stripe_pro_monthly_price_id == "" || can(regex("^price_[A-Za-z0-9]+$", var.stripe_pro_monthly_price_id))
+    error_message = "Expected a Stripe price ID."
+  }
+}
+
+variable "stripe_pro_annual_price_id" {
+  description = "Existing $995/year Pro test price; blank discovers or creates it safely"
+  type        = string
+  default     = ""
+  validation {
+    condition     = var.stripe_pro_annual_price_id == "" || can(regex("^price_[A-Za-z0-9]+$", var.stripe_pro_annual_price_id))
+    error_message = "Expected a Stripe price ID."
+  }
+}
+
 variable "region" {
   description = "GCP region"
   type        = string

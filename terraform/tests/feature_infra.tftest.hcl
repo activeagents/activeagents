@@ -40,8 +40,10 @@ run "defaults_pass_nothing_new_to_cloud_run" {
       "RESEND_NEWSLETTER_AUDIENCE_ID",
       "SKIP_DB_PREPARE",
       "SOLID_QUEUE_IN_PUMA",
+      "STRIPE_EXPECTED_ACCOUNT_ID",
+      "STRIPE_REQUIRE_TEST_MODE",
     ])
-    error_message = "With every flag off, Cloud Run must get only the plain variables it got before."
+    error_message = "With every flag off, Cloud Run must get only the plain variables it got before (staging adds its Stripe guard)."
   }
 
   assert {

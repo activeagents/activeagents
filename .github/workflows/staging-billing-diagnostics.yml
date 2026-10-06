@@ -1,0 +1,47 @@
+name: Staging billing diagnostics
+
+on:
+  workflow_dispatch:
+
+concurrency:
+  group: staging-deployment
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  inspect:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment: staging
+    steps:
+      - uses: actions/checkout@v6
+      - uses: google-github-actions/auth@v3
+        with:
+          workload_identity_provider: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ secrets.GCP_SERVICE_ACCOUNT }}
+      - uses: google-github-actions/setup-gcloud@v3
+      - name: Read staging billing configuration without changing it
+        timeout-minutes: 10
+        shell: bash
+        run: |
+          BILLING_DIAGNOSTIC_CODE=$(cat script/staging_billing_diagnostics.rb)
+          gcloud run jobs execute activeagents-staging-migrate \
+            --project=active-agents-platform --region=us-central1 \
+            --args="^~~~^runner~~~${BILLING_DIAGNOSTIC_CODE}" \
+            --task-timeout=120s --wait
+      - name: Read only the sanitized billing report
+        if: always()
+        run: |
+          gcloud logging read \
+            'resource.type="cloud_run_job" AND resource.labels.job_name="activeagents-staging-migrate" AND textPayload:"STAGING_BILLING_DIAGNOSTICS "' \
+            --project=active-agents-platform --freshness=15m \
+            --limit=10 --order=asc --format="value(textPayload)"
+      - name: Show execution status without container arguments or environment
+        if: always()
+        run: |
+          gcloud run jobs executions list \
+            --job=activeagents-staging-migrate --project=active-agents-platform --region=us-central1 \
+            --limit=3 --format="table(metadata.name,status.completionTime,status.conditions.type,status.conditions.status,status.conditions.message)"

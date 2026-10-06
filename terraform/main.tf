@@ -273,6 +273,16 @@ locals {
       RECORDINGS_BUCKET       = google_storage_bucket.recordings.name
       RECORDINGS_SIGNER_EMAIL = google_service_account.recordings_signer.email
     } : {},
+    # Staging checks out against a Stripe test account and refuses any other;
+    # the Pro price IDs are passed once the catalog setup created them.
+    var.environment == "staging" ? merge({
+      STRIPE_REQUIRE_TEST_MODE   = "true"
+      STRIPE_EXPECTED_ACCOUNT_ID = var.staging_stripe.account_id
+    }, var.staging_stripe.monthly_price_id != "" ? {
+      STRIPE_PRO_MONTHLY_PRICE_ID = var.staging_stripe.monthly_price_id
+    } : {}, var.staging_stripe.annual_price_id != "" ? {
+      STRIPE_PRO_ANNUAL_PRICE_ID = var.staging_stripe.annual_price_id
+    } : {}) : {},
   )
 
   cloud_run_secret_env_vars = merge(
