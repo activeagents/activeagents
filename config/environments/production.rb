@@ -1,4 +1,5 @@
 require "active_support/core_ext/integer/time"
+require_relative "../../lib/storage_service_selector"
 
 Rails.application.configure do
   # Settings specified here will take precedence over those in config/application.rb.
@@ -21,8 +22,17 @@ Rails.application.configure do
   # Enable serving of images, stylesheets, and JavaScripts from an asset server.
   # config.asset_host = "http://assets.example.com"
 
-  # Store uploaded files on the local file system (see config/storage.yml for options).
-  config.active_storage.service = :local
+  # Store uploaded files in Google Cloud Storage once RECORDINGS_BUCKET is set,
+  # and on the instance's disk until then (lib/storage_service_selector.rb).
+  config.active_storage.service = StorageServiceSelector.service
+
+  if StorageServiceSelector.disk_fallback?
+    config.after_initialize do
+      Rails.logger.warn "Active Storage keeps files on this instance's disk, which Cloud Run discards when the instance stops. " \
+        "Set RECORDINGS_BUCKET and RECORDINGS_SIGNER_EMAIL to store them in Google Cloud Storage, " \
+        "or ACTIVE_STORAGE_SERVICE=local to keep the disk on purpose."
+    end
+  end
 
   # Assume all access to the app is happening through a SSL-terminating reverse proxy.
   # RAILS_ASSUME_SSL=false and RAILS_FORCE_SSL=false serve a container run
