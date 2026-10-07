@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.2].define(version: 2026_10_03_012840) do
+ActiveRecord::Schema[8.2].define(version: 2026_10_06_235626) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
 
@@ -262,6 +262,7 @@ ActiveRecord::Schema[8.2].define(version: 2026_10_03_012840) do
     t.jsonb "action_prompts", default: [], null: false
     t.string "agent_class_name"
     t.jsonb "appearance", default: {}
+    t.jsonb "approval_required_tools", default: []
     t.datetime "created_at", null: false
     t.text "description"
     t.datetime "first_observed_at"
@@ -386,6 +387,37 @@ ActiveRecord::Schema[8.2].define(version: 2026_10_03_012840) do
     t.index ["investor_id"], name: "index_document_access_logs_on_investor_id"
   end
 
+  create_table "draft_pull_requests", force: :cascade do |t|
+    t.bigint "account_id"
+    t.string "base_branch"
+    t.string "base_commit", null: false
+    t.text "body"
+    t.string "branch", null: false
+    t.text "commit_message"
+    t.string "compare_url"
+    t.datetime "created_at", null: false
+    t.string "credential_kind"
+    t.boolean "draft"
+    t.string "error_code"
+    t.text "error_message"
+    t.jsonb "files", default: []
+    t.string "head_commit"
+    t.datetime "last_checked_at"
+    t.integer "number"
+    t.string "operation", default: "create", null: false
+    t.string "repository", null: false
+    t.bigint "sandbox_session_id", null: false
+    t.string "state"
+    t.string "status", default: "queued", null: false
+    t.string "title", null: false
+    t.datetime "updated_at", null: false
+    t.string "url"
+    t.bigint "user_id"
+    t.index ["account_id"], name: "index_draft_pull_requests_on_account"
+    t.index ["sandbox_session_id"], name: "index_draft_pull_requests_on_sandbox_session"
+    t.index ["user_id"], name: "index_draft_pull_requests_on_user"
+  end
+
   create_table "evaluation_runs", force: :cascade do |t|
     t.bigint "agent_version_id"
     t.datetime "completed_at"
@@ -463,6 +495,32 @@ ActiveRecord::Schema[8.2].define(version: 2026_10_03_012840) do
     t.index ["agent_id"], name: "index_evaluations_on_agent_id"
   end
 
+  create_table "explorations", force: :cascade do |t|
+    t.bigint "account_id"
+    t.bigint "agent_run_id"
+    t.jsonb "budget", default: {}
+    t.jsonb "candidates", default: []
+    t.datetime "created_at", null: false
+    t.text "error_message"
+    t.bigint "evaluation_id"
+    t.datetime "finished_at"
+    t.bigint "project_id"
+    t.bigint "sandbox_session_id"
+    t.bigint "session_recording_id"
+    t.string "source", default: "external", null: false
+    t.string "start_url"
+    t.datetime "started_at"
+    t.string "status", default: "pending", null: false
+    t.string "stop_reason"
+    t.datetime "updated_at", null: false
+    t.jsonb "usage", default: {}
+    t.bigint "user_id"
+    t.index ["account_id"], name: "index_explorations_on_account_id"
+    t.index ["evaluation_id"], name: "index_explorations_on_evaluation_id"
+    t.index ["project_id"], name: "index_explorations_on_project_id"
+    t.index ["user_id"], name: "index_explorations_on_user_id"
+  end
+
   create_table "github_connections", force: :cascade do |t|
     t.text "access_token", null: false
     t.bigint "account_id"
@@ -476,6 +534,54 @@ ActiveRecord::Schema[8.2].define(version: 2026_10_03_012840) do
     t.bigint "user_id"
     t.index ["account_id"], name: "index_github_connections_on_account_id", unique: true
     t.index ["user_id"], name: "index_github_connections_on_user_id"
+  end
+
+  create_table "github_installations", force: :cascade do |t|
+    t.bigint "account_id"
+    t.datetime "created_at", null: false
+    t.bigint "github_account_id", null: false
+    t.string "github_account_login", null: false
+    t.string "github_account_type", null: false
+    t.bigint "installation_id", null: false
+    t.jsonb "permissions", default: {}
+    t.datetime "removed_at"
+    t.jsonb "repositories", default: []
+    t.string "repository_selection"
+    t.datetime "suspended_at"
+    t.datetime "updated_at", null: false
+    t.bigint "user_id"
+    t.index ["account_id"], name: "index_github_installations_on_account"
+    t.index ["installation_id"], name: "index_github_installations_on_installation", unique: true
+    t.index ["user_id"], name: "index_github_installations_on_user"
+  end
+
+  create_table "input_requests", force: :cascade do |t|
+    t.bigint "account_id"
+    t.text "answer"
+    t.jsonb "answer_schema"
+    t.datetime "answered_at"
+    t.bigint "answered_by_id"
+    t.jsonb "arguments"
+    t.text "checkpoint"
+    t.datetime "created_at", null: false
+    t.datetime "expires_at"
+    t.string "kind", null: false
+    t.jsonb "options"
+    t.string "pause_key", null: false
+    t.text "prompt", null: false
+    t.bigint "requested_by_id"
+    t.integer "status", default: 0, null: false
+    t.bigint "subject_id", null: false
+    t.string "subject_type", null: false
+    t.string "tool_call_id"
+    t.string "tool_name"
+    t.datetime "updated_at", null: false
+    t.bigint "user_id"
+    t.index ["account_id"], name: "index_input_requests_on_account_id"
+    t.index ["pause_key"], name: "index_input_requests_on_pause_key"
+    t.index ["status", "expires_at"], name: "index_input_requests_on_status_and_expires_at"
+    t.index ["subject_type", "subject_id"], name: "index_input_requests_on_subject_type_and_subject_id"
+    t.index ["user_id"], name: "index_input_requests_on_user_id"
   end
 
   create_table "investor_documents", force: :cascade do |t|
@@ -672,15 +778,57 @@ ActiveRecord::Schema[8.2].define(version: 2026_10_03_012840) do
     t.index ["granted_by_id"], name: "index_pro_access_grants_on_granted_by_id"
   end
 
+  create_table "project_secrets", force: :cascade do |t|
+    t.bigint "account_id"
+    t.datetime "consented_at"
+    t.datetime "created_at", null: false
+    t.string "kind", default: "env", null: false
+    t.string "name", null: false
+    t.bigint "project_id", null: false
+    t.string "provider"
+    t.bigint "set_by_id"
+    t.string "source", default: "entered", null: false
+    t.datetime "updated_at", null: false
+    t.bigint "user_id"
+    t.text "value"
+    t.index ["account_id"], name: "index_project_secrets_on_account_id"
+    t.index ["project_id", "name"], name: "index_project_secrets_on_project_id_and_name", unique: true
+    t.index ["user_id"], name: "index_project_secrets_on_user_id"
+  end
+
+  create_table "projects", force: :cascade do |t|
+    t.bigint "account_id"
+    t.datetime "created_at", null: false
+    t.bigint "current_sandbox_session_id"
+    t.string "default_ref"
+    t.bigint "evaluation_id"
+    t.string "install_state", default: "detected", null: false
+    t.string "name", null: false
+    t.string "repository", null: false
+    t.jsonb "settings", default: {}
+    t.string "start_url", default: "/", null: false
+    t.string "status", default: "draft", null: false
+    t.bigint "target_agent_id"
+    t.datetime "updated_at", null: false
+    t.bigint "user_id"
+    t.index ["account_id"], name: "index_projects_on_account_id"
+    t.index ["current_sandbox_session_id"], name: "index_projects_on_current_sandbox_session_id"
+    t.index ["target_agent_id"], name: "index_projects_on_target_agent_id"
+    t.index ["user_id"], name: "index_projects_on_user_id"
+  end
+
   create_table "provider_keys", force: :cascade do |t|
     t.bigint "account_id", null: false
     t.string "api_key"
     t.datetime "created_at", null: false
     t.string "credential", null: false
     t.string "provider", null: false
+    t.string "scope_key", default: "organization", null: false
+    t.bigint "set_by_id"
     t.datetime "updated_at", null: false
     t.bigint "user_id"
     t.index ["account_id", "provider"], name: "index_provider_keys_on_account_id_and_provider", unique: true
+    t.index ["account_id", "scope_key", "provider"], name: "index_provider_keys_on_scope", unique: true
     t.index ["account_id"], name: "index_provider_keys_on_account_id"
   end
 
@@ -698,6 +846,25 @@ ActiveRecord::Schema[8.2].define(version: 2026_10_03_012840) do
     t.text "value"
     t.index ["session_recording_id", "sequence"], name: "index_recording_actions_on_session_recording_id_and_sequence", unique: true
     t.index ["session_recording_id"], name: "index_recording_actions_on_session_recording_id"
+  end
+
+  create_table "recording_events", force: :cascade do |t|
+    t.bigint "account_id"
+    t.integer "batch_index", default: 0, null: false
+    t.integer "byte_size", default: 0, null: false
+    t.bigint "clock_offset_ms", default: 0, null: false
+    t.datetime "created_at", null: false
+    t.integer "event_count", default: 0, null: false
+    t.string "kind", null: false
+    t.datetime "occurred_from", null: false
+    t.datetime "occurred_to", null: false
+    t.binary "payload"
+    t.bigint "session_recording_id", null: false
+    t.datetime "updated_at", null: false
+    t.bigint "user_id"
+    t.index ["account_id"], name: "index_recording_events_on_account_id"
+    t.index ["session_recording_id", "occurred_from", "batch_index"], name: "idx_on_session_recording_id_occurred_from_batch_ind_7d097c7e15"
+    t.index ["user_id"], name: "index_recording_events_on_user_id"
   end
 
   create_table "recording_snapshots", force: :cascade do |t|
@@ -762,14 +929,22 @@ ActiveRecord::Schema[8.2].define(version: 2026_10_03_012840) do
   create_table "sandbox_sessions", force: :cascade do |t|
     t.bigint "account_id"
     t.bigint "agent_template_id"
+    t.string "browser_live_url"
+    t.string "browser_mcp_url"
+    t.string "browser_mode"
+    t.datetime "browser_started_at"
+    t.string "browser_status"
+    t.text "browser_token"
     t.string "cloud_run_job_id"
     t.string "cloud_run_url"
     t.datetime "created_at", null: false
     t.text "error_message"
     t.datetime "expires_at"
+    t.bigint "github_installation_id"
     t.datetime "last_activity_at"
     t.integer "max_runs", default: 10
     t.jsonb "mcp_servers", default: []
+    t.bigint "project_id"
     t.string "repository"
     t.string "repository_ref"
     t.jsonb "runs", default: []
@@ -788,6 +963,8 @@ ActiveRecord::Schema[8.2].define(version: 2026_10_03_012840) do
     t.index ["agent_template_id"], name: "index_sandbox_sessions_on_agent_template_id"
     t.index ["cloud_run_job_id"], name: "index_sandbox_sessions_on_cloud_run_job_id"
     t.index ["expires_at"], name: "index_sandbox_sessions_on_expires_at"
+    t.index ["github_installation_id"], name: "index_sandbox_sessions_on_github_installation"
+    t.index ["project_id"], name: "index_sandbox_sessions_on_project_id"
     t.index ["sandbox_type"], name: "index_sandbox_sessions_on_sandbox_type"
     t.index ["session_id"], name: "index_sandbox_sessions_on_session_id", unique: true
     t.index ["status"], name: "index_sandbox_sessions_on_status"
@@ -797,17 +974,26 @@ ActiveRecord::Schema[8.2].define(version: 2026_10_03_012840) do
   create_table "session_recordings", force: :cascade do |t|
     t.bigint "account_id"
     t.integer "action_count", default: 0
+    t.bigint "agent_context_id"
     t.bigint "agent_run_id"
     t.datetime "created_at", null: false
+    t.integer "dropped_event_count", default: 0, null: false
     t.integer "duration_ms"
+    t.bigint "event_bytes", default: 0, null: false
+    t.integer "event_count", default: 0, null: false
+    t.string "ingest_token_digest"
+    t.datetime "ingest_token_expires_at"
     t.json "metadata", default: {}
     t.string "name"
     t.bigint "sandbox_session_id"
+    t.string "source"
     t.integer "status", default: 0, null: false
     t.datetime "updated_at", null: false
     t.bigint "user_id"
     t.index ["account_id"], name: "index_session_recordings_on_account_id"
+    t.index ["agent_context_id"], name: "index_session_recordings_on_agent_context_id"
     t.index ["agent_run_id"], name: "index_session_recordings_on_agent_run_id"
+    t.index ["ingest_token_digest"], name: "index_session_recordings_on_ingest_token_digest", unique: true
     t.index ["sandbox_session_id"], name: "index_session_recordings_on_sandbox_session_id"
     t.index ["user_id"], name: "index_session_recordings_on_user_id"
   end
@@ -936,7 +1122,7 @@ ActiveRecord::Schema[8.2].define(version: 2026_10_03_012840) do
     t.index ["email_address"], name: "index_pending_pilot_invitation_email", unique: true, where: "((role IS NULL) AND (accepted_at IS NULL) AND (revoked_at IS NULL))"
     t.index ["invited_by_id"], name: "index_workspace_invitations_on_invited_by_id"
     t.index ["token_digest"], name: "index_workspace_invitations_on_token_digest", unique: true
-    t.check_constraint "role IS NULL OR (role::text = ANY (ARRAY['admin'::character varying, 'member'::character varying]::text[]))", name: "workspace_invitations_role_allowed"
+    t.check_constraint "role IS NULL OR (role::text = ANY (ARRAY['admin'::character varying::text, 'member'::character varying::text]))", name: "workspace_invitations_role_allowed"
     t.check_constraint "role IS NULL OR account_id IS NOT NULL", name: "workspace_invitations_teammate_account"
   end
 
