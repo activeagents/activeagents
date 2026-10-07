@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.2].define(version: 2026_10_06_235626) do
+ActiveRecord::Schema[8.2].define(version: 2026_10_07_000001) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
 
@@ -329,6 +329,22 @@ ActiveRecord::Schema[8.2].define(version: 2026_10_06_235626) do
     t.index ["safe_agreement_id"], name: "index_cap_table_entries_on_safe_agreement_id"
     t.index ["security_type"], name: "index_cap_table_entries_on_security_type"
     t.index ["stakeholder_type"], name: "index_cap_table_entries_on_stakeholder_type"
+  end
+
+  create_table "catalog_scenarios", force: :cascade do |t|
+    t.datetime "created_at", null: false
+    t.boolean "enabled", default: true, null: false
+    t.jsonb "expectations", default: {}
+    t.string "key", null: false
+    t.text "notes"
+    t.jsonb "params", default: {}
+    t.integer "position"
+    t.boolean "production_only", default: false, null: false
+    t.text "prompt", null: false
+    t.bigint "scenario_set_id", null: false
+    t.jsonb "tags", default: []
+    t.datetime "updated_at", null: false
+    t.index ["scenario_set_id", "key"], name: "index_catalog_scenarios_on_scenario_set_id_and_key", unique: true
   end
 
   create_table "code_sessions", force: :cascade do |t|
@@ -969,6 +985,59 @@ ActiveRecord::Schema[8.2].define(version: 2026_10_06_235626) do
     t.index ["session_id"], name: "index_sandbox_sessions_on_session_id", unique: true
     t.index ["status"], name: "index_sandbox_sessions_on_status"
     t.index ["user_id"], name: "index_sandbox_sessions_on_user_id"
+  end
+
+  create_table "scenario_catalogs", force: :cascade do |t|
+    t.bigint "account_id"
+    t.datetime "created_at", null: false
+    t.text "description"
+    t.string "digest"
+    t.text "document"
+    t.string "key", null: false
+    t.jsonb "metadata", default: {}
+    t.string "name", null: false
+    t.string "source_kind", default: "upload", null: false
+    t.string "source_path"
+    t.datetime "synced_at"
+    t.string "synced_digest"
+    t.datetime "updated_at", null: false
+    t.bigint "user_id"
+    t.index ["account_id"], name: "index_scenario_catalogs_on_account_id"
+    t.index ["key"], name: "index_scenario_catalogs_on_key"
+    t.index ["user_id"], name: "index_scenario_catalogs_on_user_id"
+  end
+
+  create_table "scenario_products", force: :cascade do |t|
+    t.bigint "agent_id"
+    t.string "agent_name"
+    t.datetime "created_at", null: false
+    t.text "description"
+    t.string "key", null: false
+    t.jsonb "metadata", default: {}
+    t.string "name", null: false
+    t.integer "position"
+    t.bigint "project_id"
+    t.bigint "scenario_catalog_id", null: false
+    t.datetime "updated_at", null: false
+    t.index ["agent_id"], name: "index_scenario_products_on_agent_id"
+    t.index ["project_id"], name: "index_scenario_products_on_project_id"
+    t.index ["scenario_catalog_id", "key"], name: "index_scenario_products_on_scenario_catalog_id_and_key", unique: true
+  end
+
+  create_table "scenario_sets", force: :cascade do |t|
+    t.datetime "created_at", null: false
+    t.jsonb "criteria", default: []
+    t.text "description"
+    t.bigint "evaluation_id"
+    t.jsonb "judge", default: {}
+    t.string "key", null: false
+    t.jsonb "metadata", default: {}
+    t.string "name", null: false
+    t.integer "position"
+    t.bigint "scenario_product_id", null: false
+    t.datetime "updated_at", null: false
+    t.index ["evaluation_id"], name: "index_scenario_sets_on_evaluation_id"
+    t.index ["scenario_product_id", "key"], name: "index_scenario_sets_on_scenario_product_id_and_key", unique: true
   end
 
   create_table "session_recordings", force: :cascade do |t|

@@ -32,9 +32,9 @@ gem "inertia_rails"
 # 1.9.0 from its release commit (the merge of activeagent#520) until the gems
 # are on rubygems; then "~> 1.9.0" (#162). 1.9 adds Projects, browser sessions,
 # input requests and the GitHub App checkouts the hosted platform builds on.
-gem "activeagent", github: "activeagents/activeagent", ref: "10f93070d6730533d14d82f1ac1600a578829b7d"
+gem "activeagent", github: "activeagents/activeagent", ref: "c9991664c9b828892d5f5b8c483b198e98caa1f6"
 # Action Agent - the dashboard, a mountable Rails engine, from the same commit.
-gem "actionagent", github: "activeagents/activeagent", ref: "10f93070d6730533d14d82f1ac1600a578829b7d"
+gem "actionagent", github: "activeagents/activeagent", ref: "c9991664c9b828892d5f5b8c483b198e98caa1f6"
 # Solid Agent - Persistence and context management for ActiveAgent
 gem "solid_agent", github: "activeagents/solid_agent", branch: "main"
 # RubyLLM - model registry (token pricing data) and unified provider API
