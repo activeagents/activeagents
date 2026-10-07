@@ -134,13 +134,18 @@ class AgentExecutionServiceTest < ActiveSupport::TestCase
     assert_equal "mock", llm_span.dig("attributes", "llm.provider")
   end
 
-  test "skips trace recording when the agent has no account" do
+  test "refuses to run an agent whose owner has no account, and records nothing" do
+    # Every signed-in user has a workspace; an orphan user exists only here.
+    # Since actionagent 1.8.2 a multi-tenant install resolves credentials
+    # through the owner's tenant and refuses an owner that has none, so the
+    # run never falls through to the platform's own credentials, mock included.
     orphan_user = create_user # no account
     agent = create_agent(user: orphan_user, name: "No Account Agent", provider: "mock")
     run = create_running_run(agent, prompt: "hi")
 
-    assert_nothing_raised { AgentExecutionService.call(agent, run) }
+    assert_raises(ActionAgent::ProviderCredentials::Unresolved) { AgentExecutionService.call(agent, run) }
     assert_equal 0, TelemetryTrace.where(trace_id: run.trace_id).count
+    assert_nil AgentContext.find_by(contextable: agent)
   end
 
   test "records an error trace when generation fails" do
