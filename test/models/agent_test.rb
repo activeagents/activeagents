@@ -254,9 +254,12 @@ class AgentTest < ActiveSupport::TestCase
 
   test "test_execute creates and runs synchronously" do
     user = create_user
+    # A run resolves its credentials through the owner's workspace, so the
+    # user needs one, as every signed-in user has.
+    create_account(owner: user)
     # The gem's mock provider is only accepted in the test environment;
     # execution requires real credentials everywhere else.
-    agent = create_agent(user: user, provider: "mock")
+    agent = create_agent(user: user.reload, provider: "mock")
 
     run = agent.test_execute("Test prompt")
 
