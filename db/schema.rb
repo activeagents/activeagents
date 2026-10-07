@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.2].define(version: 2026_10_07_000001) do
+ActiveRecord::Schema[8.2].define(version: 2026_10_07_000002) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
 
@@ -351,16 +351,20 @@ ActiveRecord::Schema[8.2].define(version: 2026_10_07_000001) do
     t.bigint "account_id"
     t.string "claude_session_id"
     t.datetime "created_at", null: false
+    t.string "credential_mode"
     t.text "diff"
     t.integer "dropped_events_count", default: 0, null: false
     t.integer "duration_ms"
     t.text "error_message"
+    t.bigint "evaluation_run_id"
     t.jsonb "events", default: []
     t.datetime "finished_at"
+    t.jsonb "fix_item"
     t.integer "input_tokens"
     t.string "model"
     t.integer "num_turns"
     t.integer "output_tokens"
+    t.bigint "previous_code_session_id"
     t.text "prompt", null: false
     t.text "result"
     t.string "runner", default: "claude_code", null: false
@@ -371,9 +375,13 @@ ActiveRecord::Schema[8.2].define(version: 2026_10_07_000001) do
     t.decimal "total_cost_usd", precision: 12, scale: 6
     t.datetime "updated_at", null: false
     t.bigint "user_id"
+    t.text "verification_error"
+    t.bigint "verification_run_id"
     t.index ["account_id"], name: "index_code_sessions_on_account_id"
+    t.index ["evaluation_run_id"], name: "index_code_sessions_on_evaluation_run_id"
     t.index ["sandbox_session_id"], name: "index_code_sessions_on_sandbox_session_id"
     t.index ["user_id"], name: "index_code_sessions_on_user_id"
+    t.index ["verification_run_id"], name: "index_code_sessions_on_verification_run_id"
   end
 
   create_table "document_access_grants", force: :cascade do |t|
@@ -951,6 +959,7 @@ ActiveRecord::Schema[8.2].define(version: 2026_10_07_000001) do
     t.datetime "browser_started_at"
     t.string "browser_status"
     t.text "browser_token"
+    t.bigint "claude_login_user_id"
     t.string "cloud_run_job_id"
     t.string "cloud_run_url"
     t.datetime "created_at", null: false
