@@ -1,7 +1,7 @@
 GIT
   remote: https://github.com/activeagents/activeagent.git
-  revision: c9991664c9b828892d5f5b8c483b198e98caa1f6
-  ref: c9991664c9b828892d5f5b8c483b198e98caa1f6
+  revision: 03a6e15935f15dc2932408f53bb7a6c60755c88b
+  ref: 03a6e15935f15dc2932408f53bb7a6c60755c88b
   specs:
     actionagent (1.9.0)
       activeagent (>= 1.4, < 2)
@@ -19,10 +19,10 @@ GIT
 
 GIT
   remote: https://github.com/activeagents/solid_agent.git
-  revision: a82f8b925665bcce2486365305f6209c260ebc4a
+  revision: ca80fe32de9dbf7a78cdd862c9ef806cd13f1d7e
   branch: main
   specs:
-    solid_agent (0.2.0)
+    solid_agent (0.2.1)
       activeagent (>= 1.0.0)
       activemodel (>= 7.0)
       activerecord (>= 7.0)
@@ -141,7 +141,7 @@ GEM
   specs:
     action_text-trix (2.1.16)
       railties
-    activeagents-telemetry (0.3.1)
+    activeagents-telemetry (0.3.2)
     addressable (2.9.0)
       public_suffix (>= 2.0.2, < 8.0)
     anthropic (1.25.0)
