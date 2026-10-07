@@ -144,9 +144,10 @@ GEM
     activeagents-telemetry (0.3.2)
     addressable (2.9.0)
       public_suffix (>= 2.0.2, < 8.0)
-    anthropic (1.25.0)
-      cgi
-      connection_pool
+    anthropic (1.76.0)
+      base64 (~> 0.1)
+      connection_pool (>= 2, < 4)
+      standardwebhooks (~> 1.0)
     ast (2.4.3)
     base64 (0.3.0)
     bcrypt (3.1.21)
@@ -159,7 +160,7 @@ GEM
     brakeman (8.1.0)
       racc
     builder (3.3.0)
-    cgi (0.5.1)
+    cgi (0.5.2)
     concurrent-ruby (1.3.8)
     connection_pool (3.0.2)
     crack (1.0.1)
@@ -557,6 +558,7 @@ GEM
       ostruct
     stackdriver-core (1.7.0)
       google-cloud-core (~> 1.2)
+    standardwebhooks (1.1.0)
     stimulus-rails (1.3.4)
       railties (>= 6.0.0)
     stringio (3.2.0)
