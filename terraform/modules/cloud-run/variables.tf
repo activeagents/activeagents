@@ -69,6 +69,16 @@ variable "secret_env_vars" {
   default     = {}
 }
 
+variable "secret_volumes" {
+  description = "Secret Manager secrets mounted as files in the service and the migrate job, keyed by volume name. Each mounts the secret's latest version as <mount_path>/<file>. secret is a secret ID in this project, or projects/<project>/secrets/<id> for another project. Empty (the default) mounts nothing."
+  type = map(object({
+    secret     = string
+    mount_path = string
+    file       = string
+  }))
+  default = {}
+}
+
 variable "domain" {
   description = "Custom domain for the service (optional)"
   type        = string

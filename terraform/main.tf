@@ -111,6 +111,12 @@ module "networking" {
   region      = var.region
   environment = var.environment
 
+  # Cloud Run already egresses to private ranges through the VPC connector.
+  # An Incus host in another VPC is reached over a peering with it, which
+  # exists only while the backend is on and the host's VPC is named.
+  incus_host_network = var.enable_incus_backend ? var.incus_host_network : ""
+  incus_host_ranges  = var.incus_host_ranges
+
   depends_on = [google_project_service.apis]
 }
 
@@ -124,10 +130,10 @@ module "cloud_sql" {
   network_id   = module.networking.vpc_id
   network_name = module.networking.vpc_name
 
-  database_name     = "activeagents_${var.environment}"
-  database_user     = "activeagents"
-  database_tier     = var.database_tier
-  database_version  = "POSTGRES_15"
+  database_name    = "activeagents_${var.environment}"
+  database_user    = "activeagents"
+  database_tier    = var.database_tier
+  database_version = "POSTGRES_15"
 
   labels = local.common_labels
 
@@ -278,12 +284,51 @@ locals {
     var.environment == "staging" ? merge({
       STRIPE_REQUIRE_TEST_MODE   = "true"
       STRIPE_EXPECTED_ACCOUNT_ID = var.staging_stripe.account_id
-    }, var.staging_stripe.monthly_price_id != "" ? {
+      }, var.staging_stripe.monthly_price_id != "" ? {
       STRIPE_PRO_MONTHLY_PRICE_ID = var.staging_stripe.monthly_price_id
-    } : {}, var.staging_stripe.annual_price_id != "" ? {
+      } : {}, var.staging_stripe.annual_price_id != "" ? {
       STRIPE_PRO_ANNUAL_PRICE_ID = var.staging_stripe.annual_price_id
     } : {}) : {},
+    # The Incus host this environment's sandboxes run on. INCUS_PROJECT is the
+    # project terraform/modules/incus-host creates on the host. The app reads
+    # the client certificate and key as files, mounted below.
+    var.enable_incus_backend ? {
+      SANDBOX_BACKEND = "incus"
+      INCUS_HOST      = var.incus_api_url
+      INCUS_PROJECT   = "agent-sandboxes"
+      INCUS_CERT_PATH = "${local.cloud_run_secret_volumes["incus-client-cert"].mount_path}/${local.cloud_run_secret_volumes["incus-client-cert"].file}"
+      INCUS_KEY_PATH  = "${local.cloud_run_secret_volumes["incus-client-key"].mount_path}/${local.cloud_run_secret_volumes["incus-client-key"].file}"
+    } : {},
+    # Claude Code in sandboxes. Each is passed only when it differs from the
+    # app's own default, so turning one back off removes it.
+    var.claude_code_auth != "api_key" ? {
+      CLAUDE_CODE_AUTH = var.claude_code_auth
+    } : {},
+    var.claude_code_hosted_login_enabled ? {
+      CLAUDE_CODE_HOSTED_LOGIN_ENABLED = "true"
+    } : {},
   )
+
+  # The host publishes its client certificate and key as
+  # incus-client-cert-<env> and incus-client-key-<env> in the project it runs
+  # in, which grants this environment's service account read access on both
+  # (terraform/modules/incus-host). Cloud Run names a secret in another
+  # project as projects/<project>/secrets/<id>. Like the groups above, the
+  # mounts are passed only once the flag is on, after both have a version.
+  incus_secret_prefix = var.incus_secret_project == "" ? "" : "projects/${var.incus_secret_project}/secrets/"
+
+  cloud_run_secret_volumes = var.enable_incus_backend ? {
+    incus-client-cert = {
+      secret     = "${local.incus_secret_prefix}incus-client-cert-${var.environment}"
+      mount_path = "/secrets/incus-client-cert"
+      file       = "client.crt"
+    }
+    incus-client-key = {
+      secret     = "${local.incus_secret_prefix}incus-client-key-${var.environment}"
+      mount_path = "/secrets/incus-client-key"
+      file       = "client.key"
+    }
+  } : {}
 
   cloud_run_secret_env_vars = merge(
     {
@@ -314,22 +359,23 @@ locals {
 module "cloud_run" {
   source = "./modules/cloud-run"
 
-  project_id         = var.project_id
-  region             = var.region
-  environment        = var.environment
-  service_account    = google_service_account.cloud_run.email
-  vpc_connector_id   = module.networking.vpc_connector_id
+  project_id       = var.project_id
+  region           = var.region
+  environment      = var.environment
+  service_account  = google_service_account.cloud_run.email
+  vpc_connector_id = module.networking.vpc_connector_id
 
-  image              = var.image
-  min_instances      = var.min_instances
-  max_instances      = var.max_instances
-  cpu                = var.cpu
-  memory             = var.memory
+  image         = var.image
+  min_instances = var.min_instances
+  max_instances = var.max_instances
+  cpu           = var.cpu
+  memory        = var.memory
 
   cloud_sql_connection = module.cloud_sql.connection_name
 
   env_vars        = local.cloud_run_env_vars
   secret_env_vars = local.cloud_run_secret_env_vars
+  secret_volumes  = local.cloud_run_secret_volumes
 
   labels = local.common_labels
 
@@ -425,12 +471,12 @@ module "sandbox" {
   app_service_account = google_service_account.cloud_run.email
 
   # Sandbox resource configuration
-  default_sandbox_image     = var.sandbox_image
-  sandbox_cpu               = var.sandbox_cpu
-  sandbox_memory            = var.sandbox_memory
-  sandbox_timeout_seconds   = var.sandbox_timeout_seconds
-  max_concurrent_sandboxes  = var.max_concurrent_sandboxes
-  max_persistent_sandboxes  = var.max_persistent_sandboxes
+  default_sandbox_image    = var.sandbox_image
+  sandbox_cpu              = var.sandbox_cpu
+  sandbox_memory           = var.sandbox_memory
+  sandbox_timeout_seconds  = var.sandbox_timeout_seconds
+  max_concurrent_sandboxes = var.max_concurrent_sandboxes
+  max_persistent_sandboxes = var.max_persistent_sandboxes
 
   labels = local.common_labels
 

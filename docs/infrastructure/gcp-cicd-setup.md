@@ -333,6 +333,8 @@ The `github_app_install_url` output of the environment shows where an account in
 
 The VM keeps the startup script it was created with (`metadata_startup_script` is in `ignore_changes`), so a running host that predates the ACL gets it from step 4 below.
 
+Connecting the staging platform to this host (the peering, the bridge route, the firewall rules and the app's `INCUS_*` variables, all behind flags that default to off) is covered in [Connecting staging to its Incus host](app-runtime.md#connecting-staging-to-its-incus-host).
+
 ### Apply
 
 1. `cd terraform/environments/sandbox-staging && terraform init && terraform plan`. Check that `project_id` is the project the host actually runs in.

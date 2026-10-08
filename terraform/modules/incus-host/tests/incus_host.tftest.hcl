@@ -85,6 +85,76 @@ run "startup_script_restricts_egress_and_only_adds_versions" {
   }
 }
 
+run "serves_no_app_by_default" {
+  command = plan
+
+  assert {
+    condition = alltrue([
+      length(google_compute_route.bridge) == 0,
+      length(google_compute_firewall.bridge_app) == 0,
+      !coalesce(google_compute_instance.incus_host.can_ip_forward, false),
+    ])
+    error_message = "Without app_source_ranges the host must not forward, and nothing may route to the bridge or reach port 8080."
+  }
+
+  assert {
+    condition     = google_compute_firewall.incus_api.source_ranges == toset(["10.0.0.0/8"])
+    error_message = "Without app_source_ranges the Incus API must keep its rule as before."
+  }
+}
+
+run "serves_the_platform_app" {
+  command = plan
+
+  variables {
+    app_source_ranges = ["10.8.0.0/28"]
+  }
+
+  assert {
+    condition     = google_compute_instance.incus_host.can_ip_forward == true
+    error_message = "The host must forward packets for the bridge."
+  }
+
+  assert {
+    condition = alltrue([
+      google_compute_route.bridge[0].dest_range == "10.100.0.0/24",
+      google_compute_route.bridge[0].network == "projects/example-project/global/networks/sandbox-network",
+      output.bridge_cidr == "10.100.0.0/24",
+    ])
+    error_message = "The VPC must route the bridge's subnet to the host."
+  }
+
+  assert {
+    condition     = strcontains(google_compute_instance.incus_host.metadata_startup_script, "ipv4.address: ${cidrhost(output.bridge_cidr, 1)}/${split("/", output.bridge_cidr)[1]}")
+    error_message = "The routed subnet must be the one the preseed gives incusbr0."
+  }
+
+  assert {
+    condition     = google_compute_firewall.incus_api.source_ranges == toset(["10.8.0.0/28"])
+    error_message = "Only the app's range may reach the Incus API."
+  }
+
+  assert {
+    condition = alltrue([
+      google_compute_firewall.bridge_app[0].source_ranges == toset(["10.8.0.0/28"]),
+      google_compute_firewall.bridge_app[0].destination_ranges == toset(["10.100.0.0/24"]),
+      google_compute_firewall.bridge_app[0].target_tags == toset(["incus-host"]),
+      [for rule in google_compute_firewall.bridge_app[0].allow : "${rule.protocol}:${join(",", rule.ports)}"] == ["tcp:8080"],
+    ])
+    error_message = "Only the app's range may reach the containers on the bridge, and only on 8080."
+  }
+}
+
+run "refuses_app_ranges_with_host_bits" {
+  command = plan
+
+  variables {
+    app_source_ranges = ["10.8.0.1/28"]
+  }
+
+  expect_failures = [var.app_source_ranges]
+}
+
 run "refuses_project_level_secret_accessor" {
   command = plan
 
