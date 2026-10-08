@@ -52,6 +52,9 @@ docker build --target app-runtime -t sandbox-app-runtime -f docker/sandbox/Docke
 - socat, which forwards the container's port 8080 to the app
 - the unprivileged user `sandbox` (uid 1000), which runs every command of the
   checkout
+- Claude Code, installed for the user `claude` (uid 1001), and
+  `sandbox-claude`, which runs it for the platform (see
+  [Claude Code in a checkout](#claude-code-in-a-checkout))
 
 ### The workspace
 
@@ -170,6 +173,67 @@ again to resume.
   keys. Its `RAILS_ENV` is whatever the spec's env says, and development
   otherwise.
 - The boot gets no Claude Code or Codex credential.
+
+## Claude Code in a checkout
+
+`IncusSandboxService::ClaudeCode` gives the engine's optional orchestrator
+verbs on Incus: Claude Code sessions (`run_code_session`,
+`cancel_code_session`), the restart that verifies an evaluation fix
+(`refresh_runtime`), and the four sign-in verbs of
+`claude_code_auth = :sandbox_login` (activeagent#578). The engine's
+*Implement with Claude Code* and its sign-in flow then work on Incus as they
+do on the engine's local backend.
+
+Everything goes through `/usr/local/bin/sandbox-claude`, which the platform
+runs as root through the exec API:
+
+| Command | What it does |
+| --- | --- |
+| `session-start --dir DIR` | Runs Claude Code headless on the request and prompt the platform wrote to `DIR`, detached |
+| `session-cancel --dir DIR` | Stops that session: SIGTERM, then SIGKILL after a grace |
+| `login-start` | Starts the unmodified `claude auth login` under a PTY |
+| `login-code` | Hands the one-time code, from its own exec environment, to the waiting CLI once |
+| `login-status` | The flow's state, or whether the CLI is logged in with a Claude subscription |
+| `logout` | `claude auth logout` (which revokes the login), then removes its configuration |
+
+- **Who runs Claude Code.** The image's `claude` user (uid 1001), never
+  `sandbox`, which the checkout's processes run as. Its home, with the CLI's
+  configuration and a subscription login, is `0700`, so the app cannot read
+  it. `claude` is in the `sandbox` group; before each session the checkout is
+  made group-writable, as `sandbox` (so a symlink the checkout plants changes
+  nothing else), and the session works with umask `002`.
+- **Sessions.** Each session gets `/workspace/claude/sessions/<id>/`, root's
+  and `0700`. The prompt reaches the CLI on stdin and is deleted once open.
+  The stream-json goes to `events.jsonl`, which the platform reads back with
+  Range requests as it grows, scrubbed of the sandbox's secrets. `diff.patch`
+  is taken as the engine's local backend takes it: against the commit the
+  first session found, with no hooks or filters, and nothing at all when the
+  checkout's git config defines filter drivers.
+- **Credentials.** An API-key session gets `ANTHROPIC_API_KEY` as the exec's
+  environment and nothing else. A session on a subscription login gets no
+  Anthropic credential, and is refused when the checkout's `.claude`
+  settings define `apiKeyHelper` or Anthropic variables. Neither credential
+  is ever written by the platform, into instance config, files or argv.
+- **Sign-in.** The CLI prints Claude's authorize URL, which the dashboard
+  shows; the user signs in on claude.ai and pastes the code. The code
+  reaches the container once, as `login-code`'s environment, and goes to the
+  CLI through a FIFO. A sign-in that fails or expires removes what the CLI
+  wrote. Terminating a sandbox revokes a login in it first.
+- **Restart.** `sandbox-app-boot --restart` reruns a ready boot from its
+  manifest with the project's secrets passed again, so the edit is live
+  before the evaluation that verifies it runs. A restart that loses the app
+  fails the sandbox, which can then be resumed like any failed boot.
+
+The image installs Claude Code with Anthropic's own installer, as
+`CLAUDE_CODE_VERSION` says (`stable` by default), and records the version
+as the image property `claude_code_version`. Sessions run with
+`DISABLE_AUTOUPDATER`, so a new version comes only with a new image.
+
+Sign-in on the hosted platform is off until both switches are on:
+`CLAUDE_CODE_AUTH=sandbox_login` and `CLAUDE_CODE_HOSTED_LOGIN_ENABLED=true`,
+from Terraform. Before switching them on for anyone but the operator, accept
+Anthropic's Commercial Terms for hosting Claude Code and confirm the design
+with Anthropic, as activeagent#578 says.
 
 ## Lifetime
 

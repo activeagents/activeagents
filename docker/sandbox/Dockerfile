@@ -164,9 +164,11 @@ RUN pip3 install --no-cache-dir \
 FROM ubuntu:24.04 AS app-runtime
 
 ARG RUBY_SERIES="3.2 3.3 3.4"
+ARG CLAUDE_CODE_VERSION="stable"
 
 COPY docker/sandbox/app-runtime /tmp/app-runtime
-RUN SOURCE_DIR=/tmp/app-runtime RUBY_SERIES="${RUBY_SERIES}" bash /tmp/app-runtime/provision.sh && \
+RUN SOURCE_DIR=/tmp/app-runtime RUBY_SERIES="${RUBY_SERIES}" CLAUDE_CODE_VERSION="${CLAUDE_CODE_VERSION}" \
+    bash /tmp/app-runtime/provision.sh && \
     rm -rf /tmp/app-runtime
 
 WORKDIR /workspace
