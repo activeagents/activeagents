@@ -99,6 +99,20 @@ variable "app_service_account" {
   default     = null
 }
 
+variable "app_source_ranges" {
+  description = "Ranges the platform app reaches this host from: its Cloud Run VPC connector's subnet. When set, only these reach the Incus API on 8443 and the containers' app port 8080 on the bridge, the VPC routes the bridge to the host, and the host may forward for it (can_ip_forward). Empty (the default) changes nothing."
+  type        = list(string)
+  default     = []
+
+  validation {
+    condition = alltrue([
+      for range in var.app_source_ranges :
+      !strcontains(range, ":") && can(cidrsubnet(range, 0, 0)) && try(cidrsubnet(range, 0, 0) == range, false)
+    ])
+    error_message = "Each entry must be an IPv4 network in CIDR form, such as 10.8.0.0/28."
+  }
+}
+
 variable "sandbox_egress_reject_ranges" {
   description = "IPv4 ranges no sandbox container may reach. Every address of the host is rejected as well, except DNS and DHCP on the bridge."
   type        = list(string)
@@ -140,6 +154,12 @@ locals {
   # Installed on the host so the egress ACL has one implementation, shared with
   # hosts built without Terraform.
   setup_script_base64 = base64encode(file("${path.module}/../../../scripts/setup-incus-host.sh"))
+
+  # incusbr0's subnet: ipv4.address in the startup script's preseed. Containers
+  # take addresses from it, and the app polls them on 8080.
+  bridge_cidr = "10.100.0.0/24"
+
+  serves_app = length(var.app_source_ranges) > 0
 
   labels = {
     environment = var.environment
@@ -239,8 +259,47 @@ resource "google_compute_firewall" "incus_api" {
     ports    = ["8443"] # Incus API
   }
 
-  source_ranges = length(var.allowed_source_ranges) > 0 ? var.allowed_source_ranges : ["10.0.0.0/8"]
-  target_tags   = ["incus-host"]
+  # The app's range when it is set, so nothing else on a peered network
+  # reaches the API; otherwise as before.
+  source_ranges = (
+    local.serves_app ? distinct(concat(var.app_source_ranges, var.allowed_source_ranges)) :
+    length(var.allowed_source_ranges) > 0 ? var.allowed_source_ranges : ["10.0.0.0/8"]
+  )
+  target_tags = ["incus-host"]
+}
+
+# The app reaches each container's app (and the MCP server it serves) at
+# http://<container_ip>:8080. The packets arrive at the host through
+# google_compute_route.bridge, so the rule targets the host and matches the
+# bridge as their destination.
+resource "google_compute_firewall" "bridge_app" {
+  count = local.serves_app ? 1 : 0
+
+  name    = "incus-bridge-app-${var.environment}"
+  network = var.network_id
+  project = var.project_id
+
+  allow {
+    protocol = "tcp"
+    ports    = ["8080"]
+  }
+
+  source_ranges      = var.app_source_ranges
+  destination_ranges = [local.bridge_cidr]
+  target_tags        = ["incus-host"]
+}
+
+# Sends the bridge's subnet to the host, which forwards it to incusbr0. A
+# peered VPC that imports custom routes (the platform's) learns it too.
+resource "google_compute_route" "bridge" {
+  count = local.serves_app ? 1 : 0
+
+  name              = "incus-bridge-${var.environment}"
+  project           = var.project_id
+  network           = var.network_id
+  dest_range        = local.bridge_cidr
+  next_hop_instance = google_compute_instance.incus_host.self_link
+  priority          = 1000
 }
 
 resource "google_compute_firewall" "incus_health" {
@@ -268,6 +327,12 @@ resource "google_compute_instance" "incus_host" {
   project      = var.project_id
 
   tags = ["incus-host", "sandbox-host"]
+
+  # Receives packets for the bridge's addresses and sends the containers'
+  # replies with their own source address. The provider changes it in place
+  # (instances.update). Unset means the provider's default, false, so a host
+  # that does not serve the app plans no change.
+  can_ip_forward = local.serves_app ? true : null
 
   boot_disk {
     initialize_params {
@@ -524,6 +589,11 @@ output "incus_api_url" {
 output "service_account_email" {
   description = "Incus host service account"
   value       = google_service_account.incus_host.email
+}
+
+output "bridge_cidr" {
+  description = "Subnet of the container bridge (incusbr0)"
+  value       = local.bridge_cidr
 }
 
 output "client_cert_secret" {

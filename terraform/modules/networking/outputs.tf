@@ -32,3 +32,13 @@ output "private_vpc_connection" {
   description = "Private VPC connection for Cloud SQL"
   value       = google_service_networking_connection.private_vpc_connection.id
 }
+
+output "vpc_connector_cidr" {
+  description = "Range the VPC connector's instances take addresses from: the source address of everything Cloud Run sends into a VPC"
+  value       = google_compute_subnetwork.connector.ip_cidr_range
+}
+
+output "incus_host_peering" {
+  description = "Name of the peering with the Incus host's VPC, or null when incus_host_network is empty"
+  value       = one(google_compute_network_peering.incus_host[*].name)
+}

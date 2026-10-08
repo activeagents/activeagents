@@ -84,6 +84,15 @@ resource "google_cloud_run_v2_service" "main" {
         name       = "cloudsql"
         mount_path = "/cloudsql"
       }
+
+      # Secrets the app reads as files rather than as variables
+      dynamic "volume_mounts" {
+        for_each = var.secret_volumes
+        content {
+          name       = volume_mounts.key
+          mount_path = volume_mounts.value.mount_path
+        }
+      }
     }
 
     volumes {
@@ -93,7 +102,21 @@ resource "google_cloud_run_v2_service" "main" {
       }
     }
 
-    timeout         = "300s"
+    dynamic "volumes" {
+      for_each = var.secret_volumes
+      content {
+        name = volumes.key
+        secret {
+          secret = volumes.value.secret
+          items {
+            version = "latest"
+            path    = volumes.value.file
+          }
+        }
+      }
+    }
+
+    timeout                          = "300s"
     max_instance_request_concurrency = 80
 
     labels = var.labels
@@ -135,7 +158,7 @@ resource "google_cloud_run_v2_job" "migrate" {
       }
 
       containers {
-        image   = var.image
+        image = var.image
         # Migrate only the primary database: the cache/queue schemas are
         # managed separately and db:prepare's create-if-missing behavior
         # across all three databases needs privileges the app user may lack
@@ -175,12 +198,36 @@ resource "google_cloud_run_v2_job" "migrate" {
           name       = "cloudsql"
           mount_path = "/cloudsql"
         }
+
+        # The same files as the service, so a task run through this job
+        # (such as --args=incus:preflight) sees what the service sees
+        dynamic "volume_mounts" {
+          for_each = var.secret_volumes
+          content {
+            name       = volume_mounts.key
+            mount_path = volume_mounts.value.mount_path
+          }
+        }
       }
 
       volumes {
         name = "cloudsql"
         cloud_sql_instance {
           instances = [var.cloud_sql_connection]
+        }
+      }
+
+      dynamic "volumes" {
+        for_each = var.secret_volumes
+        content {
+          name = volumes.key
+          secret {
+            secret = volumes.value.secret
+            items {
+              version = "latest"
+              path    = volumes.value.file
+            }
+          }
         }
       }
 

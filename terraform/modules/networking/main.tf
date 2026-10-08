@@ -81,3 +81,41 @@ resource "google_compute_firewall" "allow_internal" {
 
   source_ranges = ["10.0.0.0/8"]
 }
+
+# Cloud Run reaches an Incus host in another VPC (sandbox-staging's
+# sandbox-network) through its VPC connector, over this peering. The host's
+# VPC exports a static route that sends the container bridge to the host, and
+# this side imports it, so the app can poll http://<container_ip>:8080. Peering
+# needs a matching peering created from the other VPC, which the host's
+# environment declares; it stays INACTIVE until both exist. Subnet ranges on
+# the two sides must not overlap.
+resource "google_compute_network_peering" "incus_host" {
+  count = var.incus_host_network != "" ? 1 : 0
+
+  name         = "activeagents-${var.environment}-incus-host"
+  network      = google_compute_network.vpc.self_link
+  peer_network = var.incus_host_network
+
+  import_custom_routes = true
+  export_custom_routes = false
+}
+
+# allow_internal admits all of 10.0.0.0/8, which now includes the host's VPC
+# and its bridge. Sandbox code runs there, so nothing there may open a
+# connection into this VPC. Firewall rules are stateful: replies to the
+# connections Cloud Run opens to the host still arrive.
+resource "google_compute_firewall" "deny_from_incus_host" {
+  count = var.incus_host_network != "" && length(var.incus_host_ranges) > 0 ? 1 : 0
+
+  project   = var.project_id
+  name      = "activeagents-${var.environment}-deny-from-incus-host"
+  network   = google_compute_network.vpc.name
+  direction = "INGRESS"
+  priority  = 900 # ahead of allow_internal, which has the default 1000
+
+  deny {
+    protocol = "all"
+  }
+
+  source_ranges = var.incus_host_ranges
+}
