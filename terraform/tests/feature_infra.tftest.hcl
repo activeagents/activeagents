@@ -92,8 +92,9 @@ run "incus_backend_passes_the_host_and_mounts_its_credentials" {
       local.cloud_run_env_vars["INCUS_PROJECT"] == "agent-sandboxes",
       local.cloud_run_env_vars["INCUS_CERT_PATH"] == "/secrets/incus-client-cert/client.crt",
       local.cloud_run_env_vars["INCUS_KEY_PATH"] == "/secrets/incus-client-key/client.key",
+      local.cloud_run_env_vars["INCUS_SERVER_CA_PATH"] == "/secrets/incus-server-cert/server.crt",
     ])
-    error_message = "The backend flag must pass SANDBOX_BACKEND, INCUS_HOST, INCUS_PROJECT and the mounted certificate and key paths."
+    error_message = "The backend flag must pass SANDBOX_BACKEND, INCUS_HOST, INCUS_PROJECT and the mounted client certificate, key and server certificate paths."
   }
 
   assert {
@@ -108,13 +109,21 @@ run "incus_backend_passes_the_host_and_mounts_its_credentials" {
         mount_path = "/secrets/incus-client-key"
         file       = "client.key"
       }
+      incus-server-cert = {
+        secret     = "projects/123456789012/secrets/incus-server-cert-staging"
+        mount_path = "/secrets/incus-server-cert"
+        file       = "server.crt"
+      }
     })
-    error_message = "The certificate and key must be mounted from the secrets the host publishes, in the project that holds them."
+    error_message = "The client certificate, key and server certificate must be mounted from the secrets the host publishes, in the project that holds them."
   }
 
   assert {
-    condition     = !contains(keys(local.cloud_run_env_vars), "INCUS_SERVER_CA_PATH")
-    error_message = "The host publishes no server certificate, so INCUS_SERVER_CA_PATH must not name a file that is not mounted."
+    condition = alltrue([
+      for name in ["INCUS_CERT_PATH", "INCUS_KEY_PATH", "INCUS_SERVER_CA_PATH"] :
+      contains([for volume in values(local.cloud_run_secret_volumes) : "${volume.mount_path}/${volume.file}"], local.cloud_run_env_vars[name])
+    ])
+    error_message = "Every INCUS_*_PATH must name a file that is mounted."
   }
 
   assert {
@@ -152,6 +161,7 @@ run "incus_secrets_default_to_this_project" {
     condition = alltrue([
       local.cloud_run_secret_volumes["incus-client-cert"].secret == "incus-client-cert-staging",
       local.cloud_run_secret_volumes["incus-client-key"].secret == "incus-client-key-staging",
+      local.cloud_run_secret_volumes["incus-server-cert"].secret == "incus-server-cert-staging",
     ])
     error_message = "Without incus_secret_project the secrets must be read from this project."
   }

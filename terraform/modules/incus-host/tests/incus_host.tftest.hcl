@@ -44,6 +44,57 @@ run "host_account_publishes_its_credentials_and_reads_nothing" {
   }
 }
 
+run "host_account_publishes_its_server_certificate_and_reads_nothing" {
+  command = plan
+
+  assert {
+    condition     = google_secret_manager_secret.server_cert.secret_id == "incus-server-cert-staging" && output.server_cert_secret == "incus-server-cert-staging"
+    error_message = "The server certificate secret must be named incus-server-cert-<env>, as the app expects."
+  }
+
+  assert {
+    condition = alltrue([
+      google_secret_manager_secret_iam_member.host_publishes_server_cert.secret_id == "incus-server-cert-staging",
+      google_secret_manager_secret_iam_member.host_publishes_server_cert.role == "roles/secretmanager.secretVersionAdder",
+    ])
+    error_message = "The host may only add versions to the server certificate secret."
+  }
+
+  assert {
+    condition     = length(google_secret_manager_secret_iam_member.app_reads_server_cert) == 0
+    error_message = "Without an app service account nobody reads the server certificate."
+  }
+}
+
+run "app_account_reads_the_server_certificate" {
+  command = plan
+
+  variables {
+    app_service_account = "activeagents-staging@example-project.iam.gserviceaccount.com"
+  }
+
+  assert {
+    condition = alltrue([
+      google_secret_manager_secret_iam_member.app_reads_server_cert[0].secret_id == "incus-server-cert-staging",
+      google_secret_manager_secret_iam_member.app_reads_server_cert[0].role == "roles/secretmanager.secretAccessor",
+      google_secret_manager_secret_iam_member.app_reads_server_cert[0].member == "serviceAccount:activeagents-staging@example-project.iam.gserviceaccount.com",
+    ])
+    error_message = "The app must read the server certificate it verifies the daemon with."
+  }
+}
+
+run "startup_script_names_the_internal_ip_and_publishes_the_server_certificate" {
+  command = plan
+
+  assert {
+    condition = alltrue([
+      strcontains(google_compute_instance.incus_host.metadata_startup_script, "/usr/local/sbin/setup-incus-host server-cert \"$INTERNAL_IP\""),
+      strcontains(google_compute_instance.incus_host.metadata_startup_script, "publish_secret incus-server-cert-staging /var/lib/incus/server.crt"),
+    ])
+    error_message = "The startup script must make the server certificate name the internal IP, then publish it."
+  }
+}
+
 run "app_account_reads_the_credentials" {
   command = plan
 
@@ -326,4 +377,25 @@ run "refuses_ranges_with_host_bits" {
   }
 
   expect_failures = [var.sandbox_egress_reject_ranges]
+}
+
+# Last, because it applies (against the mock provider): the command names the
+# host's internal IP, which a plan does not know yet.
+run "server_cert_command_fixes_and_publishes_a_running_host" {
+  command = apply
+
+  override_resource {
+    target = google_compute_instance.incus_host
+    values = {
+      network_interface = { network_ip = "10.10.0.2" }
+    }
+  }
+
+  assert {
+    condition = (
+      strcontains(output.server_cert_command, "INCUS_SERVER_CERT_SECRET=incus-server-cert-staging INCUS_SECRET_PROJECT=example-project bash -s server-cert 10.10.0.2\"") &&
+      endswith(output.server_cert_command, "< scripts/setup-incus-host.sh")
+    )
+    error_message = "The output must give a command that makes a running host's server certificate name its internal IP and publishes it."
+  }
 }

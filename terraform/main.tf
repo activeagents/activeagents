@@ -291,13 +291,15 @@ locals {
     } : {}) : {},
     # The Incus host this environment's sandboxes run on. INCUS_PROJECT is the
     # project terraform/modules/incus-host creates on the host. The app reads
-    # the client certificate and key as files, mounted below.
+    # the client certificate and key, and the daemon's certificate it verifies
+    # the host with, as files mounted below.
     var.enable_incus_backend ? {
-      SANDBOX_BACKEND = "incus"
-      INCUS_HOST      = var.incus_api_url
-      INCUS_PROJECT   = "agent-sandboxes"
-      INCUS_CERT_PATH = "${local.cloud_run_secret_volumes["incus-client-cert"].mount_path}/${local.cloud_run_secret_volumes["incus-client-cert"].file}"
-      INCUS_KEY_PATH  = "${local.cloud_run_secret_volumes["incus-client-key"].mount_path}/${local.cloud_run_secret_volumes["incus-client-key"].file}"
+      SANDBOX_BACKEND      = "incus"
+      INCUS_HOST           = var.incus_api_url
+      INCUS_PROJECT        = "agent-sandboxes"
+      INCUS_CERT_PATH      = local.incus_files["incus-client-cert"]
+      INCUS_KEY_PATH       = local.incus_files["incus-client-key"]
+      INCUS_SERVER_CA_PATH = local.incus_files["incus-server-cert"]
     } : {},
     # Claude Code in sandboxes. Each is passed only when it differs from the
     # app's own default, so turning one back off removes it.
@@ -309,12 +311,15 @@ locals {
     } : {},
   )
 
-  # The host publishes its client certificate and key as
-  # incus-client-cert-<env> and incus-client-key-<env> in the project it runs
-  # in, which grants this environment's service account read access on both
+  # The host publishes its client certificate and key and its server
+  # certificate as incus-client-cert-<env>, incus-client-key-<env> and
+  # incus-server-cert-<env> in the project it runs in, which grants this
+  # environment's service account read access on all three
   # (terraform/modules/incus-host). Cloud Run names a secret in another
   # project as projects/<project>/secrets/<id>. Like the groups above, the
-  # mounts are passed only once the flag is on, after both have a version.
+  # mounts are passed only once the flag is on, after all three have a
+  # version. The server certificate is self-signed and names the address in
+  # INCUS_HOST, so the app verifies the daemon against it alone.
   incus_secret_prefix = var.incus_secret_project == "" ? "" : "projects/${var.incus_secret_project}/secrets/"
 
   cloud_run_secret_volumes = var.enable_incus_backend ? {
@@ -328,7 +333,15 @@ locals {
       mount_path = "/secrets/incus-client-key"
       file       = "client.key"
     }
+    incus-server-cert = {
+      secret     = "${local.incus_secret_prefix}incus-server-cert-${var.environment}"
+      mount_path = "/secrets/incus-server-cert"
+      file       = "server.crt"
+    }
   } : {}
+
+  # Where each mounted file appears in the container
+  incus_files = { for name, volume in local.cloud_run_secret_volumes : name => "${volume.mount_path}/${volume.file}" }
 
   cloud_run_secret_env_vars = merge(
     {

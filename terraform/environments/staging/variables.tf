@@ -310,7 +310,7 @@ variable "enable_recordings_storage" {
 # (Connecting staging to its Incus host) says to set it. The defaults match
 # terraform/environments/sandbox-staging; check them against its outputs.
 variable "enable_incus_backend" {
-  description = "Point the app at the sandbox-staging Incus host. Turn on only once incus-client-cert-staging and incus-client-key-staging have a version and Cloud Run can reach the host."
+  description = "Point the app at the sandbox-staging Incus host. Turn on only once incus-client-cert-staging, incus-client-key-staging and incus-server-cert-staging have a version and Cloud Run can reach the host."
   type        = bool
   default     = false
 }
@@ -322,7 +322,7 @@ variable "incus_api_url" {
 }
 
 variable "incus_secret_project" {
-  description = "Project (number preferred) holding incus-client-cert-staging and incus-client-key-staging: sandbox-staging's project_id"
+  description = "Project (number preferred) holding the incus-client-cert-, incus-client-key- and incus-server-cert-staging secrets: sandbox-staging's project_id"
   type        = string
   default     = "activeagents-staging"
 }

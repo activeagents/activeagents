@@ -122,7 +122,7 @@ variable "incus_app_runtime_enabled" {
 # -- Incus sandbox backend --------------------------------------------------
 
 variable "enable_incus_backend" {
-  description = "Point the app at this environment's Incus host: SANDBOX_BACKEND=incus, INCUS_HOST from incus_api_url, INCUS_PROJECT, and INCUS_CERT_PATH/INCUS_KEY_PATH naming the host's client certificate and key, mounted from incus-client-cert-<env> and incus-client-key-<env>. Turn on only once both secrets have a version and Cloud Run can reach the host (docs/infrastructure/app-runtime.md, Connecting staging to its Incus host)."
+  description = "Point the app at this environment's Incus host: SANDBOX_BACKEND=incus, INCUS_HOST from incus_api_url, INCUS_PROJECT, INCUS_CERT_PATH/INCUS_KEY_PATH naming the host's client certificate and key, and INCUS_SERVER_CA_PATH naming the daemon's certificate, mounted from incus-client-cert-<env>, incus-client-key-<env> and incus-server-cert-<env>. Turn on only once all three secrets have a version and Cloud Run can reach the host (docs/infrastructure/app-runtime.md, Connecting staging to its Incus host)."
   type        = bool
   default     = false
 }
@@ -139,7 +139,7 @@ variable "incus_api_url" {
 }
 
 variable "incus_secret_project" {
-  description = "Project that holds incus-client-cert-<env> and incus-client-key-<env>, which the host publishes in the project it runs in. Empty means this project. Prefer the project number: Cloud Run may report a secret from another project by number, and the ID would then show as a change on every plan."
+  description = "Project that holds incus-client-cert-<env>, incus-client-key-<env> and incus-server-cert-<env>, which the host publishes in the project it runs in. Empty means this project. Prefer the project number: Cloud Run may report a secret from another project by number, and the ID would then show as a change on every plan."
   type        = string
   default     = ""
 
