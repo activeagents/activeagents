@@ -1,7 +1,7 @@
 GIT
   remote: https://github.com/activeagents/activeagent.git
-  revision: 1672d2a74f488b9182730149f13d9140b2e6d2a6
-  ref: 1672d2a74f488b9182730149f13d9140b2e6d2a6
+  revision: 247e5bb4f8395f2d2da4fe83200a3cf28c0aa61c
+  ref: 247e5bb4f8395f2d2da4fe83200a3cf28c0aa61c
   specs:
     actionagent (1.9.0)
       activeagent (>= 1.4, < 2)
