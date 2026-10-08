@@ -99,6 +99,20 @@ variable "app_service_account" {
   default     = null
 }
 
+variable "app_source_ranges" {
+  description = "Ranges the platform app reaches this host from: its Cloud Run VPC connector's subnet. When set, only these reach the Incus API on 8443 and the containers' app port 8080 on the bridge, the VPC routes the bridge to the host, and the host may forward for it (can_ip_forward). Empty (the default) changes nothing."
+  type        = list(string)
+  default     = []
+
+  validation {
+    condition = alltrue([
+      for range in var.app_source_ranges :
+      !strcontains(range, ":") && can(cidrsubnet(range, 0, 0)) && try(cidrsubnet(range, 0, 0) == range, false)
+    ])
+    error_message = "Each entry must be an IPv4 network in CIDR form, such as 10.8.0.0/28."
+  }
+}
+
 variable "sandbox_egress_reject_ranges" {
   description = "IPv4 ranges no sandbox container may reach. Every address of the host is rejected as well, except DNS and DHCP on the bridge."
   type        = list(string)
@@ -140,6 +154,12 @@ locals {
   # Installed on the host so the egress ACL has one implementation, shared with
   # hosts built without Terraform.
   setup_script_base64 = base64encode(file("${path.module}/../../../scripts/setup-incus-host.sh"))
+
+  # incusbr0's subnet: ipv4.address in the startup script's preseed. Containers
+  # take addresses from it, and the app polls them on 8080.
+  bridge_cidr = "10.100.0.0/24"
+
+  serves_app = length(var.app_source_ranges) > 0
 
   labels = {
     environment = var.environment
@@ -225,6 +245,35 @@ resource "google_secret_manager_secret_iam_member" "app_reads_client_credentials
   member    = "serviceAccount:${var.app_service_account}"
 }
 
+# The daemon's own certificate, which the app verifies it with
+# (INCUS_SERVER_CA_PATH). The host makes it name its internal IP and adds it
+# here as a version, under the same bindings as the client credentials.
+resource "google_secret_manager_secret" "server_cert" {
+  project   = var.project_id
+  secret_id = "incus-server-cert-${var.environment}"
+  labels    = local.labels
+
+  replication {
+    auto {}
+  }
+}
+
+resource "google_secret_manager_secret_iam_member" "host_publishes_server_cert" {
+  project   = var.project_id
+  secret_id = google_secret_manager_secret.server_cert.secret_id
+  role      = "roles/secretmanager.secretVersionAdder"
+  member    = "serviceAccount:${google_service_account.incus_host.email}"
+}
+
+resource "google_secret_manager_secret_iam_member" "app_reads_server_cert" {
+  count = var.app_service_account != null ? 1 : 0
+
+  project   = var.project_id
+  secret_id = google_secret_manager_secret.server_cert.secret_id
+  role      = "roles/secretmanager.secretAccessor"
+  member    = "serviceAccount:${var.app_service_account}"
+}
+
 # -----------------------------------------------------------------------------
 # Firewall Rules
 # -----------------------------------------------------------------------------
@@ -239,8 +288,47 @@ resource "google_compute_firewall" "incus_api" {
     ports    = ["8443"] # Incus API
   }
 
-  source_ranges = length(var.allowed_source_ranges) > 0 ? var.allowed_source_ranges : ["10.0.0.0/8"]
-  target_tags   = ["incus-host"]
+  # The app's range when it is set, so nothing else on a peered network
+  # reaches the API; otherwise as before.
+  source_ranges = (
+    local.serves_app ? distinct(concat(var.app_source_ranges, var.allowed_source_ranges)) :
+    length(var.allowed_source_ranges) > 0 ? var.allowed_source_ranges : ["10.0.0.0/8"]
+  )
+  target_tags = ["incus-host"]
+}
+
+# The app reaches each container's app (and the MCP server it serves) at
+# http://<container_ip>:8080. The packets arrive at the host through
+# google_compute_route.bridge, so the rule targets the host and matches the
+# bridge as their destination.
+resource "google_compute_firewall" "bridge_app" {
+  count = local.serves_app ? 1 : 0
+
+  name    = "incus-bridge-app-${var.environment}"
+  network = var.network_id
+  project = var.project_id
+
+  allow {
+    protocol = "tcp"
+    ports    = ["8080"]
+  }
+
+  source_ranges      = var.app_source_ranges
+  destination_ranges = [local.bridge_cidr]
+  target_tags        = ["incus-host"]
+}
+
+# Sends the bridge's subnet to the host, which forwards it to incusbr0. A
+# peered VPC that imports custom routes (the platform's) learns it too.
+resource "google_compute_route" "bridge" {
+  count = local.serves_app ? 1 : 0
+
+  name              = "incus-bridge-${var.environment}"
+  project           = var.project_id
+  network           = var.network_id
+  dest_range        = local.bridge_cidr
+  next_hop_instance = google_compute_instance.incus_host.self_link
+  priority          = 1000
 }
 
 resource "google_compute_firewall" "incus_health" {
@@ -268,6 +356,12 @@ resource "google_compute_instance" "incus_host" {
   project      = var.project_id
 
   tags = ["incus-host", "sandbox-host"]
+
+  # Receives packets for the bridge's addresses and sends the containers'
+  # replies with their own source address. The provider changes it in place
+  # (instances.update). Unset means the provider's default, false, so a host
+  # that does not serve the app plans no change.
+  can_ip_forward = local.serves_app ? true : null
 
   boot_disk {
     initialize_params {
@@ -429,6 +523,13 @@ resource "google_compute_instance" "incus_host" {
     publish_secret ${google_secret_manager_secret.client_credentials["cert"].secret_id} /etc/incus/certs/client.crt
     publish_secret ${google_secret_manager_secret.client_credentials["key"].secret_id} /etc/incus/certs/client.key
 
+    # The certificate Incus generated names only this host's name and loopback
+    # addresses, and the app checks the internal IP it connects to against it.
+    # Make it name that IP, then publish it for the app to verify the daemon.
+    INTERNAL_IP=$(curl -fsS -H 'Metadata-Flavor: Google' http://169.254.169.254/computeMetadata/v1/instance/network-interfaces/0/ip)
+    /usr/local/sbin/setup-incus-host server-cert "$INTERNAL_IP"
+    publish_secret ${google_secret_manager_secret.server_cert.secret_id} /var/lib/incus/server.crt
+
     # Remove each sandbox once its session's user.expires_at has passed. The
     # startup script runs only when the VM is created; a running host gets a
     # newer reaper from scripts/build-app-runtime-image.sh.
@@ -458,8 +559,12 @@ resource "google_compute_instance" "incus_host" {
     ]
   }
 
-  # The first boot publishes the client credentials, which needs the grant.
-  depends_on = [google_secret_manager_secret_iam_member.host_publishes_client_credentials]
+  # The first boot publishes the client credentials and the server
+  # certificate, which needs the grants.
+  depends_on = [
+    google_secret_manager_secret_iam_member.host_publishes_client_credentials,
+    google_secret_manager_secret_iam_member.host_publishes_server_cert,
+  ]
 }
 
 # -----------------------------------------------------------------------------
@@ -526,6 +631,11 @@ output "service_account_email" {
   value       = google_service_account.incus_host.email
 }
 
+output "bridge_cidr" {
+  description = "Subnet of the container bridge (incusbr0)"
+  value       = local.bridge_cidr
+}
+
 output "client_cert_secret" {
   description = "Secret Manager secret for client certificate"
   value       = google_secret_manager_secret.client_credentials["cert"].secret_id
@@ -534,6 +644,16 @@ output "client_cert_secret" {
 output "client_key_secret" {
   description = "Secret Manager secret for client key"
   value       = google_secret_manager_secret.client_credentials["key"].secret_id
+}
+
+output "server_cert_secret" {
+  description = "Secret Manager secret for the daemon's server certificate"
+  value       = google_secret_manager_secret.server_cert.secret_id
+}
+
+output "server_cert_command" {
+  description = "Makes the running host's server certificate name its internal IP and publishes it, for a host whose startup script predates that step. Run it from the repository root."
+  value       = "gcloud compute ssh ${google_compute_instance.incus_host.name} --project=${var.project_id} --zone=${var.zone} --command=\"sudo env INCUS_SERVER_CERT_SECRET=${google_secret_manager_secret.server_cert.secret_id} INCUS_SECRET_PROJECT=${var.project_id} bash -s server-cert ${google_compute_instance.incus_host.network_interface[0].network_ip}\" < scripts/setup-incus-host.sh"
 }
 
 output "egress_acl_command" {

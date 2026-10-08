@@ -55,6 +55,18 @@ output "github_app_install_url" {
   value       = module.activeagents.github_app_install_url
 }
 
+# What sandbox-staging needs to serve this environment (its platform_network
+# and platform_egress_ranges variables)
+output "vpc_self_link" {
+  description = "Self link of the staging VPC, which sandbox-staging's VPC peers with"
+  value       = module.activeagents.vpc_self_link
+}
+
+output "vpc_connector_cidr" {
+  description = "Source range of Cloud Run's traffic into a VPC, which the Incus host's firewall admits"
+  value       = module.activeagents.vpc_connector_cidr
+}
+
 output "recordings_bucket" {
   description = "Bucket that holds staging session recordings"
   value       = module.activeagents.recordings_bucket
