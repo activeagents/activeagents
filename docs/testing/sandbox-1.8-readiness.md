@@ -26,14 +26,14 @@ transport. Its previous socket branch referenced an unsupported HTTP adapter
 setting; it now reports the required HTTPS configuration directly.
 
 The separate `terraform/environments/sandbox-staging` deployment publishes the
-client certificate and key as Secret Manager secrets. The Rails adapter reads
-files, not secrets, so staging's Terraform mounts both secrets into the service
-(which also runs the workers) and the migrate job and sets the `*_PATH`
-variables, along with the network routes to the Incus daemon and to the sandbox
-runtime endpoints. All of it stays off until `enable_incus_backend` is set; see
-[Connecting staging to its Incus host](../infrastructure/app-runtime.md#connecting-staging-to-its-incus-host),
-which also covers the daemon certificate that `INCUS_SERVER_CA_PATH` would
-verify.
+client certificate and key, and the daemon's own certificate, as Secret Manager
+secrets. The Rails adapter reads files, not secrets, so staging's Terraform
+mounts all three into the service (which also runs the workers) and the migrate
+job and sets the `*_PATH` variables, along with the network routes to the Incus
+daemon and to the sandbox runtime endpoints. The daemon's certificate must name
+the address in `INCUS_HOST`, which the one Incus generates never does. All of it
+stays off until `enable_incus_backend` is set; see
+[Connecting staging to its Incus host](../infrastructure/app-runtime.md#connecting-staging-to-its-incus-host).
 
 ## Remaining execution support
 

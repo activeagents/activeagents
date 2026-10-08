@@ -247,7 +247,7 @@ plan changes anything on Cloud Run or on the host.
 | Switch | Where | What it does |
 | --- | --- | --- |
 | `platform_network` | sandbox-staging | Peers `sandbox-network` with the staging VPC, exporting its custom routes. Passes `platform_egress_ranges` to the host module, which then routes `10.100.0.0/24` (incusbr0) to the host, sets `can_ip_forward` on it, and admits only that range: on 8443 to the Incus API and on 8080 to the bridge |
-| `enable_incus_backend` | staging | Sets `SANDBOX_BACKEND=incus`, `INCUS_HOST` (from `incus_api_url`), `INCUS_PROJECT=agent-sandboxes`, `INCUS_CERT_PATH` and `INCUS_KEY_PATH`. Mounts `incus-client-cert-staging` and `incus-client-key-staging` (from `incus_secret_project`) as files in the service and the migrate job. With `incus_host_network` set, peers the staging VPC with the host's and denies connections opened from `incus_host_ranges` into it |
+| `enable_incus_backend` | staging | Sets `SANDBOX_BACKEND=incus`, `INCUS_HOST` (from `incus_api_url`), `INCUS_PROJECT=agent-sandboxes`, `INCUS_CERT_PATH`, `INCUS_KEY_PATH` and `INCUS_SERVER_CA_PATH`. Mounts `incus-client-cert-staging`, `incus-client-key-staging` and `incus-server-cert-staging` (from `incus_secret_project`) as files in the service and the migrate job. With `incus_host_network` set, peers the staging VPC with the host's and denies connections opened from `incus_host_ranges` into it |
 | `incus_app_runtime_enabled` | staging | `INCUS_APP_RUNTIME_ENABLED=true` |
 | `claude_code_auth` | staging | `CLAUDE_CODE_AUTH`, passed only when it is `sandbox_login` |
 | `claude_code_hosted_login_enabled` | staging | `CLAUDE_CODE_HOSTED_LOGIN_ENABLED=true`, passed only when true |
@@ -284,29 +284,21 @@ firewall admits that range and nothing else on those ports.
      sandbox is in use. If a plan ever shows `incus-host-staging` replaced
      instead, stop: a new VM regenerates the client certificate and key
      (publishing new secret versions), has no app-runtime image or
-     containers, and may get another internal IP, so steps 3 to 6 would have
+     containers, and may get another internal IP, so steps 3 to 7 would have
      to be repeated.
-2. **Which project holds the client secrets.** The host publishes them in its
-   own project. Set `incus_secret_project` to that project, preferably as its
-   number (`gcloud projects describe <project_id> --format='value(projectNumber)'`):
+2. **Which project holds the host's secrets.** The host publishes its client
+   certificate, key and server certificate in its own project. Set
+   `incus_secret_project` to that project, preferably as its number
+   (`gcloud projects describe <project_id> --format='value(projectNumber)'`):
    Cloud Run may report a secret from another project by number, and an ID
    would then show as a change on every plan. The host module already lets
    `activeagents-staging@active-agents-platform.iam.gserviceaccount.com` read
-   both secrets.
-3. **How the app trusts the host's TLS certificate.** This is open, and
-   preflight fails until it is settled. The app verifies the daemon's
-   certificate (`ssl.verify = true`) against the system store, or against
-   `INCUS_SERVER_CA_PATH` when set, and it has no trust-on-first-use or
-   fingerprint pinning. Incus serves a self-signed certificate, and the host
-   module does not publish it, so Terraform sets no `INCUS_SERVER_CA_PATH`.
-   One way through: declare an `incus-server-cert-<env>` secret in the host
-   module next to the client credentials, publish `/var/lib/incus/server.crt`
-   into it, and mount it like the client certificate as
-   `INCUS_SERVER_CA_PATH`. Ruby also checks the host name, so the certificate
-   must name the address in `INCUS_HOST`. Check that Incus's generated
-   certificate does (`openssl x509 -in /var/lib/incus/server.crt -noout -ext subjectAltName`),
-   or give the daemon one that does, or change the app to pin the certificate
-   without checking the name.
+   all three.
+
+The app trusts the daemon only through `INCUS_SERVER_CA_PATH`: it verifies
+the daemon's certificate against that file and checks that the certificate
+names the address in `INCUS_HOST`. It has no trust-on-first-use. Step 4 covers
+both.
 
 ### Steps
 
@@ -326,8 +318,8 @@ firewall admits that range and nothing else on those ports.
 
    The plan should update `incus-host-staging` in place (`can_ip_forward`),
    narrow `incus-api-staging` to `10.8.0.0/28`, and add the route
-   `incus-bridge-staging`, the rule `incus-bridge-app-staging` and the
-   peering. The staging environment's `vpc_self_link` and `vpc_connector_cidr`
+   `incus-bridge-staging`, the rule `incus-bridge-app-staging`, the peering,
+   and the secret `incus-server-cert-staging` with its two bindings. The staging environment's `vpc_self_link` and `vpc_connector_cidr`
    outputs give both values. sandbox-staging has no committed tfvars and no
    workflow applies it, so pass the same flags on every later apply, or the
    next one removes the route, the rules and the peering again.
@@ -356,19 +348,53 @@ firewall admits that range and nothing else on those ports.
    A new host VM has no image, so run this again whenever the host is
    recreated.
 
-4. **Confirm the client certificate and key have versions.** Cloud Run refuses
-   a revision whose secret has none:
+4. **Make the daemon's certificate name its address, and publish it.** A host
+   built from the module after this change does both in its startup script.
+   A host that already exists never reruns that script, so on it, as root:
+
+   ```bash
+   openssl x509 -in /var/lib/incus/server.crt -noout -ext subjectAltName
+   ```
+
+   The list must include the internal IP in `incus_api_url`. A certificate
+   Incus generated never does: it names only the host name, `127.0.0.1` and
+   `::1` (verified in Incus's source, `GenerateMemCert` in
+   `shared/tls/cert.go`). Incus also generates one only when `server.crt` or
+   `server.key` is missing (verified in the source and in its authentication
+   docs), so changing `core.https_address` and restarting does not help, and
+   neither does deleting the pair to regenerate it. Instead, install a
+   certificate that names the IP. Incus serves whatever pair it finds
+   (verified in the source). `scripts/setup-incus-host.sh server-cert <ip>`
+   writes a self-signed pair naming the IP, keeps the old one as
+   `*.generated`, and restarts the daemon. It was tested against the app's TLS
+   client but not yet on a live host, and the restart is best done while no
+   sandbox is in use. From the repository root, run the command printed by
+   `terraform -chdir=terraform/environments/sandbox-staging output -raw server_cert_command`.
+   It streams the script to the host over `gcloud compute ssh`, as
+   `egress_acl_command` does, and publishes the result. Add
+   `--tunnel-through-iap` if the host takes no direct SSH.
+
+   On a host whose certificate already names the IP, publish it alone:
+
+   ```bash
+   sudo gcloud secrets versions add incus-server-cert-staging --project <host project> --data-file=/var/lib/incus/server.crt
+   ```
+
+   Publish again whenever the certificate changes.
+
+5. **Confirm the three secrets have versions.** Cloud Run refuses a revision
+   whose secret has none:
 
    ```bash
    gcloud secrets versions list incus-client-cert-staging --project=<host project>
    gcloud secrets versions list incus-client-key-staging --project=<host project>
+   gcloud secrets versions list incus-server-cert-staging --project=<host project>
    ```
 
-   If either lists nothing, publish them from the host as in step 3 of
-   [Apply](gcp-cicd-setup.md#apply). Settle the TLS decision above before you
-   go on.
+   If a client secret lists nothing, publish it from the host as in step 3 of
+   [Apply](gcp-cicd-setup.md#apply); for the server certificate, step 4.
 
-5. **Set the staging variables.** Print the host's values with
+6. **Set the staging variables.** Print the host's values with
    `terraform -chdir=terraform/environments/sandbox-staging output -raw environment_config`,
    and commit them with the switches in
    `terraform/environments/staging/incus.auto.tfvars`:
@@ -384,18 +410,18 @@ firewall admits that range and nothing else on those ports.
 
    incus_app_runtime_enabled = true
 
-   # Claude Code sign-in in sandboxes. Read step 8 first.
+   # Claude Code sign-in in sandboxes. Read step 9 first.
    claude_code_auth                 = "sandbox_login"
    claude_code_hosted_login_enabled = true
    ```
 
    `enable_incus_backend` without `incus_api_url` fails the plan.
 
-6. **Merge to `main`.** `deploy-staging.yml` applies the file. Its plan should
+7. **Merge to `main`.** `deploy-staging.yml` applies the file. Its plan should
    add the peering and the firewall rule, and change the service and the
-   migrate job only by the new variables and the two secret mounts.
+   migrate job only by the new variables and the three secret mounts.
 
-7. **Run the preflight** in the migrate job, which has the service's variables,
+8. **Run the preflight** in the migrate job, which has the service's variables,
    mounts and VPC egress:
 
    ```bash
@@ -413,7 +439,8 @@ firewall admits that range and nothing else on those ports.
    | Message | Look at |
    | --- | --- |
    | `execution expired`, `Failed to open TCP connection` | the peering is not ACTIVE on both sides, the route, or the 8443 firewall rule |
-   | `certificate verify failed`, `hostname ... does not match` | the TLS decision above |
+   | `certificate verify failed` | the latest `incus-server-cert-staging` is not the certificate the daemon serves: publish it again (step 4), then redeploy so new instances read it |
+   | `hostname "<ip>" does not match the server certificate` | the certificate does not name the IP in `incus_api_url`: run step 4's `server_cert_command`, or update `incus_api_url` if the host's IP changed |
    | `Incus did not authenticate this client certificate` | the secrets' latest versions are not the certificate the host trusts (`incus config trust list`) |
    | `app_runtime_image.present` is false, or the versions differ | step 3 |
 
@@ -421,7 +448,7 @@ firewall admits that range and nothing else on those ports.
    checkout turning ready, because the service polls
    `http://<container_ip>:8080` from Cloud Run.
 
-8. **Gate Claude Code sign-in.** Before anyone but the operator signs in to
+9. **Gate Claude Code sign-in.** Before anyone but the operator signs in to
    Claude Code in a staging sandbox, record both items of
    [activeagents/activeagent#578 §9](https://github.com/activeagents/activeagent/issues/578):
    - Anthropic's Commercial Terms for hosting Claude Code are accepted.
@@ -429,10 +456,10 @@ firewall admits that range and nothing else on those ports.
      sign-in code into the CLI's stdin and the one-click, one-session rule for
      the fix loop.
 
-   Until both are recorded, the switches in step 5 may be on only while the
+   Until both are recorded, the switches in step 6 may be on only while the
    operator is the only person who can open a checkout on staging. Otherwise
    commit `claude_code_auth = "api_key"` and
-   `claude_code_hosted_login_enabled = false` in step 5, and turn them on once
+   `claude_code_hosted_login_enabled = false` in step 6, and turn them on once
    the gate is passed.
 
 To turn everything off, set `enable_incus_backend` and the other switches back

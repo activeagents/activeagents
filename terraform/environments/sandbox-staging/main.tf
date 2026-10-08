@@ -178,7 +178,8 @@ module "incus_host" {
 }
 
 # Once both secrets are in state these blocks import nothing, so the variable
-# can go back to false.
+# can go back to false. incus-server-cert-staging is not imported: no host
+# created it before Terraform declared it.
 import {
   for_each = var.adopt_existing_incus_secrets ? toset(["cert", "key"]) : toset([])
   to       = module.incus_host.google_secret_manager_secret.client_credentials[each.key]
@@ -255,6 +256,16 @@ output "client_cert_secret" {
 output "client_key_secret" {
   description = "Secret Manager secret for Incus client key"
   value       = module.incus_host.client_key_secret
+}
+
+output "server_cert_secret" {
+  description = "Secret Manager secret for the Incus daemon's server certificate"
+  value       = module.incus_host.server_cert_secret
+}
+
+output "server_cert_command" {
+  description = "Makes the running host's server certificate name its internal IP and publishes it; run it from the repository root"
+  value       = module.incus_host.server_cert_command
 }
 
 output "incus_host_service_account" {

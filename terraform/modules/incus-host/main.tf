@@ -245,6 +245,35 @@ resource "google_secret_manager_secret_iam_member" "app_reads_client_credentials
   member    = "serviceAccount:${var.app_service_account}"
 }
 
+# The daemon's own certificate, which the app verifies it with
+# (INCUS_SERVER_CA_PATH). The host makes it name its internal IP and adds it
+# here as a version, under the same bindings as the client credentials.
+resource "google_secret_manager_secret" "server_cert" {
+  project   = var.project_id
+  secret_id = "incus-server-cert-${var.environment}"
+  labels    = local.labels
+
+  replication {
+    auto {}
+  }
+}
+
+resource "google_secret_manager_secret_iam_member" "host_publishes_server_cert" {
+  project   = var.project_id
+  secret_id = google_secret_manager_secret.server_cert.secret_id
+  role      = "roles/secretmanager.secretVersionAdder"
+  member    = "serviceAccount:${google_service_account.incus_host.email}"
+}
+
+resource "google_secret_manager_secret_iam_member" "app_reads_server_cert" {
+  count = var.app_service_account != null ? 1 : 0
+
+  project   = var.project_id
+  secret_id = google_secret_manager_secret.server_cert.secret_id
+  role      = "roles/secretmanager.secretAccessor"
+  member    = "serviceAccount:${var.app_service_account}"
+}
+
 # -----------------------------------------------------------------------------
 # Firewall Rules
 # -----------------------------------------------------------------------------
@@ -494,6 +523,13 @@ resource "google_compute_instance" "incus_host" {
     publish_secret ${google_secret_manager_secret.client_credentials["cert"].secret_id} /etc/incus/certs/client.crt
     publish_secret ${google_secret_manager_secret.client_credentials["key"].secret_id} /etc/incus/certs/client.key
 
+    # The certificate Incus generated names only this host's name and loopback
+    # addresses, and the app checks the internal IP it connects to against it.
+    # Make it name that IP, then publish it for the app to verify the daemon.
+    INTERNAL_IP=$(curl -fsS -H 'Metadata-Flavor: Google' http://169.254.169.254/computeMetadata/v1/instance/network-interfaces/0/ip)
+    /usr/local/sbin/setup-incus-host server-cert "$INTERNAL_IP"
+    publish_secret ${google_secret_manager_secret.server_cert.secret_id} /var/lib/incus/server.crt
+
     # Remove each sandbox once its session's user.expires_at has passed. The
     # startup script runs only when the VM is created; a running host gets a
     # newer reaper from scripts/build-app-runtime-image.sh.
@@ -523,8 +559,12 @@ resource "google_compute_instance" "incus_host" {
     ]
   }
 
-  # The first boot publishes the client credentials, which needs the grant.
-  depends_on = [google_secret_manager_secret_iam_member.host_publishes_client_credentials]
+  # The first boot publishes the client credentials and the server
+  # certificate, which needs the grants.
+  depends_on = [
+    google_secret_manager_secret_iam_member.host_publishes_client_credentials,
+    google_secret_manager_secret_iam_member.host_publishes_server_cert,
+  ]
 }
 
 # -----------------------------------------------------------------------------
@@ -604,6 +644,16 @@ output "client_cert_secret" {
 output "client_key_secret" {
   description = "Secret Manager secret for client key"
   value       = google_secret_manager_secret.client_credentials["key"].secret_id
+}
+
+output "server_cert_secret" {
+  description = "Secret Manager secret for the daemon's server certificate"
+  value       = google_secret_manager_secret.server_cert.secret_id
+}
+
+output "server_cert_command" {
+  description = "Makes the running host's server certificate name its internal IP and publishes it, for a host whose startup script predates that step. Run it from the repository root."
+  value       = "gcloud compute ssh ${google_compute_instance.incus_host.name} --project=${var.project_id} --zone=${var.zone} --command=\"sudo env INCUS_SERVER_CERT_SECRET=${google_secret_manager_secret.server_cert.secret_id} INCUS_SECRET_PROJECT=${var.project_id} bash -s server-cert ${google_compute_instance.incus_host.network_interface[0].network_ip}\" < scripts/setup-incus-host.sh"
 }
 
 output "egress_acl_command" {
