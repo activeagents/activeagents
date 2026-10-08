@@ -24,7 +24,7 @@ module "activeagents" {
 
   # Cloud Run configuration (production-scale)
   image         = var.image
-  min_instances = 1  # Always keep at least 1 instance warm
+  min_instances = 1 # Always keep at least 1 instance warm
   max_instances = 20
   cpu           = "2"
   memory        = "1Gi"
@@ -33,8 +33,12 @@ module "activeagents" {
   # (https://github.com/activeagents/activeagents/issues/150) are applied.
   incus_app_runtime_enabled = false
 
+  # Production has no Incus host of its own yet. Claude Code sign-in in
+  # sandboxes keeps its defaults (api_key, hosted login off).
+  enable_incus_backend = false
+
   # Database configuration (production-scale)
-  database_tier = "db-custom-2-4096"  # 2 vCPUs, 4GB RAM
+  database_tier = "db-custom-2-4096" # 2 vCPUs, 4GB RAM
 
   # Sign in with GitHub, through this environment's GitHub App
   enable_github_sign_in = var.enable_github_sign_in

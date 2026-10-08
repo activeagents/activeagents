@@ -107,6 +107,36 @@ class SandboxAppBootTest < ActiveSupport::TestCase
     assert_not_includes @root.join("boot").glob("**/*").select(&:file?).map(&:read).join, SECRET
   end
 
+  test "--restart starts a ready boot's app again from its manifest, keeping the steps before it" do
+    document = spec
+    status, _stdout, stderr = boot(document)
+    assert_equal 0, status, stderr
+    first_server = state["server_pid"]
+    @app.join("server.py").write(SERVER.sub("405 if", "401 if"))
+
+    status, stdout, stderr = boot(document, "--restart")
+
+    assert_equal 0, status, stderr
+    assert_equal "ready", JSON.parse(stdout)["status"]
+    assert state["restarted"]
+    assert_nil state["resumed_from"]
+    assert_equal({ "checkout" => "succeeded", "greet" => "succeeded", "manifest" => "succeeded", "start" => "succeeded" }, steps)
+    assert_not_equal first_server, state["server_pid"]
+    assert_equal 401, Net::HTTP.get_response(URI("http://127.0.0.1:#{document["port"]}/mcp")).code.to_i,
+      "the changed code is what answers now"
+    assert_equal 1, log("greet").scan("hello").length, "the step before the manifest did not run again"
+  end
+
+  test "--restart needs a ready boot" do
+    document = spec(steps: [ { "name" => "broken", "command" => "exit 1", "timeout" => 10 } ])
+    boot(document)
+
+    status, _stdout, stderr = boot(document, "--restart")
+
+    assert_equal 2, status
+    assert_match(/no ready boot to restart/, stderr)
+  end
+
   test "a step past its own timeout fails the boot, which is kept and names the step and the limit" do
     document = spec(steps: [
       { "name" => "greet", "command" => "echo hi", "timeout" => 10 },

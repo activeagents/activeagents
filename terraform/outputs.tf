@@ -104,6 +104,31 @@ output "github_app_install_url" {
   }
 }
 
+output "incus_host" {
+  description = "The Incus API the app calls, or null while enable_incus_backend is off"
+  value       = var.enable_incus_backend ? var.incus_api_url : null
+
+  precondition {
+    condition     = !var.enable_incus_backend || var.incus_api_url != ""
+    error_message = "enable_incus_backend needs incus_api_url: the incus_api_url output of the host's environment."
+  }
+}
+
+output "incus_host_peering" {
+  description = "Name of this environment's VPC peering with the Incus host's VPC, or null when there is none"
+  value       = module.networking.incus_host_peering
+}
+
+output "vpc_connector_cidr" {
+  description = "Source range of everything Cloud Run sends into a VPC; the Incus host's firewall admits it"
+  value       = module.networking.vpc_connector_cidr
+}
+
+output "vpc_self_link" {
+  description = "Self link of this environment's VPC, which an Incus host's VPC peers with"
+  value       = module.networking.vpc_self_link
+}
+
 output "recordings_bucket" {
   description = "Bucket that holds session recordings"
   value       = google_storage_bucket.recordings.name

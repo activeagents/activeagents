@@ -93,6 +93,10 @@ class IncusSandboxService
   class ContainerNotFoundError < StandardError; end
   class ConnectionError < StandardError; end
 
+  # Claude Code sessions, the user's own Claude login and the app restart
+  # that verifies an evaluation fix (see ClaudeCode).
+  include ClaudeCode
+
   def initialize(config = {})
     @host = config[:host] || ENV.fetch("INCUS_HOST", "unix:///var/lib/incus/unix.socket")
     @cert_path = config[:cert_path] || ENV["INCUS_CERT_PATH"]
@@ -392,6 +396,10 @@ class IncusSandboxService
   # @param container_name [String] The container name to terminate
   # @return [Boolean] true if deleted
   def terminate(container_name)
+    # A Claude subscription login in it is revoked, not left valid on a
+    # deleted disk.
+    revoke_claude_login(container_name)
+
     # Stop the container first
     begin
       stop_response = api_request(:put, "/1.0/instances/#{container_name}/state", {

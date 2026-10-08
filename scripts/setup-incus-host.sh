@@ -14,6 +14,11 @@
 #     Applies only the sandbox egress ACL. Safe to run again on a host that
 #     is already set up; the ACL ends up with the same rules each time.
 #
+#   sudo ./setup-incus-host.sh server-cert ADDRESS
+#     Makes the daemon's TLS certificate name ADDRESS, the IPv4 address the
+#     platform connects to, and publishes it when INCUS_SERVER_CERT_SECRET is
+#     set. Safe to run again: a certificate that already names ADDRESS stays.
+#
 # After setup:
 #   - Incus will be running with a "agent-sandboxes" project
 #   - A restricted sandbox profile will be created
@@ -40,6 +45,16 @@ EGRESS_ACL="sandbox-egress"
 # the cloud metadata server) and the private ranges. The host's own addresses
 # are added when the ACL is applied.
 SANDBOX_EGRESS_REJECT="${SANDBOX_EGRESS_REJECT:-169.254.0.0/16,10.0.0.0/8,172.16.0.0/12,192.168.0.0/16}"
+
+# Where the daemon keeps server.crt and server.key.
+INCUS_VAR_DIR="${INCUS_VAR_DIR:-/var/lib/incus}"
+
+# The Secret Manager secret (and its project) that server.crt is published to,
+# so the platform can verify the daemon with it (INCUS_SERVER_CA_PATH). Unset,
+# nothing is published. Hosts built from terraform/modules/incus-host publish
+# from their startup script instead.
+INCUS_SERVER_CERT_SECRET="${INCUS_SERVER_CERT_SECRET:-}"
+INCUS_SECRET_PROJECT="${INCUS_SECRET_PROJECT:-}"
 
 log() {
   echo "[$(date '+%Y-%m-%d %H:%M:%S')] $*"
@@ -232,6 +247,59 @@ EOF
   incus network set "$NETWORK_NAME" --project default "${settings[@]}"
 
   log "Egress ACL $EGRESS_ACL on $NETWORK_NAME rejects $SANDBOX_EGRESS_REJECT and $host_cidrs"
+}
+
+# Makes the daemon's TLS certificate name $1, the address the platform connects
+# to. The platform verifies the daemon against server.crt and checks that it
+# names that address. The certificate Incus generates names only the host name,
+# 127.0.0.1 and ::1 (GenerateMemCert in Incus's shared/tls/cert.go), and Incus
+# generates one only when server.crt or server.key is missing, so neither a
+# restart nor a regeneration adds the address. Incus serves whatever pair it
+# finds, so this writes a self-signed pair that names the address as well and
+# restarts the daemon. The generated pair is kept as *.generated.
+configure_server_cert() {
+  local address=${1:-}
+  local cert="$INCUS_VAR_DIR/server.crt" key="$INCUS_VAR_DIR/server.key" name
+
+  [[ "$address" =~ ^[0-9]{1,3}(\.[0-9]{1,3}){3}$ ]] || error "Not an IPv4 address: '$address'"
+  [[ -f "$cert" && -f "$key" ]] || error "$cert and $key do not exist; initialize Incus first"
+
+  if openssl x509 -in "$cert" -noout -checkip "$address" | grep -q " does match"; then
+    log "$cert already names $address"
+    return
+  fi
+
+  log "Replacing $cert with a certificate that names $address..."
+  name=$(hostname)
+  (umask 077 && openssl req -x509 -newkey ec -pkeyopt ec_paramgen_curve:secp384r1 -nodes -days 3650 \
+    -subj "/O=Linux Containers/CN=root@$name" \
+    -addext "subjectAltName=DNS:$name,IP:$address,IP:127.0.0.1,IP:::1" \
+    -addext "extendedKeyUsage=serverAuth" \
+    -keyout "$key.new" -out "$cert.new" 2>/dev/null) || error "openssl could not create the certificate"
+  chmod 0644 "$cert.new"
+
+  [[ -e "$cert.generated" ]] || cp -p "$cert" "$cert.generated"
+  [[ -e "$key.generated" ]] || cp -p "$key" "$key.generated"
+  mv "$key.new" "$key"
+  mv "$cert.new" "$cert"
+
+  systemctl restart incus
+  incus admin waitready --timeout=60 || error "Incus did not come back after the restart"
+  log "$cert now names $address"
+}
+
+# Publishes server.crt as a new version of INCUS_SERVER_CERT_SECRET, when set.
+publish_server_cert() {
+  if [[ -z "$INCUS_SERVER_CERT_SECRET" ]]; then
+    log "INCUS_SERVER_CERT_SECRET is not set; not publishing $INCUS_VAR_DIR/server.crt"
+    return
+  fi
+
+  local project_args=()
+  [[ -z "$INCUS_SECRET_PROJECT" ]] || project_args=("--project=$INCUS_SECRET_PROJECT")
+  gcloud secrets versions add "$INCUS_SERVER_CERT_SECRET" "${project_args[@]}" --data-file="$INCUS_VAR_DIR/server.crt" ||
+    error "Could not publish $INCUS_VAR_DIR/server.crt to $INCUS_SERVER_CERT_SECRET"
+  log "Published $INCUS_VAR_DIR/server.crt to $INCUS_SERVER_CERT_SECRET"
 }
 
 create_sandbox_project() {
@@ -467,6 +535,11 @@ main() {
       check_root
       configure_egress_acl
       ;;
+    server-cert)
+      check_root
+      configure_server_cert "${2:-}"
+      publish_server_cert
+      ;;
     "")
       log "Starting Incus sandbox host setup..."
 
@@ -475,6 +548,8 @@ main() {
       install_incus
       configure_incus
       configure_egress_acl
+      configure_server_cert "$(hostname -I | awk '{print $1}')"
+      publish_server_cert
       create_sandbox_project
       create_sandbox_profile
       create_sandbox_images
@@ -487,7 +562,7 @@ main() {
       log "Setup complete!"
       ;;
     *)
-      error "Unknown command: $1 (run with no arguments for a full setup, or with egress-acl)"
+      error "Unknown command: $1 (run with no arguments for a full setup, or with egress-acl or server-cert ADDRESS)"
       ;;
   esac
 }

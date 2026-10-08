@@ -127,6 +127,18 @@ ActionAgent.configure do |config|
     "cloud_run" => "CloudRunService"
   }
   config.sandbox_service = ENV.fetch("SANDBOX_BACKEND", "incus")
+
+  # --- Claude Code --------------------------------------------------------
+  # How Claude Code sessions in checkout sandboxes authenticate: with the
+  # workspace's Anthropic API key (api_key, the default), or with each user's
+  # own Claude subscription, signed in to the unmodified CLI inside their
+  # sandbox (sandbox_login, activeagent#578; IncusSandboxService::ClaudeCode).
+  # Both values come from Terraform (claude_code_auth and
+  # claude_code_hosted_login_enabled). Sign-in on a hosted backend stays off
+  # until the operator has accepted Anthropic's Commercial Terms for hosting
+  # Claude Code and switches it on.
+  config.claude_code_auth = ENV.fetch("CLAUDE_CODE_AUTH", "api_key")
+  config.claude_code_hosted_login_enabled = ActiveModel::Type::Boolean.new.cast(ENV["CLAUDE_CODE_HOSTED_LOGIN_ENABLED"]) == true
 end
 
 Rails.application.config.to_prepare do

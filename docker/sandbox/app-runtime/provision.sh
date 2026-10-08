@@ -17,12 +17,20 @@
 #     the scripts in services/
 #   - socat, which forwards the container's :8080 to the app
 #   - /usr/local/bin/sandbox-app-boot
+#   - Claude Code (CLAUDE_CODE_VERSION, installed unmodified with Anthropic's
+#     own installer) for the user `claude` (uid 1001), and
+#     /usr/local/bin/sandbox-claude, which runs it for the platform
 #
 # Every boot command runs as the unprivileged user `sandbox` (uid 1000),
 # which owns the checkout's directory, /workspace/app, and the mise installs.
 # /workspace itself is root's: sandbox-app-boot runs as root from the spec,
 # state and logs the platform keeps in /workspace/boot, and the checkout's
 # code must not be able to rename that directory and put its own in place.
+#
+# Claude Code runs as `claude`, not `sandbox`: its configuration, and a
+# user's Claude subscription login in it, live in /home/claude (0700), which
+# the checkout's processes cannot read. `claude` is in the `sandbox` group,
+# and sandbox-claude makes the checkout group-writable for a session.
 set -euo pipefail
 
 SOURCE_DIR=${SOURCE_DIR:-$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)}
@@ -31,6 +39,12 @@ SANDBOX_UID=1000
 MISE_VERSION=${MISE_VERSION:-v2026.10.1}
 read -r -a RUBY_SERIES <<< "${RUBY_SERIES:-3.2 3.3 3.4}"
 DEFAULT_NODE=${DEFAULT_NODE:-22}
+CLAUDE_USER=claude
+CLAUDE_UID=1001
+# "stable", "latest" or an exact version such as 2.1.0. Pin a version for a
+# build that must be reproducible; the installed one is recorded as the
+# image property claude_code_version.
+CLAUDE_CODE_VERSION=${CLAUDE_CODE_VERSION:-stable}
 MISE_DATA_DIR=/opt/mise
 SERVICE_DIR=/usr/local/lib/sandbox-app-runtime/services
 export DEBIAN_FRONTEND=noninteractive
@@ -76,6 +90,30 @@ create_user() {
   id "$SANDBOX_USER" >/dev/null 2>&1 || useradd -m -u "$SANDBOX_UID" -s /bin/bash "$SANDBOX_USER"
   install -d -o root -g root -m 0755 /workspace
   install -d -o "$SANDBOX_USER" -g "$SANDBOX_USER" -m 0755 /workspace/app "$MISE_DATA_DIR"
+
+  log "Creating the $CLAUDE_USER user"
+  existing=$(getent passwd "$CLAUDE_UID" | cut -d: -f1 || true)
+  if [[ -n $existing && $existing != "$CLAUDE_USER" ]]; then
+    userdel -r "$existing" 2>/dev/null || userdel "$existing"
+  fi
+  id "$CLAUDE_USER" >/dev/null 2>&1 || useradd -m -u "$CLAUDE_UID" -G "$SANDBOX_USER" -s /bin/bash "$CLAUDE_USER"
+  chmod 0700 "/home/$CLAUDE_USER"
+}
+
+install_claude_code() {
+  log "Installing Claude Code ($CLAUDE_CODE_VERSION) for $CLAUDE_USER"
+  # Anthropic's own installer and binary, unmodified. Updates come only
+  # from a new image: sessions run with DISABLE_AUTOUPDATER.
+  curl -fsSL https://claude.ai/install.sh -o /tmp/claude-install.sh
+  (cd / && runuser -u "$CLAUDE_USER" -- env HOME="/home/$CLAUDE_USER" PATH=/usr/local/bin:/usr/bin:/bin LANG=C.UTF-8 \
+    bash /tmp/claude-install.sh "$CLAUDE_CODE_VERSION")
+  rm -f /tmp/claude-install.sh
+  local version
+  version=$(runuser -u "$CLAUDE_USER" -- env HOME="/home/$CLAUDE_USER" DISABLE_AUTOUPDATER=1 \
+    "/home/$CLAUDE_USER/.local/bin/claude" --version | awk '{ print $1; exit }')
+  [[ -n $version ]] || { echo "Claude Code did not install" >&2; exit 1; }
+  install -d /etc/sandbox-app-runtime
+  echo "$version" > /etc/sandbox-app-runtime/claude-code-version
 }
 
 install_toolchains() {
@@ -158,6 +196,7 @@ install_boot() {
   install -d "$SERVICE_DIR"
   install -m 0755 "$SOURCE_DIR"/services/start-* "$SERVICE_DIR/"
   install -m 0755 "$SOURCE_DIR/sandbox-app-boot" /usr/local/bin/sandbox-app-boot
+  install -m 0755 "$SOURCE_DIR/sandbox-claude" /usr/local/bin/sandbox-claude
 }
 
 main() {
@@ -165,6 +204,7 @@ main() {
   create_user
   install_boot
   install_toolchains
+  install_claude_code
   configure_postgresql
   configure_mysql
   disable_autostart

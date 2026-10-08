@@ -30,46 +30,57 @@ module "activeagents" {
 
   # Cloud Run configuration
   image         = var.image
-  min_instances = 0  # Scale to zero for cost savings
+  min_instances = 0 # Scale to zero for cost savings
   max_instances = 5
-  cpu           = var.cpu      # 2 vCPUs for benchmark API and concurrent operations
-  memory        = var.memory   # 2Gi for Rails 8 + ActionCable
+  cpu           = var.cpu    # 2 vCPUs for benchmark API and concurrent operations
+  memory        = var.memory # 2Gi for Rails 8 + ActionCable
 
   # Email configuration
   mailer_from_address = var.mailer_from_address
   app_host            = var.app_host
 
   # Sandbox configuration for agent execution (ephemeral containers)
-  sandbox_cpu              = var.sandbox_cpu     # 4 vCPUs for parallel Ractor/Thread execution
-  sandbox_memory           = var.sandbox_memory  # 4Gi for LLM context and agent workloads
-  max_persistent_sandboxes = 3                   # Limited by quota (4 CPUs × 3 = 12 < 20 quota)
+  sandbox_cpu              = var.sandbox_cpu    # 4 vCPUs for parallel Ractor/Thread execution
+  sandbox_memory           = var.sandbox_memory # 4Gi for LLM context and agent workloads
+  max_persistent_sandboxes = 3                  # Limited by quota (4 CPUs × 3 = 12 < 20 quota)
 
-  # Checkout sandboxes on the Incus host stay off until its egress controls
-  # (https://github.com/activeagents/activeagents/issues/150) are applied.
-  incus_app_runtime_enabled = false
+  # The sandbox-staging Incus host. Every switch stays off until
+  # docs/infrastructure/app-runtime.md (Connecting staging to its Incus host)
+  # says to turn it on; checkout sandboxes also wait for the host's egress
+  # controls (https://github.com/activeagents/activeagents/issues/150).
+  enable_incus_backend      = var.enable_incus_backend
+  incus_api_url             = var.incus_api_url
+  incus_secret_project      = var.incus_secret_project
+  incus_host_network        = var.incus_host_network
+  incus_host_ranges         = var.incus_host_ranges
+  incus_app_runtime_enabled = var.incus_app_runtime_enabled
+
+  # Claude Code in sandboxes
+  claude_code_auth                 = var.claude_code_auth
+  claude_code_hosted_login_enabled = var.claude_code_hosted_login_enabled
 
   # Database configuration (smaller for staging)
   database_tier = "db-f1-micro"
 
   # Access control
-  allow_public_access   = var.allow_public_access
-  authorized_domain     = var.authorized_domain
-  ci_service_account    = var.ci_service_account
+  allow_public_access = var.allow_public_access
+  authorized_domain   = var.authorized_domain
+  ci_service_account  = var.ci_service_account
 
   # Load Balancer for public access (bypasses org policy restrictions)
   # NOTE: IAP is configured manually via gcloud (see modules/load-balancer/main.tf)
-  enable_load_balancer      = var.enable_load_balancer
-  lb_domain                 = var.lb_existing_ssl_cert_name == null ? (var.enable_dns ? "staging.${var.dns_domain}" : var.lb_domain) : null
+  enable_load_balancer = var.enable_load_balancer
+  lb_domain            = var.lb_existing_ssl_cert_name == null ? (var.enable_dns ? "staging.${var.dns_domain}" : var.lb_domain) : null
   # Include apex domain in SSL cert when enable_apex_domain is true (only if not using existing cert)
-  lb_additional_domains     = var.lb_existing_ssl_cert_name == null && var.enable_apex_domain ? [var.dns_domain] : var.lb_additional_domains
+  lb_additional_domains = var.lb_existing_ssl_cert_name == null && var.enable_apex_domain ? [var.dns_domain] : var.lb_additional_domains
   # Use existing SSL cert if specified (avoids provisioning delays)
   lb_existing_ssl_cert_name = var.lb_existing_ssl_cert_name
   # Domains added after the existing cert was issued (api subdomain, alias
   # domains) each get their own managed cert attached alongside it
-  lb_extra_managed_domains  = var.lb_extra_managed_domains
+  lb_extra_managed_domains = var.lb_extra_managed_domains
   # Whole domains served by this app with host-split landers
-  alias_domains             = var.alias_domains
-  enable_cdn                = var.enable_cdn
+  alias_domains = var.alias_domains
+  enable_cdn    = var.enable_cdn
 
   # DNS configuration
   enable_dns = var.enable_dns

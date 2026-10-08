@@ -61,6 +61,23 @@ variable "adopt_existing_incus_secrets" {
   default     = false
 }
 
+variable "platform_network" {
+  description = "Self link of the staging platform's VPC: the vpc_self_link output of terraform/environments/staging (activeagents-staging in active-agents-platform). When set, this VPC peers with it and the host serves the platform's Cloud Run: see platform_egress_ranges. Empty (the default) keeps the host unreachable from the platform."
+  type        = string
+  default     = ""
+
+  validation {
+    condition     = var.platform_network == "" || can(regex("(^|/)projects/[^/]+/global/networks/[^/]+$", var.platform_network))
+    error_message = "platform_network is a VPC self link, such as projects/active-agents-platform/global/networks/activeagents-staging, or empty."
+  }
+}
+
+variable "platform_egress_ranges" {
+  description = "Source range of the staging platform's Cloud Run traffic: the subnet of its VPC connector (the vpc_connector_cidr output of terraform/environments/staging). While platform_network is set, only it reaches the Incus API and the containers' port 8080, and the host is given can_ip_forward."
+  type        = list(string)
+  default     = ["10.8.0.0/28"]
+}
+
 # -----------------------------------------------------------------------------
 # Provider
 # -----------------------------------------------------------------------------
@@ -150,6 +167,10 @@ module "incus_host" {
 
   app_service_account = var.app_service_account
 
+  # Serving the platform routes the container bridge to the host and admits
+  # only the platform's Cloud Run range on 8443 and 8080.
+  app_source_ranges = var.platform_network != "" ? var.platform_egress_ranges : []
+
   depends_on = [
     google_project_service.compute,
     google_project_service.secretmanager
@@ -157,7 +178,8 @@ module "incus_host" {
 }
 
 # Once both secrets are in state these blocks import nothing, so the variable
-# can go back to false.
+# can go back to false. incus-server-cert-staging is not imported: no host
+# created it before Terraform declared it.
 import {
   for_each = var.adopt_existing_incus_secrets ? toset(["cert", "key"]) : toset([])
   to       = module.incus_host.google_secret_manager_secret.client_credentials[each.key]
@@ -165,9 +187,32 @@ import {
 }
 
 # -----------------------------------------------------------------------------
+# Peering with the staging platform's VPC
+# -----------------------------------------------------------------------------
+
+# The staging platform's Cloud Run runs in another project and VPC, and
+# reaches this one through its own VPC connector over this peering. This side
+# exports the custom route that sends the container bridge to the host; the
+# platform's side (terraform/modules/networking, incus_host_network) imports
+# it. Each side is applied from its own environment, and the peering is
+# ACTIVE once both exist. Subnet ranges on the two sides must not overlap.
+resource "google_compute_network_peering" "platform" {
+  count = var.platform_network != "" ? 1 : 0
+
+  name         = "sandbox-network-staging-platform"
+  network      = google_compute_network.sandbox.self_link
+  peer_network = var.platform_network
+
+  export_custom_routes = true
+  import_custom_routes = false
+}
+
+# -----------------------------------------------------------------------------
 # VPC Connector (for Cloud Run to reach Incus)
 # -----------------------------------------------------------------------------
 
+# Serves Cloud Run services in this project only. The staging platform runs in
+# another project and uses its own connector over the peering above.
 resource "google_vpc_access_connector" "sandbox" {
   name          = "sandbox-connector"
   region        = var.region
@@ -213,6 +258,16 @@ output "client_key_secret" {
   value       = module.incus_host.client_key_secret
 }
 
+output "server_cert_secret" {
+  description = "Secret Manager secret for the Incus daemon's server certificate"
+  value       = module.incus_host.server_cert_secret
+}
+
+output "server_cert_command" {
+  description = "Makes the running host's server certificate name its internal IP and publishes it; run it from the repository root"
+  value       = module.incus_host.server_cert_command
+}
+
 output "incus_host_service_account" {
   description = "Service account the Incus host runs as"
   value       = module.incus_host.service_account_email
@@ -223,14 +278,19 @@ output "egress_acl_command" {
   value       = module.incus_host.egress_acl_command
 }
 
+output "bridge_cidr" {
+  description = "Subnet of the host's container bridge, routed to the host while platform_network is set"
+  value       = module.incus_host.bridge_cidr
+}
+
 output "environment_config" {
-  description = "Environment variables for Rails app"
+  description = "Values that connect the staging platform to this host, for terraform/environments/staging/incus.auto.tfvars. The platform sets the app's INCUS_* variables and mounts the certificate and key itself."
   value       = <<-EOT
-    # Add to your .env or Cloud Run environment:
-    SANDBOX_BACKEND=incus
-    INCUS_HOST=${module.incus_host.incus_api_url}
-    INCUS_PROJECT=agent-sandboxes
-    INCUS_CERT_SECRET=${module.incus_host.client_cert_secret}
-    INCUS_KEY_SECRET=${module.incus_host.client_key_secret}
+    # terraform/environments/staging/incus.auto.tfvars
+    # See docs/infrastructure/app-runtime.md (Connecting staging to its Incus host).
+    incus_api_url        = "${module.incus_host.incus_api_url}"
+    incus_secret_project = "${var.project_id}" # or its project number
+    incus_host_network   = "${google_compute_network.sandbox.self_link}"
+    incus_host_ranges    = ${jsonencode(concat([google_compute_subnetwork.sandbox.ip_cidr_range], google_compute_subnetwork.sandbox.secondary_ip_range[*].ip_cidr_range, [google_vpc_access_connector.sandbox.ip_cidr_range, module.incus_host.bridge_cidr]))}
   EOT
 }
