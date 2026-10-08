@@ -19,6 +19,9 @@
 #   INCUS_PROJECT  the sandbox project (default agent-sandboxes)
 #   BASE_IMAGE     what the builder launches from (default images:ubuntu/24.04)
 #   RUBY_SERIES    the Ruby series to preinstall (default "3.2 3.3 3.4")
+#   CLAUDE_CODE_VERSION  the Claude Code release to install: "stable" (the
+#                  default), "latest" or an exact version, recorded as the
+#                  image property claude_code_version
 set -euo pipefail
 
 ROOT=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
@@ -70,8 +73,11 @@ build_image() {
 
   incus file push --recursive "$SOURCE" "$BUILDER/tmp/" --project "$PROJECT"
   incus exec "$BUILDER" --project "$PROJECT" -- env SOURCE_DIR=/tmp/app-runtime \
-    RUBY_SERIES="${RUBY_SERIES:-3.2 3.3 3.4}" bash /tmp/app-runtime/provision.sh
+    RUBY_SERIES="${RUBY_SERIES:-3.2 3.3 3.4}" CLAUDE_CODE_VERSION="${CLAUDE_CODE_VERSION:-stable}" \
+    bash /tmp/app-runtime/provision.sh
   incus exec "$BUILDER" --project "$PROJECT" -- rm -rf /tmp/app-runtime
+  local claude_code
+  claude_code=$(incus exec "$BUILDER" --project "$PROJECT" -- cat /etc/sandbox-app-runtime/claude-code-version)
 
   local previous current
   previous=$(incus image alias list --project "$PROJECT" --format csv | awk -F, -v alias="$ALIAS" '$1 == alias { print $2 }')
@@ -79,7 +85,8 @@ build_image() {
   log "Publishing $ALIAS (boot spec version $VERSION)"
   incus stop "$BUILDER" --project "$PROJECT"
   incus publish "$BUILDER" --project "$PROJECT" --alias "$ALIAS" --reuse \
-    boot_spec_version="$VERSION" description="Sandbox app runtime (boot spec $VERSION)"
+    boot_spec_version="$VERSION" claude_code_version="$claude_code" \
+    description="Sandbox app runtime (boot spec $VERSION, Claude Code $claude_code)"
 
   current=$(incus image alias list --project "$PROJECT" --format csv | awk -F, -v alias="$ALIAS" '$1 == alias { print $2 }')
   if [[ -n $previous && $previous != "$current" ]]; then

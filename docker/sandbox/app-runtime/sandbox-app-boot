@@ -2,7 +2,7 @@
 """Boots the checkout of an app-runtime sandbox from the boot spec the
 platform writes into the container.
 
-    sandbox-app-boot [--spec /workspace/boot/spec.json] [--from STEP]
+    sandbox-app-boot [--spec /workspace/boot/spec.json] [--from STEP | --restart]
 
 IncusSandboxService resolves the engine's boot spec against the checkout
 (which steps apply, which gems were locked, the toolchain, the sandbox's
@@ -35,6 +35,11 @@ State and logs live in the spec's directory:
 
 --from STEP reruns a failed boot from STEP. The steps before it are not run
 again; the toolchain step always is, since it restarts the services.
+
+--restart reruns a ready boot from its manifest: the server is stopped, the
+manifest written again and the app started and probed, so a change to the
+checkout's code is live once it exits 0 (the platform verifies an evaluation
+fix this way). The steps before the manifest keep the outcome they had.
 
 Run as root, the script refuses a spec that anyone but root could have
 written or replaced: the spec, its directory and every directory above them
@@ -451,7 +456,7 @@ class Boot:
         os.chmod(temporary, 0o600)
         os.replace(temporary, self.state_path)
 
-    def prepare(self, from_step):
+    def prepare(self, from_step, restart=False):
         """Writes the state a run starts from and returns the position of
         the first entry it runs.
         """
@@ -459,7 +464,12 @@ class Boot:
         entries = self.entries()
         names = [entry.name for entry in entries]
         start_at = 0
-        if from_step is not None:
+        if restart:
+            if previous.get("status") != "ready":
+                raise Refused("there is no ready boot to restart in this sandbox")
+            from_step = "manifest"
+            start_at = names.index(from_step)
+        elif from_step is not None:
             if previous.get("status") != "failed":
                 raise Refused("there is no failed boot to resume in this sandbox")
             if from_step not in names:
@@ -475,8 +485,9 @@ class Boot:
         steps = list(recorded)
         for index, entry in enumerate(entries):
             if index < start_at and entry.kind != "toolchain":
+                reason = "restarted from manifest" if restart else f"resumed from {from_step}"
                 steps.append(kept.get(entry.name) or {"name": entry.name, "log": entry.name, "status": "skipped",
-                                                      "detail": f"not run: resumed from {from_step}"})
+                                                      "detail": f"not run: {reason}"})
             else:
                 steps.append({"name": entry.name, "log": entry.name, "status": "pending"})
 
@@ -491,7 +502,8 @@ class Boot:
             "status": "running",
             "started_at": now_iso(),
             "finished_at": None,
-            "resumed_from": from_step,
+            "resumed_from": None if restart else from_step,
+            "restarted": restart,
             "failed_step": None,
             "detail": None,
             "kept": False,
@@ -868,7 +880,9 @@ def interrupt(signum, _frame):
 def main(argv=None):
     parser = argparse.ArgumentParser(prog="sandbox-app-boot", description="Boot the sandbox's checkout from its boot spec.")
     parser.add_argument("--spec", default=DEFAULT_SPEC, help=f"the boot spec (default {DEFAULT_SPEC})")
-    parser.add_argument("--from", dest="from_step", help="rerun a failed boot from this step")
+    rerun = parser.add_mutually_exclusive_group()
+    rerun.add_argument("--from", dest="from_step", help="rerun a failed boot from this step")
+    rerun.add_argument("--restart", action="store_true", help="restart a ready boot's app from its manifest")
     args = parser.parse_args(argv)
 
     try:
@@ -877,7 +891,7 @@ def main(argv=None):
         spec = load_spec(args.spec)
         boot = Boot(spec, args.spec, read_secrets(spec))
         boot.acquire_lock()
-        start_at = boot.prepare(args.from_step)
+        start_at = boot.prepare(args.from_step, restart=args.restart)
     except Refused as error:
         print(f"sandbox-app-boot: {error}", file=sys.stderr)
         return 2
