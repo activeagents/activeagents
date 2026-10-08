@@ -422,14 +422,16 @@ def session_start(args):
 
     user = claude_user()
     app = app_user()
-    env = session_environment(request, user)
-    config = env["CLAUDE_CONFIG_DIR"]
-    if request.get("mode") == "sandbox_login" and not os.path.isdir(config):
+    mode = request.get("mode")
+    config = os.path.join(user.home, "login" if mode == "sandbox_login" else "api")
+    if mode == "sandbox_login" and not os.path.isdir(config):
         raise Refused("this sandbox has no Claude subscription login")
+    if mode == "sandbox_login" and any(OVERRIDES.match(str(name)) for name in (request.get("env") or {})):
+        raise Refused("a session on a subscription login cannot carry Anthropic credential variables")
     timeout = int(request.get("timeout") or 1800)
-    share_checkout(app)
-    base = base_commit(app)
 
+    # Everything slow (a large checkout to share, the toolchain to find)
+    # happens once detached, so the exec that started it returns at once.
     if not detach():
         emit({"status": "started"})
         return 0
@@ -437,6 +439,9 @@ def session_start(args):
     write_json(os.path.join(directory, "status.json"), {"status": "starting", "started_at": now_iso()})
     exit_status, cancelled, timed_out = None, False, False
     try:
+        env = session_environment(request, user)
+        share_checkout(app)
+        base = base_commit(app)
         prompt = os.open(prompt_path, os.O_RDONLY | os.O_NOFOLLOW)
         os.unlink(prompt_path)
         events = os.open(os.path.join(directory, "events.jsonl"), os.O_WRONLY | os.O_CREAT | os.O_TRUNC | os.O_NOFOLLOW, 0o600)

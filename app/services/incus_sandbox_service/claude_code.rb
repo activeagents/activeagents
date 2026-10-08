@@ -52,9 +52,7 @@ class IncusSandboxService
       directory = "#{SESSIONS_DIR}/#{Integer(code_session.id)}"
       timeout = ActionAgent.claude_code_timeout.to_i.clamp(60, 6 * 3600)
 
-      [ CLAUDE_DIR, SESSIONS_DIR, directory ].each do |path|
-        write_container_file(container, path, nil, type: "directory", mode: "0700")
-      end
+      [ CLAUDE_DIR, SESSIONS_DIR, directory ].each { |path| ensure_root_directory(container, path) }
       write_container_file(container, "#{directory}/request.json", JSON.generate(
         argv: claude_argv(code_session), mode: subscription ? "sandbox_login" : "api_key", timeout: timeout,
         env: { "ACTION_AGENT_SANDBOX_SESSION_ID" => sandbox.session_id },
@@ -167,6 +165,16 @@ class IncusSandboxService
 
     def container_for!(sandbox)
       container_for(sandbox) or raise ContainerNotFoundError, "Sandbox #{sandbox.session_id} has no container"
+    end
+
+    # Creates +path+ as root's, 0700. The first two levels exist from the
+    # sandbox's first session on, and a daemon may refuse to create a
+    # directory that is already there; a real failure shows up as the write
+    # into it failing.
+    def ensure_root_directory(container, path)
+      write_container_file(container, path, nil, type: "directory", mode: "0700")
+    rescue Faraday::Error => e
+      Rails.logger.debug { "[IncusSandboxService] #{path} in #{container}: #{e.class}" }
     end
 
     def claude_credentials(sandbox)
