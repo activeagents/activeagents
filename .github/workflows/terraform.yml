@@ -47,6 +47,9 @@ jobs:
       - name: Sandbox egress ACL script
         run: bash scripts/test/setup_incus_host_egress_acl_test.sh
 
+      - name: Incus server certificate script
+        run: bash scripts/test/setup_incus_host_server_cert_test.sh
+
       # Other directories predate terraform fmt and are not formatted yet.
       - name: Format
         run: terraform fmt -check -recursive terraform/modules/incus-host terraform/environments/sandbox-staging terraform/tests

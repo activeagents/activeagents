@@ -530,7 +530,7 @@ class IncusSandboxServiceTransportTest < ActiveSupport::TestCase
     assert report[:app_runtime_enabled]
     assert_equal({ present: true, boot_spec_version: "1", expected_boot_spec_version: 1 }, report[:app_runtime_image])
     assert report[:app_runtime_supported], "the daemon carries the checkout image at this service's boot spec version"
-    assert_not report[:code_sessions_supported], "this backend has no run_code_session"
+    assert report[:code_sessions_supported], "this backend runs Claude Code sessions (IncusSandboxService::ClaudeCode)"
   end
 
   test "preflight reports a daemon without the checkout image" do

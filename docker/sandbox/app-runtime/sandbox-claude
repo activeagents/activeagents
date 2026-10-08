@@ -1,0 +1,795 @@
+#!/usr/bin/env python3
+"""Runs Claude Code in an app-runtime sandbox for the platform.
+
+    sandbox-claude session-start --dir DIR
+    sandbox-claude session-cancel --dir DIR
+    sandbox-claude login-start [--timeout SECONDS]
+    sandbox-claude login-code               (the code in $CLAUDE_LOGIN_CODE)
+    sandbox-claude login-status
+    sandbox-claude logout
+
+IncusSandboxService runs it as root through the instance exec API, and it
+prints one JSON object on stdout.
+
+Claude Code itself runs as the image's `claude` user, never as `sandbox`,
+the user the checkout's own processes (the app server among them) run as.
+The CLI's configuration, and a Claude subscription login in it, live in the
+`claude` user's home, which is 0700, so the app cannot read them. `claude`
+is in the `sandbox` group and the checkout is made group-writable before
+each session, so the session can edit it; what it creates stays
+group-writable (umask 002, setgid directories) for the app.
+
+Sessions. DIR is SESSIONS_DIR/<id>, root's and 0700. The platform writes
+request.json and prompt.txt there. session-start detaches and returns at
+once. The CLI's stream-json goes to events.jsonl, its stderr to stderr.log,
+and its outcome to status.json. Once it ends, diff.patch holds the
+checkout's diff against the commit the sandbox's first session found. The
+prompt reaches the CLI on stdin and is deleted once open. A credential (an
+API key) arrives only in this process's environment and reaches only the
+CLI; a session on a subscription login gets none, and none of the variables
+that would take precedence over that login.
+
+Login. login-start runs the unmodified `claude auth login` under a PTY with
+its configuration in LOGIN_CONFIG and writes LOGIN_DIR/status.json, adding
+the authorize URL once the CLI prints it. login-code reads the one-time code
+from its environment and writes it once to the CLI through a FIFO: it is
+never written to disk, and nothing the CLI prints after it is read.
+login-status prints the flow's state, and asks `claude auth status --json`
+once no flow is under way. logout stops a flow, runs `claude auth logout`
+(which revokes the login) and removes the configuration.
+"""
+
+import argparse
+import datetime
+import errno
+import grp
+import json
+import os
+import pty
+import pwd
+import re
+import select
+import shutil
+import signal
+import stat
+import subprocess
+import sys
+import time
+
+# The paths and users are the image's; the variables exist for the tests.
+APP_DIR = os.environ.get("SANDBOX_APP_DIR", "/workspace/app")
+ROOT_DIR = os.environ.get("SANDBOX_CLAUDE_ROOT", "/workspace/claude")
+SESSIONS_DIR = os.path.join(ROOT_DIR, "sessions")
+LOGIN_DIR = os.path.join(ROOT_DIR, "login")
+BASE_COMMIT = os.path.join(ROOT_DIR, "base_commit")
+BOOT_SPEC = os.environ.get("SANDBOX_BOOT_SPEC", "/workspace/boot/spec.json")
+CLAUDE_USER = os.environ.get("SANDBOX_CLAUDE_USER", "claude")
+APP_USER = os.environ.get("SANDBOX_APP_USER", "sandbox")
+SYSTEM_PATH = "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
+MISE = "/usr/local/bin/mise"
+MISE_DATA_DIR = "/opt/mise"
+
+SESSION_ID = re.compile(r"\A[0-9]{1,18}\Z")
+CODE = re.compile(r"\A[^\s\x00-\x1f\x7f]{1,2048}\Z")
+AUTHORIZE_URL = re.compile(r"https://(?:claude\.ai|platform\.claude\.com)/oauth/authorize\?[^\s\x1b]+")
+ANSI = re.compile(r"\x1b\[[0-9;?]*[A-Za-z]")
+LABEL = re.compile(r"\A[A-Za-z0-9][A-Za-z0-9._ -]{0,63}\Z")
+# What Claude Code puts ahead of a /login in its precedence: none of them
+# may reach a session on a subscription login, from the platform or from
+# the checkout's own .claude settings.
+OVERRIDES = re.compile(r"\A(?:ANTHROPIC_|CLAUDE_CODE_OAUTH_TOKEN\Z)")
+# The only variables a session takes from this process's environment.
+CREDENTIAL_NAMES = ("ANTHROPIC_API_KEY",)
+
+STOP_GRACE = 10
+STATUS_TIMEOUT = 10
+LOGIN_TIMEOUT = 300
+MAX_DIFF_BYTES = 1_000_000
+FLOWING = ("starting", "awaiting_code", "submitted")
+FLOW_STATES = FLOWING + ("completed", "failed", "expired", "cancelled")
+
+
+class Refused(Exception):
+    pass
+
+
+def now_iso():
+    return datetime.datetime.now(datetime.timezone.utc).isoformat(timespec="milliseconds")
+
+
+def emit(data):
+    print(json.dumps(data))
+
+
+def monotonic():
+    return time.monotonic()
+
+
+# --- Files ------------------------------------------------------------------
+
+def private_dir(path):
+    """Creates +path+ as root's, 0700, refusing anything but a directory."""
+    os.makedirs(path, mode=0o700, exist_ok=True)
+    info = os.lstat(path)
+    if not stat.S_ISDIR(info.st_mode):
+        raise Refused(f"{path} is not a directory")
+    if os.geteuid() == 0 and (info.st_uid != 0 or info.st_mode & 0o077):
+        os.chown(path, 0, 0, follow_symlinks=False)
+        os.chmod(path, 0o700)
+
+
+def write_json(path, data):
+    temporary = f"{path}.tmp"
+    descriptor = os.open(temporary, os.O_WRONLY | os.O_CREAT | os.O_TRUNC | os.O_NOFOLLOW, 0o600)
+    with os.fdopen(descriptor, "w") as file:
+        json.dump(data, file)
+    os.replace(temporary, path)
+
+
+def read_json(path):
+    try:
+        descriptor = os.open(path, os.O_RDONLY | os.O_NOFOLLOW)
+    except OSError:
+        return None
+    with os.fdopen(descriptor, "rb") as file:
+        try:
+            data = json.loads(file.read(1024 * 1024))
+        except ValueError:
+            return None
+    return data if isinstance(data, dict) else None
+
+
+def session_dir(path):
+    """The session directory +path+ names, which must be SESSIONS_DIR/<id>."""
+    path = os.path.abspath(path)
+    if os.path.dirname(path) != SESSIONS_DIR or not SESSION_ID.match(os.path.basename(path)):
+        raise Refused(f"{path} is not a session directory")
+    private_dir(ROOT_DIR)
+    private_dir(SESSIONS_DIR)
+    private_dir(path)
+    return path
+
+
+# --- Users and processes ----------------------------------------------------
+
+class User:
+    def __init__(self, name):
+        entry = pwd.getpwnam(name)
+        self.name = name
+        self.uid = entry.pw_uid
+        self.gid = entry.pw_gid
+        self.home = os.environ.get("SANDBOX_CLAUDE_HOME") if name == CLAUDE_USER and os.environ.get("SANDBOX_CLAUDE_HOME") else entry.pw_dir
+        self.groups = sorted({entry.pw_gid, *[group.gr_gid for group in grp.getgrall() if name in group.gr_mem]})
+
+    def demote(self, umask=0o077, session=True):
+        """A preexec_fn: its own process group, then this user."""
+        def run():
+            if session:
+                os.setsid()
+            if os.geteuid() == 0:
+                os.setgroups(self.groups)
+                os.setgid(self.gid)
+                os.setuid(self.uid)
+            os.umask(umask)
+        return run
+
+
+def claude_user():
+    return User(CLAUDE_USER)
+
+
+def app_user():
+    return User(APP_USER)
+
+
+def claude_binary(user):
+    return os.environ.get("SANDBOX_CLAUDE_BIN") or os.path.join(user.home, ".local", "bin", "claude")
+
+
+def alive(pid):
+    if not isinstance(pid, int) or pid <= 1:
+        return False
+    try:
+        os.kill(pid, 0)
+    except ProcessLookupError:
+        return False
+    except PermissionError:
+        return True
+    return True
+
+
+def leads_group(pid):
+    """Whether +pid+ still leads the process group of its own we gave it."""
+    try:
+        return alive(pid) and os.getpgid(pid) == pid
+    except ProcessLookupError:
+        return False
+
+
+def signal_group(pid, signum):
+    if leads_group(pid):
+        try:
+            os.killpg(pid, signum)
+        except ProcessLookupError:
+            pass
+
+
+def stop_group(pid, grace=STOP_GRACE):
+    if not leads_group(pid):
+        return
+    signal_group(pid, signal.SIGTERM)
+    until = monotonic() + grace
+    while monotonic() < until and leads_group(pid):
+        time.sleep(0.1)
+    signal_group(pid, signal.SIGKILL)
+
+
+def detach():
+    """Forks twice; returns True in the detached grandchild, which has its
+    own session, and exits the intermediate child. The caller's process
+    gets False once the grandchild is running.
+    """
+    read_end, write_end = os.pipe()
+    if os.fork():
+        os.close(write_end)
+        os.read(read_end, 1)
+        os.close(read_end)
+        return False
+    os.setsid()
+    if os.fork():
+        os._exit(0)
+    # Its own process group, so it can be told from a pid reused since.
+    os.setpgid(0, 0)
+    os.close(read_end)
+    null = os.open(os.devnull, os.O_RDWR)
+    for descriptor in (0, 1, 2):
+        os.dup2(null, descriptor)
+    os.write(write_end, b"1")
+    os.close(write_end)
+    return True
+
+
+def toolchain_path():
+    """The PATH the boot ran the checkout with: the spec's Ruby, Node and
+    Bun from mise, then the system's.
+    """
+    spec = read_json(BOOT_SPEC) or {}
+    toolchain = spec.get("toolchain") if isinstance(spec.get("toolchain"), dict) else {}
+    bins = []
+    for tool in ("ruby", "node", "bun"):
+        version = toolchain.get(tool)
+        target = f"{tool}@{version}" if version else tool
+        try:
+            result = subprocess.run([MISE, "where", target], capture_output=True, text=True, timeout=20,
+                                    env={"PATH": SYSTEM_PATH, "MISE_DATA_DIR": MISE_DATA_DIR, "HOME": "/root"})
+        except (OSError, subprocess.SubprocessError):
+            continue
+        location = result.stdout.strip()
+        if result.returncode == 0 and location.startswith("/"):
+            bins.append(os.path.join(location, "bin"))
+    return ":".join([*bins, SYSTEM_PATH])
+
+
+def spec_environment():
+    """The spec's own environment (its database URLs and the like), never
+    its secrets, whose values are not kept anywhere.
+    """
+    spec = read_json(BOOT_SPEC) or {}
+    env = spec.get("env") if isinstance(spec.get("env"), dict) else {}
+    secret_names = set(spec.get("secret_names") or [])
+    return {str(k): str(v) for k, v in env.items() if k not in secret_names and v is not None}
+
+
+def git_env():
+    """For git as the app's user: no hooks, filters, fsmonitor or
+    credentials, whatever the checkout's own configuration says.
+    """
+    return {
+        "PATH": SYSTEM_PATH, "HOME": "/nonexistent", "LANG": "C.UTF-8", "GIT_TERMINAL_PROMPT": "0",
+        "GIT_CONFIG_NOSYSTEM": "1", "GIT_CONFIG_GLOBAL": "/dev/null",
+        "GIT_CONFIG_COUNT": "4",
+        "GIT_CONFIG_KEY_0": "core.hooksPath", "GIT_CONFIG_VALUE_0": "/dev/null",
+        "GIT_CONFIG_KEY_1": "core.fsmonitor", "GIT_CONFIG_VALUE_1": "false",
+        "GIT_CONFIG_KEY_2": "credential.helper", "GIT_CONFIG_VALUE_2": "",
+        "GIT_CONFIG_KEY_3": "safe.directory", "GIT_CONFIG_VALUE_3": APP_DIR,
+    }
+
+
+def git(args, user, limit=MAX_DIFF_BYTES, timeout=120):
+    process = subprocess.Popen(["git", *args], cwd=APP_DIR, env=git_env(), stdout=subprocess.PIPE,
+                               stderr=subprocess.DEVNULL, preexec_fn=user.demote(umask=0o022, session=False))
+    try:
+        output = process.stdout.read(limit + 1)
+        process.stdout.close()
+        process.wait(timeout=timeout)
+    except subprocess.TimeoutExpired:
+        process.kill()
+        process.wait()
+        return None, None
+    return output, process.returncode
+
+
+# --- Sessions ---------------------------------------------------------------
+
+def running_session():
+    """The id of a session that is still running in this sandbox, if any."""
+    try:
+        names = os.listdir(SESSIONS_DIR)
+    except FileNotFoundError:
+        return None
+    for name in names:
+        status = read_json(os.path.join(SESSIONS_DIR, name, "status.json")) or {}
+        if status.get("status") == "running" and leads_group(status.get("pid")):
+            return name
+    return None
+
+
+def share_checkout(app):
+    """Makes the checkout group-writable for the session, as the app's own
+    user: it can change only what it owns, so a symlink the checkout plants
+    changes nothing else.
+    """
+    subprocess.run(["find", APP_DIR, "-xdev", "(", "-type", "d", "-exec", "chmod", "g+rwxs", "{}", "+", ")",
+                    "-o", "(", "-type", "f", "-exec", "chmod", "g+rw", "{}", "+", ")"],
+                   env={"PATH": SYSTEM_PATH}, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+                   preexec_fn=app.demote(umask=0o022, session=False), timeout=600)
+
+
+def base_commit(app):
+    """The commit the sandbox's first session started from, recorded then."""
+    recorded = None
+    try:
+        with open(BASE_COMMIT) as file:
+            recorded = file.read().strip()
+    except OSError:
+        pass
+    if recorded and re.fullmatch(r"[0-9a-f]{40}(?:[0-9a-f]{24})?", recorded):
+        return recorded
+    output, status = git(["rev-parse", "HEAD"], app, limit=200)
+    commit = (output or b"").decode().strip()
+    if status == 0 and re.fullmatch(r"[0-9a-f]{40}(?:[0-9a-f]{24})?", commit):
+        with open(BASE_COMMIT, "w") as file:
+            file.write(commit + "\n")
+        os.chmod(BASE_COMMIT, 0o600)
+        return commit
+    return "HEAD"
+
+
+def project_overrides():
+    """Why the checkout's Claude settings would take a session off the
+    subscription it was started on, or None.
+    """
+    for name in ("settings.json", "settings.local.json"):
+        path = os.path.join(APP_DIR, ".claude", name)
+        if not os.path.lexists(path):
+            continue
+        if os.path.islink(path) or os.path.islink(os.path.join(APP_DIR, ".claude")):
+            return "the checkout's Claude settings must not be symlinks"
+        data = read_json(path)
+        if data is None:
+            return "the checkout's Claude settings must be valid JSON"
+        env = data.get("env") if isinstance(data.get("env"), dict) else {}
+        if "apiKeyHelper" in data or any(OVERRIDES.match(str(key)) for key in env):
+            return "remove the checkout's Claude authentication overrides before using a subscription"
+    return None
+
+
+def session_environment(request, user):
+    mode = request.get("mode")
+    env = dict(spec_environment())
+    env.update({str(k): str(v) for k, v in (request.get("env") or {}).items()})
+    env.update({
+        "HOME": user.home, "USER": user.name, "LANG": "C.UTF-8", "PATH": toolchain_path(),
+        "MISE_DATA_DIR": MISE_DATA_DIR,
+        "DISABLE_AUTOUPDATER": "1", "DISABLE_TELEMETRY": "1", "DISABLE_ERROR_REPORTING": "1",
+        "CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC": "1",
+        "CLAUDE_CONFIG_DIR": os.path.join(user.home, "login" if mode == "sandbox_login" else "api"),
+        # The checkout is the app user's: git refuses it to anyone else
+        # unless told it is safe.
+        "GIT_CONFIG_COUNT": "1", "GIT_CONFIG_KEY_0": "safe.directory", "GIT_CONFIG_VALUE_0": APP_DIR,
+    })
+    if mode == "sandbox_login":
+        overrides = [name for name in env if OVERRIDES.match(name)]
+        if overrides:
+            raise Refused(f"a session on a subscription login cannot carry {', '.join(sorted(overrides))}")
+    else:
+        for name in CREDENTIAL_NAMES:
+            if os.environ.get(name):
+                env[name] = os.environ[name]
+    return env
+
+
+def session_start(args):
+    directory = session_dir(args.dir)
+    request = read_json(os.path.join(directory, "request.json"))
+    if request is None:
+        raise Refused("the session has no request")
+    argv = request.get("argv")
+    if not (isinstance(argv, list) and argv and all(isinstance(a, str) for a in argv)):
+        raise Refused("the session's request names no command")
+    prompt_path = os.path.join(directory, "prompt.txt")
+    if not os.path.isfile(prompt_path) or os.path.islink(prompt_path):
+        raise Refused("the session has no prompt")
+    if os.path.exists(os.path.join(directory, "status.json")):
+        raise Refused("this session was started already")
+    other = running_session()
+    if other:
+        raise Refused(f"session {other} is still running in this sandbox")
+    if request.get("mode") == "sandbox_login":
+        problem = project_overrides()
+        if problem:
+            raise Refused(problem)
+
+    user = claude_user()
+    app = app_user()
+    mode = request.get("mode")
+    config = os.path.join(user.home, "login" if mode == "sandbox_login" else "api")
+    if mode == "sandbox_login" and not os.path.isdir(config):
+        raise Refused("this sandbox has no Claude subscription login")
+    if mode == "sandbox_login" and any(OVERRIDES.match(str(name)) for name in (request.get("env") or {})):
+        raise Refused("a session on a subscription login cannot carry Anthropic credential variables")
+    timeout = int(request.get("timeout") or 1800)
+
+    # Everything slow (a large checkout to share, the toolchain to find)
+    # happens once detached, so the exec that started it returns at once.
+    if not detach():
+        emit({"status": "started"})
+        return 0
+
+    write_json(os.path.join(directory, "status.json"), {"status": "starting", "started_at": now_iso()})
+    exit_status, cancelled, timed_out = None, False, False
+    try:
+        env = session_environment(request, user)
+        share_checkout(app)
+        base = base_commit(app)
+        prompt = os.open(prompt_path, os.O_RDONLY | os.O_NOFOLLOW)
+        os.unlink(prompt_path)
+        events = os.open(os.path.join(directory, "events.jsonl"), os.O_WRONLY | os.O_CREAT | os.O_TRUNC | os.O_NOFOLLOW, 0o600)
+        errors = os.open(os.path.join(directory, "stderr.log"), os.O_WRONLY | os.O_CREAT | os.O_TRUNC | os.O_NOFOLLOW, 0o600)
+        if request.get("mode") != "sandbox_login":
+            os.makedirs(config, exist_ok=True)
+            if os.geteuid() == 0:
+                os.chown(config, user.uid, user.gid)
+            os.chmod(config, 0o700)
+        process = subprocess.Popen([claude_binary(user), *argv[1:]], cwd=APP_DIR, env=env, stdin=prompt, stdout=events,
+                                   stderr=errors, preexec_fn=user.demote(umask=0o002))
+        for descriptor in (prompt, events, errors):
+            os.close(descriptor)
+        write_json(os.path.join(directory, "status.json"),
+                   {"status": "running", "pid": process.pid, "started_at": now_iso()})
+        deadline = monotonic() + timeout
+        cancel_seen = None
+        cancel_marker = os.path.join(directory, "cancel")
+        while process.poll() is None:
+            if cancel_seen is None and os.path.exists(cancel_marker):
+                cancel_seen = monotonic()
+                cancelled = True
+                signal_group(process.pid, signal.SIGTERM)
+            if monotonic() >= deadline and not timed_out:
+                timed_out = True
+                signal_group(process.pid, signal.SIGTERM)
+                cancel_seen = cancel_seen or monotonic()
+            if cancel_seen is not None and monotonic() >= cancel_seen + STOP_GRACE:
+                signal_group(process.pid, signal.SIGKILL)
+            time.sleep(0.2)
+        # A cancel's SIGTERM can end the CLI before the loop saw its marker.
+        cancelled = cancelled or os.path.exists(cancel_marker)
+        exit_status = process.returncode if process.returncode >= 0 else 128 - process.returncode
+        # Whatever the session left running in the background goes too.
+        stop_group(process.pid, grace=1)
+    except Exception as error:  # Reported in status.json, which the platform reads.
+        write_json(os.path.join(directory, "status.json"),
+                   {"status": "finished", "exit_status": 127, "error": f"{type(error).__name__}: {error}"[:500],
+                    "finished_at": now_iso()})
+        return 1
+
+    diff = capture_diff(app, base, request.get("pathspecs") or [], int(request.get("max_diff_bytes") or MAX_DIFF_BYTES))
+    with open(os.path.join(directory, "diff.patch"), "wb") as file:
+        file.write(diff)
+    write_json(os.path.join(directory, "status.json"),
+               {"status": "finished", "exit_status": exit_status, "cancelled": cancelled, "timed_out": timed_out,
+                "finished_at": now_iso()})
+    return 0
+
+
+def capture_diff(app, base, pathspecs, limit):
+    """The checkout's diff against +base+, as the engine's local backend
+    takes it: nothing at all when the checkout's git config defines filter
+    drivers, which would run commands; untracked files included.
+    """
+    pathspecs = [spec for spec in pathspecs if isinstance(spec, str) and spec.startswith(":(exclude")]
+    output, status = git(["config", "--get-regexp", r"^filter\."], app, limit=4096)
+    if status == 0 and output:
+        return b"(diff not recorded: the checkout's git config defines filter drivers, which would run commands)"
+    git(["add", "--intent-to-add", "--all", "--", ".", *pathspecs], app, limit=64 * 1024)
+    output, status = git(["diff", "--no-color", "--no-ext-diff", "--no-textconv", "--ignore-submodules=dirty",
+                          base, "--", ".", *pathspecs], app, limit=limit)
+    if output is None:
+        return b"(diff not recorded: git did not finish)"
+    if len(output) > limit:
+        return output[:limit] + b"\n(diff truncated)\n"
+    return output
+
+
+def session_cancel(args):
+    directory = session_dir(args.dir)
+    status = read_json(os.path.join(directory, "status.json")) or {}
+    descriptor = os.open(os.path.join(directory, "cancel"), os.O_WRONLY | os.O_CREAT | os.O_NOFOLLOW, 0o600)
+    os.close(descriptor)
+    if status.get("status") == "running":
+        signal_group(status.get("pid"), signal.SIGTERM)
+    emit({"status": "cancelling" if status.get("status") == "running" else "cancelled"})
+    return 0
+
+
+# --- Login ------------------------------------------------------------------
+
+def login_config(user):
+    return os.path.join(user.home, "login")
+
+
+def flow_status():
+    status = read_json(os.path.join(LOGIN_DIR, "status.json"))
+    if not status or status.get("status") not in FLOW_STATES:
+        return {"status": "disconnected"}
+    result = {"status": status["status"]}
+    url = status.get("authorize_url")
+    if status["status"] == "awaiting_code" and isinstance(url, str) and AUTHORIZE_URL.fullmatch(url):
+        result["authorize_url"] = url
+    return result
+
+
+def write_flow(status, url=None):
+    data = {"status": status}
+    if url:
+        data["authorize_url"] = url
+    write_json(os.path.join(LOGIN_DIR, "status.json"), data)
+
+
+def stop_flow():
+    state = read_json(os.path.join(LOGIN_DIR, "supervisor.json")) or {}
+    stop_group(state.get("pid"), grace=2)
+
+
+def auth_status(user):
+    """What `claude auth status --json` says of LOGIN_CONFIG: a login and its
+    method, never anything else it prints.
+    """
+    config = login_config(user)
+    if not os.path.isdir(config):
+        return {"logged_in": False, "auth_method": None}
+    env = {"HOME": user.home, "USER": user.name, "PATH": SYSTEM_PATH, "LANG": "C.UTF-8", "CLAUDE_CONFIG_DIR": config,
+           "DISABLE_AUTOUPDATER": "1"}
+    try:
+        result = subprocess.run([claude_binary(user), "auth", "status", "--json"], cwd="/", env=env,
+                                capture_output=True, timeout=STATUS_TIMEOUT, preexec_fn=user.demote())
+        data = json.loads(result.stdout.decode("utf-8", "replace").strip() or "{}")
+    except (OSError, subprocess.SubprocessError, ValueError):
+        return {"logged_in": False, "auth_method": None}
+    if not isinstance(data, dict) or data.get("loggedIn") is not True:
+        return {"logged_in": False, "auth_method": None}
+    method = data.get("authMethod")
+    credential = os.path.join(config, ".credentials.json")
+    if os.path.isfile(credential) and not os.path.islink(credential):
+        os.chmod(credential, 0o600)
+    return {"logged_in": True, "auth_method": method if isinstance(method, str) and LABEL.match(method) else None}
+
+
+def remove_login(user):
+    shutil.rmtree(login_config(user), ignore_errors=True)
+    shutil.rmtree(LOGIN_DIR, ignore_errors=True)
+
+
+def revoke(user):
+    """Stops a flow, logs the CLI out (which revokes the login) and removes
+    its configuration.
+    """
+    stop_flow()
+    config = login_config(user)
+    if os.path.isdir(config) and not os.path.islink(config):
+        env = {"HOME": user.home, "USER": user.name, "PATH": SYSTEM_PATH, "LANG": "C.UTF-8", "CLAUDE_CONFIG_DIR": config,
+               "DISABLE_AUTOUPDATER": "1"}
+        try:
+            subprocess.run([claude_binary(user), "auth", "logout"], cwd="/", env=env, stdout=subprocess.DEVNULL,
+                           stderr=subprocess.DEVNULL, timeout=STATUS_TIMEOUT, preexec_fn=user.demote())
+        except (OSError, subprocess.SubprocessError):
+            pass
+    remove_login(user)
+
+
+def logout(_args):
+    revoke(claude_user())
+    emit({"status": "disconnected", "logged_in": False, "auth_method": None})
+    return 0
+
+
+def login_status(_args):
+    user = claude_user()
+    flow = flow_status()
+    if flow["status"] in FLOWING:
+        state = read_json(os.path.join(LOGIN_DIR, "supervisor.json")) or {}
+        if not leads_group(state.get("pid")):
+            flow = {"status": "expired"}
+        emit({**flow, "logged_in": False, "auth_method": None})
+        return 0
+    login = auth_status(user)
+    connected = login["logged_in"] and login["auth_method"] == "claude.ai"
+    emit({"status": "connected" if connected else flow["status"], "logged_in": connected,
+          "auth_method": "claude.ai" if connected else None})
+    return 0
+
+
+def login_start(args):
+    user = claude_user()
+    revoke(user)
+    private_dir(ROOT_DIR)
+    private_dir(LOGIN_DIR)
+    fifo = os.path.join(LOGIN_DIR, "code.pipe")
+    os.mkfifo(fifo, 0o600)
+    write_flow("starting")
+    timeout = min(max(int(args.timeout or LOGIN_TIMEOUT), 1), 600)
+    if not detach():
+        emit({"status": "starting", "logged_in": False, "auth_method": None})
+        return 0
+    write_json(os.path.join(LOGIN_DIR, "supervisor.json"), {"pid": os.getpid()})
+    supervise_login(user, fifo, timeout)
+    return 0
+
+
+def supervise_login(user, fifo, timeout):
+    """Runs `claude auth login` under a PTY until it exits, the deadline
+    passes, or the flow is stopped. Only the authorize URL is ever taken
+    from what the CLI prints, and nothing at all once the code is in.
+    """
+    config = login_config(user)
+    os.makedirs(config, mode=0o700, exist_ok=True)
+    if os.geteuid() == 0:
+        os.chown(config, user.uid, user.gid)
+    os.chmod(config, 0o700)
+    env = {"HOME": user.home, "USER": user.name, "PATH": SYSTEM_PATH, "LANG": "C.UTF-8", "TERM": "dumb",
+           "CLAUDE_CONFIG_DIR": config, "DISABLE_AUTOUPDATER": "1", "COLUMNS": "4096", "LINES": "40"}
+    stopped = {"value": False}
+
+    def stop(_signum, _frame):
+        stopped["value"] = True
+
+    signal.signal(signal.SIGTERM, stop)
+    signal.signal(signal.SIGINT, stop)
+    pipe = os.open(fifo, os.O_RDWR | os.O_NONBLOCK)
+    pid, master = pty.fork()
+    if pid == 0:
+        try:
+            os.chdir(config)
+            if os.geteuid() == 0:
+                os.setgroups(user.groups)
+                os.setgid(user.gid)
+                os.setuid(user.uid)
+            os.umask(0o077)
+            os.execve(claude_binary(user), [claude_binary(user), "auth", "login"], env)
+        finally:
+            os._exit(127)
+
+    deadline = monotonic() + timeout
+    buffer = ""
+    submitted = False
+    completed = False
+    try:
+        while True:
+            if stopped["value"]:
+                write_flow("cancelled")
+                break
+            if monotonic() >= deadline:
+                write_flow("expired")
+                break
+            finished, status = os.waitpid(pid, os.WNOHANG)
+            if finished:
+                completed = os.WIFEXITED(status) and os.WEXITSTATUS(status) == 0
+                write_flow("completed" if completed else "failed")
+                break
+            try:
+                readable, _, _ = select.select([master, pipe], [], [], 0.1)
+            except InterruptedError:
+                continue
+            if pipe in readable and not submitted:
+                try:
+                    data = os.read(pipe, 4096)
+                except BlockingIOError:
+                    data = b""
+                line = data.decode("utf-8", "replace")
+                if line.endswith("\n") and CODE.match(line[:-1]):
+                    submitted = True
+                    buffer = ""
+                    write_flow("submitted")
+                    os.write(master, (line[:-1] + "\r").encode())
+                del data, line
+            if master in readable:
+                try:
+                    chunk = os.read(master, 8192)
+                except OSError:
+                    chunk = b""
+                if chunk and not submitted:
+                    buffer = (buffer + chunk.decode("utf-8", "replace"))[-32768:]
+                    match = AUTHORIZE_URL.search(ANSI.sub("", buffer))
+                    if match and "client_id=" in match.group(0):
+                        write_flow("awaiting_code", match.group(0))
+    finally:
+        try:
+            os.killpg(pid, signal.SIGTERM)
+        except (ProcessLookupError, PermissionError):
+            pass
+        until = monotonic() + 1
+        while monotonic() < until:
+            try:
+                if os.waitpid(pid, os.WNOHANG)[0]:
+                    break
+            except ChildProcessError:
+                break
+            time.sleep(0.02)
+        try:
+            os.killpg(pid, signal.SIGKILL)
+            os.waitpid(pid, 0)
+        except (ProcessLookupError, PermissionError, ChildProcessError):
+            pass
+        for descriptor in (master, pipe):
+            try:
+                os.close(descriptor)
+            except OSError:
+                pass
+        try:
+            os.unlink(fifo)
+        except OSError:
+            pass
+        # A login that did not complete may have left a partial credential.
+        if not completed:
+            shutil.rmtree(config, ignore_errors=True)
+
+
+def login_code(_args):
+    code = os.environ.pop("CLAUDE_LOGIN_CODE", "")
+    if not CODE.match(code):
+        raise Refused("paste the single-use code from Claude's authorization page")
+    flow = flow_status()
+    marker = os.path.join(LOGIN_DIR, "submitted")
+    if flow["status"] != "awaiting_code" or os.path.exists(marker):
+        raise Refused("this sign-in is no longer waiting for a code; start again")
+    descriptor = os.open(marker, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW, 0o600)
+    os.close(descriptor)
+    try:
+        pipe = os.open(os.path.join(LOGIN_DIR, "code.pipe"), os.O_WRONLY | os.O_NONBLOCK | os.O_NOFOLLOW)
+    except OSError as error:
+        if error.errno in (errno.ENOENT, errno.ENXIO):
+            raise Refused("the sign-in expired; start again")
+        raise
+    try:
+        os.write(pipe, (code + "\n").encode())
+    finally:
+        os.close(pipe)
+        del code
+    emit({"status": "submitted", "logged_in": False, "auth_method": None})
+    return 0
+
+
+def main(argv=None):
+    parser = argparse.ArgumentParser(prog="sandbox-claude", description="Run Claude Code in this sandbox.")
+    commands = parser.add_subparsers(dest="command", required=True)
+    for name in ("session-start", "session-cancel"):
+        command = commands.add_parser(name)
+        command.add_argument("--dir", required=True)
+    start = commands.add_parser("login-start")
+    start.add_argument("--timeout", type=int, default=LOGIN_TIMEOUT)
+    for name in ("login-code", "login-status", "logout"):
+        commands.add_parser(name)
+    args = parser.parse_args(argv)
+    handlers = {
+        "session-start": session_start, "session-cancel": session_cancel, "login-start": login_start,
+        "login-code": login_code, "login-status": login_status, "logout": logout,
+    }
+    try:
+        return handlers[args.command](args)
+    except Refused as error:
+        emit({"error": str(error)})
+        return 2
+
+
+if __name__ == "__main__":
+    sys.exit(main())

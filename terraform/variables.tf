@@ -119,6 +119,74 @@ variable "incus_app_runtime_enabled" {
   default     = false
 }
 
+# -- Incus sandbox backend --------------------------------------------------
+
+variable "enable_incus_backend" {
+  description = "Point the app at this environment's Incus host: SANDBOX_BACKEND=incus, INCUS_HOST from incus_api_url, INCUS_PROJECT, INCUS_CERT_PATH/INCUS_KEY_PATH naming the host's client certificate and key, and INCUS_SERVER_CA_PATH naming the daemon's certificate, mounted from incus-client-cert-<env>, incus-client-key-<env> and incus-server-cert-<env>. Turn on only once all three secrets have a version and Cloud Run can reach the host (docs/infrastructure/app-runtime.md, Connecting staging to its Incus host)."
+  type        = bool
+  default     = false
+}
+
+variable "incus_api_url" {
+  description = "The Incus API the app calls (INCUS_HOST): the incus_api_url output of the host's environment, https://<host internal IP>:8443. Required while enable_incus_backend is on."
+  type        = string
+  default     = ""
+
+  validation {
+    condition     = var.incus_api_url == "" || can(regex("^https://[^/:@]+:[0-9]+/?$", var.incus_api_url))
+    error_message = "incus_api_url is https://<host>:<port>, such as https://10.10.0.2:8443, or empty. The app has no Unix socket or plain HTTP transport."
+  }
+}
+
+variable "incus_secret_project" {
+  description = "Project that holds incus-client-cert-<env>, incus-client-key-<env> and incus-server-cert-<env>, which the host publishes in the project it runs in. Empty means this project. Prefer the project number: Cloud Run may report a secret from another project by number, and the ID would then show as a change on every plan."
+  type        = string
+  default     = ""
+
+  validation {
+    condition     = can(regex("^([a-z][-a-z0-9]{4,28}[a-z0-9]|[0-9]+)?$", var.incus_secret_project))
+    error_message = "incus_secret_project is a project ID or number, or empty."
+  }
+}
+
+variable "incus_host_network" {
+  description = "Self link of the Incus host's VPC when it is not this environment's (sandbox-staging's sandbox-network is not). While enable_incus_backend is on, this environment's VPC peers with it and imports the route to the host's container bridge. The host's environment must declare the matching peering. Empty peers with nothing."
+  type        = string
+  default     = ""
+
+  validation {
+    condition     = var.incus_host_network == "" || can(regex("(^|/)projects/[^/]+/global/networks/[^/]+$", var.incus_host_network))
+    error_message = "incus_host_network is a VPC self link, such as projects/<project>/global/networks/sandbox-network, or empty."
+  }
+}
+
+variable "incus_host_ranges" {
+  description = "Every range of the Incus host's VPC and container bridge. While the peering exists, connections opened from them into this environment's VPC are denied."
+  type        = list(string)
+  default     = []
+}
+
+# -- Claude Code in sandboxes -----------------------------------------------
+
+variable "claude_code_auth" {
+  description = "How Claude Code inside a sandbox authenticates (CLAUDE_CODE_AUTH): api_key, or sandbox_login for a Claude sign-in made inside the sandbox. Passed only when it is not api_key, so the app's own default must stay api_key."
+  type        = string
+  default     = "api_key"
+  nullable    = false
+
+  validation {
+    condition     = contains(["api_key", "sandbox_login"], var.claude_code_auth)
+    error_message = "claude_code_auth is api_key or sandbox_login."
+  }
+}
+
+variable "claude_code_hosted_login_enabled" {
+  description = "Whether the app offers Claude Code sign-in inside hosted sandboxes (CLAUDE_CODE_HOSTED_LOGIN_ENABLED). Passed only when true, so the app's own default must stay false. Keep it off for everyone but the operator until the Anthropic Commercial Terms and design confirmation of activeagents/activeagent#578 §9 are recorded."
+  type        = bool
+  default     = false
+  nullable    = false
+}
+
 # Access control
 variable "allow_public_access" {
   description = "Allow unauthenticated public access to Cloud Run. Set to false if GCP org policy restricts it."

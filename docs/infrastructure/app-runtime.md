@@ -52,6 +52,9 @@ docker build --target app-runtime -t sandbox-app-runtime -f docker/sandbox/Docke
 - socat, which forwards the container's port 8080 to the app
 - the unprivileged user `sandbox` (uid 1000), which runs every command of the
   checkout
+- Claude Code, installed for the user `claude` (uid 1001), and
+  `sandbox-claude`, which runs it for the platform (see
+  [Claude Code in a checkout](#claude-code-in-a-checkout))
 
 ### The workspace
 
@@ -171,6 +174,67 @@ again to resume.
   otherwise.
 - The boot gets no Claude Code or Codex credential.
 
+## Claude Code in a checkout
+
+`IncusSandboxService::ClaudeCode` gives the engine's optional orchestrator
+verbs on Incus: Claude Code sessions (`run_code_session`,
+`cancel_code_session`), the restart that verifies an evaluation fix
+(`refresh_runtime`), and the four sign-in verbs of
+`claude_code_auth = :sandbox_login` (activeagent#578). The engine's
+*Implement with Claude Code* and its sign-in flow then work on Incus as they
+do on the engine's local backend.
+
+Everything goes through `/usr/local/bin/sandbox-claude`, which the platform
+runs as root through the exec API:
+
+| Command | What it does |
+| --- | --- |
+| `session-start --dir DIR` | Runs Claude Code headless on the request and prompt the platform wrote to `DIR`, detached |
+| `session-cancel --dir DIR` | Stops that session: SIGTERM, then SIGKILL after a grace |
+| `login-start` | Starts the unmodified `claude auth login` under a PTY |
+| `login-code` | Hands the one-time code, from its own exec environment, to the waiting CLI once |
+| `login-status` | The flow's state, or whether the CLI is logged in with a Claude subscription |
+| `logout` | `claude auth logout` (which revokes the login), then removes its configuration |
+
+- **Who runs Claude Code.** The image's `claude` user (uid 1001), never
+  `sandbox`, which the checkout's processes run as. Its home, with the CLI's
+  configuration and a subscription login, is `0700`, so the app cannot read
+  it. `claude` is in the `sandbox` group; before each session the checkout is
+  made group-writable, as `sandbox` (so a symlink the checkout plants changes
+  nothing else), and the session works with umask `002`.
+- **Sessions.** Each session gets `/workspace/claude/sessions/<id>/`, root's
+  and `0700`. The prompt reaches the CLI on stdin and is deleted once open.
+  The stream-json goes to `events.jsonl`, which the platform reads back with
+  Range requests as it grows, scrubbed of the sandbox's secrets. `diff.patch`
+  is taken as the engine's local backend takes it: against the commit the
+  first session found, with no hooks or filters, and nothing at all when the
+  checkout's git config defines filter drivers.
+- **Credentials.** An API-key session gets `ANTHROPIC_API_KEY` as the exec's
+  environment and nothing else. A session on a subscription login gets no
+  Anthropic credential, and is refused when the checkout's `.claude`
+  settings define `apiKeyHelper` or Anthropic variables. Neither credential
+  is ever written by the platform, into instance config, files or argv.
+- **Sign-in.** The CLI prints Claude's authorize URL, which the dashboard
+  shows; the user signs in on claude.ai and pastes the code. The code
+  reaches the container once, as `login-code`'s environment, and goes to the
+  CLI through a FIFO. A sign-in that fails or expires removes what the CLI
+  wrote. Terminating a sandbox revokes a login in it first.
+- **Restart.** `sandbox-app-boot --restart` reruns a ready boot from its
+  manifest with the project's secrets passed again, so the edit is live
+  before the evaluation that verifies it runs. A restart that loses the app
+  fails the sandbox, which can then be resumed like any failed boot.
+
+The image installs Claude Code with Anthropic's own installer, as
+`CLAUDE_CODE_VERSION` says (`stable` by default), and records the version
+as the image property `claude_code_version`. Sessions run with
+`DISABLE_AUTOUPDATER`, so a new version comes only with a new image.
+
+Sign-in on the hosted platform is off until both switches are on:
+`CLAUDE_CODE_AUTH=sandbox_login` and `CLAUDE_CODE_HOSTED_LOGIN_ENABLED=true`,
+from Terraform. Before switching them on for anyone but the operator, accept
+Anthropic's Commercial Terms for hosting Claude Code and confirm the design
+with Anthropic, as activeagent#578 says.
+
 ## Lifetime
 
 Every sandbox container is labelled `user.expires_at`, copied from its
@@ -215,10 +279,12 @@ https://github.com/activeagents/activeagents/issues/150.
 
 - **The switch.** `INCUS_APP_RUNTIME_ENABLED` is set from the Terraform
   variable `incus_app_runtime_enabled`. The variable is declared in
-  `terraform/variables.tf`, passed through `terraform/main.tf`, and set in each
-  `terraform/environments/<env>/main.tf`. Never set it by hand: the next apply
-  overwrites it. While the switch is off, `IncusSandboxService#create_sandbox`
-  refuses app_runtime sandboxes.
+  `terraform/variables.tf` and passed through `terraform/main.tf`. Production
+  sets it in `terraform/environments/production/main.tf`; staging passes its
+  own `incus_app_runtime_enabled` variable, committed in `incus.auto.tfvars`
+  (see [Connecting staging to its Incus host](#connecting-staging-to-its-incus-host)).
+  Never set it by hand: the next apply overwrites it. While the switch is off,
+  `IncusSandboxService#create_sandbox` refuses app_runtime sandboxes.
 - **The check.** `bin/rails incus:preflight` reports `app_runtime_enabled`,
   `app_runtime_image` (whether the image is present and its
   `boot_spec_version`) and `app_runtime_supported`. The last one is true only
@@ -231,3 +297,237 @@ https://github.com/activeagents/activeagents/issues/150.
   and its capability checklist live in the engine, and they should read this
   capability before showing Projects. The platform has no Projects links of its
   own yet; any it adds must check the same capability.
+
+## Connecting staging to its Incus host
+
+Staging's Cloud Run service (`activeagents-staging`, project
+`active-agents-platform`) can use the sandbox-staging Incus host
+(`terraform/environments/sandbox-staging`) as its sandbox backend. Every
+switch below defaults to off, and with all of them off neither environment's
+plan changes anything on Cloud Run or on the host.
+
+### What Terraform does once the switches are on
+
+| Switch | Where | What it does |
+| --- | --- | --- |
+| `platform_network` | sandbox-staging | Peers `sandbox-network` with the staging VPC, exporting its custom routes. Passes `platform_egress_ranges` to the host module, which then routes `10.100.0.0/24` (incusbr0) to the host, sets `can_ip_forward` on it, and admits only that range: on 8443 to the Incus API and on 8080 to the bridge |
+| `enable_incus_backend` | staging | Sets `SANDBOX_BACKEND=incus`, `INCUS_HOST` (from `incus_api_url`), `INCUS_PROJECT=agent-sandboxes`, `INCUS_CERT_PATH`, `INCUS_KEY_PATH` and `INCUS_SERVER_CA_PATH`. Mounts `incus-client-cert-staging`, `incus-client-key-staging` and `incus-server-cert-staging` (from `incus_secret_project`) as files in the service and the migrate job. With `incus_host_network` set, peers the staging VPC with the host's and denies connections opened from `incus_host_ranges` into it |
+| `incus_app_runtime_enabled` | staging | `INCUS_APP_RUNTIME_ENABLED=true` |
+| `claude_code_auth` | staging | `CLAUDE_CODE_AUTH`, passed only when it is `sandbox_login` |
+| `claude_code_hosted_login_enabled` | staging | `CLAUDE_CODE_HOSTED_LOGIN_ENABLED=true`, passed only when true |
+
+Cloud Run already sends private ranges through the staging VPC connector
+(`PRIVATE_RANGES_ONLY`), so the Incus API and the containers' addresses on the
+bridge leave through it with a source address in `10.8.0.0/28`. The host's
+firewall admits that range and nothing else on those ports.
+
+### Decide before you start
+
+1. **How Cloud Run reaches the host.** The host runs in sandbox-staging's
+   project (default `activeagents-staging`) on `sandbox-network`, and Cloud
+   Run runs in `active-agents-platform` on the `activeagents-staging` VPC. A
+   Serverless VPC Access connector serves only its own project, so Cloud Run
+   cannot use sandbox-staging's `sandbox-connector`. The Terraform here peers
+   the two VPCs, one side from each environment, and exports the host's
+   bridge route over the peering. It is the only path implemented. The
+   alternatives, a Shared VPC or rebuilding the host inside the platform's
+   project and VPC, would each need a change to these modules. Before choosing
+   peering, check:
+   - No range overlaps across the two VPCs. The staging VPC holds
+     `10.0.0.0/24`, `10.8.0.0/28` and Cloud SQL's private services range,
+     which Google chose: read it with
+     `gcloud compute addresses describe activeagents-staging-sql-ip --global --project=active-agents-platform`.
+     sandbox-staging holds `10.10.0.0/24`, `10.10.1.0/28`, `10.10.2.0/28`, and
+     the bridge `10.100.0.0/24`.
+   - The peering is a path for traffic opened from the host into the staging
+     VPC. `activeagents-staging-deny-from-incus-host` denies it ahead of
+     `allow_internal`, and Cloud SQL is not reachable through a second peering.
+   - Setting `platform_network` turns on `can_ip_forward` on the running
+     host. The Google provider (5.x) changes it in place with
+     `instances.update`; GCE may restart the VM to apply it, so do it while no
+     sandbox is in use. If a plan ever shows `incus-host-staging` replaced
+     instead, stop: a new VM regenerates the client certificate and key
+     (publishing new secret versions), has no app-runtime image or
+     containers, and may get another internal IP, so steps 3 to 7 would have
+     to be repeated.
+2. **Which project holds the host's secrets.** The host publishes its client
+   certificate, key and server certificate in its own project. Set
+   `incus_secret_project` to that project, preferably as its number
+   (`gcloud projects describe <project_id> --format='value(projectNumber)'`):
+   Cloud Run may report a secret from another project by number, and an ID
+   would then show as a change on every plan. The host module already lets
+   `activeagents-staging@active-agents-platform.iam.gserviceaccount.com` read
+   all three.
+
+The app trusts the daemon only through `INCUS_SERVER_CA_PATH`: it verifies
+the daemon's certificate against that file and checks that the certificate
+names the address in `INCUS_HOST`. It has no trust-on-first-use. Step 4 covers
+both.
+
+### Steps
+
+1. **Apply sandbox-staging, with the egress ACL.** Follow
+   [Incus host: sandbox egress and IAM](gcp-cicd-setup.md#incus-host-sandbox-egress-and-iam)
+   (the controls tracked in
+   https://github.com/activeagents/activeagents/issues/150), applying with the
+   platform switches set:
+
+   ```bash
+   cd terraform/environments/sandbox-staging
+   terraform plan \
+     -var platform_network=projects/active-agents-platform/global/networks/activeagents-staging \
+     -var 'platform_egress_ranges=["10.8.0.0/28"]'
+   terraform apply # with the same -var flags
+   ```
+
+   The plan should update `incus-host-staging` in place (`can_ip_forward`),
+   narrow `incus-api-staging` to `10.8.0.0/28`, and add the route
+   `incus-bridge-staging`, the rule `incus-bridge-app-staging`, the peering,
+   and the secret `incus-server-cert-staging` with its two bindings. The staging environment's `vpc_self_link` and `vpc_connector_cidr`
+   outputs give both values. sandbox-staging has no committed tfvars and no
+   workflow applies it, so pass the same flags on every later apply, or the
+   next one removes the route, the rules and the peering again.
+
+   A host built from the module applies the ACL in its startup script; a host
+   that predates the ACL gets it from step 4 of that section.
+
+2. **Confirm the ACL acceptance checks.** Run
+   [Check from a container](gcp-cicd-setup.md#check-from-a-container) on the
+   host. Every probe prints `rejected`; `apt-get`, `git ls-remote` and
+   `gem fetch` succeed, and the final `curl` gets `200`. The peering adds two
+   more checks, from a VM in the staging VPC or once Cloud Run is connected:
+   the container's port 8080 answers from `10.8.0.0/28`, and nothing on the
+   bridge can open a connection into the staging VPC. The ACL rejects
+   container traffic to `10.0.0.0/8`; replies to a connection Cloud Run opens
+   pass only if Incus tracks the connection, so a checkout that never turns
+   ready from Cloud Run while the `curl` from the host works points here.
+
+3. **Build the app-runtime image** on the host, as root, from a checkout of
+   this repository:
+
+   ```bash
+   sudo scripts/build-app-runtime-image.sh
+   ```
+
+   A new host VM has no image, so run this again whenever the host is
+   recreated.
+
+4. **Make the daemon's certificate name its address, and publish it.** A host
+   built from the module after this change does both in its startup script.
+   A host that already exists never reruns that script, so on it, as root:
+
+   ```bash
+   openssl x509 -in /var/lib/incus/server.crt -noout -ext subjectAltName
+   ```
+
+   The list must include the internal IP in `incus_api_url`. A certificate
+   Incus generated never does: it names only the host name, `127.0.0.1` and
+   `::1` (verified in Incus's source, `GenerateMemCert` in
+   `shared/tls/cert.go`). Incus also generates one only when `server.crt` or
+   `server.key` is missing (verified in the source and in its authentication
+   docs), so changing `core.https_address` and restarting does not help, and
+   neither does deleting the pair to regenerate it. Instead, install a
+   certificate that names the IP. Incus serves whatever pair it finds
+   (verified in the source). `scripts/setup-incus-host.sh server-cert <ip>`
+   writes a self-signed pair naming the IP, keeps the old one as
+   `*.generated`, and restarts the daemon. It was tested against the app's TLS
+   client but not yet on a live host, and the restart is best done while no
+   sandbox is in use. From the repository root, run the command printed by
+   `terraform -chdir=terraform/environments/sandbox-staging output -raw server_cert_command`.
+   It streams the script to the host over `gcloud compute ssh`, as
+   `egress_acl_command` does, and publishes the result. Add
+   `--tunnel-through-iap` if the host takes no direct SSH.
+
+   On a host whose certificate already names the IP, publish it alone:
+
+   ```bash
+   sudo gcloud secrets versions add incus-server-cert-staging --project <host project> --data-file=/var/lib/incus/server.crt
+   ```
+
+   Publish again whenever the certificate changes.
+
+5. **Confirm the three secrets have versions.** Cloud Run refuses a revision
+   whose secret has none:
+
+   ```bash
+   gcloud secrets versions list incus-client-cert-staging --project=<host project>
+   gcloud secrets versions list incus-client-key-staging --project=<host project>
+   gcloud secrets versions list incus-server-cert-staging --project=<host project>
+   ```
+
+   If a client secret lists nothing, publish it from the host as in step 3 of
+   [Apply](gcp-cicd-setup.md#apply); for the server certificate, step 4.
+
+6. **Set the staging variables.** Print the host's values with
+   `terraform -chdir=terraform/environments/sandbox-staging output -raw environment_config`,
+   and commit them with the switches in
+   `terraform/environments/staging/incus.auto.tfvars`:
+
+   ```hcl
+   # The sandbox-staging Incus host. See docs/infrastructure/app-runtime.md
+   # (Connecting staging to its Incus host) before changing a value.
+   enable_incus_backend = true
+   incus_api_url        = "https://10.10.0.x:8443"            # sandbox-staging's incus_api_url output
+   incus_secret_project = "123456789012"                      # the host's project, by number
+   incus_host_network   = "https://www.googleapis.com/compute/v1/projects/activeagents-staging/global/networks/sandbox-network"
+   incus_host_ranges    = ["10.10.0.0/24", "10.10.1.0/28", "10.10.2.0/28", "10.100.0.0/24"]
+
+   incus_app_runtime_enabled = true
+
+   # Claude Code sign-in in sandboxes. Read step 9 first.
+   claude_code_auth                 = "sandbox_login"
+   claude_code_hosted_login_enabled = true
+   ```
+
+   `enable_incus_backend` without `incus_api_url` fails the plan.
+
+7. **Merge to `main`.** `deploy-staging.yml` applies the file. Its plan should
+   add the peering and the firewall rule, and change the service and the
+   migrate job only by the new variables and the three secret mounts.
+
+8. **Run the preflight** in the migrate job, which has the service's variables,
+   mounts and VPC egress:
+
+   ```bash
+   gcloud run jobs execute activeagents-staging-migrate --project=active-agents-platform \
+     --region=us-central1 --args=incus:preflight --wait
+   gcloud logging read 'resource.type="cloud_run_job" AND resource.labels.job_name="activeagents-staging-migrate"' \
+     --project=active-agents-platform --freshness=10m --order=asc --format='value(textPayload)'
+   ```
+
+   Expect `"connected": true`, `"project": "agent-sandboxes"`,
+   `"app_runtime_enabled": true`, `"app_runtime_image": { "present": true }`
+   with `boot_spec_version` equal to `expected_boot_spec_version`, and
+   `"app_runtime_supported": true`. What a failure means:
+
+   | Message | Look at |
+   | --- | --- |
+   | `execution expired`, `Failed to open TCP connection` | the peering is not ACTIVE on both sides, the route, or the 8443 firewall rule |
+   | `certificate verify failed` | the latest `incus-server-cert-staging` is not the certificate the daemon serves: publish it again (step 4), then redeploy so new instances read it |
+   | `hostname "<ip>" does not match the server certificate` | the certificate does not name the IP in `incus_api_url`: run step 4's `server_cert_command`, or update `incus_api_url` if the host's IP changed |
+   | `Incus did not authenticate this client certificate` | the secrets' latest versions are not the certificate the host trusts (`incus config trust list`) |
+   | `app_runtime_image.present` is false, or the versions differ | step 3 |
+
+   The preflight checks the API only. The bridge is proven by the first
+   checkout turning ready, because the service polls
+   `http://<container_ip>:8080` from Cloud Run.
+
+9. **Gate Claude Code sign-in.** Before anyone but the operator signs in to
+   Claude Code in a staging sandbox, record both items of
+   [activeagents/activeagent#578 §9](https://github.com/activeagents/activeagent/issues/578):
+   - Anthropic's Commercial Terms for hosting Claude Code are accepted.
+   - Anthropic has confirmed the design, in particular relaying the pasted
+     sign-in code into the CLI's stdin and the one-click, one-session rule for
+     the fix loop.
+
+   Until both are recorded, the switches in step 6 may be on only while the
+   operator is the only person who can open a checkout on staging. Otherwise
+   commit `claude_code_auth = "api_key"` and
+   `claude_code_hosted_login_enabled = false` in step 6, and turn them on once
+   the gate is passed.
+
+To turn everything off, set `enable_incus_backend` and the other switches back
+to their defaults in `incus.auto.tfvars` and merge; then apply sandbox-staging
+without `platform_network`, which removes the route, the bridge rule and the
+peering, widens `incus-api-staging` back to `10.0.0.0/8`, and turns
+`can_ip_forward` off again.
