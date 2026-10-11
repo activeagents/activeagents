@@ -81,23 +81,24 @@ test.describe('API Keys settings', () => {
 });
 
 test.describe('Agent scorecards', () => {
-  // Located by data-testid, not by Tailwind classes: the card was unified onto
-  // AgentStatCard's inline styles, which removed div.bg-white.rounded-xl and
-  // left the old locator matching zero elements — so every assertion below
-  // failed on the first one while the mascot check passed vacuously.
-  const cardFor = (page, name: string) =>
-    page.locator(`[data-testid="agent-card"][data-agent-name="${name}"]`).first();
+  // The Agents home is one table from the next actionagent release: each agent is a row
+  // carrying data-testid and its name, located that way rather than by
+  // Tailwind classes, which an earlier restyle silently removed so that every
+  // assertion failed on the first one while the mascot check passed
+  // vacuously. The figures sit in cells under the table's column headers.
+  const rowFor = (page, name: string) =>
+    page.locator(`[data-testid="agent-row"][data-agent-name="${name}"]`).first();
 
-  test('agent cards show run, success, latency, eval, token and cost tiles', async ({ page }) => {
+  test('the agents table shows run, error, latency, eval and cost columns', async ({ page }) => {
     await page.goto('/dashboard');
 
-    const card = cardFor(page, SEEDED_AGENT);
-    await expect(card).toBeVisible();
-    for (const label of [/RUNS/i, /SUCCESS/i, /AVG TIME/i, /EVAL/i, /TOKENS/i, /COST/i]) {
-      await expect(card.getByText(label)).toBeVisible();
+    const row = rowFor(page, SEEDED_AGENT);
+    await expect(row).toBeVisible();
+    for (const label of ['AGENT', 'MODEL', 'RUNS', 'ERRORS', 'AVG', 'EVAL', 'COST', 'LAST RUN']) {
+      await expect(page.locator('thead').getByText(label, { exact: true })).toBeVisible();
     }
-    // The mascot no longer heads every card — the scorecard carries the space.
-    await expect(card.locator('svg[viewBox="0 0 500 500"]')).toHaveCount(0);
+    // The mascot heads no row — the figures carry the space.
+    await expect(row.locator('svg[viewBox="0 0 500 500"]')).toHaveCount(0);
     await shot(page, 'e2e-4-scorecards');
   });
 
@@ -107,14 +108,15 @@ test.describe('Agent scorecards', () => {
   test('an agent with no executions renders placeholders, not invented metrics', async ({ page }) => {
     await page.goto('/dashboard');
 
-    const card = cardFor(page, SEEDED_AGENT);
-    await expect(card).toBeVisible();
-    await expect(card).toContainText('0');
-    // Success, avg time, eval and cost all have nothing to report.
-    expect(await card.getByText('—', { exact: true }).count()).toBeGreaterThan(0);
-    await expect(card.getByText(/%$/)).toHaveCount(0);
-    // Last activity replaces the config edit date only once something ran.
-    await expect(card.getByText(/Updated /)).toBeVisible();
+    const row = rowFor(page, SEEDED_AGENT);
+    await expect(row).toBeVisible();
+    await expect(row).toContainText('0');
+    // Errors, average, eval and cost all have nothing to report.
+    expect(await row.getByText('—', { exact: true }).count()).toBeGreaterThan(0);
+    await expect(row.getByText(/%$/)).toHaveCount(0);
+    // An agent that never ran says so; the config edit date rides in the
+    // cell's title until something runs.
+    await expect(row.getByText('never', { exact: true })).toBeVisible();
   });
 });
 
