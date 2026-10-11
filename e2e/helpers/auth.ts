@@ -35,10 +35,16 @@ export async function signOut(page: Page) {
   // Navigate to a page with logout functionality
   await page.goto('/dashboard');
 
-  // Look for and click logout button/link
-  const logoutButton = page.getByRole('button', { name: /sign out|logout/i });
-  if (await logoutButton.isVisible()) {
-    await logoutButton.click();
+  // Sign out lives in the sidebar's workspace menu (the dashboard has no top
+  // bar from the next actionagent release); open it when the item is not on screen yet.
+  const menu = page.getByRole('button', { name: 'Workspace menu' });
+  if (await menu.isVisible()) {
+    await menu.click();
+  }
+  const logoutButton = page.getByRole('menuitem', { name: /sign out|logout/i })
+    .or(page.getByRole('button', { name: /sign out|logout/i }));
+  if (await logoutButton.first().isVisible()) {
+    await logoutButton.first().click();
     await page.waitForURL('/');
   }
 }
