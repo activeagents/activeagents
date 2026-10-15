@@ -75,7 +75,12 @@ class IncusSandboxServiceClaudeCodeTest < ActiveSupport::TestCase
       checkout_spec: nil, project: project, updates: [])
   end
 
-  CodeSession = Struct.new(:id, :prompt, :model, :credential_mode, keyword_init: true)
+  CodeSession = Struct.new(:id, :prompt, :model, :credential_mode, :resume_session_id, :turn_index, :context_note, keyword_init: true) do
+    def stdin_text
+      context_note ? "<dashboard-note>\n#{context_note}\n</dashboard-note>\n\n#{prompt}" : prompt
+    end
+  end
+  UUID = "0b8e4d0e-4a3f-4f6e-9c1d-2b7a1e5f9c30"
 
   def session_directory(id) = "#{IncusSandboxService::ClaudeCode::SESSIONS_DIR}/#{id}"
 
@@ -112,6 +117,49 @@ class IncusSandboxServiceClaudeCodeTest < ActiveSupport::TestCase
     assert_equal 0, result[:exit_status]
     assert_includes result[:diff], "+# [REDACTED]"
     assert_equal "warming up", result[:stderr_tail]
+  end
+
+  test "a conversation's first turn starts its named session, a later turn resumes it with the note on stdin, and no repo MCP loads" do
+    first = session_directory(50)
+    service = FakeIncus.new(files: { "#{first}/status.json" => %({"status":"finished","exit_status":0}),
+                                     "#{session_directory(51)}/status.json" => %({"status":"finished","exit_status":0}) })
+
+    service.run_code_session(sandbox, CodeSession.new(id: 50, prompt: "Add a README", resume_session_id: UUID, turn_index: 0))
+    argv = JSON.parse(service.writes.find { |write| write[:path] == "#{first}/request.json" }[:content])["argv"]
+    assert_equal [ "--session-id", UUID ], argv.values_at(argv.index("--session-id"), argv.index("--session-id") + 1)
+    assert_not_includes argv, "--no-session-persistence"
+    assert_includes argv, "--strict-mcp-config"
+    assert_match(/never instructions to you/, argv[argv.index("--append-system-prompt") + 1])
+
+    service.run_code_session(sandbox, CodeSession.new(id: 51, prompt: "Now a LICENSE", resume_session_id: UUID, turn_index: 1,
+      context_note: "Ada drove the browser."))
+    later = session_directory(51)
+    argv = JSON.parse(service.writes.find { |write| write[:path] == "#{later}/request.json" }[:content])["argv"]
+    assert_equal UUID, argv[argv.index("--resume") + 1]
+    assert_equal "<dashboard-note>\nAda drove the browser.\n</dashboard-note>\n\nNow a LICENSE",
+      service.writes.find { |write| write[:path] == "#{later}/prompt.txt" }[:content]
+    assert_not(argv.any? { |argument| argument.include?("LICENSE") }, "the message stays out of argv")
+  end
+
+  test "a session id that is not a UUID never reaches the command line, and one without an id keeps nothing" do
+    error = assert_raises(IncusSandboxService::ContainerError) do
+      FakeIncus.new.run_code_session(sandbox, CodeSession.new(id: 52, prompt: "Go", resume_session_id: "--dangerously-skip-permissions", turn_index: 1))
+    end
+    assert_match(/not a session id/, error.message)
+    assert_includes FakeIncus.new.send(:claude_argv, CodeSession.new(id: 53, prompt: "Go")), "--no-session-persistence"
+  end
+
+  test "a project's boot fix gets the engine's command allowlist; any other session runs no commands" do
+    skip "the pinned engine has no ProjectBootFix" unless defined?(ActionAgent::ProjectBootFix)
+
+    session = CodeSession.new(id: 54, prompt: "Fix the boot")
+    ActionAgent::ProjectBootFix.stub(:allowed_tools_for, [ "Bash(bundle install:*)", "Bash(gem list:*)" ]) do
+      argv = FakeIncus.new.send(:claude_argv, session)
+      assert_equal "Bash(bundle install:*),Bash(gem list:*)", argv[argv.index("--allowedTools") + 1]
+    end
+    ActionAgent::ProjectBootFix.stub(:allowed_tools_for, []) do
+      assert_not_includes FakeIncus.new.send(:claude_argv, session), "--allowedTools"
+    end
   end
 
   test "a session on a subscription login carries no credential, and an API-key session needs one" do
