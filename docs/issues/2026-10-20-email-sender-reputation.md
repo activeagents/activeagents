@@ -62,7 +62,10 @@ while the site still sends mail nobody asked for.
 
 Then clean the list: bot-created users (unverified ones, and the verified
 ones that corporate link scanners clicked) should not get any further
-mail, and their addresses should not sit in the Resend Users audience.
+mail. Findings and the exact commands:
+[2026-10-20-resend-list-cleanup.md](2026-10-20-resend-list-cleanup.md).
+The bot reached the database (344 users since Oct 17), not Resend; the
+Resend segments only need six test contacts removed.
 
 ### 2. Send from the real domain, authenticated (next)
 
