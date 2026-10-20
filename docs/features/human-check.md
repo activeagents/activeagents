@@ -87,7 +87,7 @@ theirs. One warning was ours: api.js was loaded with
 `onload=onloadTurnstileCallback`, a global the controller only defined when
 it connected, which an async loader usually beat. Harmless, since the
 controller then found `window.turnstile` and rendered anyway; fixed for
-1.9.3 on `fix/turnstile-onload` by dropping the parameter and waiting on
+1.9.3 in [#190](https://github.com/activeagents/activeagents/pull/190) by dropping the parameter and waiting on
 the script element's `load` event instead.
 
 The refusal has the same shape as the actions' own errors: JSON
