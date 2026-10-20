@@ -129,6 +129,13 @@ class HumanCheckTest < ActionDispatch::IntegrationTest
     end
   end
 
+  test "the Turnstile loader renders explicitly and names no onload callback" do
+    params = URI.decode_www_form(URI(HumanCheckHelper::TURNSTILE_SCRIPT_URL).query).to_h
+    assert_equal "explicit", params["render"]
+    assert_nil params["onload"],
+      "api.js warns when the named onload callback is not defined before it runs; the controller waits on the script's load event instead"
+  end
+
   test "the registration page carries the honeypot and, with Turnstile on, the widget and its loader" do
     get "/registration/new"
     assert_response :success
