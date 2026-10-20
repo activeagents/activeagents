@@ -75,7 +75,7 @@
           </div>
 
           <!-- Password -->
-          <% password_optional = @user.github_identity.present? %>
+          <% password_optional = @user.identities.exists? %>
           <div class="border-t border-gray-200 pt-6 mt-6">
             <h3 class="text-lg font-medium text-gray-900 mb-4">
               <%= password_optional ? "Set a password (optional)" : "Set your password" %>

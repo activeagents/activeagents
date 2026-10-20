@@ -172,6 +172,12 @@ module "secrets" {
     github-app-client-secret = {
       description = "Client secret of this environment's GitHub App, for Sign in with GitHub"
     }
+    google-oauth-client-id = {
+      description = "Client ID of this environment's Google OAuth client, for Sign in with Google"
+    }
+    google-oauth-client-secret = {
+      description = "Client secret of this environment's Google OAuth client, for Sign in with Google"
+    }
     github-app-private-key = {
       description = "PEM private key of this environment's GitHub App, for signing App JWTs"
     }
@@ -362,6 +368,10 @@ locals {
     var.enable_github_sign_in ? {
       GITHUB_APP_CLIENT_ID     = module.secrets.secret_ids["github-app-client-id"]
       GITHUB_APP_CLIENT_SECRET = module.secrets.secret_ids["github-app-client-secret"]
+    } : {},
+    var.enable_google_sign_in ? {
+      GOOGLE_CLIENT_ID     = module.secrets.secret_ids["google-oauth-client-id"]
+      GOOGLE_CLIENT_SECRET = module.secrets.secret_ids["google-oauth-client-secret"]
     } : {},
     var.enable_github_app ? {
       GITHUB_APP_PRIVATE_KEY    = module.secrets.secret_ids["github-app-private-key"]

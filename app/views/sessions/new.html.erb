@@ -44,7 +44,7 @@
         </div>
       <% end %>
 
-      <%= render "github_sessions/button", label: "Sign in with GitHub" %>
+      <%= render "sessions/providers", verb: "Sign in" %>
 
       <%= form_with url: session_path, class: "space-y-6" do |form| %>
         <div>

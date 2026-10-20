@@ -59,6 +59,14 @@ variable "enable_github_sign_in" {
   default     = false
 }
 
+# Sign in with Google. Turn on only after both
+# activeagents-production-google-oauth-client-id and -client-secret have a version.
+variable "enable_google_sign_in" {
+  description = "Pass the Google OAuth client ID and secret to the app, which turns on Sign in with Google"
+  type        = bool
+  default     = false
+}
+
 # GitHub App repository access. Turn on only after
 # activeagents-production-github-app-private-key and -webhook-secret have a
 # version, in a committed github_app.auto.tfvars next to this file.
