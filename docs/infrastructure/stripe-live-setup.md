@@ -101,7 +101,54 @@ valid) became version 2 of `activeagents-staging-stripe-api-key`, and
 `we_1USljJE3QRGeeIHkHH3tXeWP` for
 `https://staging.activeagents.ai/pay/webhooks/stripe` (none existed),
 storing its signing secret as version 2 of
-`activeagents-staging-stripe-webhook-secret`. Staging picks both up at its
-next deploy, which creates a new revision; the test-mode Pro prices are
-still `StagingProBilling`'s to set (`stripe:setup_pro`, the deploy's
-`billing` job).
+`activeagents-staging-stripe-webhook-secret`. Staging revision
+`activeagents-staging-00127-xmt` (the deploy of #199) picked both up.
+
+The test-mode Pro prices followed through the existing path: the deploy's
+`billing` job runs `stripe:setup_pro` (`StagingProBilling`) only when the
+repository variable `STRIPE_STAGING_ACCOUNT_ID` is set, and it was empty.
+With it set to `acct_1SyJzXE3QRGeeIHk`, the first dispatched run
+(39512188611, 23:01 UTC) stopped on "Multiple Pro products exist; configure
+explicit price IDs": the test account has three active `ActiveAgent.PRO`
+products with `plan_slug=pro`. The newest one's $99/$995 pair (product
+`prod_UEckyKSdq4SlCp`, 2026-03-29) went into the repository variables
+`STRIPE_PRO_MONTHLY_PRICE_ID` = `price_1TG9UtE3QRGeeIHkX5Nmjyox` and
+`STRIPE_PRO_ANNUAL_PRICE_ID` = `price_1TG9UtE3QRGeeIHknLLzEkg2`, and the
+second run (39513972279, 23:26 UTC) passed: `StagingProBilling` validated
+them and wrote them onto staging's Pro plan row (14-day trial). Staging
+checkout works in test mode again.
+
+## Events: 18 of 19
+
+Pay 7.3 subscribes to `payment_method.card_automatically_updated`, an event
+type Stripe no longer has; Stripe silently drops it from `enabled_events`,
+so both endpoints came back with 18 events. The script's list no longer
+includes it, otherwise every rerun would "add" it again.
+
+## Incident 2026-10-20: the live key was echoed into the operator session
+
+At 23:05 UTC, while checking the endpoint's events from the operator
+session, a command fed the live key and a Python script into the same
+stdin (`gcloud secrets versions access … | python3 - <<'PY'`); Python's
+syntax error echoed the first stdin line, the key, into the session's
+transcript. The key is therefore treated as compromised. Nothing else was
+exposed: the webhook signing secrets and the staging key were not in that
+command.
+
+Remediation, in order:
+
+1. Justin rolls the live secret key in the Stripe dashboard (live mode,
+   Developers → API keys, roll with immediate expiry). Stripe has no API
+   for this. Rolling does not affect endpoints or their signing secrets.
+2. The new key becomes version 4 of `activeagents-production-stripe-api-key`
+   (`read -s V; printf '%s' "$V" | gcloud secrets versions add … --data-file=-`).
+3. Versions 2 and 3 are disabled (`gcloud secrets versions disable`), so
+   nothing can resolve to the exposed value.
+4. **Deploy to Production** is dispatched so a new revision starts with the
+   new version, and a runner on the migrate job confirms Pay reports
+   `livemode=true` for the same account, printing only the key's prefix.
+
+Rule going forward, now in the operator's notes as well: a piped secret is
+only ever consumed by a script *file* (`python3 -I probe.py`), never by an
+interpreter reading its program from stdin, and probes print prefixes and
+booleans only.

@@ -57,15 +57,18 @@ PRICES = {
   monthly: { amount: 9900, interval: "month", variable: "stripe_pro_monthly_price_id" },
   annual: { amount: 99_500, interval: "year", variable: "stripe_pro_annual_price_id" }
 }.freeze
-# Every event Pay 7.3 subscribes to (lib/pay/stripe.rb, configure_webhooks).
+# Every event Pay 7.3 subscribes to (lib/pay/stripe.rb, configure_webhooks),
+# except payment_method.card_automatically_updated: Stripe no longer has that
+# event type and silently drops it from enabled_events (the endpoints created
+# on 2026-10-20 came back with 18 of the 19 names), so listing it would make
+# every rerun "add" it again.
 PAY_EVENTS = %w[
   charge.succeeded charge.refunded payment_intent.succeeded
   invoice.upcoming invoice.payment_action_required invoice.payment_failed
   customer.subscription.created customer.subscription.updated
   customer.subscription.deleted customer.subscription.trial_will_end
   customer.updated customer.deleted
-  payment_method.attached payment_method.updated
-  payment_method.card_automatically_updated payment_method.detached
+  payment_method.attached payment_method.updated payment_method.detached
   account.updated
   checkout.session.completed checkout.session.async_payment_succeeded
 ].freeze
