@@ -12,5 +12,5 @@
 # after activeagents-production-turnstile-secret-key has a version (the
 # secret exists once production has applied the Terraform that declares it):
 #   gcloud secrets versions add activeagents-production-turnstile-secret-key --data-file=- --project=active-agents-platform
-# enable_turnstile   = true
-# turnstile_site_key = "0x4AAAAAAA..."
+enable_turnstile   = true
+turnstile_site_key = "0x4AAAAAAFeC_UHGKXcKCgNn"
