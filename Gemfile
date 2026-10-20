@@ -29,12 +29,14 @@ gem "inertia_rails"
 # Code or Codex); 1.8.0 added GitHub connections, checkout sandboxes and
 # Claude Code sessions; 1.7.0 added the evaluation report collector that
 # /v1/evaluations subclasses.
-# 1.9.0 from its release candidate commit (the merge of activeagent#580) until the gems
-# are on rubygems; then "~> 1.9.0" (#162). 1.9 adds Projects, browser sessions,
-# input requests and the GitHub App checkouts the hosted platform builds on.
-gem "activeagent", github: "activeagents/activeagent", ref: "247e5bb4f8395f2d2da4fe83200a3cf28c0aa61c"
+# 1.9.2 from its release candidate (the tip of activeagent's release/1.9.2, PR
+# #604) until the gems are on rubygems; then "~> 1.9.2" (#162). 1.9.1 added
+# interaction feedback (migration 027); 1.9.2 adds the evaluation suite's build
+# page, model comparison with intervals, opt-in scenario fan-out, the judge
+# named after its model, provider streaming fixes and nested has_many schemas.
+gem "activeagent", github: "activeagents/activeagent", ref: "487e94803ed306aa9046d5bfad7225711b189230"
 # Action Agent - the dashboard, a mountable Rails engine, from the same commit.
-gem "actionagent", github: "activeagents/activeagent", ref: "247e5bb4f8395f2d2da4fe83200a3cf28c0aa61c"
+gem "actionagent", github: "activeagents/activeagent", ref: "487e94803ed306aa9046d5bfad7225711b189230"
 # Solid Agent - Persistence and context management for ActiveAgent
 gem "solid_agent", github: "activeagents/solid_agent", branch: "main"
 # RubyLLM - model registry (token pricing data) and unified provider API
