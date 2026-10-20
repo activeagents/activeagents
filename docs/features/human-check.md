@@ -1,6 +1,6 @@
 # Human check on the public forms, and Cloud Armor in front of them
 
-Date: 2026-10-20 · Branch: `fix/bot-signups` · PR: [#180](https://github.com/activeagents/activeagents/pull/180) · Issue: [2026-10-19-signup-bot-email-abuse.md](../issues/2026-10-19-signup-bot-email-abuse.md)
+Date: 2026-10-20 · Branch: `fix/bot-signups` · PR: [#180](https://github.com/activeagents/activeagents/pull/180), merged 2026-10-20 18:12 UTC as `60e456ea`, staging deploy run 39472670052 green · Issue: [2026-10-19-signup-bot-email-abuse.md](../issues/2026-10-19-signup-bot-email-abuse.md)
 
 From 2026-10-17 a subscription-bombing bot POSTed `/registration` on
 activeagents.ai (served by staging) a few hundred times a day from six
@@ -27,11 +27,17 @@ attached to the backend service when `enable_security_policy` is on:
 
 Staging turns it on in the committed
 `terraform/environments/staging/security.auto.tfvars`, with the six bot
-addresses. Production has the variables (default off) and no file yet. The
-rule needs no secret, so it takes effect at the deploy workflow's
-`terraform apply` after merge. Cloud Armor's standard tier bills per policy,
-per rule and per million requests; at this traffic that is a few dollars a
-month.
+addresses. Production's `security.auto.tfvars` has the same lines
+commented; its Cloud Armor waits for the production load balancer
+(`infra/production-full-stack`, host #181). The rule needs no secret, so it
+took effect at the staging deploy's `terraform apply` after the merge:
+since 2026-10-20 18:19 UTC the policy `activeagents-staging-policy` is
+attached to `activeagents-staging-backend` with the six addresses in its
+deny rule and the rate rule at 20 POSTs a minute, checked with
+`gcloud compute security-policies describe`; the public pages still answer
+200 and an empty `POST /registration` gets the app's 422. Cloud Armor's
+standard tier bills per policy, per rule and per million requests; at this
+traffic that is a few dollars a month.
 
 Remove an address from the list once it has been quiet for a month; the
 rate rule stays.
@@ -91,32 +97,49 @@ form) and is committed; the secret only ever goes into Secret Manager.
    widget mode **Managed** (invisible unless a challenge is needed; the
    forms render it with `appearance: interaction-only`, the full
    registration form with `always`). Copy the site key and the secret key.
-2. Merge the change that declares the secrets and let each environment
-   apply it: the staging deploy creates
-   `activeagents-staging-turnstile-secret-key`, the production deploy
-   `activeagents-production-turnstile-secret-key`. A secret created by
-   hand first would collide with Terraform's.
-3. Give each secret a version, from your own terminal so the value stays
-   out of shell history and chat (Cloud Run refuses a revision that reads
-   an empty secret):
+2. Run `bin/turnstile-keys` ([#185](https://github.com/activeagents/activeagents/pull/185)) from your own terminal, not through a chat
+   session, so the secret stays out of transcripts and shell history. It
+   asks for two pastes, the site key first and the secret second (not
+   echoed), checks both look like Turnstile keys, and then:
+   - adds the secret as a new version of each environment's
+     `activeagents-<env>-turnstile-secret-key`. Staging's secret exists
+     since the deploy of #180. Production's does not exist until
+     production applies the Terraform that declares it, so the script
+     creates it with the labels the `secret-manager` module sets and adds
+     an `import` block to `terraform/environments/production/imports.tf`,
+     the pattern already used there for the Resend secrets, so the next
+     production apply adopts it instead of failing with a 409;
+   - sets `enable_turnstile = true` and the site key in both
+     `security.auto.tfvars`, commits that (plus the import block) on
+     `chore/turnstile-keys` cut from `origin/main` in a temporary worktree,
+     pushes, and opens the pull request.
 
-   ```sh
-   read -s TURNSTILE_SECRET
-   for env in staging production; do
-     printf '%s' "$TURNSTILE_SECRET" | gcloud secrets versions add "activeagents-$env-turnstile-secret-key" --data-file=- --project=active-agents-platform
-   done
-   unset TURNSTILE_SECRET
-   ```
-
-4. In each environment's `security.auto.tfvars` set `enable_turnstile = true`
-   and `turnstile_site_key = "<site key>"`, commit, and let the deploy
-   workflow apply it. The root output `turnstile_site_key` refuses the flag
-   without a site key. Production's file exists with the lines commented;
-   its Cloud Armor lines wait for the production load balancer
-   (`infra/production-full-stack`).
-5. Check: `https://activeagents.ai/registration/new` shows the widget;
+   `bin/turnstile-keys --dry-run` prints the plan and the diff and stores,
+   creates, commits and pushes nothing. If staging's secret is missing
+   while a staging deploy is still running, the script stops and asks for
+   a re-run after the deploy, because that apply creates the secret.
+3. Merge the pull request. The staging deploy applies it; production
+   picks it up at its next deploy. The root output `turnstile_site_key`
+   refuses the flag without a site key.
+4. Check: `https://activeagents.ai/registration/new` shows the widget;
    a POST without a token to `/registration` gets 422; a real signup goes
    through. Cloudflare's Turnstile analytics show solves and failures.
+
+By hand instead of the script: add the versions from your terminal
+
+```sh
+read -s TURNSTILE_SECRET
+for env in staging production; do
+  printf '%s' "$TURNSTILE_SECRET" | gcloud secrets versions add "activeagents-$env-turnstile-secret-key" --data-file=- --project=active-agents-platform
+done
+unset TURNSTILE_SECRET
+```
+
+(a missing secret first needs `gcloud secrets create <name>
+--replication-policy=automatic` and an import block like production's
+`imports.tf`), then set `enable_turnstile = true` and
+`turnstile_site_key = "<site key>"` in each environment's
+`security.auto.tfvars` and commit.
 
 Local development: export the two variables (Cloudflare's test keys
 `1x00000000000000000000AA` / `1x0000000000000000000000000000000AA` always

@@ -1,6 +1,9 @@
 # Signup bot is sending verification emails to people who never signed up (2026-10-19)
 
-Status (2026-10-20): fix in [#180](https://github.com/activeagents/activeagents/pull/180), `fix/bot-signups` ([human-check.md](../features/human-check.md));
+Status (2026-10-20): fix in [#180](https://github.com/activeagents/activeagents/pull/180), `fix/bot-signups`, merged 18:12 UTC; Cloud Armor has been
+live on staging's load balancer since 18:19 UTC ([human-check.md](../features/human-check.md)). Turnstile
+waits for the widget's keys: `bin/turnstile-keys` ([#185](https://github.com/activeagents/activeagents/pull/185)). The bot-created users are
+cleaned up per [2026-10-20-resend-list-cleanup.md](2026-10-20-resend-list-cleanup.md);
 the sender reputation it cost is tracked in
 [2026-10-20-email-sender-reputation.md](2026-10-20-email-sender-reputation.md).
 
@@ -90,7 +93,7 @@ graphql, cgi-bin traversal, ignition).
 3. Rate-limit per recipient email, and send at most one verification per address per day.
    → same branch: one resend per address per ten minutes on the landing-page path.
 4. Remove the bot-created unverified users. Check Resend's suppression and complaint lists.
-   → open. Resend's suppression list holds one complaint (a Comcast address, Oct 19) and
+   → commands prepared in [2026-10-20-resend-list-cleanup.md](2026-10-20-resend-list-cleanup.md). Resend's suppression list holds one complaint (a Comcast address, Oct 19) and
    one old bounce; Gmail complaints are not reported back.
 5. Separately: decide whether activeagents.ai should point at production, and whether
    staging should send real email at all. → open; see the reputation doc.
