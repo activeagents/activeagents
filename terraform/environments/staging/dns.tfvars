@@ -95,6 +95,17 @@ additional_txt_records = [
   {
     name  = "send.staging"
     value = "v=spf1 include:amazonses.com ~all"
+  },
+  # Resend activeagents.ai (production sender, hello@activeagents.ai) DKIM
+  # record. Domain added in Resend 2026-10-20; verify there once applied.
+  {
+    name  = "resend._domainkey"
+    value = "p=MIGfMA0GCSqGSIb3DQEBAQUAA4GNADCBiQKBgQDDfCOFSylIFueKjWofjHU/UMke492MMdk4VotbeIEvQdwX58fUn08SwFII6e/5keq6wMipcpQ5ybDuSPavMCQKQEQyPKmiFOPXm+WTSR2aIPx4+oLSsn+oWOAEL58oZ9kxGjsWYoKf3Zu2kW23J6N4DaE5z5f+B7hTBNrgFd0K1QIDAQAB"
+  },
+  # Resend activeagents.ai SPF record (Return-Path subdomain)
+  {
+    name  = "send"
+    value = "v=spf1 include:amazonses.com ~all"
   }
 ]
 
@@ -112,6 +123,11 @@ subdomain_mx_records = [
   {
     name   = "send.staging"
     values = ["10 feedback-smtp.us-east-1.amazonses.com."]
+  },
+  # Resend activeagents.ai
+  {
+    name   = "send"
+    values = ["10 feedback-smtp.us-east-1.amazonses.com."]
   }
 ]
 
@@ -128,5 +144,10 @@ additional_cname_records = [
   {
     name  = "dn5ndiapkeqyfssjzcxnrnm2nszh32gm._domainkey.dev"
     value = "dn5ndiapkeqyfssjzcxnrnm2nszh32gm.dkim.amazonses.com"
+  },
+  # Resend activeagents.ai relay record
+  {
+    name  = "rsend"
+    value = "send.forge.rmta.net"
   }
 ]
