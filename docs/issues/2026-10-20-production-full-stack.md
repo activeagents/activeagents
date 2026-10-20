@@ -84,9 +84,9 @@ deliberately narrow), hence `-refresh=false` for the check.
    bump (`chore/activeagent-1.9.2`) is on `main`; note `lb_ip_address`.
 3. The pre-cutover checklist in the runbook: Resend verifies
    `activeagents.ai`; live Stripe keys confirmed and the live Pro prices
-   committed in `billing.auto.tfvars`; `db:seed`; decide on the data
-   (migrate the staging database, with staging's encryption keys, or start
-   empty); an admin user.
+   committed in `billing.auto.tfvars`; `db:seed`; the data (decided
+   2026-10-20: production starts empty, no copy from staging); an admin
+   user (done 2026-10-20).
 4. Cutover: `public_lb_ip` in staging's `dns.tfvars`, deploy staging,
    verify, deploy production again.
 5. Phase 2 certificates; update `docs/issues/2026-10-20-combinaut-pro-pilot.md`
@@ -104,7 +104,10 @@ deliberately narrow), hence `-refresh=false` for the check.
 #181 merged, #193 adopted the pre-existing NEG and backend service, the
 second production deploy (run 39492120223) completed, and the load balancer
 at 34.120.184.132 serves `activeagents.ai` and `api.activeagents.ai` by IP.
-Plans seeded. Still before the cutover: live Stripe (the production key is
-a test-mode placeholder), Resend's root domain records, the data decision,
-an admin. See the status at the top of
+Plans seeded; the admin login exists; Justin decided the same evening that
+nothing is copied from staging ("we don't need to copy staging data to
+production") and that live Stripe is set up together next. Resend's root
+domain records are on `main` (#195). Still before the cutover: live Stripe
+(the production key is a test-mode placeholder) and the Resend
+verification. See the status at the top of
 [production-environment.md](../infrastructure/production-environment.md).
