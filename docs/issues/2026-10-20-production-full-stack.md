@@ -106,8 +106,10 @@ second production deploy (run 39492120223) completed, and the load balancer
 at 34.120.184.132 serves `activeagents.ai` and `api.activeagents.ai` by IP.
 Plans seeded; the admin login exists; Justin decided the same evening that
 nothing is copied from staging ("we don't need to copy staging data to
-production") and that live Stripe is set up together next. Resend's root
-domain records are on `main` (#195). Still before the cutover: live Stripe
-(the production key is a test-mode placeholder) and the Resend
-verification. See the status at the top of
+production") and that live Stripe is set up together next. Later that
+evening production moved to the 1.9.2 build (revision `00008-wtr`, 21:21
+UTC, after #196 fixed the no-op redeploy) and Resend verified the root
+domain (~21:55 UTC, records from #195). Still before the cutover: live
+Stripe (the production key is a test-mode placeholder). See the status at
+the top of
 [production-environment.md](../infrastructure/production-environment.md).
