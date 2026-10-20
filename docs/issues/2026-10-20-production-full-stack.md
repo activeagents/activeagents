@@ -1,6 +1,6 @@
 # A real production environment: load balancer, DNS switch, the full Terraform stack
 
-Date: 2026-10-20 · Status: branch `infra/production-full-stack`, PR pending · Owner: Justin
+Date: 2026-10-20 · Status: draft PR [#181](https://github.com/activeagents/activeagents/pull/181) (`infra/production-full-stack`), to deploy with the 1.9.2 release · Owner: Justin
 
 ## Ask
 
@@ -95,3 +95,4 @@ deliberately narrow), hence `-refresh=false` for the check.
 ## Log
 
 - 2026-10-20 17:00–18:10 UTC: branch written and verified as above.
+- 2026-10-20 18:20 UTC: draft PR #181 opened; Terraform CI runs on it.
