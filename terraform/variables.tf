@@ -243,6 +243,49 @@ variable "alias_domains" {
   default     = []
 }
 
+# -- Public signup protection -----------------------------------------------
+# docs/features/human-check.md. Cloud Armor sits in front of the load
+# balancer; Turnstile checks the forms in the app.
+
+variable "enable_security_policy" {
+  description = "Attach a Cloud Armor policy to the load balancer: blocked_source_ranges are refused, and an address that POSTs to /registration or /newsletter_subscription more than signup_rate_limit allows is banned for a while. Needs enable_load_balancer."
+  type        = bool
+  default     = false
+}
+
+variable "blocked_source_ranges" {
+  description = "Addresses or CIDR ranges the load balancer refuses outright. Committed per environment."
+  type        = list(string)
+  default     = []
+
+  validation {
+    condition     = alltrue([for range in var.blocked_source_ranges : can(cidrhost(range, 0))])
+    error_message = "Each entry of blocked_source_ranges is an IPv4 or IPv6 CIDR range, such as 203.0.113.7/32."
+  }
+}
+
+variable "signup_rate_limit" {
+  description = "POSTs to the signup endpoints one address may make per interval_sec before Cloud Armor bans it for ban_duration_sec."
+  type = object({
+    count            = optional(number, 20)
+    interval_sec     = optional(number, 60)
+    ban_duration_sec = optional(number, 600)
+  })
+  default = {}
+}
+
+variable "enable_turnstile" {
+  description = "Pass this environment's Cloudflare Turnstile keys to the app as TURNSTILE_SITE_KEY (from turnstile_site_key) and TURNSTILE_SECRET_KEY (Secret Manager), which turns on the Turnstile check on the signup and newsletter forms. Add a version to activeagents-<env>-turnstile-secret-key first."
+  type        = bool
+  default     = false
+}
+
+variable "turnstile_site_key" {
+  description = "Site key of this environment's Turnstile widget. Public (it is rendered into every form); committed per environment."
+  type        = string
+  default     = ""
+}
+
 # -- Sign in with GitHub ----------------------------------------------------
 
 variable "enable_github_sign_in" {

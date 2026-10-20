@@ -40,6 +40,14 @@ module "activeagents" {
   # Database configuration (production-scale)
   database_tier = "db-custom-2-4096" # 2 vCPUs, 4GB RAM
 
+  # Public signup protection: Cloud Armor in front of the load balancer and
+  # Cloudflare Turnstile on the forms (docs/features/human-check.md).
+  enable_security_policy = var.enable_security_policy
+  blocked_source_ranges  = var.blocked_source_ranges
+  signup_rate_limit      = var.signup_rate_limit
+  enable_turnstile       = var.enable_turnstile
+  turnstile_site_key     = var.turnstile_site_key
+
   # Sign in with GitHub, through this environment's GitHub App
   enable_github_sign_in = var.enable_github_sign_in
 

@@ -33,3 +33,9 @@ application.register("email-verification", EmailVerificationController)
 
 import NewsletterController from "./newsletter_controller"
 application.register("newsletter", NewsletterController)
+
+import SignupController from "./signup_controller"
+application.register("signup", SignupController)
+
+import TurnstileController from "./turnstile_controller"
+application.register("turnstile", TurnstileController)

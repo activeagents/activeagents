@@ -54,5 +54,40 @@ variable "enable_http_redirect" {
   default     = true
 }
 
+# -- Cloud Armor ------------------------------------------------------------
+
+variable "enable_security_policy" {
+  description = "Attach a Cloud Armor policy to the backend service: blocked_source_ranges are refused with 403, and an address that POSTs to rate_limited_paths more than signup_rate_limit allows is banned for a while."
+  type        = bool
+  default     = false
+}
+
+variable "blocked_source_ranges" {
+  description = "Source addresses or CIDR ranges refused outright (e.g. a subscription-bombing bot's addresses). Cloud Armor allows ten per rule; longer lists become several rules."
+  type        = list(string)
+  default     = []
+}
+
+variable "rate_limited_paths" {
+  description = "Request paths whose POSTs count toward the rate-based ban. At most four: a Cloud Armor expression holds five sub-expressions, and the method check is one."
+  type        = list(string)
+  default     = ["/registration", "/newsletter_subscription"]
+
+  validation {
+    condition     = length(var.rate_limited_paths) <= 4 && alltrue([for path in var.rate_limited_paths : can(regex("^/[A-Za-z0-9_./-]*$", path))])
+    error_message = "rate_limited_paths holds at most four plain paths starting with /."
+  }
+}
+
+variable "signup_rate_limit" {
+  description = "POSTs to rate_limited_paths one address may make per interval before it is banned for ban_duration_sec."
+  type = object({
+    count            = optional(number, 20)
+    interval_sec     = optional(number, 60)
+    ban_duration_sec = optional(number, 600)
+  })
+  default = {}
+}
+
 # NOTE: IAP is configured manually via gcloud commands (APIs are deprecated)
 # See comments at top of main.tf for instructions

@@ -138,3 +138,23 @@ output "recordings_signer_email" {
   description = "Service account that signs recording download URLs"
   value       = google_service_account.recordings_signer.email
 }
+
+output "security_policy" {
+  description = "Name of the Cloud Armor policy on the load balancer, or null while enable_security_policy is off"
+  value       = var.enable_security_policy && var.enable_load_balancer ? module.load_balancer[0].security_policy_name : null
+
+  precondition {
+    condition     = !var.enable_security_policy || var.enable_load_balancer
+    error_message = "enable_security_policy needs enable_load_balancer: the policy attaches to the load balancer's backend service."
+  }
+}
+
+output "turnstile_site_key" {
+  description = "Site key the app renders into its forms, or null while enable_turnstile is off"
+  value       = var.enable_turnstile ? var.turnstile_site_key : null
+
+  precondition {
+    condition     = !var.enable_turnstile || var.turnstile_site_key != ""
+    error_message = "enable_turnstile needs turnstile_site_key, committed in the environment's security.auto.tfvars."
+  }
+}
