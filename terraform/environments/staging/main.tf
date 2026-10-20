@@ -123,8 +123,10 @@ module "activeagents" {
   enable_turnstile       = var.enable_turnstile
   turnstile_site_key     = var.turnstile_site_key
 
-  # Sign in with GitHub, through this environment's GitHub App
+  # Sign in with GitHub, through this environment's GitHub App, and Sign in
+  # with Google, through its OAuth client
   enable_github_sign_in = var.enable_github_sign_in
+  enable_google_sign_in = var.enable_google_sign_in
 
   # GitHub App repository access, encryption keys and recordings storage.
   # Each flag stays off until docs/infrastructure/gcp-cicd-setup.md says to

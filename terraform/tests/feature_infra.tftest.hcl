@@ -53,6 +53,8 @@ run "defaults_pass_nothing_new_to_cloud_run" {
         "github-app-client-secret",
         "github-app-private-key",
         "github-app-webhook-secret",
+        "google-oauth-client-id",
+        "google-oauth-client-secret",
         "active-record-encryption-primary-key",
         "active-record-encryption-deterministic-key",
         "active-record-encryption-key-derivation-salt",
@@ -446,6 +448,7 @@ run "flags_pass_their_variables" {
 
   variables {
     enable_github_sign_in                = true
+    enable_google_sign_in                = true
     enable_github_app                    = true
     github_app_id                        = "123456"
     github_app_slug                      = "activeagents-staging"
@@ -457,6 +460,8 @@ run "flags_pass_their_variables" {
     condition = alltrue([
       local.cloud_run_secret_env_vars["GITHUB_APP_CLIENT_ID"] == "activeagents-staging-github-app-client-id",
       local.cloud_run_secret_env_vars["GITHUB_APP_CLIENT_SECRET"] == "activeagents-staging-github-app-client-secret",
+      local.cloud_run_secret_env_vars["GOOGLE_CLIENT_ID"] == "activeagents-staging-google-oauth-client-id",
+      local.cloud_run_secret_env_vars["GOOGLE_CLIENT_SECRET"] == "activeagents-staging-google-oauth-client-secret",
       local.cloud_run_secret_env_vars["GITHUB_APP_PRIVATE_KEY"] == "activeagents-staging-github-app-private-key",
       local.cloud_run_secret_env_vars["GITHUB_APP_WEBHOOK_SECRET"] == "activeagents-staging-github-app-webhook-secret",
       local.cloud_run_secret_env_vars["ACTIVE_RECORD_ENCRYPTION_PRIMARY_KEY"] == "activeagents-staging-active-record-encryption-primary-key",
@@ -478,6 +483,28 @@ run "flags_pass_their_variables" {
   assert {
     condition     = output.github_app_install_url == "https://github.com/apps/activeagents-staging/installations/new"
     error_message = "The install URL must use the App's slug."
+  }
+}
+
+run "google_sign_in_passes_only_its_own_secrets" {
+  command = plan
+
+  variables {
+    enable_google_sign_in = true
+  }
+
+  assert {
+    condition = toset(keys(local.cloud_run_secret_env_vars)) == toset([
+      "DB_PASSWORD",
+      "RAILS_MASTER_KEY",
+      "RESEND_API_KEY",
+      "RESEND_AUDIENCE_ID",
+      "STRIPE_API_KEY",
+      "STRIPE_WEBHOOK_SECRET",
+      "GOOGLE_CLIENT_ID",
+      "GOOGLE_CLIENT_SECRET",
+    ])
+    error_message = "Sign in with Google must add exactly GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET, and no GitHub secret."
   }
 }
 

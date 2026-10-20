@@ -5,6 +5,7 @@ class User < ApplicationRecord
   has_many :sessions, dependent: :destroy
   has_many :identities, class_name: "UserIdentity", dependent: :destroy
   has_one :github_identity, -> { where(provider: "github") }, class_name: "UserIdentity", inverse_of: :user
+  has_one :google_identity, -> { where(provider: "google") }, class_name: "UserIdentity", inverse_of: :user
   # Lives in the dashboard engine now, so the association names it explicitly:
   # Rails resolves a bare :agents to a class literally named Agent, and the
   # app-level constant is an alias rather than a class of its own.
@@ -24,7 +25,7 @@ class User < ApplicationRecord
   before_create :generate_email_verification_token, unless: :email_verified?
 
   # Marks the password as one the person chose, so an account created through
-  # GitHub knows when it gains a second way to sign in.
+  # GitHub or Google knows when it gains a second way to sign in.
   def password=(value)
     super
     self.password_set = true if password_digest_changed?
@@ -35,6 +36,12 @@ class User < ApplicationRecord
   def assign_random_password
     self.password = SecureRandom.base58(32)
     self.password_set = false
+  end
+
+  # Whether the person could still sign in once `identity` is disconnected:
+  # with a password they chose, or through another connected provider.
+  def signs_in_without?(identity)
+    password_set? || identities.where.not(id: identity.id).exists?
   end
 
   # Saves the user together with the workspace they own, as every signup does.

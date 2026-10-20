@@ -294,6 +294,14 @@ variable "enable_github_sign_in" {
   default     = false
 }
 
+# -- Sign in with Google ----------------------------------------------------
+
+variable "enable_google_sign_in" {
+  description = "Pass this environment's Google OAuth client ID and secret to the app as GOOGLE_CLIENT_ID/SECRET, which turns on Sign in with Google. Add a version to activeagents-<env>-google-oauth-client-id and -client-secret first."
+  type        = bool
+  default     = false
+}
+
 # -- GitHub App repository access -------------------------------------------
 
 variable "enable_github_app" {
