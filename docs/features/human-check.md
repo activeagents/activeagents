@@ -97,7 +97,7 @@ form) and is committed; the secret only ever goes into Secret Manager.
    widget mode **Managed** (invisible unless a challenge is needed; the
    forms render it with `appearance: interaction-only`, the full
    registration form with `always`). Copy the site key and the secret key.
-2. Run `bin/turnstile-keys` from your own terminal, not through a chat
+2. Run `bin/turnstile-keys` ([#185](https://github.com/activeagents/activeagents/pull/185)) from your own terminal, not through a chat
    session, so the secret stays out of transcripts and shell history. It
    asks for two pastes, the site key first and the secret second (not
    echoed), checks both look like Turnstile keys, and then:

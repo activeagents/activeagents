@@ -2,7 +2,7 @@
 
 Status (2026-10-20): fix in [#180](https://github.com/activeagents/activeagents/pull/180), `fix/bot-signups`, merged 18:12 UTC; Cloud Armor has been
 live on staging's load balancer since 18:19 UTC ([human-check.md](../features/human-check.md)). Turnstile
-waits for the widget's keys: `bin/turnstile-keys`. The bot-created users are
+waits for the widget's keys: `bin/turnstile-keys` ([#185](https://github.com/activeagents/activeagents/pull/185)). The bot-created users are
 cleaned up per [2026-10-20-resend-list-cleanup.md](2026-10-20-resend-list-cleanup.md);
 the sender reputation it cost is tracked in
 [2026-10-20-email-sender-reputation.md](2026-10-20-email-sender-reputation.md).
