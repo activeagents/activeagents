@@ -2,7 +2,7 @@
 
 ## Overview
 
-The ActiveAgents staging environment uses an external HTTPS Load Balancer to provide public access to Cloud Run services. This bypasses GCP organization policy restrictions that block `allUsers` and `allAuthenticatedUsers` IAM bindings on Cloud Run.
+Both environments use an external HTTPS Load Balancer to provide public access to their Cloud Run service. This bypasses GCP organization policy restrictions that block `allUsers` and `allAuthenticatedUsers` IAM bindings on Cloud Run. Staging's answers for `staging.activeagents.ai`; production's is the one `activeagents.ai` moves to (see [production-environment.md](production-environment.md)).
 
 ## Architecture
 
@@ -49,7 +49,12 @@ Routes all traffic to the backend service.
 |----------|-------------|---------|
 | `enable_load_balancer` | Enable external load balancer | `false` |
 | `lb_domain` | Custom domain for SSL certificate | `null` |
+| `lb_existing_ssl_cert_name` | Serve a certificate that already exists instead of issuing one | `null` |
+| `lb_additional_existing_ssl_cert_names` | Further existing certificates the proxy also serves (shared with the other environment's load balancer, so a hostname can move with no provisioning gap) | `[]` |
+| `lb_extra_managed_domains` | Domains that each get their own managed certificate | `[]` |
 | `enable_cdn` | Enable Cloud CDN caching | `true` |
+
+A Google-managed certificate keeps renewing while every domain on it resolves to a load balancer that serves it, and the same certificate can be attached to more than one HTTPS proxy. That is what lets production serve `activeagents-all-domains-cert` and staging's per-domain certificates during and after the cutover.
 
 ### Staging Environment
 

@@ -36,6 +36,12 @@ variable "existing_ssl_cert_name" {
   default     = null
 }
 
+variable "additional_existing_ssl_cert_names" {
+  description = "Names of certificates that already exist in the project and that this proxy serves alongside existing_ssl_cert_name, such as per-domain managed certificates another environment's load balancer issued. A managed certificate stays valid and renews while every domain it covers resolves to a load balancer that serves it, so sharing one lets a second load balancer take a hostname over without a provisioning gap."
+  type        = list(string)
+  default     = []
+}
+
 variable "extra_managed_domains" {
   description = "Domains that each get their own managed SSL certificate attached alongside the primary/existing certificate (e.g., api subdomain or alias domains added after the original cert was issued). Per-domain certs mean an undelegated domain never blocks the others."
   type        = list(string)
