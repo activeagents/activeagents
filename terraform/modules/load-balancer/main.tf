@@ -177,6 +177,14 @@ data "google_compute_ssl_certificate" "existing" {
   name    = var.existing_ssl_cert_name
 }
 
+# Certificates issued elsewhere that this proxy also serves (see the
+# variable). Read by name, never created or destroyed here.
+data "google_compute_ssl_certificate" "additional_existing" {
+  for_each = toset(var.additional_existing_ssl_cert_names)
+  project  = var.project_id
+  name     = each.value
+}
+
 # Local to determine which cert(s) to use
 locals {
   ssl_certificate_id = var.existing_ssl_cert_name != null ? data.google_compute_ssl_certificate.existing[0].id : (
@@ -184,9 +192,10 @@ locals {
   )
   ssl_certificate_ids = concat(
     local.ssl_certificate_id != null ? [local.ssl_certificate_id] : [],
+    [for name in var.additional_existing_ssl_cert_names : data.google_compute_ssl_certificate.additional_existing[name].id],
     [for cert in google_compute_managed_ssl_certificate.extra : cert.id]
   )
-  https_enabled = var.domain != null || var.existing_ssl_cert_name != null || length(var.extra_managed_domains) > 0
+  https_enabled = var.domain != null || var.existing_ssl_cert_name != null || length(var.additional_existing_ssl_cert_names) > 0 || length(var.extra_managed_domains) > 0
 }
 
 # HTTPS proxy (only when a certificate is configured)
