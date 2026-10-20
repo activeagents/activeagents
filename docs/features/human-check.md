@@ -1,6 +1,6 @@
 # Human check on the public forms, and Cloud Armor in front of them
 
-Date: 2026-10-20 · Branch: `fix/bot-signups` · PR: [#180](https://github.com/activeagents/activeagents/pull/180), merged 2026-10-20 18:12 UTC as `60e456ea`, staging deploy run 39472670052 green · Issue: [2026-10-19-signup-bot-email-abuse.md](../issues/2026-10-19-signup-bot-email-abuse.md)
+Date: 2026-10-20 · Branch: `fix/bot-signups` · PR: [#180](https://github.com/activeagents/activeagents/pull/180), merged 2026-10-20 18:12 UTC as `60e456ea`, staging deploy run 39472670052 green · Turnstile on since 2026-10-20 19:03 UTC via [#187](https://github.com/activeagents/activeagents/pull/187) (deploy run 39478473284) · Issue: [2026-10-19-signup-bot-email-abuse.md](../issues/2026-10-19-signup-bot-email-abuse.md)
 
 From 2026-10-17 a subscription-bombing bot POSTed `/registration` on
 activeagents.ai (served by staging) a few hundred times a day from six
@@ -70,6 +70,20 @@ configuration, so it protects every deployment, including local ones.
 
 Without the keys, Turnstile is off, nothing third-party loads, and only the
 honeypot applies.
+
+Live since 2026-10-20 19:03 UTC on activeagents.ai (served by staging):
+Justin ran `bin/turnstile-keys` at 18:49 UTC, #187 merged at 18:58 UTC and
+deploy run 39478473284 applied it. Checked at 19:08 UTC: the registration
+page serves the loader and the site key with the honeypot still present,
+and in a headless Chromium the widget rendered its "Success!" state and
+wrote a 730-character token into `cf-turnstile-response` without a
+challenge (screenshot in the gitignored
+`tmp/screenshots/2026-10-20-turnstile-live/01-registration-new.png`).
+Cloudflare's own iframe logs CSP and WebGPU noise to the console; that is
+theirs. One warning is ours: api.js is loaded with
+`onload=onloadTurnstileCallback` and no such global exists, since the
+Stimulus controller renders explicitly once `window.turnstile` is there.
+Harmless; defining the callback or dropping the parameter would silence it.
 
 The refusal has the same shape as the actions' own errors: JSON
 `{ "error": "We couldn't confirm you're a person. Please try again." }` for
