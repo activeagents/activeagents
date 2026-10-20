@@ -118,42 +118,44 @@
         <span class="lp-right">+3 passed vs #11</span>
       </div>
       <div class="lp-pane-body">
-        <table class="lp-matrix">
-          <thead>
-            <tr>
-              <th>Scenario</th>
-              <th>claude-sonnet-4-5 <span class="lp-badge info">judge's pick</span></th>
-              <th>ollama/qwen3:8b</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr>
-              <td>Passed</td>
-              <td><span class="lp-passbar"><i style="--pct: 88%"></i>14/16 &middot; 88%</span></td>
-              <td><span class="lp-passbar"><i class="mid" style="--pct: 69%"></i>11/16 &middot; 69%</span></td>
-            </tr>
-            <tr>
-              <td>Cost per run</td>
-              <td>~$0.0243 <span class="lp-muted">&middot; judge ~$0.0015</span></td>
-              <td>~$0.0000</td>
-            </tr>
-            <tr>
-              <td>Where is my order 4821? <span class="lp-chip">find_tickets</span></td>
-              <td><span class="g-ok">[+]</span> 0.96 <span class="lp-chip ok">find_tickets</span></td>
-              <td><span class="g-ok">[+]</span> 0.81 <span class="lp-chip ok">find_tickets</span></td>
-            </tr>
-            <tr>
-              <td>Refund my last invoice <span class="lp-chip">refund</span></td>
-              <td><span class="g-err">[!]</span> 0.42 missing_tool</td>
-              <td><span class="g-err">[!]</span> 0.31 missing_tool</td>
-            </tr>
-            <tr>
-              <td>Cancel my subscription</td>
-              <td><span class="g-ok">[+]</span> 0.91</td>
-              <td><span class="g-err">[!]</span> 0.55 ungrounded_answer</td>
-            </tr>
-          </tbody>
-        </table>
+        <div class="lp-table-wrap">
+          <table class="lp-matrix">
+            <thead>
+              <tr>
+                <th>Scenario</th>
+                <th>claude-sonnet-4-5 <span class="lp-badge info">judge's pick</span></th>
+                <th>ollama/qwen3:8b</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>Passed</td>
+                <td><span class="lp-passbar"><i style="--pct: 88%"></i>14/16 &middot; 88%</span></td>
+                <td><span class="lp-passbar"><i class="mid" style="--pct: 69%"></i>11/16 &middot; 69%</span></td>
+              </tr>
+              <tr>
+                <td>Cost per run</td>
+                <td>~$0.0243 <span class="lp-muted">&middot; judge ~$0.0015</span></td>
+                <td>~$0.0000</td>
+              </tr>
+              <tr>
+                <td>Where is my order 4821? <span class="lp-chip">find_tickets</span></td>
+                <td><span class="g-ok">[+]</span> 0.96 <span class="lp-chip ok">find_tickets</span></td>
+                <td><span class="g-ok">[+]</span> 0.81 <span class="lp-chip ok">find_tickets</span></td>
+              </tr>
+              <tr>
+                <td>Refund my last invoice <span class="lp-chip">refund</span></td>
+                <td><span class="g-err">[!]</span> 0.42 missing_tool</td>
+                <td><span class="g-err">[!]</span> 0.31 missing_tool</td>
+              </tr>
+              <tr>
+                <td>Cancel my subscription</td>
+                <td><span class="g-ok">[+]</span> 0.91</td>
+                <td><span class="g-err">[!]</span> 0.55 ungrounded_answer</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
         <div class="lp-fix">
           <div class="lp-fix-head">
             <b>What to fix</b>

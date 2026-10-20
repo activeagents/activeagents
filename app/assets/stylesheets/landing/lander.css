@@ -169,8 +169,12 @@
   text-wrap: balance;
 }
 
+/* Its own box, so that on a phone the second line balances by itself
+   ("See everything / it does.") instead of leaving one word on a line. */
 .lp-hero-copy h1 .lp-accent-line {
+  display: inline-block;
   color: var(--color-accent);
+  text-wrap: balance;
 }
 
 .lp-hero-copy .paragraph {
@@ -1535,6 +1539,10 @@
   margin-top: 8px;
 }
 
+.lp-pane-body .lp-table-wrap {
+  margin-top: 0;
+}
+
 .lp-table {
   width: 100%;
   border-collapse: collapse;
@@ -1785,20 +1793,14 @@
     display: none;
   }
 
-  .lp-install {
-    width: 100%;
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 4px;
-  }
-
   .lp-install code {
     white-space: normal;
     overflow-wrap: anywhere;
   }
 
-  .lp-install .lp-sep {
-    display: none;
+  /* The address and the button each take the full width */
+  .lp-form .button {
+    width: 100%;
   }
 
   .lp-price .lp-amt {

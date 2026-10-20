@@ -14,7 +14,7 @@ export default class extends Controller {
       if (!response.ok) return
       const data = await response.json()
       const count = data.stargazers_count
-      this.countTarget.textContent = this.formatCount(count)
+      this.countTargets.forEach(target => { target.textContent = this.formatCount(count) })
     } catch {
       // Keep the default text on failure
     }

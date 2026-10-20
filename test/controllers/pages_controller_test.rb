@@ -53,4 +53,46 @@ class PagesControllerTest < ActionDispatch::IntegrationTest
     get "/", params: { site: "commercial" }
     assert_match "Pro Platform", response.body
   end
+
+  test "a visitor sees Sign In in the bar and the menu" do
+    get "/"
+
+    assert_response :success
+    assert_select "header .nav-actions a[href='/dashboard']", "Sign In"
+    assert_select "header .nav-menu a[href='/dashboard']", "Sign In"
+    assert_select "header .nav-menu a[href='/registration/new']", "Start Free"
+  end
+
+  test "a signed-in visitor is sent from the root to their dashboard" do
+    user = create_user
+    create_account(owner: user)
+    sign_in_as(user)
+
+    get "/"
+    assert_redirected_to "/dashboard"
+  end
+
+  test "a signed-in visitor whose email is not verified is sent to verify it" do
+    user = User.create!(email_address: "new@example.com", password: "password123")
+    post "/session", params: { email_address: user.email_address, password: "password123" }
+
+    get "/"
+    assert_redirected_to "/pending_verification"
+  end
+
+  test "a signed-in visitor can still look at the lander, where the bar offers the dashboard" do
+    user = create_user
+    create_account(owner: user)
+    sign_in_as(user)
+
+    get "/", params: { site: "commercial" }
+    assert_response :success
+    assert_select "header .nav-actions a[href='/dashboard']", "Dashboard"
+    assert_select "header .nav-menu a[href='/dashboard']", "Go to your dashboard"
+    assert_select "header a", text: "Sign In", count: 0
+
+    get "/", params: { site: "oss" }
+    assert_response :success
+    assert_match "See your agents while you build", response.body
+  end
 end

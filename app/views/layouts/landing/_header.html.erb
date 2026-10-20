@@ -1,4 +1,8 @@
-<header class="nav-container" data-controller="theme-toggle mobile-menu">
+<%# The bar: brand, menu, actions. Below 1057px the menu folds behind the
+    hamburger; below 768px Discord, the stars and the sign-in leave the bar
+    for the menu (.nav-wide hides, .nav-narrow shows). A signed-in visitor
+    gets their dashboard where a visitor gets Sign In. %>
+<header class="nav-container" data-controller="theme-toggle mobile-menu github-stars" data-github-stars-repo-value="activeagents/activeagent">
   <%= link_to "/", class: "nav-brand", style: "display: flex; align-items: center; gap: 8px;" do %>
     <div class="logo-container" style="height: 32px; width: 32px;">
       <img src="/images/activeagent-logo.svg" alt="Active Agent" class="logo-light" style="height: 32px; width: 32px;" />
@@ -19,16 +23,31 @@
       <%= link_to "Pricing", "#pricing", class: "nav-link", data: { action: "click->mobile-menu#close" } %>
     <% end %>
     <%= link_to "Docs", "https://docs.activeagents.ai", class: "nav-link", target: "_blank", rel: "noopener noreferrer", data: { action: "click->mobile-menu#close" } %>
-    <div class="button-group stacked margin-top-l mobile-only">
-      <%= link_to "Sign In", dashboard_path, class: "button tertiary" %>
-      <%= link_to "Start Free", "/registration/new", class: "button primary" %>
+    <div class="nav-narrow nav-menu-actions">
+      <% if authenticated? %>
+        <%= link_to "Go to your dashboard", dashboard_path, class: "button primary" %>
+      <% else %>
+        <%= link_to "Sign In", dashboard_path, class: "button tertiary" %>
+        <%= link_to "Start Free", "/registration/new", class: "button primary" %>
+      <% end %>
+      <div class="nav-menu-links">
+        <%= link_to "https://discord.gg/activeagent", class: "button ghost compact", target: "_blank", rel: "noopener noreferrer", aria: { label: "Discord" } do %>
+          <div class="fa-brands fa-discord icon l"></div>
+        <% end %>
+        <%= link_to "https://github.com/activeagents/activeagent", class: "github-stars-badge", target: "_blank", rel: "noopener noreferrer" do %>
+          <div class="fa-brands fa-github github-stars-icon"></div>
+          <span class="github-stars-label">Star</span>
+          <span class="github-stars-divider"></span>
+          <span class="github-stars-count" data-github-stars-target="count"></span>
+        <% end %>
+      </div>
     </div>
   </nav>
-  <div class="button-group">
-    <%= link_to "https://discord.gg/activeagent", class: "button ghost compact hide-on-mobile", target: "_blank", rel: "noopener noreferrer" do %>
+  <div class="nav-actions">
+    <%= link_to "https://discord.gg/activeagent", class: "button ghost compact nav-wide", target: "_blank", rel: "noopener noreferrer", aria: { label: "Discord" } do %>
       <div class="fa-brands fa-discord icon l"></div>
     <% end %>
-    <%= link_to "https://github.com/activeagents/activeagent", class: "github-stars-badge hide-on-mobile", target: "_blank", rel: "noopener noreferrer", data: { controller: "github-stars", github_stars_repo_value: "activeagents/activeagent" } do %>
+    <%= link_to "https://github.com/activeagents/activeagent", class: "github-stars-badge nav-wide", target: "_blank", rel: "noopener noreferrer" do %>
       <div class="fa-brands fa-github github-stars-icon"></div>
       <span class="github-stars-label">Star</span>
       <span class="github-stars-divider"></span>
@@ -38,8 +57,12 @@
       <span class="theme-icon-sun fa-solid fa-sun icon m"></span>
       <span class="theme-icon-moon fa-solid fa-moon icon m"></span>
     </button>
-    <%= link_to "Sign In", dashboard_path, class: "button tertiary compact hide-on-mobile" %>
-    <button class="button ghost compact nav-hamburger" data-action="mobile-menu#toggle" aria-label="Show menu">
+    <% if authenticated? %>
+      <%= link_to "Dashboard", dashboard_path, class: "button primary compact nav-wide" %>
+    <% else %>
+      <%= link_to "Sign In", dashboard_path, class: "button tertiary compact nav-wide" %>
+    <% end %>
+    <button class="button ghost compact nav-hamburger" data-action="mobile-menu#toggle" aria-label="Show menu" aria-expanded="false">
       <span class="fa-solid fa-bars icon m"></span>
     </button>
   </div>
