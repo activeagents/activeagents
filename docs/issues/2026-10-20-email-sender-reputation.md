@@ -157,3 +157,15 @@ on a bad day; that is Justin's call.
 
 - 2026-10-20: numbers above collected through the Resend connector;
   plan written; step 1 implemented in `fix/bot-signups`.
+
+## Update, 2026-10-20 (evening): the root domain is in Resend
+
+`activeagents.ai` was added to the Resend account (region us-east-1,
+sending only; status `not_started` until its records resolve). Its four
+records go into `terraform/environments/staging/dns.tfvars`, the zone's
+owner: DKIM TXT at `resend._domainkey`, SPF TXT and MX at `send`, and a
+CNAME `rsend` → `send.forge.rmta.net`. The staging deploy after the merge
+applies them; then verification is triggered in Resend. Production sends
+as `hello@activeagents.ai` (#181); staging's From can move to the root
+domain once it is verified, which is what the live site sends with until
+the cutover. DMARC stays `p=none` for now.
