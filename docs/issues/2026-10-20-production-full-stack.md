@@ -98,3 +98,13 @@ deliberately narrow), hence `-refresh=false` for the check.
 - 2026-10-20 18:20 UTC: draft PR #181 opened.
 - 2026-10-20 18:40 UTC: CI on #181 green (scan, lint, boot, test, Terraform validate + tests). Host bump PR #182 opened alongside.
 - 2026-10-20 19:30 UTC: rebased onto main after PR #180 (Cloud Armor, honeypot, Turnstile). Four files conflicted, each resolved by keeping both sides: `terraform/main.tf` (the load balancer gets both the security-policy arguments and `additional_existing_ssl_cert_names`), `terraform/environments/production/main.tf` and `variables.tf` (the signup-protection block and the app/billing/access/load-balancer blocks), `terraform/tests/feature_infra.tftest.hcl` (the Turnstile and security-policy runs and the nine runs here). `terraform validate` passes for staging, production and sandbox-staging; `terraform test` 35 passed, 0 failed. Force-pushed with lease.
+
+## Update, 2026-10-20 (evening): production is up
+
+#181 merged, #193 adopted the pre-existing NEG and backend service, the
+second production deploy (run 39492120223) completed, and the load balancer
+at 34.120.184.132 serves `activeagents.ai` and `api.activeagents.ai` by IP.
+Plans seeded. Still before the cutover: live Stripe (the production key is
+a test-mode placeholder), Resend's root domain records, the data decision,
+an admin. See the status at the top of
+[production-environment.md](../infrastructure/production-environment.md).
