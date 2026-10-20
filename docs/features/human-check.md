@@ -81,32 +81,48 @@ the same screen.
 
 ## Turning Turnstile on (operator)
 
+One widget serves every hostname, so one site key and one secret go to
+both environments. The site key is public (it is rendered into every
+form) and is committed; the secret only ever goes into Secret Manager.
+
 1. In the Cloudflare dashboard, Turnstile → Add widget: hostnames
    `activeagents.ai`, `www.activeagents.ai`, `staging.activeagents.ai`,
    `activeagent.dev`, `activeagent.pro`, and `localhost` for development;
    widget mode **Managed** (invisible unless a challenge is needed; the
    forms render it with `appearance: interaction-only`, the full
    registration form with `always`). Copy the site key and the secret key.
-2. Give the secret a version (Terraform declared it; Cloud Run refuses a
-   revision that reads an empty secret):
+2. Merge the change that declares the secrets and let each environment
+   apply it: the staging deploy creates
+   `activeagents-staging-turnstile-secret-key`, the production deploy
+   `activeagents-production-turnstile-secret-key`. A secret created by
+   hand first would collide with Terraform's.
+3. Give each secret a version, from your own terminal so the value stays
+   out of shell history and chat (Cloud Run refuses a revision that reads
+   an empty secret):
 
    ```sh
-   printf '%s' "$TURNSTILE_SECRET" | gcloud secrets versions add activeagents-staging-turnstile-secret-key --data-file=- --project=active-agents-platform
+   read -s TURNSTILE_SECRET
+   for env in staging production; do
+     printf '%s' "$TURNSTILE_SECRET" | gcloud secrets versions add "activeagents-$env-turnstile-secret-key" --data-file=- --project=active-agents-platform
+   done
+   unset TURNSTILE_SECRET
    ```
 
-3. In `terraform/environments/staging/security.auto.tfvars` set
-   `enable_turnstile = true` and `turnstile_site_key = "<site key>"`, commit,
-   and let the deploy workflow apply it. The root output `turnstile_site_key`
-   refuses the flag without a site key.
-4. Check: `https://activeagents.ai/registration/new` shows the widget;
+4. In each environment's `security.auto.tfvars` set `enable_turnstile = true`
+   and `turnstile_site_key = "<site key>"`, commit, and let the deploy
+   workflow apply it. The root output `turnstile_site_key` refuses the flag
+   without a site key. Production's file exists with the lines commented;
+   its Cloud Armor lines wait for the production load balancer
+   (`infra/production-full-stack`).
+5. Check: `https://activeagents.ai/registration/new` shows the widget;
    a POST without a token to `/registration` gets 422; a real signup goes
    through. Cloudflare's Turnstile analytics show solves and failures.
-5. Production repeats steps 2–3 with `activeagents-production-…` and its own
-   `security.auto.tfvars` when it serves traffic.
 
 Local development: export the two variables (Cloudflare's test keys
 `1x00000000000000000000AA` / `1x0000000000000000000000000000000AA` always
-pass) or leave them unset for honeypot-only.
+pass) or leave them unset for honeypot-only. Any other deployment of this
+app turns the check on the same way: set `TURNSTILE_SITE_KEY` and
+`TURNSTILE_SECRET_KEY` in its environment.
 
 ## Tests
 

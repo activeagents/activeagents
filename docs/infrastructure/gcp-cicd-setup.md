@@ -337,13 +337,13 @@ The `github_app_install_url` output of the environment shows where an account in
 | `turnstile_site_key` | `security.auto.tfvars` | `TURNSTILE_SITE_KEY` (public) |
 | `turnstile-secret-key` | Secret Manager, `activeagents-<env>-turnstile-secret-key` | `TURNSTILE_SECRET_KEY`, behind `enable_turnstile` |
 
-Staging (which serves activeagents.ai) has the policy on with the bot's addresses. Turnstile waits for the widget and its secret version:
+Staging (which serves activeagents.ai) has the policy on with the bot's addresses; production's `security.auto.tfvars` has the same lines commented until it has a load balancer. Turnstile waits, in each environment, for the secret's version (the secret exists after that environment's first apply of this change):
 
 ```sh
-printf '%s' "$TURNSTILE_SECRET" | gcloud secrets versions add activeagents-staging-turnstile-secret-key --data-file=- --project=active-agents-platform
+printf '%s' "$TURNSTILE_SECRET" | gcloud secrets versions add activeagents-<env>-turnstile-secret-key --data-file=- --project=active-agents-platform
 ```
 
-then `enable_turnstile = true` and the site key in the same file. The root output `turnstile_site_key` refuses the flag without a key.
+then `enable_turnstile = true` and the site key in that environment's file. The root output `turnstile_site_key` refuses the flag without a key. One widget covers every hostname, so both environments take the same keys.
 
 ## Incus host: sandbox egress and IAM
 
