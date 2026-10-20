@@ -68,6 +68,16 @@ output "lb_url" {
   value       = var.enable_load_balancer ? module.load_balancer[0].url : null
 }
 
+output "public_lb_ip" {
+  description = "IP the public hostnames (apex, www, api, alias domains) resolve to: public_lb_ip when set, else this environment's load balancer when it serves the apex, else null"
+  value       = local.public_lb_ip
+}
+
+output "lb_ssl_certificate_names" {
+  description = "Every certificate this environment's HTTPS proxy serves, own and shared"
+  value       = var.enable_load_balancer ? module.load_balancer[0].ssl_certificate_names : []
+}
+
 # DNS outputs
 output "dns_name_servers" {
   description = "Name servers for Cloud DNS zone - configure these in GoDaddy"

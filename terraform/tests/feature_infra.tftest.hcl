@@ -658,3 +658,199 @@ run "load_balancer_module_blocks_ranges_and_rate_limits_signups" {
     error_message = "Everything else must stay allowed by the default rule, and the module must name the policy."
   }
 }
+
+# -- Where the public hostnames resolve -------------------------------------
+# Mock providers leave a load balancer's reserved address unknown at plan,
+# and the record counts depend on it, so these runs leave the load balancer
+# off and the dns module run below covers the records with known addresses.
+
+run "public_lb_ip_moves_the_public_hostnames" {
+  command = plan
+
+  variables {
+    enable_load_balancer = false
+    enable_dns           = true
+    public_lb_ip         = "203.0.113.10"
+  }
+
+  # A run sees a child module's outputs, not its resources; the dns module
+  # run below checks the records themselves.
+  assert {
+    condition = alltrue([
+      module.dns[0].apex_ip == "203.0.113.10",
+      module.dns[0].api_ip == "203.0.113.10",
+      module.dns[0].staging_ip == null,
+      output.public_lb_ip == "203.0.113.10",
+    ])
+    error_message = "public_lb_ip must become the apex and api addresses, and the staging subdomain must never follow it."
+  }
+}
+
+run "without_public_lb_ip_the_apex_follows_this_environment" {
+  command = plan
+
+  variables {
+    enable_load_balancer = false
+    enable_dns           = true
+    enable_apex_domain   = true
+    framer_ips           = ["31.43.160.6"]
+  }
+
+  assert {
+    condition     = output.public_lb_ip == null && module.dns[0].apex_ip == null && module.dns[0].api_ip == null
+    error_message = "With no load balancer and no public_lb_ip, the apex must stay where it was (Framer), as before."
+  }
+}
+
+run "public_lb_ip_must_be_an_ipv4_address" {
+  command = plan
+
+  variables {
+    public_lb_ip = "production"
+  }
+
+  expect_failures = [var.public_lb_ip]
+}
+
+run "dns_module_keeps_staging_while_the_apex_moves" {
+  command = plan
+
+  module {
+    source = "./modules/dns"
+  }
+
+  variables {
+    domain        = "activeagents.ai"
+    staging_ip    = "198.51.100.7"
+    production_ip = "203.0.113.10"
+    api_ip        = "203.0.113.10"
+    framer_ips    = ["31.43.160.6"]
+  }
+
+  assert {
+    condition = alltrue([
+      contains(google_dns_record_set.staging[0].rrdatas, "198.51.100.7"),
+      contains(google_dns_record_set.production[0].rrdatas, "203.0.113.10"),
+      contains(google_dns_record_set.api[0].rrdatas, "203.0.113.10"),
+      contains(google_dns_record_set.www.rrdatas, "activeagents.ai."),
+      length(google_dns_record_set.framer_apex) == 0,
+    ])
+    error_message = "The staging subdomain must keep its own address while the apex, api and www point at the other load balancer, and Framer must drop out."
+  }
+}
+
+# -- The load-balancer module's shared certificates -------------------------
+
+run "load_balancer_module_serves_shared_certificates" {
+  command = plan
+
+  module {
+    source = "./modules/load-balancer"
+  }
+
+  variables {
+    region                 = "us-central1"
+    name                   = "activeagents-production"
+    cloud_run_service_name = "activeagents-production"
+    existing_ssl_cert_name = "activeagents-all-domains-cert"
+    additional_existing_ssl_cert_names = [
+      "activeagents-staging-extra-api-activeagents-ai",
+      "activeagents-staging-extra-activeagent-dev",
+    ]
+  }
+
+  assert {
+    condition     = length(google_compute_target_https_proxy.default) == 1 && length(google_compute_target_https_proxy.default[0].ssl_certificates) == 3
+    error_message = "The HTTPS proxy must serve the existing certificate and every shared one."
+  }
+
+  assert {
+    condition     = length(google_compute_managed_ssl_certificate.default) == 0 && length(google_compute_managed_ssl_certificate.extra) == 0
+    error_message = "Shared certificates are read, never issued."
+  }
+
+  assert {
+    condition = tolist(output.ssl_certificate_names) == tolist([
+      "activeagents-all-domains-cert",
+      "activeagents-staging-extra-api-activeagents-ai",
+      "activeagents-staging-extra-activeagent-dev",
+    ])
+    error_message = "The output must name every certificate the proxy serves."
+  }
+
+  assert {
+    condition     = length(google_compute_global_forwarding_rule.https) == 1 && length(google_compute_global_forwarding_rule.http_redirect) == 1 && length(google_compute_global_forwarding_rule.http_direct) == 0
+    error_message = "With certificates, the load balancer must serve HTTPS and redirect HTTP."
+  }
+}
+
+run "load_balancer_module_shared_certificates_alone_enable_https" {
+  command = plan
+
+  module {
+    source = "./modules/load-balancer"
+  }
+
+  variables {
+    region                             = "us-central1"
+    name                               = "activeagents-production"
+    cloud_run_service_name             = "activeagents-production"
+    additional_existing_ssl_cert_names = ["activeagents-all-domains-cert"]
+  }
+
+  assert {
+    condition     = length(google_compute_target_https_proxy.default) == 1 && output.uses_https
+    error_message = "A shared certificate on its own must still turn HTTPS on."
+  }
+}
+
+# -- Pro price IDs outside staging -------------------------------------------
+
+run "production_pro_price_ids_reach_the_app" {
+  command = plan
+
+  variables {
+    environment = "production"
+    stripe_pro_price_ids = {
+      monthly = "price_monthly123"
+      annual  = "price_annual456"
+    }
+  }
+
+  assert {
+    condition = alltrue([
+      local.cloud_run_env_vars["STRIPE_PRO_MONTHLY_PRICE_ID"] == "price_monthly123",
+      local.cloud_run_env_vars["STRIPE_PRO_ANNUAL_PRICE_ID"] == "price_annual456",
+      !contains(keys(local.cloud_run_env_vars), "STRIPE_REQUIRE_TEST_MODE"),
+      !contains(keys(local.cloud_run_env_vars), "STRIPE_EXPECTED_ACCOUNT_ID"),
+    ])
+    error_message = "Production must get its live price IDs and never the staging test-mode guard."
+  }
+}
+
+run "pro_price_ids_are_ignored_on_staging" {
+  command = plan
+
+  variables {
+    stripe_pro_price_ids = {
+      monthly = "price_monthly123"
+    }
+  }
+
+  assert {
+    condition     = !contains(keys(local.cloud_run_env_vars), "STRIPE_PRO_MONTHLY_PRICE_ID")
+    error_message = "Staging's price IDs come from staging_stripe only."
+  }
+}
+
+run "pro_price_ids_must_be_stripe_price_ids" {
+  command = plan
+
+  variables {
+    stripe_pro_price_ids = {
+      monthly = "prod_123"
+    }
+  }
+
+  expect_failures = [var.stripe_pro_price_ids]
+}

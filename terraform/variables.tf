@@ -32,6 +32,23 @@ variable "staging_stripe" {
   default = {}
 }
 
+# Pro price IDs for every other environment. db:seed writes them into the
+# Pro plan (STRIPE_PRO_MONTHLY_PRICE_ID, STRIPE_PRO_ANNUAL_PRICE_ID); they are
+# identifiers, not credentials, so they are committed per environment.
+variable "stripe_pro_price_ids" {
+  description = "Pro price IDs in this environment's Stripe account (live mode for production), passed to the app as STRIPE_PRO_MONTHLY_PRICE_ID and STRIPE_PRO_ANNUAL_PRICE_ID when set. Ignored on staging, whose IDs come from staging_stripe."
+  type = object({
+    monthly = optional(string, "")
+    annual  = optional(string, "")
+  })
+  default = {}
+
+  validation {
+    condition     = alltrue([for id in [var.stripe_pro_price_ids.monthly, var.stripe_pro_price_ids.annual] : id == "" || can(regex("^price_[A-Za-z0-9]+$", id))])
+    error_message = "Each Pro price ID is a Stripe price ID (price_…) or empty."
+  }
+}
+
 # Email configuration
 variable "mailer_from_address" {
   description = "Default from address for transactional emails"
@@ -235,6 +252,23 @@ variable "lb_extra_managed_domains" {
   description = "Domains covered by an additional managed SSL certificate attached alongside the primary/existing one (e.g., api.activeagents.ai)"
   type        = list(string)
   default     = []
+}
+
+variable "lb_additional_existing_ssl_cert_names" {
+  description = "Certificates that already exist in the project and that this environment's HTTPS proxy also serves, such as the per-domain managed certificates another environment issued. They let this load balancer take a hostname over with no provisioning gap (docs/infrastructure/production-environment.md)."
+  type        = list(string)
+  default     = []
+}
+
+variable "public_lb_ip" {
+  description = "Static IP that the public hostnames (the apex, www, api and every alias domain) resolve to when another environment's load balancer serves them: the lb_ip_address output of that environment. Null (the default) resolves them to this environment's own load balancer. The staging subdomain always resolves to this environment's."
+  type        = string
+  default     = null
+
+  validation {
+    condition     = var.public_lb_ip == null || can(cidrhost("${var.public_lb_ip}/32", 0))
+    error_message = "public_lb_ip is an IPv4 address, such as 34.49.49.134, or null."
+  }
 }
 
 variable "alias_domains" {
