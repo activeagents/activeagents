@@ -1,8 +1,16 @@
 # frozen_string_literal: true
 
 class RegistrationsController < ApplicationController
+  include RequiresHuman
+
   allow_unauthenticated_access
   rate_limit to: 10, within: 10.minutes, only: :create
+  require_human only: :create
+
+  # An unverified address asked to sign up again gets its verification email
+  # resent at most this often. A bot replaying the same addresses used to
+  # send each recipient several copies within minutes.
+  VERIFICATION_RESEND_INTERVAL = 10.minutes
 
   def new
     @user = User.new
@@ -53,8 +61,8 @@ class RegistrationsController < ApplicationController
           format.json { render json: { error: "This email is already registered. Please sign in." }, status: :unprocessable_entity }
         end
       else
-        # Resend verification email
-        existing_user.send_verification_email!
+        # Resend the verification email, unless one went out a moment ago
+        existing_user.send_verification_email! unless recently_sent_verification?(existing_user)
         respond_to do |format|
           format.html { redirect_to new_session_path, notice: "Verification email resent. Open the link in your email to continue." }
           format.json { render json: { success: true, redirect_url: new_session_path, message: "Verification email resent. Open the link in your email to continue." } }
@@ -105,5 +113,25 @@ class RegistrationsController < ApplicationController
 
   def user_params
     params.require(:user).permit(:email_address, :password, :password_confirmation)
+  end
+
+  def recently_sent_verification?(user)
+    user.email_verification_sent_at.present? && user.email_verification_sent_at > VERIFICATION_RESEND_INTERVAL.ago
+  end
+
+  # RequiresHuman: the full form re-renders with the message; the landing
+  # page forms (JSON) get the JSON error; a plain POST goes back to the
+  # landing page's signup section.
+  def human_check_failed(result)
+    return super if request.format.json? || request.content_type&.include?("application/json")
+
+    if params[:user].present?
+      @user = User.new(user_params.except(:password, :password_confirmation))
+      @source = params[:source]
+      flash.now[:alert] = RequiresHuman::MESSAGE
+      render :new, status: :unprocessable_entity
+    else
+      redirect_to root_path(anchor: "signup"), alert: RequiresHuman::MESSAGE, status: :see_other
+    end
   end
 end

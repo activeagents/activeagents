@@ -324,6 +324,27 @@ If either fails, set the flag back to `false` at once. The app then derives its 
 
 The `github_app_install_url` output of the environment shows where an account installs the App.
 
+## Public signup protection: Cloud Armor and Turnstile
+
+[docs/features/human-check.md](../features/human-check.md) has the design. The settings, all declared in Terraform:
+
+| Setting | Where | Effect |
+| --- | --- | --- |
+| `enable_security_policy` | `security.auto.tfvars` | Cloud Armor policy on the load balancer's backend service |
+| `blocked_source_ranges` | `security.auto.tfvars` | addresses the policy refuses with 403 (CIDR notation) |
+| `signup_rate_limit` | `security.auto.tfvars` (defaults 20 per 60 s, 600 s ban) | rate-based ban on POSTs to `/registration` and `/newsletter_subscription` |
+| `enable_turnstile` | `security.auto.tfvars` | passes the Turnstile keys to the app, which turns the check on |
+| `turnstile_site_key` | `security.auto.tfvars` | `TURNSTILE_SITE_KEY` (public) |
+| `turnstile-secret-key` | Secret Manager, `activeagents-<env>-turnstile-secret-key` | `TURNSTILE_SECRET_KEY`, behind `enable_turnstile` |
+
+Staging (which serves activeagents.ai) has the policy on with the bot's addresses. Turnstile waits for the widget and its secret version:
+
+```sh
+printf '%s' "$TURNSTILE_SECRET" | gcloud secrets versions add activeagents-staging-turnstile-secret-key --data-file=- --project=active-agents-platform
+```
+
+then `enable_turnstile = true` and the site key in the same file. The root output `turnstile_site_key` refuses the flag without a key.
+
 ## Incus host: sandbox egress and IAM
 
 `terraform/modules/incus-host` (used by `terraform/environments/sandbox-staging`, which no workflow applies) keeps code running in a sandbox away from cloud credentials and private networks:

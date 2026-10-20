@@ -1,8 +1,10 @@
 import { Controller } from "@hotwired/stimulus"
+import { humanCheckFields, resetHumanCheck } from "./human_check"
 
 // Newsletter signup: one email field, posted as JSON to the newsletter
 // subscription endpoint. The server sends a confirmation email; the contact
-// reaches Resend once the reader confirms.
+// reaches Resend once the reader confirms. The form's HumanCheck fields
+// (honeypot, Turnstile token) travel in the body.
 export default class extends Controller {
   static targets = ["email", "submit", "response"]
 
@@ -26,7 +28,7 @@ export default class extends Controller {
           "Accept": "application/json",
           "X-CSRF-Token": document.querySelector('meta[name="csrf-token"]')?.content
         },
-        body: JSON.stringify({ email_address: email, source: "newsletter" })
+        body: JSON.stringify({ email_address: email, source: "newsletter", ...humanCheckFields(this.element) })
       })
       const data = await response.json().catch(() => ({}))
 
@@ -35,9 +37,11 @@ export default class extends Controller {
         this.element.reset()
       } else {
         this.showResponse(data.error || "Something went wrong. Please try again.", "error")
+        resetHumanCheck(this.element)
       }
     } catch {
       this.showResponse("Connection error. Please try again.", "error")
+      resetHumanCheck(this.element)
     } finally {
       this.setLoading(false)
     }

@@ -4339,6 +4339,11 @@ a:not(.button):not(.nav-link) {
   align-items: stretch;
 }
 
+/* Turnstile widget (HumanCheckHelper) under the input group */
+.signup-form .human-check-turnstile:not(:empty) {
+  margin-top: 12px;
+}
+
 .signup-input {
   flex: 1;
   padding: var(--space-button-m-vertical) var(--space-button-m-horizontal);
