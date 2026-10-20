@@ -56,9 +56,12 @@ configuration, so it protects every deployment, including local ones.
 `TURNSTILE_SECRET_KEY` are both present. Then:
 
 - the layouts load `https://challenges.cloudflare.com/turnstile/v0/api.js`
-  (explicit render) and the helper renders a widget container in each form,
-  which the `turnstile` Stimulus controller renders, resets after a refused
-  submission and removes on disconnect, so it survives Turbo navigations;
+  (explicit render, no `onload` callback name) and the helper renders a
+  widget container in each form, which the `turnstile` Stimulus controller
+  renders as soon as `window.turnstile` exists, or on the loader script
+  element's `load` event when the controller connects first; it resets
+  the widget after a refused submission and removes it on disconnect, so
+  it survives Turbo navigations;
 - the widget writes its token into a hidden `cf-turnstile-response` field;
   the `signup` and `newsletter` controllers copy it (and the honeypot) into
   their JSON bodies through `app/javascript/controllers/human_check.js`;
@@ -80,10 +83,12 @@ wrote a 730-character token into `cf-turnstile-response` without a
 challenge (screenshot in the gitignored
 `tmp/screenshots/2026-10-20-turnstile-live/01-registration-new.png`).
 Cloudflare's own iframe logs CSP and WebGPU noise to the console; that is
-theirs. One warning is ours: api.js is loaded with
-`onload=onloadTurnstileCallback` and no such global exists, since the
-Stimulus controller renders explicitly once `window.turnstile` is there.
-Harmless; defining the callback or dropping the parameter would silence it.
+theirs. One warning was ours: api.js was loaded with
+`onload=onloadTurnstileCallback`, a global the controller only defined when
+it connected, which an async loader usually beat. Harmless, since the
+controller then found `window.turnstile` and rendered anyway; fixed for
+1.9.3 on `fix/turnstile-onload` by dropping the parameter and waiting on
+the script element's `load` event instead.
 
 The refusal has the same shape as the actions' own errors: JSON
 `{ "error": "We couldn't confirm you're a person. Please try again." }` for

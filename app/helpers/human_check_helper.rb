@@ -4,9 +4,12 @@
 # always, the Turnstile widget when Turnstile is on. Render it inside the form
 # element so the widget's hidden response field is submitted with it.
 module HumanCheckHelper
-  # Explicit rendering (the turnstile Stimulus controller renders each widget)
-  # and the loader's ready callback, which the controller chains onto.
-  TURNSTILE_SCRIPT_URL = "https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit&onload=onloadTurnstileCallback"
+  # Explicit rendering: the turnstile Stimulus controller renders each widget
+  # once this script has run, waiting on the script element's load event when
+  # it connects first. No onload callback name is passed, so the loader never
+  # looks for a global that an async script would usually run before any
+  # controller could define it.
+  TURNSTILE_SCRIPT_URL = "https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit"
 
   # The honeypot input plus, when enabled, the Turnstile widget container.
   # +theme+ is "light", "dark" or "auto"; +appearance+ "always" or
