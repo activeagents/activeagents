@@ -16,6 +16,7 @@
             aria: { label: "Email address" },
             data: { newsletter_target: "email" } %>
       <button type="submit" class="button primary" data-newsletter-target="submit">Subscribe</button>
+      <%= human_check_fields %>
       <p class="lp-form-response lp-mono" data-newsletter-target="response" aria-live="polite"></p>
     <% end %>
     <p class="paragraph s tertiary" style="margin: 0;">One email a week. Unsubscribe anytime.</p>

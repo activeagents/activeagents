@@ -187,6 +187,9 @@ module "secrets" {
     active-record-encryption-key-derivation-salt = {
       description = "Active Record encryption key derivation salt (must equal the value derived from secret_key_base)"
     }
+    turnstile-secret-key = {
+      description = "Secret key of this environment's Cloudflare Turnstile widget, which the app verifies signup form tokens with"
+    }
   }
 
   labels = local.common_labels
@@ -279,6 +282,10 @@ locals {
       RECORDINGS_BUCKET       = google_storage_bucket.recordings.name
       RECORDINGS_SIGNER_EMAIL = google_service_account.recordings_signer.email
     } : {},
+    # HumanCheck turns Turnstile on when both keys are present
+    var.enable_turnstile ? {
+      TURNSTILE_SITE_KEY = var.turnstile_site_key
+    } : {},
     # Staging checks out against a Stripe test account and refuses any other;
     # the Pro price IDs are passed once the catalog setup created them.
     var.environment == "staging" ? merge({
@@ -365,6 +372,9 @@ locals {
       ACTIVE_RECORD_ENCRYPTION_DETERMINISTIC_KEY   = module.secrets.secret_ids["active-record-encryption-deterministic-key"]
       ACTIVE_RECORD_ENCRYPTION_KEY_DERIVATION_SALT = module.secrets.secret_ids["active-record-encryption-key-derivation-salt"]
     } : {},
+    var.enable_turnstile ? {
+      TURNSTILE_SECRET_KEY = module.secrets.secret_ids["turnstile-secret-key"]
+    } : {},
   )
 }
 
@@ -426,6 +436,11 @@ module "load_balancer" {
   extra_managed_domains  = var.lb_extra_managed_domains
   enable_cdn             = var.enable_cdn
   enable_http_redirect   = true
+
+  # Cloud Armor: blocked addresses and the signup rate-based ban
+  enable_security_policy = var.enable_security_policy
+  blocked_source_ranges  = var.blocked_source_ranges
+  signup_rate_limit      = var.signup_rate_limit
 
   depends_on = [
     module.cloud_run,

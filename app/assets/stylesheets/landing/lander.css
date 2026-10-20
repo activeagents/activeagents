@@ -1885,6 +1885,15 @@
 .lp-form-response.success { color: var(--lp-success-text); }
 .lp-form-response.error { color: var(--lp-error-text); }
 
+/* Turnstile widget (HumanCheckHelper): its own row under the input and button */
+.lp-form .human-check-turnstile {
+  flex-basis: 100%;
+}
+
+.lp-form .human-check-turnstile:empty {
+  display: none;
+}
+
 .lp-form-hero {
   margin-top: 4px;
 }

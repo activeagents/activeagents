@@ -515,3 +515,146 @@ run "github_app_id_must_be_numeric" {
 
   expect_failures = [var.github_app_id]
 }
+
+# -- Public signup protection (docs/features/human-check.md) -----------------
+
+run "turnstile_passes_its_keys_when_on" {
+  command = plan
+
+  variables {
+    enable_turnstile   = true
+    turnstile_site_key = "0x4AAAAAAAexample"
+  }
+
+  assert {
+    condition = alltrue([
+      local.cloud_run_env_vars["TURNSTILE_SITE_KEY"] == "0x4AAAAAAAexample",
+      local.cloud_run_secret_env_vars["TURNSTILE_SECRET_KEY"] == "activeagents-staging-turnstile-secret-key",
+      output.turnstile_site_key == "0x4AAAAAAAexample",
+    ])
+    error_message = "enable_turnstile must pass the site key as a plain variable and the secret key from Secret Manager."
+  }
+}
+
+run "turnstile_needs_its_site_key" {
+  command = plan
+
+  variables {
+    enable_turnstile = true
+  }
+
+  expect_failures = [output.turnstile_site_key]
+}
+
+run "blocked_source_ranges_must_be_cidrs" {
+  command = plan
+
+  variables {
+    blocked_source_ranges = ["203.0.113.7"]
+  }
+
+  expect_failures = [var.blocked_source_ranges]
+}
+
+run "security_policy_needs_the_load_balancer" {
+  command = plan
+
+  variables {
+    enable_security_policy = true
+  }
+
+  expect_failures = [output.security_policy]
+}
+
+run "security_policy_reaches_the_load_balancer" {
+  command = plan
+
+  variables {
+    enable_load_balancer   = true
+    enable_security_policy = true
+    blocked_source_ranges  = ["203.0.113.7/32"]
+  }
+
+  assert {
+    condition     = output.security_policy == "activeagents-staging-policy"
+    error_message = "With the load balancer on, the flag must create the environment's policy."
+  }
+}
+
+run "load_balancer_module_has_no_policy_by_default" {
+  command = plan
+
+  module {
+    source = "./modules/load-balancer"
+  }
+
+  variables {
+    project_id             = "example-project"
+    region                 = "us-central1"
+    name                   = "activeagents-staging"
+    cloud_run_service_name = "activeagents-staging"
+  }
+
+  assert {
+    condition     = length(google_compute_security_policy.default) == 0 && output.security_policy_name == null
+    error_message = "Without enable_security_policy the module must create no Cloud Armor policy."
+  }
+}
+
+run "load_balancer_module_blocks_ranges_and_rate_limits_signups" {
+  command = plan
+
+  module {
+    source = "./modules/load-balancer"
+  }
+
+  variables {
+    project_id             = "example-project"
+    region                 = "us-central1"
+    name                   = "activeagents-staging"
+    cloud_run_service_name = "activeagents-staging"
+    enable_security_policy = true
+    # Eleven ranges: Cloud Armor takes ten per rule, so this needs two
+    blocked_source_ranges = [
+      "203.0.113.1/32", "203.0.113.2/32", "203.0.113.3/32", "203.0.113.4/32",
+      "203.0.113.5/32", "203.0.113.6/32", "203.0.113.7/32", "203.0.113.8/32",
+      "203.0.113.9/32", "203.0.113.10/32", "2001:db8::/32",
+    ]
+    signup_rate_limit = {
+      count            = 5
+      interval_sec     = 30
+      ban_duration_sec = 120
+    }
+  }
+
+  assert {
+    condition = sort([
+      for rule in google_compute_security_policy.default[0].rule :
+      "${rule.priority}:${length(rule.match[0].config[0].src_ip_ranges)}" if rule.action == "deny(403)"
+    ]) == tolist(["1000:10", "1001:1"])
+    error_message = "Blocked ranges must become deny rules of at most ten ranges each, from priority 1000."
+  }
+
+  assert {
+    condition = alltrue([
+      for rule in google_compute_security_policy.default[0].rule : alltrue([
+        rule.priority == 2000,
+        rule.match[0].expr[0].expression == "request.method == 'POST' && (request.path == '/registration' || request.path == '/newsletter_subscription')",
+        rule.rate_limit_options[0].enforce_on_key == "IP",
+        rule.rate_limit_options[0].exceed_action == "deny(429)",
+        rule.rate_limit_options[0].ban_duration_sec == 120,
+        rule.rate_limit_options[0].rate_limit_threshold[0].count == 5,
+        rule.rate_limit_options[0].rate_limit_threshold[0].interval_sec == 30,
+      ]) if rule.action == "rate_based_ban"
+    ]) && length([for rule in google_compute_security_policy.default[0].rule : rule if rule.action == "rate_based_ban"]) == 1
+    error_message = "One rate-based ban rule must cover POSTs to the signup paths, keyed by address, with the configured threshold and ban."
+  }
+
+  assert {
+    condition = length([
+      for rule in google_compute_security_policy.default[0].rule : rule
+      if rule.action == "allow" && rule.priority == 2147483647
+    ]) == 1 && output.security_policy_name == "activeagents-staging-policy"
+    error_message = "Everything else must stay allowed by the default rule, and the module must name the policy."
+  }
+}

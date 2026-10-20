@@ -1,7 +1,10 @@
 import { Controller } from "@hotwired/stimulus"
+import { humanCheckFields, resetHumanCheck } from "./human_check"
 
 // Signup Controller
-// Handles user registration with database registration + email verification
+// Handles user registration with database registration + email verification.
+// The form's HumanCheck fields (honeypot, Turnstile token) travel in the JSON
+// body; after a refusal the Turnstile widget is reset for the next attempt.
 export default class extends Controller {
   static targets = ["email", "submit", "submitText", "submitLoading", "response"]
 
@@ -35,11 +38,13 @@ export default class extends Controller {
         }, 1500)
       } else {
         this.showResponse(registrationResult.error || "Registration failed. Please try again.", "error")
+        resetHumanCheck(this.element)
         this.setLoading(false)
       }
     } catch (error) {
       console.error("Signup error:", error)
       this.showResponse("An error occurred. Please try again.", "error")
+      resetHumanCheck(this.element)
       this.setLoading(false)
     }
   }
@@ -55,7 +60,8 @@ export default class extends Controller {
         "X-CSRF-Token": csrfToken
       },
       body: JSON.stringify({
-        email_address: email
+        email_address: email,
+        ...humanCheckFields(this.element)
       })
     })
 
