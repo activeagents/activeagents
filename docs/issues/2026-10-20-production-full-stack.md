@@ -84,9 +84,9 @@ deliberately narrow), hence `-refresh=false` for the check.
    bump (`chore/activeagent-1.9.2`) is on `main`; note `lb_ip_address`.
 3. The pre-cutover checklist in the runbook: Resend verifies
    `activeagents.ai`; live Stripe keys confirmed and the live Pro prices
-   committed in `billing.auto.tfvars`; `db:seed`; decide on the data
-   (migrate the staging database, with staging's encryption keys, or start
-   empty); an admin user.
+   committed in `billing.auto.tfvars`; `db:seed`; the data (decided
+   2026-10-20: production starts empty, no copy from staging); an admin
+   user (done 2026-10-20).
 4. Cutover: `public_lb_ip` in staging's `dns.tfvars`, deploy staging,
    verify, deploy production again.
 5. Phase 2 certificates; update `docs/issues/2026-10-20-combinaut-pro-pilot.md`
@@ -98,3 +98,16 @@ deliberately narrow), hence `-refresh=false` for the check.
 - 2026-10-20 18:20 UTC: draft PR #181 opened.
 - 2026-10-20 18:40 UTC: CI on #181 green (scan, lint, boot, test, Terraform validate + tests). Host bump PR #182 opened alongside.
 - 2026-10-20 19:30 UTC: rebased onto main after PR #180 (Cloud Armor, honeypot, Turnstile). Four files conflicted, each resolved by keeping both sides: `terraform/main.tf` (the load balancer gets both the security-policy arguments and `additional_existing_ssl_cert_names`), `terraform/environments/production/main.tf` and `variables.tf` (the signup-protection block and the app/billing/access/load-balancer blocks), `terraform/tests/feature_infra.tftest.hcl` (the Turnstile and security-policy runs and the nine runs here). `terraform validate` passes for staging, production and sandbox-staging; `terraform test` 35 passed, 0 failed. Force-pushed with lease.
+
+## Update, 2026-10-20 (evening): production is up
+
+#181 merged, #193 adopted the pre-existing NEG and backend service, the
+second production deploy (run 39492120223) completed, and the load balancer
+at 34.120.184.132 serves `activeagents.ai` and `api.activeagents.ai` by IP.
+Plans seeded; the admin login exists; Justin decided the same evening that
+nothing is copied from staging ("we don't need to copy staging data to
+production") and that live Stripe is set up together next. Resend's root
+domain records are on `main` (#195). Still before the cutover: live Stripe
+(the production key is a test-mode placeholder) and the Resend
+verification. See the status at the top of
+[production-environment.md](../infrastructure/production-environment.md).

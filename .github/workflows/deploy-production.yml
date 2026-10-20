@@ -279,11 +279,19 @@ jobs:
           if [ "$RESOLVED" != "$LB_IP" ]; then
             echo "The domain does not point at this environment yet (cutover pending: docs/infrastructure/production-environment.md)"
             # The load balancer itself must still answer for the domain, so
-            # the cutover can be made without a deploy in between.
-            STATUS=$(curl -s -o /dev/null -w "%{http_code}" --resolve "$DOMAIN:443:$LB_IP" "https://$DOMAIN/up" || echo "000")
-            echo "https://$DOMAIN/up via $LB_IP: $STATUS"
-            [ "$STATUS" = "200" ] || { echo "❌ The production load balancer does not serve $DOMAIN"; exit 1; }
-            exit 0
+            # the cutover can be made without a deploy in between. A global
+            # load balancer takes a few minutes to propagate after its
+            # forwarding rule is created (the first production deploy got a
+            # 404 here two minutes after the apply), so retry as below.
+            for i in {1..12}; do
+              STATUS=$(curl -s -o /dev/null -w "%{http_code}" --resolve "$DOMAIN:443:$LB_IP" "https://$DOMAIN/up" || echo "000")
+              echo "https://$DOMAIN/up via $LB_IP: $STATUS"
+              [ "$STATUS" = "200" ] && exit 0
+              echo "Attempt $i: retrying in 15s..."
+              sleep 15
+            done
+            echo "❌ The production load balancer does not serve $DOMAIN"
+            exit 1
           fi
 
           for i in {1..10}; do

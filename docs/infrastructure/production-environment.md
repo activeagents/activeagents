@@ -1,5 +1,23 @@
 # The production environment, and moving activeagents.ai to it
 
+Status 2026-10-20 (evening): **production is up, not cut over.** #181
+merged (`193700a`) with Justin's go; its first deploy (run 39491306303)
+stopped at a 409 because the serverless NEG and the backend service
+already existed with no state entry, so #193 adopted both with import
+blocks; the second deploy (run 39492120223) applied cleanly (2 imported,
+4 added, 2 changed) and ran the migrations. `lb_ip_address` is
+**34.120.184.132**; `curl --resolve activeagents.ai:443:34.120.184.132
+https://activeagents.ai/up` and the same for `api.activeagents.ai` answer
+200, and port 80 redirects to HTTPS. Its smoke test reported 404 from the
+load balancer two minutes after the forwarding rule was created and passed
+on re-run; the check now retries. The plans are seeded (`db:seed` through
+the migrate job, execution `activeagents-production-migrate-4zdlt`).
+Found on the way: the production Stripe key is a test-mode placeholder,
+so live billing is not set up; Resend's root domain `activeagents.ai` was
+added to the account and waits for its records in staging's `dns.tfvars`.
+The database is empty and there is no admin. The domain still resolves to
+staging (34.49.49.134).
+
 Status 2026-10-20: the Terraform in this branch gives production its own
 external HTTPS load balancer and the settings it was missing. The domain
 still resolves to staging until the cutover below is made, which is a
@@ -101,39 +119,23 @@ in CI or with a role that has it.
 | Need | Why | Where |
 |---|---|---|
 | Resend verifies `activeagents.ai` | Production sends as `hello@activeagents.ai`; Resend refuses an unverified From domain, so no verification, reset or invitation mail would leave | Step 2 of `docs/issues/2026-10-20-email-sender-reputation.md`: add the domain in Resend, put its `resend._domainkey` TXT and `send` SPF/MX records in staging's `dns.tfvars` (the zone owner), deploy staging, verify in Resend |
-| Live Stripe | `activeagents-production-stripe-api-key` and `-webhook-secret` already have a version; confirm they are the live account's, and register a live webhook endpoint for `https://activeagents.ai/pay/webhooks/stripe` | Stripe dashboard; `gcloud secrets versions add` |
+| Live Stripe | `activeagents-production-stripe-api-key` and `-webhook-secret` have a version each, but checked on 2026-10-20 the key is a test-mode placeholder (`sk_test_…`, rejected by Stripe), so both need the live account's values, plus a live webhook endpoint for `https://activeagents.ai/pay/webhooks/stripe` | Stripe dashboard; `gcloud secrets versions add <secret> --data-file=-` from Justin's terminal |
 | Live Pro prices | Checkout refuses the Pro plan without `stripe_monthly_price_id`/`stripe_annual_price_id` on the Plan row; `db:seed` fills them from `STRIPE_PRO_*_PRICE_ID` | Create the $99/month and $995/year prices in live mode, commit them in `terraform/environments/production/billing.auto.tfvars` (`stripe_pro_monthly_price_id`, `stripe_pro_annual_price_id`), deploy, run `db:seed` |
-| Data | The staging database holds every real user, workspace, trace and the pilot grants. Decide: migrate it, or start production empty and invite people to re-register | See "Moving the data" |
-| An admin | `/admin/pilots` needs `users.admin = true` and a verified email | Either carried over with the data or created with a one-off `runner` (as on 2026-10-20) |
+| Data | Decided 2026-10-20: **production starts empty**, nothing is copied from staging. People register again after the cutover; the Combinaut pilot grant is re-made on production (`/admin/pilots`) | See "Moving the data" |
+| An admin | `/admin/pilots` needs `users.admin = true` and a verified email | Done: `justin@activeagents.ai` (admin, verified) and the "ActiveAgents" account were created on production with a one-off `runner` on 2026-10-20 |
 | GitHub sign-in (optional) | Staging never turned it on (`enable_github_sign_in` is off there too), so nothing is lost at the cutover | `docs/infrastructure/gcp-cicd-setup.md` when wanted |
 | Sandboxes | Production has no Incus host; Cloud Run sandboxes use the root defaults (1 vCPU, 512Mi). The Claude Code checkout features that staging tests against sandbox-staging are off | Later: a `sandbox-production` environment like `terraform/environments/sandbox-staging` |
 
 ### Moving the data
 
-Cloud SQL export from `activeagents-staging` (database `activeagents_staging`)
-to a bucket, import into `activeagents-production` (database
-`activeagents_production`), with the site put in maintenance between the
-export and the DNS change so nothing is written to staging afterwards.
-
-Two things do not survive a plain copy:
-
-- **Encrypted columns.** Provider API keys, GitHub tokens and anything else
-  Active Record encrypts were written with keys derived from staging's
-  `secret_key_base` (its Rails master key). Production has a different
-  master key, so after an import those columns are unreadable unless
-  production runs with staging's encryption keys. The three
-  `activeagents-production-active-record-encryption-*` secrets and
-  `enable_active_record_encryption_keys` exist for this: put staging's
-  derived values there (how to compute them is in
-  `docs/infrastructure/gcp-cicd-setup.md`) before importing.
-- **Stripe.** Staging's `pay_customers` and subscriptions are test-mode
-  objects; they do not exist in the live account. Clear them on import and
-  let people subscribe again, or create live customers by hand for the few
-  that matter. Complimentary Pro grants (`pro_access_grants`) are app-owned
-  and copy fine.
-
-Bot-created users (`docs/issues/2026-10-19-signup-bot-email-abuse.md`)
-should be deleted before the export rather than carried over.
+Not done, by decision (Justin, 2026-10-20): production starts with an empty
+database. Only the plans (`db:seed`) and the admin login above exist on it.
+The reasons a copy was never attractive still hold and are why the decision
+is final rather than deferred: staging's encrypted columns are bound to
+staging's keys, and its Stripe objects are test-mode ones that do not exist
+in the live account. People re-register after the cutover, the Combinaut
+pilot grant is re-made on production, and staging's bot-created users
+(`docs/issues/2026-10-19-signup-bot-email-abuse.md`) never reach it.
 
 ## The cutover
 
