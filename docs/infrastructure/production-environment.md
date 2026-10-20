@@ -95,10 +95,15 @@ unset: no changes.
 1. Merge this branch. `terraform.yml` validates every environment and runs
    the root tests on the PR.
 2. Run **Deploy to Production** (`deploy-production.yml`, workflow_dispatch).
-   With no `image_tag` it deploys the `staging` tag, which is the latest
-   `main` build; a published release deploys the release tag. The deploy
-   applies Terraform, runs `activeagents-production-migrate`, health-checks
-   the Cloud Run URL and then the load balancer by IP:
+   With no `image_tag` it deploys the build the `staging` tag points at,
+   resolved to that build's commit tag so Terraform sees a new image string
+   and Cloud Run rolls a new revision (applying the literal `staging` tag
+   was a no-op on a repeat dispatch, see
+   `docs/issues/2026-10-20-production-deploy-staging-tag-noop.md`);
+   `image_tag=<commit sha>` pins one main build, and a published release
+   deploys the release tag. The deploy applies Terraform, runs
+   `activeagents-production-migrate`, health-checks the Cloud Run URL and
+   then the load balancer by IP:
    `curl --resolve activeagents.ai:443:<lb_ip> https://activeagents.ai/up`.
 3. Note `lb_ip_address` from the job summary (or
    `terraform output -raw lb_ip_address` in `terraform/environments/production`).
