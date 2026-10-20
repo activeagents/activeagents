@@ -49,3 +49,5 @@ And `pages#home` rendered the lander for everyone.
   and menu; signed-in redirect; unverified redirect; the lander still
   previewable with the dashboard offered).
 - Screenshots after the change at 320–1440px plus the open menu, both landers.
+
+- PR: https://github.com/activeagents/activeagents/pull/189
