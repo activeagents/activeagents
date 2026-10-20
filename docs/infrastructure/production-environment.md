@@ -1,5 +1,20 @@
 # The production environment, and moving activeagents.ai to it
 
+Status 2026-10-20 (late evening): **production runs 1.9.2; Resend's root
+domain is verified; live Stripe is the last item before the cutover.**
+Production revision `activeagents-production-00008-wtr` (21:21 UTC) is the
+`f4c65fb` build, the one staging runs since #192; a runner on the migrate
+job printed activeagent 1.9.2 and actionagent 1.9.2. Getting there found
+that a plain re-dispatch of the deploy was a no-op (#196 fixes it,
+`docs/issues/2026-10-20-production-deploy-staging-tag-noop.md`). Resend
+verified `activeagents.ai` at about 21:55 UTC, roughly forty minutes after
+the records went live (DKIM and the tracking CNAME within minutes, the
+`send` SPF MX and TXT last; re-triggering the check resets every record
+to pending, so waiting is the right move). The admin login exists and the
+data decision is final (production starts empty, see "Moving the data").
+Remaining: the live Stripe key, webhook secret and Pro price IDs, then the
+DNS switch.
+
 Status 2026-10-20 (evening): **production is up, not cut over.** #181
 merged (`193700a`) with Justin's go; its first deploy (run 39491306303)
 stopped at a 409 because the serverless NEG and the backend service
