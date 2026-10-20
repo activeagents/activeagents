@@ -97,3 +97,4 @@ deliberately narrow), hence `-refresh=false` for the check.
 - 2026-10-20 17:00–18:10 UTC: branch written and verified as above.
 - 2026-10-20 18:20 UTC: draft PR #181 opened.
 - 2026-10-20 18:40 UTC: CI on #181 green (scan, lint, boot, test, Terraform validate + tests). Host bump PR #182 opened alongside.
+- 2026-10-20 19:30 UTC: rebased onto main after PR #180 (Cloud Armor, honeypot, Turnstile). Four files conflicted, each resolved by keeping both sides: `terraform/main.tf` (the load balancer gets both the security-policy arguments and `additional_existing_ssl_cert_names`), `terraform/environments/production/main.tf` and `variables.tf` (the signup-protection block and the app/billing/access/load-balancer blocks), `terraform/tests/feature_infra.tftest.hcl` (the Turnstile and security-policy runs and the nine runs here). `terraform validate` passes for staging, production and sandbox-staging; `terraform test` 35 passed, 0 failed. Force-pushed with lease.
