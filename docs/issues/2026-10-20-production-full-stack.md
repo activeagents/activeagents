@@ -95,4 +95,5 @@ deliberately narrow), hence `-refresh=false` for the check.
 ## Log
 
 - 2026-10-20 17:00–18:10 UTC: branch written and verified as above.
-- 2026-10-20 18:20 UTC: draft PR #181 opened; Terraform CI runs on it.
+- 2026-10-20 18:20 UTC: draft PR #181 opened.
+- 2026-10-20 18:40 UTC: CI on #181 green (scan, lint, boot, test, Terraform validate + tests). Host bump PR #182 opened alongside.
