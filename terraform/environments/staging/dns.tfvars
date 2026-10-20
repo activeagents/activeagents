@@ -5,6 +5,13 @@
 # Set to true to switch activeagents.ai from Framer to Cloud Run
 enable_apex_domain = true
 
+# CUTOVER TO PRODUCTION: the static IP of the production load balancer, the
+# lb_ip_address output of terraform/environments/production. While it is set,
+# activeagents.ai, www, api and the alias domains resolve to production;
+# staging.activeagents.ai keeps resolving here. Comment it out to roll back.
+# Steps and checks: docs/infrastructure/production-environment.md.
+# public_lb_ip = "<production lb_ip_address>"
+
 # Use existing SSL certificate (already provisioned and active)
 # This avoids the 15-60 min provisioning delay when creating new certs
 # Certificate covers: activeagents.ai, www.activeagents.ai, staging.activeagents.ai

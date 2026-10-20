@@ -1,10 +1,15 @@
 # Production environment variables
-# Copy this to terraform.tfvars and fill in your values
+# Copy this to terraform.tfvars and fill in your values. The deploy workflow
+# passes project_id, region and image on the command line and loads every
+# committed *.auto.tfvars next to this file; nothing else is needed for a
+# plan that matches CI.
 
 project_id = "active-agents-platform"
 region     = "us-central1"
 image      = "us-central1-docker.pkg.dev/active-agents-platform/activeagents/activeagents:production"
 
+# Load balancer certificates: load_balancer.auto.tfvars (committed).
+#
 # The GitHub App, encryption key and recordings switches are committed in
 # github_app.auto.tfvars next to this file rather than set here, so CI applies
 # them too. Terraform loads *.auto.tfvars after terraform.tfvars, so the

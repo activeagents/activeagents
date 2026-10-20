@@ -17,3 +17,18 @@ output "staging_fqdn" {
   description = "Fully qualified domain name for staging"
   value       = var.staging_ip != null ? "staging.${var.domain}" : null
 }
+
+output "apex_ip" {
+  description = "Address the apex and www resolve to, or null while the apex stays on Framer"
+  value       = var.production_ip
+}
+
+output "api_ip" {
+  description = "Address api.<domain> resolves to, or null when there is no api record"
+  value       = var.api_ip
+}
+
+output "staging_ip" {
+  description = "Address staging.<domain> resolves to, or null when there is no staging record"
+  value       = var.staging_ip
+}
