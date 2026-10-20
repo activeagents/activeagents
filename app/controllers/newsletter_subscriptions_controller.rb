@@ -1,4 +1,6 @@
 class NewsletterSubscriptionsController < ApplicationController
+  include RequiresHuman
+
   allow_unauthenticated_access
   layout "pilot"
   before_action do
@@ -6,6 +8,7 @@ class NewsletterSubscriptionsController < ApplicationController
     response.headers["Referrer-Policy"] = "no-referrer"
   end
   rate_limit to: 10, within: 10.minutes, only: :create
+  require_human only: :create
 
   def create
     NewsletterSubscription.subscribe!(params[:email_address])
@@ -32,5 +35,11 @@ class NewsletterSubscriptionsController < ApplicationController
       SyncNewsletterToResendJob.perform_later(subscription.id)
     end
     render plain: "Your newsletter subscription is confirmed. You can unsubscribe in any newsletter."
+  end
+
+  private
+
+  def human_check_fallback_path
+    root_path(anchor: "newsletter")
   end
 end

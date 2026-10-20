@@ -324,6 +324,27 @@ If either fails, set the flag back to `false` at once. The app then derives its 
 
 The `github_app_install_url` output of the environment shows where an account installs the App.
 
+## Public signup protection: Cloud Armor and Turnstile
+
+[docs/features/human-check.md](../features/human-check.md) has the design. The settings, all declared in Terraform:
+
+| Setting | Where | Effect |
+| --- | --- | --- |
+| `enable_security_policy` | `security.auto.tfvars` | Cloud Armor policy on the load balancer's backend service |
+| `blocked_source_ranges` | `security.auto.tfvars` | addresses the policy refuses with 403 (CIDR notation) |
+| `signup_rate_limit` | `security.auto.tfvars` (defaults 20 per 60 s, 600 s ban) | rate-based ban on POSTs to `/registration` and `/newsletter_subscription` |
+| `enable_turnstile` | `security.auto.tfvars` | passes the Turnstile keys to the app, which turns the check on |
+| `turnstile_site_key` | `security.auto.tfvars` | `TURNSTILE_SITE_KEY` (public) |
+| `turnstile-secret-key` | Secret Manager, `activeagents-<env>-turnstile-secret-key` | `TURNSTILE_SECRET_KEY`, behind `enable_turnstile` |
+
+Staging (which serves activeagents.ai) has the policy on with the bot's addresses; production's `security.auto.tfvars` has the same lines commented until it has a load balancer. Turnstile waits, in each environment, for the secret's version (the secret exists after that environment's first apply of this change):
+
+```sh
+printf '%s' "$TURNSTILE_SECRET" | gcloud secrets versions add activeagents-<env>-turnstile-secret-key --data-file=- --project=active-agents-platform
+```
+
+then `enable_turnstile = true` and the site key in that environment's file. The root output `turnstile_site_key` refuses the flag without a key. One widget covers every hostname, so both environments take the same keys.
+
 ## Incus host: sandbox egress and IAM
 
 `terraform/modules/incus-host` (used by `terraform/environments/sandbox-staging`, which no workflow applies) keeps code running in a sandbox away from cloud credentials and private networks:

@@ -19,6 +19,70 @@ resource "google_compute_region_network_endpoint_group" "serverless_neg" {
   }
 }
 
+# Cloud Armor in front of the backend: addresses blocked by hand and a
+# rate-based ban on POSTs to the public signup endpoints, which a
+# subscription-bombing bot used to make the app send unsolicited email
+# (docs/issues/2026-10-19-signup-bot-email-abuse.md). Off unless
+# enable_security_policy; then every other request is allowed as before.
+resource "google_compute_security_policy" "default" {
+  count       = var.enable_security_policy ? 1 : 0
+  project     = var.project_id
+  name        = "${var.name}-policy"
+  description = "Blocked addresses and a rate-based ban on public signup POSTs"
+
+  # Cloud Armor takes at most ten ranges per rule
+  dynamic "rule" {
+    for_each = { for index, ranges in chunklist(var.blocked_source_ranges, 10) : index => ranges }
+    content {
+      action      = "deny(403)"
+      priority    = 1000 + rule.key
+      description = "Blocked source ranges (${rule.key + 1})"
+      match {
+        versioned_expr = "SRC_IPS_V1"
+        config {
+          src_ip_ranges = rule.value
+        }
+      }
+    }
+  }
+
+  dynamic "rule" {
+    for_each = length(var.rate_limited_paths) > 0 ? [1] : []
+    content {
+      action      = "rate_based_ban"
+      priority    = 2000
+      description = "Ban an address that posts to the signup endpoints too often"
+      match {
+        expr {
+          expression = "request.method == 'POST' && (${join(" || ", [for path in var.rate_limited_paths : "request.path == '${path}'"])})"
+        }
+      }
+      rate_limit_options {
+        conform_action   = "allow"
+        exceed_action    = "deny(429)"
+        enforce_on_key   = "IP"
+        ban_duration_sec = var.signup_rate_limit.ban_duration_sec
+        rate_limit_threshold {
+          count        = var.signup_rate_limit.count
+          interval_sec = var.signup_rate_limit.interval_sec
+        }
+      }
+    }
+  }
+
+  rule {
+    action      = "allow"
+    priority    = 2147483647
+    description = "Default rule: allow"
+    match {
+      versioned_expr = "SRC_IPS_V1"
+      config {
+        src_ip_ranges = ["*"]
+      }
+    }
+  }
+}
+
 # Backend service
 resource "google_compute_backend_service" "default" {
   project               = var.project_id
@@ -31,6 +95,8 @@ resource "google_compute_backend_service" "default" {
   backend {
     group = google_compute_region_network_endpoint_group.serverless_neg.id
   }
+
+  security_policy = var.enable_security_policy ? google_compute_security_policy.default[0].self_link : null
 
   # Enable Cloud CDN for caching
   # NOTE: CDN is incompatible with IAP - disable via gcloud if using IAP

@@ -262,6 +262,43 @@ variable "sandbox_memory" {
   default     = "4Gi" # 4Gi for LLM context and agent workloads
 }
 
+# Public signup protection (docs/features/human-check.md). Values are
+# committed in security.auto.tfvars next to this file.
+variable "enable_security_policy" {
+  description = "Attach the Cloud Armor policy (blocked addresses, signup rate-based ban) to the load balancer"
+  type        = bool
+  default     = false
+}
+
+variable "blocked_source_ranges" {
+  description = "Addresses or CIDR ranges the load balancer refuses outright"
+  type        = list(string)
+  default     = []
+}
+
+variable "signup_rate_limit" {
+  description = "Signup POSTs one address may make per interval before Cloud Armor bans it"
+  type = object({
+    count            = optional(number, 20)
+    interval_sec     = optional(number, 60)
+    ban_duration_sec = optional(number, 600)
+  })
+  default = {}
+}
+
+# Turn on only after activeagents-staging-turnstile-secret-key has a version.
+variable "enable_turnstile" {
+  description = "Pass the Turnstile site and secret keys to the app, which turns on the Turnstile check on the forms"
+  type        = bool
+  default     = false
+}
+
+variable "turnstile_site_key" {
+  description = "Site key of the staging Turnstile widget (public)"
+  type        = string
+  default     = ""
+}
+
 # Sign in with GitHub. Turn on only after both
 # activeagents-staging-github-app-client-id and -client-secret have a version.
 variable "enable_github_sign_in" {
