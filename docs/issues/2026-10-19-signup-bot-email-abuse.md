@@ -1,6 +1,6 @@
 # Signup bot is sending verification emails to people who never signed up (2026-10-19)
 
-Status (2026-10-20): fix in `fix/bot-signups` ([human-check.md](../features/human-check.md));
+Status (2026-10-20): fix in [#180](https://github.com/activeagents/activeagents/pull/180), `fix/bot-signups` ([human-check.md](../features/human-check.md));
 the sender reputation it cost is tracked in
 [2026-10-20-email-sender-reputation.md](2026-10-20-email-sender-reputation.md).
 

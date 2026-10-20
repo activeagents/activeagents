@@ -1,6 +1,6 @@
 # Human check on the public forms, and Cloud Armor in front of them
 
-Date: 2026-10-20 · Branch: `fix/bot-signups` · Issue: [2026-10-19-signup-bot-email-abuse.md](../issues/2026-10-19-signup-bot-email-abuse.md)
+Date: 2026-10-20 · Branch: `fix/bot-signups` · PR: [#180](https://github.com/activeagents/activeagents/pull/180) · Issue: [2026-10-19-signup-bot-email-abuse.md](../issues/2026-10-19-signup-bot-email-abuse.md)
 
 From 2026-10-17 a subscription-bombing bot POSTed `/registration` on
 activeagents.ai (served by staging) a few hundred times a day from six

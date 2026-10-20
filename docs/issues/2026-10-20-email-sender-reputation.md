@@ -1,6 +1,6 @@
 # Repairing the email sender reputation of activeagents.ai
 
-Date: 2026-10-20 · Status: plan; step 1 is in `fix/bot-signups` · Owner: Justin
+Date: 2026-10-20 · Status: plan; step 1 is [#180](https://github.com/activeagents/activeagents/pull/180) (`fix/bot-signups`) · Owner: Justin
 
 ## What happened
 
