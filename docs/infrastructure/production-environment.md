@@ -1,5 +1,23 @@
 # The production environment, and moving activeagents.ai to it
 
+Status 2026-10-20 (evening): **production is up, not cut over.** #181
+merged (`193700a`) with Justin's go; its first deploy (run 39491306303)
+stopped at a 409 because the serverless NEG and the backend service
+already existed with no state entry, so #193 adopted both with import
+blocks; the second deploy (run 39492120223) applied cleanly (2 imported,
+4 added, 2 changed) and ran the migrations. `lb_ip_address` is
+**34.120.184.132**; `curl --resolve activeagents.ai:443:34.120.184.132
+https://activeagents.ai/up` and the same for `api.activeagents.ai` answer
+200, and port 80 redirects to HTTPS. Its smoke test reported 404 from the
+load balancer two minutes after the forwarding rule was created and passed
+on re-run; the check now retries. The plans are seeded (`db:seed` through
+the migrate job, execution `activeagents-production-migrate-4zdlt`).
+Found on the way: the production Stripe key is a test-mode placeholder,
+so live billing is not set up; Resend's root domain `activeagents.ai` was
+added to the account and waits for its records in staging's `dns.tfvars`.
+The database is empty and there is no admin. The domain still resolves to
+staging (34.49.49.134).
+
 Status 2026-10-20: the Terraform in this branch gives production its own
 external HTTPS load balancer and the settings it was missing. The domain
 still resolves to staging until the cutover below is made, which is a
