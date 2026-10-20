@@ -11,3 +11,8 @@ import {
   to = module.activeagents.module.secrets.google_secret_manager_secret.secrets["resend-audience-id"]
   id = "projects/${var.project_id}/secrets/activeagents-production-resend-audience-id"
 }
+
+import {
+  to = module.activeagents.module.secrets.google_secret_manager_secret.secrets["turnstile-secret-key"]
+  id = "projects/${var.project_id}/secrets/activeagents-production-turnstile-secret-key"
+}

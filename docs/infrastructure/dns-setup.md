@@ -21,8 +21,14 @@ This guide explains how to configure DNS for activeagents.ai using Google Cloud 
 
 | Domain | Purpose | Target |
 |--------|---------|--------|
-| `staging.activeagents.ai` | Staging environment | GCP Load Balancer IP |
-| `activeagents.ai` | Production (Framer for now) | Framer CNAME (manual) |
+| `staging.activeagents.ai` | Staging environment | Staging load balancer IP, always |
+| `activeagents.ai`, `www`, `api` | The product | `public_lb_ip` in `environments/staging/dns.tfvars` (the production load balancer) once set; the staging load balancer while it is not |
+| `activeagent.dev`, `activeagent.pro` | Alias domains (host-split landers) | Same as the apex |
+
+The zone and every record live in the **staging** environment's Terraform
+state, which created them. Production has `enable_dns = false`; it reaches
+the domain through `public_lb_ip`. See
+[production-environment.md](production-environment.md).
 
 ## Step 1: Update GoDaddy Nameservers
 
@@ -131,10 +137,15 @@ See [Load Balancer documentation](./load-balancer.md) for details.
 2. Use `dig +trace activeagents.ai` to see where resolution fails
 3. Wait 24-48 hours for global propagation
 
-## Future Production Migration
+## Moving the apex to the production load balancer
 
-When ready to move production to GCP:
+1. Deploy production once so its load balancer exists; note its
+   `lb_ip_address` output.
+2. In `terraform/environments/staging/dns.tfvars` set
+   `public_lb_ip = "<that IP>"` and deploy staging. The apex, api and
+   alias-domain A records move; www follows as a CNAME; the staging
+   subdomain stays.
+3. Rollback is commenting the line out and deploying staging again.
 
-1. Set `production_ip` in Terraform to the production load balancer IP
-2. The apex domain `activeagents.ai` will point to GCP
-3. WWW subdomain will CNAME to apex
+The full checklist, including certificates and the data, is in
+[production-environment.md](production-environment.md).

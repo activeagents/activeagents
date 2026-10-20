@@ -17,7 +17,17 @@ output "backend_service_name" {
 
 output "uses_https" {
   description = "Whether the load balancer is configured with HTTPS (requires domain or existing cert)"
-  value       = var.domain != null || var.existing_ssl_cert_name != null
+  value       = local.https_enabled
+}
+
+output "ssl_certificate_names" {
+  description = "Every certificate the HTTPS proxy serves, own and shared"
+  value = concat(
+    var.existing_ssl_cert_name != null ? [var.existing_ssl_cert_name] : [],
+    var.domain != null && var.existing_ssl_cert_name == null ? [google_compute_managed_ssl_certificate.default[0].name] : [],
+    var.additional_existing_ssl_cert_names,
+    [for cert in google_compute_managed_ssl_certificate.extra : cert.name],
+  )
 }
 
 output "security_policy_name" {
