@@ -31,7 +31,7 @@ Design choices:
 
 ## Status log
 
-- 2026-10-20 19:50 UTC: code, tests and Terraform written. `bin/rails test` on the four sign-in files (Google and GitHub, service and integration): 63 runs, 643 assertions, 0 failures. `terraform test`: 27 passed. Validate passes for staging, production and sandbox-staging.
+- 2026-10-20 19:50 UTC: code, tests and Terraform written. Draft PR #186 opened; CI green (scan, lint, boot, test, Terraform checks). `bin/rails test` on the four sign-in files (Google and GitHub, service and integration): 63 runs, 643 assertions, 0 failures. `terraform test`: 27 passed. Validate passes for staging, production and sandbox-staging.
 
 ## Before it is on
 
