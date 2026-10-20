@@ -1,5 +1,21 @@
 # The production environment, and moving activeagents.ai to it
 
+Status 2026-10-20 (night): **everything is in place except a key roll.**
+Live Stripe is configured through the API (`bin/stripe-live-setup`,
+`docs/infrastructure/stripe-live-setup.md`): product, $99/$995 prices,
+webhook endpoint `we_1USlerE3QRGeeIHkD4L9Ugp4` with its signing secret
+stored; #198 committed the price IDs, production revision
+`activeagents-production-00009-sv4` (22:46 UTC) carries them, `db:seed`
+put them on the Pro plan row, and a runner inside production confirmed a
+live-mode key for `acct_1SyJzXE3QRGeeIHk`. Staging's Stripe is repaired
+as well (valid test key, test-mode endpoint, test prices on its plan row).
+**Open before the cutover:** the live secret key was echoed into the
+operator session at 23:05 UTC and must be rolled (steps in the incident
+section of `stripe-live-setup.md`: roll in the dashboard, new secret
+version, disable versions 2 and 3, redeploy, verify). Then Justin's
+sign-in on production (a hosts entry for 34.120.184.132, or after the
+switch) and the one-line DNS change.
+
 Status 2026-10-20 (late evening): **production runs 1.9.2; Resend's root
 domain is verified; live Stripe is the last item before the cutover.**
 Production revision `activeagents-production-00008-wtr` (21:21 UTC) is the

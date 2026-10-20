@@ -109,7 +109,10 @@ nothing is copied from staging ("we don't need to copy staging data to
 production") and that live Stripe is set up together next. Later that
 evening production moved to the 1.9.2 build (revision `00008-wtr`, 21:21
 UTC, after #196 fixed the no-op redeploy) and Resend verified the root
-domain (~21:55 UTC, records from #195). Still before the cutover: live
-Stripe (the production key is a test-mode placeholder). See the status at
-the top of
+domain (~21:55 UTC, records from #195). Live Stripe followed at 22:37 UTC
+through `bin/stripe-live-setup` (#198, #199; revision `00009-sv4`, plan
+seeded). Still before the cutover: rolling the live key, which was echoed
+into the operator session at 23:05 UTC (incident section of
+`docs/infrastructure/stripe-live-setup.md`), and Justin's sign-in. See the
+status at the top of
 [production-environment.md](../infrastructure/production-environment.md).
