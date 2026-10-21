@@ -6,7 +6,8 @@ class AgentToolboxTest < ActiveSupport::TestCase
   test "definitions_for maps supported agent tools and skips the rest" do
     definitions = AgentToolbox.definitions_for(%w[fetch search code terminal playwright agents])
 
-    assert_equal %w[fetch_url web_search calculate browse_page call_agent], definitions.map { |d| d[:name] }
+    # terminal maps to run_command since actionagent 1.9.3.
+    assert_equal %w[fetch_url web_search calculate run_command browse_page call_agent], definitions.map { |d| d[:name] }
     definitions.each do |definition|
       assert definition[:description].present?
       assert_equal "object", definition.dig(:parameters, :type)
