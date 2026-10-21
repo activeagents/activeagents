@@ -10,7 +10,7 @@ enable_apex_domain = true
 # activeagents.ai, www, api and the alias domains resolve to production;
 # staging.activeagents.ai keeps resolving here. Comment it out to roll back.
 # Steps and checks: docs/infrastructure/production-environment.md.
-# public_lb_ip = "<production lb_ip_address>"
+public_lb_ip = "34.120.184.132"
 
 # Use existing SSL certificate (already provisioned and active)
 # This avoids the 15-60 min provisioning delay when creating new certs
