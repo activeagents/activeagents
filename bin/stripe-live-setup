@@ -1,0 +1,398 @@
+#!/usr/bin/env ruby
+# frozen_string_literal: true
+#
+# Set up live-mode Stripe billing for production through the Stripe API.
+#
+#   bin/stripe-live-setup                      # do it
+#   bin/stripe-live-setup --dry-run            # report what exists and what would change
+#   bin/stripe-live-setup --env staging        # staging: key check and test-mode webhook only
+#   bin/stripe-live-setup --replace-webhook    # recreate the endpoint so its secret can be stored
+#
+# With --env staging the catalog steps are skipped (StagingProBilling owns
+# staging's test-mode product and prices, inside the app) and only the key
+# check and the webhook endpoint for staging.activeagents.ai run, storing the
+# signing secret in activeagents-staging-stripe-webhook-secret.
+#
+# The live secret key is the one thing this cannot fetch: Stripe shows it
+# only in the dashboard. Add it first, from a terminal, so it never touches a
+# transcript, the shell history or a file:
+#
+#   read -s V; printf '%s' "$V" | gcloud secrets versions add \
+#     activeagents-production-stripe-api-key --data-file=- --project=active-agents-platform; unset V
+#
+# Then this script reads that key from Secret Manager and, in order:
+#
+#   1. checks it is a live-mode key of the same Stripe account as staging's
+#      test key (one account has both modes), so a key from another account
+#      can never configure production;
+#   2. finds or creates the Pro product (`activeagents_pro`) and its two
+#      prices, $99/month and $995/year, by lookup key; a rerun creates
+#      nothing, and ambiguous duplicates stop it (as StagingProBilling does
+#      for the test account);
+#   3. finds or creates the webhook endpoint for
+#      https://activeagents.ai/pay/webhooks/stripe with every event Pay 7.3
+#      handles, and stores the endpoint's signing secret as a new version of
+#      activeagents-production-stripe-webhook-secret. Stripe returns that
+#      secret once, at creation, so an existing endpoint keeps its secret;
+#   4. writes the two price IDs to
+#      terraform/environments/production/billing.auto.tfvars on a branch cut
+#      from origin/main in a temporary worktree, pushes it and opens a pull
+#      request. After the merge, a production deploy passes them to the app
+#      and `db:seed` copies them onto the Pro plan row.
+#
+# Nothing secret is printed: only IDs (account, product, prices, endpoint).
+# See docs/infrastructure/stripe-live-setup.md.
+
+ENV["BUNDLE_GEMFILE"] ||= File.expand_path("../Gemfile", __dir__)
+require "bundler/setup"
+require "stripe"
+require "json"
+require "open3"
+require "optparse"
+require "tmpdir"
+require "time"
+
+PROJECT = ENV.fetch("GCP_PROJECT", "active-agents-platform")
+PRICES = {
+  monthly: { amount: 9900, interval: "month", variable: "stripe_pro_monthly_price_id" },
+  annual: { amount: 99_500, interval: "year", variable: "stripe_pro_annual_price_id" }
+}.freeze
+# Every event Pay 7.3 subscribes to (lib/pay/stripe.rb, configure_webhooks),
+# except payment_method.card_automatically_updated: Stripe no longer has that
+# event type and silently drops it from enabled_events (the endpoints created
+# on 2026-10-20 came back with 18 of the 19 names), so listing it would make
+# every rerun "add" it again.
+PAY_EVENTS = %w[
+  charge.succeeded charge.refunded payment_intent.succeeded
+  invoice.upcoming invoice.payment_action_required invoice.payment_failed
+  customer.subscription.created customer.subscription.updated
+  customer.subscription.deleted customer.subscription.trial_will_end
+  customer.updated customer.deleted
+  payment_method.attached payment_method.updated payment_method.detached
+  account.updated
+  checkout.session.completed checkout.session.async_payment_succeeded
+].freeze
+
+options = { env: "production", dry_run: false, branch: ENV.fetch("STRIPE_BRANCH", "chore/stripe-live-prices") }
+OptionParser.new do |parser|
+  parser.banner = "Usage: bin/stripe-live-setup [--dry-run] [--env production|staging]"
+  parser.on("--dry-run", "Report what exists and what would change; change nothing") { options[:dry_run] = true }
+  parser.on("--env ENV", %w[production staging], "Environment (staging only with --dry-run)") { |env| options[:env] = env }
+  parser.on("--branch NAME", "Branch for the tfvars pull request") { |name| options[:branch] = name }
+  parser.on("--account ACCT", /\Aacct_[A-Za-z0-9]+\z/, "Stripe account the live key must belong to (default: staging's STRIPE_EXPECTED_ACCOUNT_ID)") { |id| options[:account] = id }
+  parser.on("--replace-webhook", "Delete the existing endpoint for the URL and create it anew, so its signing secret can be stored") { options[:replace_webhook] = true }
+  parser.on("-h", "--help") do
+    puts File.read(__FILE__).lines[2..40].map { |line| line.sub(/^# ?/, "") }.join
+    exit
+  end
+end.parse!
+
+ENVIRONMENT = options[:env]
+DRY_RUN = options[:dry_run]
+LIVE = ENVIRONMENT == "production"
+# Staging's catalog (test-mode product and prices) is StagingProBilling's
+# job, inside the app; here staging gets only the key check and the webhook.
+CATALOG = LIVE
+
+PRODUCT_ID = LIVE ? "activeagents_pro" : "activeagents_staging_pro"
+WEBHOOK_URL = LIVE ? "https://activeagents.ai/pay/webhooks/stripe" : "https://staging.activeagents.ai/pay/webhooks/stripe"
+API_KEY_SECRET = "activeagents-#{ENVIRONMENT}-stripe-api-key"
+WEBHOOK_SECRET = "activeagents-#{ENVIRONMENT}-stripe-webhook-secret"
+KEY_PATTERN = LIVE ? /\A[rs]k_live_/ : /\A[rs]k_test_/
+
+def say(message) = puts("\e[1m==> #{message}\e[0m")
+def note(message) = puts("    #{message}")
+def die(message)
+  warn "\e[31merror:\e[0m #{message}"
+  exit 1
+end
+
+# --- Secret Manager ---------------------------------------------------------
+
+def gcloud(*args, stdin: nil)
+  out, err, status = Open3.capture3("gcloud", *args, "--project=#{PROJECT}", stdin_data: stdin)
+  [ out, err, status.success? ]
+end
+
+def read_secret(name)
+  out, err, ok = gcloud("secrets", "versions", "access", "latest", "--secret=#{name}")
+  die "could not read #{name}: #{err.lines.last&.strip}" unless ok
+  value = out.strip
+  die "#{name} has an empty value" if value.empty?
+  value
+end
+
+def add_secret_version(name, value)
+  _out, err, ok = gcloud("secrets", "versions", "add", name, "--data-file=-", stdin: value)
+  die "could not add a version to #{name}: #{err.lines.last&.strip}" unless ok
+end
+
+# The Stripe account staging is configured for, from its deployed service.
+def staging_expected_account
+  out, err, ok = gcloud("run", "services", "describe", "activeagents-staging", "--region=us-central1",
+    "--format=value(spec.template.spec.containers[0].env.filter(\"name:STRIPE_EXPECTED_ACCOUNT_ID\").extract(value).flatten())")
+  die "could not read staging's STRIPE_EXPECTED_ACCOUNT_ID: #{err.lines.last&.strip}" unless ok
+  value = out.strip
+  unless value.match?(/\Aacct_[A-Za-z0-9]+\z/)
+    die "staging's STRIPE_EXPECTED_ACCOUNT_ID is empty; pass --account acct_… (the account id is in the Stripe dashboard's settings, " \
+        "or `bin/rails credentials:show` holds a test key whose /v1/account names it)"
+  end
+  value
+end
+
+# --- Stripe -----------------------------------------------------------------
+
+class StripeApi
+  class Failure < StandardError; end
+
+  def initialize(key)
+    @client = Stripe::StripeClient.new(key)
+  end
+
+  def request(method, path, params = {}, idempotency_key: nil)
+    headers = idempotency_key ? { "Idempotency-Key" => idempotency_key } : {}
+    @client.execute_request(method, path, params: params, headers: headers).first.data
+  rescue Stripe::InvalidRequestError => error
+    return nil if method == :get && error.http_status == 404
+    raise Failure, describe(error)
+  rescue Stripe::StripeError => error
+    raise Failure, describe(error)
+  end
+
+  def list(path, params = {})
+    records = []
+    loop do
+      page = request(:get, path, params.merge(limit: 100))
+      records.concat(page.fetch(:data))
+      return records unless page[:has_more]
+      params = params.merge(starting_after: page.fetch(:data).last.fetch(:id))
+    end
+  end
+
+  private
+
+  # Error bodies can echo request data; keep them out of the terminal.
+  def describe(error)
+    "Stripe request failed (#{error.class.name}, HTTP #{error.http_status}, code #{error.code || 'none'})"
+  end
+end
+
+def price_matches?(price, spec)
+  price[:livemode] == LIVE && price[:active] == true && price[:currency] == "usd" &&
+    price[:unit_amount] == spec[:amount] && price[:type] == "recurring" &&
+    price[:billing_scheme] == "per_unit" && price[:transform_quantity].nil? &&
+    price.dig(:recurring, :interval) == spec[:interval] &&
+    price.dig(:recurring, :interval_count) == 1 && price.dig(:recurring, :usage_type) == "licensed"
+end
+
+def lookup_key(interval) = "#{PRODUCT_ID}_#{interval}_usd_#{PRICES.fetch(interval)[:amount]}_v1"
+
+begin
+  # --- 1. the key and the account ---------------------------------------------
+
+  say "Reading #{API_KEY_SECRET} from Secret Manager"
+  key = read_secret(API_KEY_SECRET)
+  unless key.match?(KEY_PATTERN)
+    mode = LIVE ? "live" : "test"
+    hint = LIVE ? "\n    read -s V; printf '%s' \"$V\" | gcloud secrets versions add #{API_KEY_SECRET} --data-file=- --project=#{PROJECT}; unset V" : ""
+    die "#{API_KEY_SECRET} does not hold a #{mode}-mode key (its prefix is #{key[0, 8]}). Add one from your terminal:#{hint}"
+  end
+  stripe = StripeApi.new(key)
+  key = nil
+
+  livemode = stripe.request(:get, "/v1/balance").fetch(:livemode)
+  die "the key reports livemode=#{livemode}; expected #{LIVE}" unless livemode == LIVE
+  account = stripe.request(:get, "/v1/account")
+  note "account #{account[:id]}, livemode #{livemode}"
+
+  if LIVE
+    # One Stripe account owns both modes. Staging's deployed
+    # STRIPE_EXPECTED_ACCOUNT_ID (the guard StagingProBilling uses) names it,
+    # so a live key from any other account can never configure production.
+    expected = options[:account] || staging_expected_account
+    die "the live key belongs to #{account[:id]}, but #{expected} is expected (staging's STRIPE_EXPECTED_ACCOUNT_ID; override with --account)" unless account[:id] == expected
+    note "same account as staging (#{expected})"
+  end
+
+  # --- 2. product and prices --------------------------------------------------
+
+  price_ids = {}
+  product = nil
+  if CATALOG
+  say "Pro product #{PRODUCT_ID}"
+  product = stripe.request(:get, "/v1/products/#{PRODUCT_ID}")
+  if product.nil?
+    candidates = stripe.list("/v1/products", active: true).select { |p| p.dig(:metadata, :plan_slug) == "pro" }
+    die "several active Pro products exist (#{candidates.map { |p| p[:id] }.join(', ')}); pick one in the dashboard first" if candidates.size > 1
+    product = candidates.first
+  end
+  if product
+    die "product #{product[:id]} is not an active #{LIVE ? 'live' : 'test'}-mode product" unless product[:active] && product[:livemode] == LIVE
+    note "exists: #{product[:id]} (#{product[:name]})"
+  elsif DRY_RUN
+    note "would create #{PRODUCT_ID} (ActiveAgent.PRO)"
+  else
+    product = stripe.request(:post, "/v1/products", {
+      id: PRODUCT_ID, name: "ActiveAgent.PRO", metadata: { plan_slug: "pro", environment: ENVIRONMENT }
+    }, idempotency_key: "#{PRODUCT_ID}-v1")
+    note "created #{product[:id]}"
+  end
+
+  existing_prices = product ? stripe.list("/v1/prices", product: product[:id], active: true) : []
+  PRICES.each do |interval, spec|
+    say "Pro #{interval} price: $#{spec[:amount] / 100} per #{spec[:interval]}"
+    by_key = stripe.list("/v1/prices", lookup_keys: [ lookup_key(interval) ])
+    die "several prices carry the lookup key #{lookup_key(interval)}" if by_key.size > 1
+    price = by_key.first
+    die "price #{price[:id]} has the #{interval} lookup key but does not match the plan" if price && !price_matches?(price, spec)
+    if price.nil?
+      matches = existing_prices.select { |candidate| price_matches?(candidate, spec) }
+      die "several matching #{interval} prices exist on #{product[:id]} (#{matches.map { |m| m[:id] }.join(', ')})" if matches.size > 1
+      price = matches.first
+    end
+    if price
+      note "exists: #{price[:id]}#{price[:lookup_key] ? " (lookup key #{price[:lookup_key]})" : ''}"
+    elsif DRY_RUN
+      note "would create it with lookup key #{lookup_key(interval)}"
+    else
+      price = stripe.request(:post, "/v1/prices", {
+        product: product[:id], unit_amount: spec[:amount], currency: "usd",
+        recurring: { interval: spec[:interval] }, lookup_key: lookup_key(interval),
+        metadata: { plan_slug: "pro", environment: ENVIRONMENT }
+      }, idempotency_key: lookup_key(interval))
+      die "the created #{interval} price does not match the plan" unless price_matches?(price, spec)
+      note "created #{price[:id]}"
+    end
+    price_ids[interval] = price&.fetch(:id)
+  end
+  end # CATALOG
+  say "Staging's test-mode product and prices are StagingProBilling's job (stripe:setup_pro); skipped" unless CATALOG
+
+  # --- 3. the webhook endpoint ------------------------------------------------
+
+  say "Webhook endpoint #{WEBHOOK_URL}"
+  endpoints = stripe.list("/v1/webhook_endpoints").select { |e| e[:url] == WEBHOOK_URL }
+  if options[:replace_webhook] && endpoints.any?
+    endpoints.each do |e|
+      if DRY_RUN
+        note "would delete #{e[:id]} (#{e[:status]}, #{e[:enabled_events].size} events)"
+      else
+        stripe.request(:delete, "/v1/webhook_endpoints/#{e[:id]}")
+        note "deleted #{e[:id]}"
+      end
+    end
+    endpoints = [] unless DRY_RUN
+  end
+  die "several endpoints point at #{WEBHOOK_URL}; remove the extras in the dashboard first or pass --replace-webhook" if endpoints.size > 1
+  endpoint = endpoints.first
+  secret_added = false
+  if endpoint && DRY_RUN && options[:replace_webhook]
+    note "would create a new endpoint with #{PAY_EVENTS.size} events and store its signing secret in #{WEBHOOK_SECRET}"
+  elsif endpoint
+    enabled = endpoint.fetch(:enabled_events)
+    missing = enabled.include?("*") ? [] : PAY_EVENTS - enabled
+    note "exists: #{endpoint[:id]} (#{endpoint[:status]}, #{enabled.size} events)"
+    if missing.any?
+      if DRY_RUN
+        note "would add #{missing.size} events Pay handles: #{missing.join(', ')}"
+      else
+        stripe.request(:post, "/v1/webhook_endpoints/#{endpoint[:id]}", enabled_events: (enabled + missing).uniq)
+        note "added #{missing.size} events Pay handles"
+      end
+    end
+    note "its signing secret is unchanged (Stripe reveals it only at creation; rotate it in the dashboard and add the new value to #{WEBHOOK_SECRET} if needed)"
+  elsif DRY_RUN
+    note "would create it with #{PAY_EVENTS.size} events and store its signing secret in #{WEBHOOK_SECRET}"
+  else
+    endpoint = stripe.request(:post, "/v1/webhook_endpoints", {
+      url: WEBHOOK_URL, enabled_events: PAY_EVENTS, description: "ActiveAgents #{ENVIRONMENT} (Pay)",
+      metadata: { environment: ENVIRONMENT }
+    }, idempotency_key: "activeagents-#{ENVIRONMENT}-pay-webhook-v1")
+    secret = endpoint[:secret]
+    die "Stripe returned no signing secret for the new endpoint #{endpoint[:id]}" if secret.to_s.empty?
+    add_secret_version(WEBHOOK_SECRET, secret)
+    secret = nil
+    secret_added = true
+    note "created #{endpoint[:id]}; its signing secret is a new version of #{WEBHOOK_SECRET}"
+  end
+
+  # --- 4. billing.auto.tfvars -------------------------------------------------
+
+  unless LIVE
+    say DRY_RUN ? "Dry run against staging finished; nothing was changed" : "Done"
+    note "the tfvars step is production-only; staging's price IDs live on its Plan row (StagingProBilling)" if DRY_RUN
+    exit
+  end
+  if price_ids.values.any?(&:nil?)
+    say "Dry run finished; the prices do not exist yet, so there is nothing to commit"
+    exit
+  end
+
+  tfvars_path = "terraform/environments/production/billing.auto.tfvars"
+  tfvars = <<~HCL
+    # Live-mode Pro prices in the Stripe account (#{account[:id]}), found or
+    # created by bin/stripe-live-setup on #{Time.now.utc.strftime('%Y-%m-%d')}. Terraform passes them to
+    # the app as STRIPE_PRO_MONTHLY_PRICE_ID / STRIPE_PRO_ANNUAL_PRICE_ID and
+    # `db:seed` copies them onto the Pro plan row. Checkout refuses the Pro
+    # plan while the plan row has no price IDs.
+    #{PRICES[:monthly][:variable]} = "#{price_ids[:monthly]}"
+    #{PRICES[:annual][:variable]}  = "#{price_ids[:annual]}"
+  HCL
+
+  say "Committing #{tfvars_path}"
+  repo = File.expand_path("..", __dir__)
+  system("git", "-C", repo, "fetch", "-q", "origin", "main", exception: true)
+  current, _err, on_main = Open3.capture3("git", "-C", repo, "show", "origin/main:#{tfvars_path}")
+  if on_main && current.lines.grep(/^stripe_pro_/).sort == tfvars.lines.grep(/^stripe_pro_/).sort
+    note "origin/main already has these price IDs; nothing to commit"
+    exit
+  end
+  if DRY_RUN
+    puts tfvars
+    note "would commit this on #{options[:branch]}, push it and open a pull request against main"
+    say "Dry run finished; nothing was stored, created, committed or pushed."
+    exit
+  end
+
+  Dir.mktmpdir("stripe-live-setup") do |worktree|
+    system("git", "-C", repo, "worktree", "add", "-q", "-B", options[:branch], worktree, "origin/main", exception: true)
+    begin
+      File.write(File.join(worktree, tfvars_path), tfvars)
+      git = ->(*args) { system("git", "-C", worktree, *args, exception: true) }
+      git.call("add", tfvars_path)
+      message_path = File.join(worktree, ".git-commit-message")
+      File.write(message_path, <<~MSG)
+        Add the live Stripe Pro price IDs for production
+
+        Found or created in the live account by bin/stripe-live-setup; the
+        webhook endpoint for https://activeagents.ai/pay/webhooks/stripe and
+        its signing secret (a version of activeagents-production-stripe-webhook-secret)
+        were set up by the same run. A production deploy passes the IDs to
+        the app and `db:seed` copies them onto the Pro plan row.
+
+        See docs/infrastructure/stripe-live-setup.md.
+      MSG
+      git.call("commit", "-q", "-F", message_path)
+      File.delete(message_path)
+      git.call("push", "-q", "-u", "origin", options[:branch])
+      body = <<~BODY
+        Adds `terraform/environments/production/billing.auto.tfvars` with the live-mode Pro price IDs ($99/month, $995/year), found or created by `bin/stripe-live-setup` in the Stripe account that staging's test key also belongs to. The same run set up the webhook endpoint for `https://activeagents.ai/pay/webhooks/stripe` with the events Pay handles#{secret_added ? ' and stored its signing secret as a new version of `activeagents-production-stripe-webhook-secret`' : ''}.
+
+        After the merge: dispatch **Deploy to Production**, then run `db:seed` through the migrate job so the Pro plan row gets the IDs. Docs: `docs/infrastructure/stripe-live-setup.md`.
+      BODY
+      url, err, ok = Open3.capture3("gh", "pr", "create", "--base", "main", "--head", options[:branch],
+        "--title", "Add the live Stripe Pro price IDs for production", "--body", body, chdir: worktree)
+      die "gh pr create failed: #{err.strip}" unless ok
+      note "pull request: #{url.strip}"
+    ensure
+      system("git", "-C", repo, "worktree", "remove", "--force", worktree)
+      Dir.mkdir(worktree) unless Dir.exist?(worktree) # mktmpdir removes it again
+    end
+  end
+
+  say "Done"
+  note "account #{account[:id]}, product #{product[:id]}, monthly #{price_ids[:monthly]}, annual #{price_ids[:annual]}, endpoint #{endpoint[:id]}"
+  note "Merge the pull request, deploy production, then run db:seed through the migrate job."
+rescue StripeApi::Failure => error
+  die error.message
+end

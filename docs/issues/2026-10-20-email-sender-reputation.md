@@ -1,6 +1,6 @@
 # Repairing the email sender reputation of activeagents.ai
 
-Date: 2026-10-20 · Status: plan; step 1 is [#180](https://github.com/activeagents/activeagents/pull/180) (`fix/bot-signups`) · Owner: Justin
+Date: 2026-10-20 · Status: steps 1 and 2 done (step 1 [#180](https://github.com/activeagents/activeagents/pull/180), step 2 [#195](https://github.com/activeagents/activeagents/pull/195), `activeagents.ai` verified in Resend 2026-10-20 ~21:55 UTC); steps 3 to 5 open · Owner: Justin
 
 ## What happened
 
@@ -67,7 +67,17 @@ mail. Findings and the exact commands:
 The bot reached the database (344 users since Oct 17), not Resend; the
 Resend segments only need six test contacts removed.
 
-### 2. Send from the real domain, authenticated (next)
+### 2. Send from the real domain, authenticated (done 2026-10-20)
+
+Result: `activeagents.ai` was added to Resend (us-east-1) at 20:23 UTC, its
+four records (`resend._domainkey` TXT, `send` MX and TXT, `rsend` CNAME)
+landed in staging's `dns.tfvars` in #195 and were live at Google,
+Cloudflare and the authoritative servers once the staging deploy applied
+them (about 21:15 UTC). Resend verified DKIM and the CNAME within minutes
+and the two `send` SPF records at about 21:55 UTC; the domain shows
+`verified`. Production already sends as `hello@activeagents.ai`; staging's
+From address is still `noreply@staging.activeagents.ai` (second bullet
+below, still to do).
 
 - Add `activeagents.ai` to Resend (region us-east-1, like staging) and put
   its records in `terraform/environments/staging/dns.tfvars`, as the
@@ -157,3 +167,15 @@ on a bad day; that is Justin's call.
 
 - 2026-10-20: numbers above collected through the Resend connector;
   plan written; step 1 implemented in `fix/bot-signups`.
+
+## Update, 2026-10-20 (evening): the root domain is in Resend
+
+`activeagents.ai` was added to the Resend account (region us-east-1,
+sending only; status `not_started` until its records resolve). Its four
+records go into `terraform/environments/staging/dns.tfvars`, the zone's
+owner: DKIM TXT at `resend._domainkey`, SPF TXT and MX at `send`, and a
+CNAME `rsend` → `send.forge.rmta.net`. The staging deploy after the merge
+applies them; then verification is triggered in Resend. Production sends
+as `hello@activeagents.ai` (#181); staging's From can move to the root
+domain once it is verified, which is what the live site sends with until
+the cutover. DMARC stays `p=none` for now.

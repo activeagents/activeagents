@@ -111,6 +111,17 @@ variable "alias_domains" {
   default     = []
 }
 
+# The cutover switch. This environment's state owns the activeagents.ai zone,
+# so its records carry the public hostnames even once production serves them.
+# Set in dns.tfvars to the lb_ip_address output of
+# terraform/environments/production when docs/infrastructure/production-environment.md
+# says to; unset it to roll back.
+variable "public_lb_ip" {
+  description = "Static IP of the load balancer that serves activeagents.ai, www, api and the alias domains. Null keeps them on this environment's load balancer; staging.activeagents.ai stays here either way."
+  type        = string
+  default     = null
+}
+
 variable "enable_demo_app" {
   description = "Deploy the Support Inbox example app as a public Cloud Run service"
   type        = bool

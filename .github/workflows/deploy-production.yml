@@ -6,7 +6,7 @@ on:
   workflow_dispatch:
     inputs:
       image_tag:
-        description: 'Docker image tag to deploy (default: latest staging)'
+        description: 'Image tag to deploy: a commit SHA from a main build, or a release tag. Default: the build the staging tag points at'
         required: false
         type: string
 
@@ -49,23 +49,60 @@ jobs:
           fi
           echo "✅ Staging is healthy"
 
+  # Cloud Run only rolls a new revision when the service template changes,
+  # and Terraform only changes it when the image string does. A moving tag
+  # such as `staging` therefore cannot be deployed as is: a second dispatch
+  # after a new main build would apply the same string and change nothing
+  # (that happened on 2026-10-20, docs/issues/2026-10-20-production-deploy-staging-tag-noop.md).
+  # The default is resolved to the commit tag that deploy-staging.yml pushed
+  # alongside `staging` for the same image, and an explicit tag is checked
+  # to exist before anything is applied.
   determine-image:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
     outputs:
       image_tag: ${{ steps.image.outputs.tag }}
     steps:
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v3
+        with:
+          workload_identity_provider: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ secrets.GCP_SERVICE_ACCOUNT }}
+
+      - name: Set up Cloud SDK
+        uses: google-github-actions/setup-gcloud@v3
+
       - name: Determine image tag
         id: image
         run: |
+          IMAGE="${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.REPOSITORY }}/activeagents"
           if [ "${{ github.event_name }}" = "release" ]; then
-            # For releases, use the release tag
+            # For releases, use the release tag (build-production pushes it)
             TAG="${{ github.event.release.tag_name }}"
           elif [ -n "${{ inputs.image_tag }}" ]; then
             # For manual dispatch with specified tag
             TAG="${{ inputs.image_tag }}"
           else
-            # Default to staging image
+            # Default: the build the staging tag points at, by its commit tag
             TAG="staging"
+          fi
+
+          if [ "$TAG" = "staging" ]; then
+            DIGEST=$(gcloud artifacts docker images describe "$IMAGE:staging" --format='value(image_summary.digest)')
+            TAG=$(gcloud artifacts docker tags list "$IMAGE" --filter="version~${DIGEST#sha256:}" --format='value(tag)' 2>/dev/null \
+              | sed 's#.*/##' | grep -E '^[0-9a-f]{40}$' | head -n1 || true)
+            if [ -z "$TAG" ]; then
+              echo "::error::The staging tag (${DIGEST}) has no commit tag beside it; pass image_tag explicitly"
+              exit 1
+            fi
+            echo "staging tag ${DIGEST} is the build of commit ${TAG}"
+          elif [ "${{ github.event_name }}" != "release" ]; then
+            if ! gcloud artifacts docker images describe "$IMAGE:$TAG" --format='value(image_summary.digest)' >/dev/null; then
+              echo "::error::No image tagged ${TAG} in ${IMAGE}"
+              exit 1
+            fi
           fi
           echo "tag=$TAG" >> $GITHUB_OUTPUT
           echo "Using image tag: $TAG"
@@ -117,10 +154,12 @@ jobs:
       contents: read
       id-token: write
 
-    # The smoke test reads this; without it needs.deploy.outputs.url is
+    # The smoke test reads these; without them needs.deploy.outputs.url is
     # empty and the health check curls "/up" with no host.
     outputs:
       url: ${{ steps.deploy.outputs.url }}
+      lb_ip: ${{ steps.deploy.outputs.lb_ip }}
+      domain: ${{ steps.deploy.outputs.domain }}
 
     environment:
       name: production
@@ -168,16 +207,27 @@ jobs:
         working-directory: terraform/environments/production
         run: terraform apply -auto-approve tfplan
 
-      - name: Get Cloud Run URL
+      - name: Get service URLs
         id: deploy
         working-directory: terraform/environments/production
         run: |
+          # The Cloud Run URL is always reachable, so the smoke test uses it.
+          # The domain only reaches this environment once staging's
+          # dns.tfvars names the load balancer's IP (the cutover).
           URL=$(terraform output -raw cloud_run_url)
+          LB_IP=$(terraform output -raw lb_ip_address 2>/dev/null || echo "")
+          DOMAIN=$(terraform output -raw production_domain 2>/dev/null || echo "")
           echo "url=$URL" >> $GITHUB_OUTPUT
+          echo "lb_ip=$LB_IP" >> $GITHUB_OUTPUT
+          echo "domain=$DOMAIN" >> $GITHUB_OUTPUT
           echo "### 🚀 Deployed to Production" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "**URL:** $URL" >> $GITHUB_STEP_SUMMARY
+          echo "**Cloud Run URL:** $URL" >> $GITHUB_STEP_SUMMARY
           echo "**Image:** ${{ steps.image.outputs.image }}" >> $GITHUB_STEP_SUMMARY
+          if [ -n "$LB_IP" ] && [ "$LB_IP" != "null" ]; then
+            echo "**Load balancer IP:** $LB_IP" >> $GITHUB_STEP_SUMMARY
+            echo "**Domain:** https://$DOMAIN (serves this environment once it resolves to the IP above)" >> $GITHUB_STEP_SUMMARY
+          fi
 
   migrate:
     needs: deploy
@@ -246,6 +296,52 @@ jobs:
           done
 
           echo "❌ Health check failed after 10 attempts"
+          exit 1
+
+      # Before the cutover the domain resolves to staging's load balancer and
+      # this step only reports that. After it, the domain must answer from
+      # the load balancer this deploy just applied, with a valid certificate.
+      - name: Public hostname
+        run: |
+          DOMAIN="${{ needs.deploy.outputs.domain }}"
+          LB_IP="${{ needs.deploy.outputs.lb_ip }}"
+          if [ -z "$DOMAIN" ] || [ -z "$LB_IP" ] || [ "$LB_IP" = "null" ]; then
+            echo "No load balancer in this environment; nothing to check"
+            exit 0
+          fi
+
+          RESOLVED=$(dig +short "$DOMAIN" A @8.8.8.8 | tail -n 1)
+          echo "$DOMAIN resolves to ${RESOLVED:-nothing}; the production load balancer is $LB_IP"
+
+          if [ "$RESOLVED" != "$LB_IP" ]; then
+            echo "The domain does not point at this environment yet (cutover pending: docs/infrastructure/production-environment.md)"
+            # The load balancer itself must still answer for the domain, so
+            # the cutover can be made without a deploy in between. A global
+            # load balancer takes a few minutes to propagate after its
+            # forwarding rule is created (the first production deploy got a
+            # 404 here two minutes after the apply), so retry as below.
+            for i in {1..12}; do
+              STATUS=$(curl -s -o /dev/null -w "%{http_code}" --resolve "$DOMAIN:443:$LB_IP" "https://$DOMAIN/up" || echo "000")
+              echo "https://$DOMAIN/up via $LB_IP: $STATUS"
+              [ "$STATUS" = "200" ] && exit 0
+              echo "Attempt $i: retrying in 15s..."
+              sleep 15
+            done
+            echo "❌ The production load balancer does not serve $DOMAIN"
+            exit 1
+          fi
+
+          for i in {1..10}; do
+            STATUS=$(curl -s -o /dev/null -w "%{http_code}" "https://$DOMAIN/up" || echo "000")
+            if [ "$STATUS" = "200" ]; then
+              echo "✅ https://$DOMAIN/up answered 200 from this environment"
+              exit 0
+            fi
+            echo "Attempt $i: Status $STATUS, retrying in 10s..."
+            sleep 10
+          done
+
+          echo "❌ https://$DOMAIN/up did not answer 200 after 10 attempts"
           exit 1
 
   notify:

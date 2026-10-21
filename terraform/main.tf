@@ -302,6 +302,14 @@ locals {
       } : {}, var.staging_stripe.annual_price_id != "" ? {
       STRIPE_PRO_ANNUAL_PRICE_ID = var.staging_stripe.annual_price_id
     } : {}) : {},
+    # Every other environment names its Pro prices directly (live mode for
+    # production); db:seed writes them into the Pro plan.
+    var.environment != "staging" && var.stripe_pro_price_ids.monthly != "" ? {
+      STRIPE_PRO_MONTHLY_PRICE_ID = var.stripe_pro_price_ids.monthly
+    } : {},
+    var.environment != "staging" && var.stripe_pro_price_ids.annual != "" ? {
+      STRIPE_PRO_ANNUAL_PRICE_ID = var.stripe_pro_price_ids.annual
+    } : {},
     # The Incus host this environment's sandboxes run on. INCUS_PROJECT is the
     # project terraform/modules/incus-host creates on the host. The app reads
     # the client certificate and key, and the daemon's certificate it verifies
@@ -452,13 +460,25 @@ module "load_balancer" {
   blocked_source_ranges  = var.blocked_source_ranges
   signup_rate_limit      = var.signup_rate_limit
 
+  additional_existing_ssl_cert_names = var.lb_additional_existing_ssl_cert_names
+
   depends_on = [
     module.cloud_run,
     google_project_service.apis,
   ]
 }
 
-# Alias domains (activeagent.dev, activeagent.pro) pointed at the same
+# Where the public hostnames resolve. The DNS zone for activeagents.ai lives
+# in one environment's state (staging's, which created it), so that
+# environment's records carry the apex, www, api and alias domains even once
+# another environment's load balancer serves them. public_lb_ip names that
+# load balancer; null keeps the hostnames on this environment's own.
+locals {
+  own_public_lb_ip = var.enable_load_balancer && (var.environment == "production" || var.enable_apex_domain) ? module.load_balancer[0].ip_address : null
+  public_lb_ip     = var.public_lb_ip != null ? var.public_lb_ip : local.own_public_lb_ip
+}
+
+# Alias domains (activeagent.dev, activeagent.pro) pointed at the public
 # load balancer — the Rails app splits landers by host. Each needs NS
 # delegation at its registrar (see alias_domain_name_servers output) and a
 # per-domain managed cert via lb_extra_managed_domains.
@@ -468,7 +488,7 @@ module "domain_alias" {
 
   project_id = var.project_id
   domain     = each.value
-  lb_ip      = module.load_balancer[0].ip_address
+  lb_ip      = coalesce(var.public_lb_ip, module.load_balancer[0].ip_address)
   labels     = local.common_labels
 
   depends_on = [
@@ -532,15 +552,17 @@ module "dns" {
   project_id = var.project_id
   domain     = var.dns_domain
 
-  # Point staging subdomain to the load balancer IP
+  # The staging subdomain always resolves to this environment's own load
+  # balancer, whichever one serves the public hostnames
   staging_ip = var.enable_load_balancer && var.environment == "staging" ? module.load_balancer[0].ip_address : null
 
-  # Production IP - set when apex domain is enabled or in production environment
-  production_ip = var.enable_load_balancer && (var.environment == "production" || var.enable_apex_domain) ? module.load_balancer[0].ip_address : null
+  # The apex and www: this environment's load balancer when the apex is
+  # enabled here or this is production, or public_lb_ip (see the local)
+  production_ip = local.public_lb_ip
 
   # API subdomain (api.activeagents.ai) - same load balancer as the apex.
-  # TLS is provided by lb_extra_managed_domains on the load balancer module.
-  api_ip = var.enable_load_balancer && (var.environment == "production" || var.enable_apex_domain) ? module.load_balancer[0].ip_address : null
+  # TLS comes from that load balancer's certificate for the subdomain.
+  api_ip = local.public_lb_ip
 
   # Keep main site on Framer during migration
   framer_ips       = var.framer_ips

@@ -23,5 +23,5 @@ blocked_source_ranges = [
 # after activeagents-staging-turnstile-secret-key has a version:
 #   gcloud secrets versions add activeagents-staging-turnstile-secret-key --data-file=-
 # then set the widget's site key here.
-# enable_turnstile   = true
-# turnstile_site_key = "0x4AAAAAAA..."
+enable_turnstile   = true
+turnstile_site_key = "0x4AAAAAAFeC_UHGKXcKCgNn"
