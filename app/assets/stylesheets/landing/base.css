@@ -611,12 +611,20 @@ section:first-of-type {
 
 /* Navigation */
 
+/* The bar holds three parts: the brand, the menu and the actions. On a
+   desktop all three sit in one row, and the actions never wrap: at a width
+   where they would not fit, the menu folds into the hamburger instead
+   (tablet.css, below 1057px), and below 768px the secondary actions leave
+   the bar for the menu (mobile.css). */
+
 .nav-container {
   position: sticky;
   margin-top: 24px;
   inset: 24px 0% auto;
   display: flex;
+  align-items: center;
   justify-content: space-between;
+  gap: 12px;
   background-color: var(--color-background-blur);
   box-shadow: 0 0 0 1px var(--color-border-level-2);
   -webkit-backdrop-filter: blur(40px);
@@ -632,12 +640,14 @@ section:first-of-type {
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
+  white-space: nowrap;
 }
 
 .nav-menu {
   display: flex;
   align-items: center;
-  gap: 4px;
+  gap: 2px;
+  min-width: 0;
 }
 
 .nav-link {
@@ -646,9 +656,10 @@ section:first-of-type {
   line-height: var(--line-height-ui-m);
   font-weight: var(--ui-button-font-weight);
   border-radius: var(--radius-s);
-  padding: 8px 16px;
+  padding: 8px 10px;
   display: inline-block;
   text-decoration: none;
+  white-space: nowrap;
 
   &:hover {
     color: var(--color-text-primary);
@@ -657,6 +668,14 @@ section:first-of-type {
   &:active {
     color: var(--color-text-tertiary);
   }
+}
+
+.nav-actions {
+  display: flex;
+  align-items: center;
+  flex-wrap: nowrap;
+  flex-shrink: 0;
+  gap: 8px;
 }
 
 /* GitHub Stars Badge */
@@ -702,6 +721,12 @@ section:first-of-type {
   color: var(--color-text-secondary);
 }
 
+/* Until the count arrives (or when GitHub's API refuses), the badge is just
+   "Star" rather than "Star |" with nothing after the divider. */
+.github-stars-badge:has(.github-stars-count:empty) .github-stars-divider {
+  display: none;
+}
+
 .background-gradient {
   position: absolute;
   background-image: linear-gradient(
@@ -732,7 +757,8 @@ section:first-of-type {
 }
 
 .mobile-only,
-.nav-hamburger {
+.nav-hamburger,
+.nav-narrow {
   display: none;
 }
 
