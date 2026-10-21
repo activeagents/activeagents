@@ -135,18 +135,34 @@ transcript. The key is therefore treated as compromised. Nothing else was
 exposed: the webhook signing secrets and the staging key were not in that
 command.
 
-Remediation, in order:
+Remediation, in order, all done by 2026-10-21:
 
-1. Justin rolls the live secret key in the Stripe dashboard (live mode,
-   Developers → API keys, roll with immediate expiry). Stripe has no API
-   for this. Rolling does not affect endpoints or their signing secrets.
-2. The new key becomes version 4 of `activeagents-production-stripe-api-key`
-   (`read -s V; printf '%s' "$V" | gcloud secrets versions add … --data-file=-`).
-3. Versions 2 and 3 are disabled (`gcloud secrets versions disable`), so
+1. Justin rolled the live secret key in the Stripe dashboard (live mode,
+   Developers → API keys, roll with immediate expiry) at about 23:45 UTC
+   on 2026-10-20. Stripe has no API for this. Rolling does not affect
+   endpoints or their signing secrets; the exposed value answered
+   `401 Expired API Key` minutes later.
+2. Versions 2 and 3 of `activeagents-production-stripe-api-key` were
+   disabled the same night (`gcloud secrets versions disable`), so
    nothing can resolve to the exposed value.
-4. **Deploy to Production** is dispatched so a new revision starts with the
-   new version, and a runner on the migrate job confirms Pay reports
-   `livemode=true` for the same account, printing only the key's prefix.
+3. The new key became version 4 on 2026-10-21 at 19:30 UTC, added by
+   Justin from his own terminal
+   (`read -s V; printf '%s' "$V" | gcloud secrets versions add … --data-file=-`).
+   The file-based probe reported `sk_live_… HTTP 200 livemode=True
+   account=acct_1SyJ…`.
+4. **Deploy to Production** was dispatched at 19:32 UTC (run 39662460277)
+   and rolled revision `activeagents-production-00010-26m` (build
+   `e151cd5`, main after #200), which started with version 4; a runner on
+   the migrate job then confirmed Pay reports `livemode=true` for the same
+   account, printing only the key's prefix (details below).
+
+The in-production check was execution `activeagents-production-migrate-6h8pb`
+(19:40 UTC, a `runner` through the migrate job, whose template the deploy
+had just updated); it printed `STRIPE_CHECK prefix=sk_live_ livemode=true
+account=acct_1SyJzXE3QRGeeIHk webhook_secret_prefix=whsec_`. The secret
+versions now read: 4 enabled (current), 3 and 2 disabled (exposed and
+expired), 1 enabled (the 2026-03-27 placeholder, invalid; harmless because
+`latest` resolves to 4).
 
 Rule going forward, now in the operator's notes as well: a piped secret is
 only ever consumed by a script *file* (`python3 -I probe.py`), never by an
