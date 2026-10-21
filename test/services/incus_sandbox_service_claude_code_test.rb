@@ -150,14 +150,12 @@ class IncusSandboxServiceClaudeCodeTest < ActiveSupport::TestCase
   end
 
   test "a project's boot fix gets the engine's command allowlist; any other session runs no commands" do
-    skip "the pinned engine has no ProjectBootFix" unless defined?(ActionAgent::ProjectBootFix)
-
     session = CodeSession.new(id: 54, prompt: "Fix the boot")
-    ActionAgent::ProjectBootFix.stub(:allowed_tools_for, [ "Bash(bundle install:*)", "Bash(gem list:*)" ]) do
+    with_allowed_tools([ "Bash(bundle install:*)", "Bash(gem list:*)" ]) do
       argv = FakeIncus.new.send(:claude_argv, session)
       assert_equal "Bash(bundle install:*),Bash(gem list:*)", argv[argv.index("--allowedTools") + 1]
     end
-    ActionAgent::ProjectBootFix.stub(:allowed_tools_for, []) do
+    with_allowed_tools([]) do
       assert_not_includes FakeIncus.new.send(:claude_argv, session), "--allowedTools"
     end
   end
@@ -299,5 +297,19 @@ class IncusSandboxServiceClaudeCodeTest < ActiveSupport::TestCase
       assert service.respond_to?(verb), verb
     end
     assert_equal %w[claude_code], service.code_runners
+  end
+
+  private
+
+  # The engine's ProjectBootFix answers for a real sandbox session, which this
+  # test's Struct is not, so the answer is given here. The original method
+  # comes back even when an assertion raises (the bundle has no minitest/mock).
+  def with_allowed_tools(allowed)
+    boot_fix = ActionAgent::ProjectBootFix
+    original = boot_fix.method(:allowed_tools_for)
+    boot_fix.define_singleton_method(:allowed_tools_for) { |_session| allowed }
+    yield
+  ensure
+    boot_fix.define_singleton_method(:allowed_tools_for, original)
   end
 end
