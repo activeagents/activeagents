@@ -7,6 +7,13 @@ cleaned up per [2026-10-20-resend-list-cleanup.md](2026-10-20-resend-list-cleanu
 the sender reputation it cost is tracked in
 [2026-10-20-email-sender-reputation.md](2026-10-20-email-sender-reputation.md).
 
+Result (20:08 UTC): no signup POST from the bot has reached the app since
+18:24:57 UTC and no verification mail has gone out since 18:24:56 UTC; the
+six addresses keep probing and get 403 at the edge. Live test of every layer:
+[2026-10-20-bot-blocker-live-test.md](../testing/2026-10-20-bot-blocker-live-test.md).
+Production has none of this yet (no load balancer, last deployed 2026-10-06);
+it comes with #181.
+
 ## Summary
 activeagents.ai resolves to the **staging** load balancer (34.49.49.134 → `activeagents-staging`).
 The `activeagents-production` Cloud Run service is not behind any domain. In 90 days it
