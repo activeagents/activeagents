@@ -13,6 +13,8 @@ class PagesController < ApplicationController
 
   helper_method :oss_site?
 
+  before_action :send_signed_in_visitors_to_their_dashboard, only: :home
+
   def home
     @sections = load_sections
     @demo_mode = params[:demo_mode].present?
@@ -25,6 +27,15 @@ class PagesController < ApplicationController
   end
 
   private
+
+  # A signed-in person who opens the site's root wants their dashboard, not
+  # the pitch. ?site= and ?demo_mode keep the lander reachable for a look.
+  def send_signed_in_visitors_to_their_dashboard
+    return if params[:site].present? || params[:demo_mode].present?
+    return unless authenticated?
+
+    redirect_to Current.user.email_verified? ? dashboard_path : pending_verification_path
+  end
 
   def oss_site?
     return true if params[:site] == "oss"

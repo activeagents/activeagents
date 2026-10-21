@@ -44,6 +44,35 @@
     margin-top: 12px;
   }
 
+  .nav-wide {
+    display: none;
+  }
+
+  .nav-menu .nav-link {
+    display: flex;
+  }
+
+  .nav-menu .nav-narrow {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin-top: 12px;
+    padding-top: 12px;
+    border-top: 1px solid var(--color-border-level-2);
+  }
+
+  .nav-menu .nav-narrow > .button {
+    width: 100%;
+  }
+
+  .nav-menu .nav-menu-links {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 8px;
+    margin-top: 4px;
+  }
+
   .footer {
     margin: 24px 0;
   }
@@ -281,14 +310,6 @@
     padding: 0 16px;
   }
 
-  .hide-on-mobile {
-    display: none;
-  }
-
-  .nav-link {
-    display: flex;
-  }
-
   .nav-menu {
     padding: 12px;
   }
@@ -305,10 +326,6 @@
 
   .footer-menu {
     grid-template-columns: 2fr;
-  }
-
-  .mobile-only {
-    display: flex;
   }
 
   /* Product Previews small mobile */
