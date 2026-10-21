@@ -122,12 +122,12 @@ GEM
   specs:
     action_text-trix (2.1.16)
       railties
-    actionagent (1.9.2)
+    actionagent (1.9.3)
       activeagent (>= 1.4, < 2)
       activerecord (>= 7.2, <= 9.0)
       railties (>= 7.2, <= 9.0)
       solid_agent (>= 0.1)
-    activeagent (1.9.2)
+    activeagent (1.9.3)
       actionpack (>= 7.2, <= 9.0)
       actionview (>= 7.2, <= 9.0)
       activeagents-telemetry (~> 0.1)
@@ -161,7 +161,7 @@ GEM
     crack (1.0.1)
       bigdecimal
       rexml
-    crass (1.0.7)
+    crass (1.0.8)
     cssbundling-rails (1.4.3)
       railties (>= 6.0.0)
     csv (3.3.5)
@@ -450,7 +450,7 @@ GEM
     rack-session (2.1.2)
       base64 (>= 0.1.0)
       rack (>= 3.0.0)
-    rack-test (2.2.0)
+    rack-test (2.3.0)
       rack (>= 1.3)
     rackup (2.3.1)
       rack (>= 3)
@@ -610,8 +610,8 @@ PLATFORMS
   x86_64-linux-musl
 
 DEPENDENCIES
-  actionagent (= 1.9.2)
-  activeagent (= 1.9.2)
+  actionagent (= 1.9.3)
+  activeagent (= 1.9.3)
   anthropic
   bcrypt (~> 3.1.7)
   bootsnap
@@ -652,4 +652,4 @@ DEPENDENCIES
   webmock
 
 BUNDLED WITH
-   2.7.2
+  4.0.18

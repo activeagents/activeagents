@@ -147,9 +147,8 @@ ActionAgent.configure do |config|
   # How Codex sessions authenticate: the workspace's OpenAI API key (api_key,
   # the default) or, on a developer's own machine with the :local backend,
   # that machine's Codex login (local_login). Hosted backends refuse
-  # local_login, so Terraform sets nothing for it. Guarded until the engine
-  # that knows codex_auth (1.9.3) is pinned.
-  config.codex_auth = ENV.fetch("CODEX_AUTH", "api_key") if config.respond_to?(:codex_auth=)
+  # local_login, so Terraform sets nothing for it.
+  config.codex_auth = ENV.fetch("CODEX_AUTH", "api_key")
 end
 
 Rails.application.config.to_prepare do
