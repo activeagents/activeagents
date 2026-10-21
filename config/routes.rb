@@ -3,8 +3,11 @@ Rails.application.routes.draw do
   # Sign in with GitHub. The callback also completes Settings -> Connect GitHub.
   post "auth/github", to: "github_sessions#create", as: :github_session
   get "auth/github/callback", to: "github_sessions#callback", as: :github_callback
+  post "auth/google", to: "google_sessions#create", as: :google_session
+  get "auth/google/callback", to: "google_sessions#callback", as: :google_callback
   resource :settings, only: :show
   resource :github_identity, only: [ :create, :destroy ], path: "settings/github"
+  resource :google_identity, only: [ :create, :destroy ], path: "settings/google"
   resource :password_link, only: :create, path: "settings/password_link"
   resource :registration, only: [ :new, :create ]
   resource :workspace_invitation, only: [ :show, :create ]

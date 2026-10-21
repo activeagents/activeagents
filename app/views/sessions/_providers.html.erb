@@ -1,0 +1,28 @@
+<%# The provider buttons for the sign-in and sign-up pages, and one divider when any is shown. `verb` is "Sign in" or "Sign up". %>
+<% github = GithubSignIn.configured? %>
+<% google = GoogleSignIn.configured? %>
+<% if github || google %>
+  <% button_classes = "w-full flex justify-center items-center gap-2 py-2 px-4 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-900 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-rose-500 cursor-pointer" %>
+  <div class="space-y-3 mb-6">
+    <% if github %>
+      <%= button_to github_session_path, form: { data: { turbo: false } }, class: button_classes do %>
+        <i class="fa-brands fa-github" aria-hidden="true"></i>
+        <%= "#{verb} with GitHub" %>
+      <% end %>
+    <% end %>
+    <% if google %>
+      <%= button_to google_session_path, form: { data: { turbo: false } }, class: button_classes do %>
+        <i class="fa-brands fa-google" aria-hidden="true"></i>
+        <%= "#{verb} with Google" %>
+      <% end %>
+    <% end %>
+  </div>
+  <div class="relative mb-6">
+    <div class="absolute inset-0 flex items-center" aria-hidden="true">
+      <div class="w-full border-t border-gray-300"></div>
+    </div>
+    <div class="relative flex justify-center text-sm">
+      <span class="bg-white px-2 text-gray-500">or use your email</span>
+    </div>
+  </div>
+<% end %>
