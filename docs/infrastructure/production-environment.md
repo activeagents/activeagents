@@ -1,5 +1,19 @@
 # The production environment, and moving activeagents.ai to it
 
+Status 2026-10-21: **the key roll is done; production is ready for the
+cutover.** Justin rolled the live Stripe key on the night of 2026-10-20
+and stored the new one as version 4 of
+`activeagents-production-stripe-api-key` at 19:30 UTC on 2026-10-21 (the
+exposed versions 2 and 3 are disabled). The file-based probe answered
+`sk_live_… HTTP 200 livemode=True account=acct_1SyJ…`, **Deploy to
+Production** run 39662460277 (19:32 UTC) rolled a new revision on the
+`e151cd5` build (main after #200, the same code as 1.9.2 plus the Stripe
+tooling and docs), and a runner on the migrate job confirmed the new key
+from inside production (incident section of `stripe-live-setup.md`).
+What remains is Justin's: sign in on production (a hosts entry for
+34.120.184.132, or after the switch) and the one-line DNS change
+(`public_lb_ip = "34.120.184.132"` in staging's `dns.tfvars`).
+
 Status 2026-10-20 (night): **everything is in place except a key roll.**
 Live Stripe is configured through the API (`bin/stripe-live-setup`,
 `docs/infrastructure/stripe-live-setup.md`): product, $99/$995 prices,
@@ -155,7 +169,7 @@ in CI or with a role that has it.
 | Need | Why | Where |
 |---|---|---|
 | Resend verifies `activeagents.ai` | Production sends as `hello@activeagents.ai`; Resend refuses an unverified From domain, so no verification, reset or invitation mail would leave | Step 2 of `docs/issues/2026-10-20-email-sender-reputation.md`: add the domain in Resend, put its `resend._domainkey` TXT and `send` SPF/MX records in staging's `dns.tfvars` (the zone owner), deploy staging, verify in Resend |
-| Live Stripe | Done 2026-10-20 22:37 UTC: `activeagents-production-stripe-api-key` holds the live key (versions 2 and 3, added by Justin from his terminal) and `bin/stripe-live-setup` created the webhook endpoint `we_1USlerE3QRGeeIHkD4L9Ugp4` for `https://activeagents.ai/pay/webhooks/stripe`, storing its signing secret as version 2 of `-webhook-secret`. Deliveries fail until the cutover (the hostname still reaches staging) | `docs/infrastructure/stripe-live-setup.md` |
+| Live Stripe | Done 2026-10-20 22:37 UTC: `bin/stripe-live-setup` created the webhook endpoint `we_1USlerE3QRGeeIHkD4L9Ugp4` for `https://activeagents.ai/pay/webhooks/stripe`, storing its signing secret as version 2 of `-webhook-secret`. The live key in `activeagents-production-stripe-api-key` is **version 4** (2026-10-21 19:30 UTC, added by Justin from his terminal after rolling the exposed key; versions 2 and 3 are disabled). Deliveries fail until the cutover (the hostname still reaches staging) | `docs/infrastructure/stripe-live-setup.md` |
 | Live Pro prices | Checkout refuses the Pro plan without `stripe_monthly_price_id`/`stripe_annual_price_id` on the Plan row; `db:seed` fills them from `STRIPE_PRO_*_PRICE_ID` | Created 2026-10-20 by `bin/stripe-live-setup` (product `activeagents_pro`, `price_1USlerE3QRGeeIHk0M6BStYF` monthly, `price_1USlerE3QRGeeIHkhOElxc2K` annual) and committed in `terraform/environments/production/billing.auto.tfvars` by #198; then deploy and run `db:seed` |
 | Data | Decided 2026-10-20: **production starts empty**, nothing is copied from staging. People register again after the cutover; the pilot client pilot grant is re-made on production (`/admin/pilots`) | See "Moving the data" |
 | An admin | `/admin/pilots` needs `users.admin = true` and a verified email | Done: `justin@activeagents.ai` (admin, verified) and the "ActiveAgents" account were created on production with a one-off `runner` on 2026-10-20 |
