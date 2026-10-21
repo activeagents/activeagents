@@ -1,6 +1,27 @@
 # The production environment, and moving activeagents.ai to it
 
-Status 2026-10-21: **the key roll is done; production is ready for the
+Status 2026-10-21 (20:41 UTC): **activeagents.ai is served by production.**
+On Justin's go ("update the dns via gcloud … or better yet update
+terraform! Or both") the apex, `api`, `activeagent.dev` and
+`activeagent.pro` A records were pointed at 34.120.184.132 with
+`gcloud dns record-sets update` (20:40–20:41 UTC; `www` follows its CNAME,
+`staging.activeagents.ai` stays on 34.49.49.134), and #203 set
+`public_lb_ip = "34.120.184.132"` in staging's `dns.tfvars` so Terraform
+agrees (its apply in the next staging deploy wrote the same values).
+Google's and Cloudflare's resolvers answered the new address within a
+minute; `activeagents.ai`, `www`, `api` and `activeagent.dev` answer 200
+from production, and **Deploy to Production** run 39672567957 passed its
+"Public hostname" step. The admin's password reset was sent from
+production (through the `hello@activeagents.ai` Google Group Justin
+created that day, which accepts outside mail and forwards to him, so
+replies to production mail land in his inbox). Known gap, unchanged by
+the switch: `activeagent.pro` has no working certificate on either
+environment (its managed certificates failed permanently because the
+registrar never delegated the domain). Next: Phase 2 certificates below,
+the pilot client pilot grant on production, and a production deploy on each
+release.
+
+Status 2026-10-21 (earlier): **the key roll is done; production is ready for the
 cutover.** Justin rolled the live Stripe key on the night of 2026-10-20
 and stored the new one as version 4 of
 `activeagents-production-stripe-api-key` at 19:30 UTC on 2026-10-21 (the
@@ -188,6 +209,11 @@ pilot grant is re-made on production, and staging's bot-created users
 (`docs/issues/2026-10-19-signup-bot-email-abuse.md`) never reach it.
 
 ## The cutover
+
+Done 2026-10-21 at 20:40–20:41 UTC (see the status at the top): the
+records were moved with gcloud first so the switch did not wait on a
+deploy, and #203 made the Terraform change below in the same minutes.
+The steps stay here for the rollback and for the next time.
 
 1. In `terraform/environments/staging/dns.tfvars`, set
    `public_lb_ip = "<lb_ip_address of production>"` (the commented line).
