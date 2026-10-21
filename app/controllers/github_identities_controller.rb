@@ -16,7 +16,7 @@ class GithubIdentitiesController < ApplicationController
     identity = Current.user.github_identity
     if identity.nil?
       redirect_to settings_path
-    elsif !Current.user.password_set?
+    elsif !Current.user.signs_in_without?(identity)
       redirect_to settings_path, alert: "Set a password before disconnecting GitHub, or you won't be able to sign in."
     else
       identity.destroy!

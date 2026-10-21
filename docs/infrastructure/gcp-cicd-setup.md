@@ -201,6 +201,8 @@ Terraform creates these in both environments, and none of them reaches the app u
 | --- | --- | --- |
 | `github-app-client-id` | `GITHUB_APP_CLIENT_ID` | `enable_github_sign_in` |
 | `github-app-client-secret` | `GITHUB_APP_CLIENT_SECRET` | `enable_github_sign_in` |
+| `google-oauth-client-id` | `GOOGLE_CLIENT_ID` | `enable_google_sign_in` |
+| `google-oauth-client-secret` | `GOOGLE_CLIENT_SECRET` | `enable_google_sign_in` |
 | `github-app-private-key` | `GITHUB_APP_PRIVATE_KEY` | `enable_github_app` |
 | `github-app-webhook-secret` | `GITHUB_APP_WEBHOOK_SECRET` | `enable_github_app` |
 | `active-record-encryption-primary-key` | `ACTIVE_RECORD_ENCRYPTION_PRIMARY_KEY` | `enable_active_record_encryption_keys` |
@@ -308,8 +310,11 @@ github_app_id                        = "123456"
 github_app_slug                      = "activeagents-staging"
 enable_github_app                    = true
 enable_github_sign_in                = true
+enable_google_sign_in                = true
 enable_active_record_encryption_keys = true
 ```
+
+`enable_google_sign_in` reads the Google OAuth client's secrets the same way; `docs/google-sign-in.md` says how to register that client.
 
 `enable_recordings_storage = true` goes in the same file once the app stores recordings on GCS.
 

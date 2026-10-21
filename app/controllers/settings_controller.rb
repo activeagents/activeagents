@@ -6,5 +6,6 @@ class SettingsController < ApplicationController
   def show
     @user = Current.user
     @github_identity = @user.github_identity
+    @google_identity = @user.google_identity
   end
 end
