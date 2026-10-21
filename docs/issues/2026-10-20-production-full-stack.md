@@ -1,6 +1,6 @@
 # A real production environment: load balancer, DNS switch, the full Terraform stack
 
-Date: 2026-10-20 · Status: draft PR [#181](https://github.com/activeagents/activeagents/pull/181) (`infra/production-full-stack`), to deploy with the 1.9.2 release · Owner: Justin
+Date: 2026-10-20 · Status: **done**. [#181](https://github.com/activeagents/activeagents/pull/181) and [#193](https://github.com/activeagents/activeagents/pull/193) built production (2026-10-20); 1.9.2, live Stripe and Resend followed the same day; the DNS cutover was made on 2026-10-21 at 20:41 UTC ([#203](https://github.com/activeagents/activeagents/pull/203) plus the same records via gcloud). The runbook `docs/infrastructure/production-environment.md` carries the timeline · Owner: Justin
 
 ## Ask
 
