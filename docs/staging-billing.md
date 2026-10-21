@@ -49,3 +49,20 @@ staging; boot fails if the effective key is live or disagrees with Pay.
   on the same workspace just to check its price.
 
 Tax setup is outside this staging trial test; no automatic tax settings are changed.
+
+## State on 2026-10-20
+
+Both the staging key and the production key that Secret Manager held since
+March answered 401 from Stripe, so this flow had been broken. Justin's
+call: staging uses the existing test key from `config/credentials.yml.enc`
+(now version 2 of `activeagents-staging-stripe-api-key`). The test-mode
+webhook endpoint `we_1USljJE3QRGeeIHkHH3tXeWP` for
+`https://staging.activeagents.ai/pay/webhooks/stripe` was created through
+the API (`bin/stripe-live-setup --env staging`) with its signing secret as
+version 2 of the staging webhook secret. The repository variables are set:
+`STRIPE_STAGING_ACCOUNT_ID` = `acct_1SyJzXE3QRGeeIHk`,
+`STRIPE_PRO_MONTHLY_PRICE_ID` = `price_1TG9UtE3QRGeeIHkX5Nmjyox`,
+`STRIPE_PRO_ANNUAL_PRICE_ID` = `price_1TG9UtE3QRGeeIHknLLzEkg2` (the newest
+of three test-mode Pro products; without explicit IDs `stripe:setup_pro`
+stops on the ambiguity). Run 39513972279 wrote them onto the Pro plan row.
+Details: `docs/infrastructure/stripe-live-setup.md`.

@@ -1,0 +1,221 @@
+#!/usr/bin/env bash
+#
+# Turn Cloudflare Turnstile on for staging and production from one terminal.
+#
+#   bin/turnstile-keys            # do it
+#   bin/turnstile-keys --dry-run  # show what would change, change nothing
+#
+# It asks for two pastes: the widget's site key (public) and then its secret
+# key (not echoed). Then, for each environment:
+#
+#   1. stores the secret as a new version of
+#      activeagents-<env>-turnstile-secret-key in Secret Manager, creating
+#      the secret if the environment has not applied the Terraform that
+#      declares it yet (and adopting it into that environment's state with
+#      an import block, so the next apply does not fail with a 409);
+#   2. sets enable_turnstile = true and the site key in
+#      terraform/environments/<env>/security.auto.tfvars.
+#
+# The file changes are committed on a branch cut from origin/main in a
+# temporary worktree, pushed, and opened as a pull request. Each deploy
+# workflow applies them after the merge. The secret never touches the shell
+# history, a file, or git. See docs/features/human-check.md.
+set -euo pipefail
+
+PROJECT=${GCP_PROJECT:-active-agents-platform}
+ENVS=(staging production)
+BRANCH=${TURNSTILE_BRANCH:-chore/turnstile-keys}
+SECRET_SUFFIX=turnstile-secret-key
+# Cloudflare keys look like 0x4AAAAAAA… (site, 24 chars) and 0x4AAAAAAA…
+# (secret, 35 chars); the test keys are 1x0000…, 2x0000…, 3x0000….
+KEY_PATTERN='^[0-9]x[0-9A-Za-z_-]{20,}$'
+# Where each environment's secrets module lives in state (see
+# terraform/environments/production/imports.tf for the existing blocks).
+IMPORT_ADDRESS='module.activeagents.module.secrets.google_secret_manager_secret.secrets["'$SECRET_SUFFIX'"]'
+
+DRY_RUN=false
+case "${1:-}" in
+  --dry-run) DRY_RUN=true ;;
+  "") ;;
+  -h|--help) sed -n '2,22p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
+  *) echo "unknown option: $1 (try --dry-run or --help)" >&2; exit 2 ;;
+esac
+
+say()  { printf '\n\033[1m%s\033[0m\n' "$*"; }
+note() { printf '  %s\n' "$*"; }
+die()  { printf '\nerror: %s\n' "$*" >&2; exit 1; }
+run()  { if $DRY_RUN; then note "would run: $*"; else "$@"; fi; }
+
+# --- preflight ---------------------------------------------------------------
+
+for tool in gcloud git gh perl; do
+  command -v "$tool" >/dev/null || die "$tool is not installed or not on PATH"
+done
+
+REPO_ROOT=$(git rev-parse --show-toplevel 2>/dev/null) || die "run this inside the activeagents checkout"
+cd "$REPO_ROOT"
+for env in "${ENVS[@]}"; do
+  [ -f "terraform/environments/$env/security.auto.tfvars" ] \
+    || die "terraform/environments/$env/security.auto.tfvars is missing; pull main first"
+done
+
+ACCOUNT=$(gcloud config get-value account 2>/dev/null || true)
+[ -n "$ACCOUNT" ] || die "gcloud is not signed in (gcloud auth login)"
+gcloud secrets list --project="$PROJECT" --limit=1 --format='value(name)' >/dev/null 2>&1 \
+  || die "cannot list secrets in $PROJECT as $ACCOUNT"
+gh auth status >/dev/null 2>&1 || die "gh is not signed in (gh auth login)"
+
+$DRY_RUN && say "Dry run: nothing is stored, created, committed or pushed."
+note "GCP project $PROJECT as $ACCOUNT; repo $REPO_ROOT"
+
+# --- the two pastes ----------------------------------------------------------
+
+say "1/2  Paste the Turnstile widget's SITE key (public), then press Enter:"
+read -r SITE_KEY
+SITE_KEY=${SITE_KEY//[[:space:]]/}
+[[ "$SITE_KEY" =~ $KEY_PATTERN ]] || die "that does not look like a Turnstile site key (expected something like 0x4AAAAAAA…)"
+
+say "2/2  Paste the widget's SECRET key, then press Enter (it is not echoed):"
+read -rs SECRET
+echo
+SECRET=${SECRET//[[:space:]]/}
+[[ "$SECRET" =~ $KEY_PATTERN ]] || die "that does not look like a Turnstile secret key (expected something like 0x4AAAAAAA…)"
+[ "$SECRET" != "$SITE_KEY" ] || die "the secret key is the same as the site key; paste the widget's secret key second"
+note "site key ${SITE_KEY:0:6}… (${#SITE_KEY} chars), secret ${#SECRET} chars"
+
+# --- which secrets exist -----------------------------------------------------
+
+say "Checking Secret Manager"
+MISSING=()
+for env in "${ENVS[@]}"; do
+  name="activeagents-$env-$SECRET_SUFFIX"
+  if gcloud secrets describe "$name" --project="$PROJECT" --format='value(name)' >/dev/null 2>&1; then
+    versions=$(gcloud secrets versions list "$name" --project="$PROJECT" --format='value(state)' | grep -c ENABLED || true)
+    note "$name exists ($versions enabled version(s))"
+  else
+    MISSING+=("$env")
+    note "$name does not exist yet"
+  fi
+done
+
+# Staging applies Terraform on every push to main, and that apply creates the
+# staging secret. Creating it here while a deploy is running would make the
+# apply fail with a 409, so wait for it instead.
+for env in "${MISSING[@]+"${MISSING[@]}"}"; do
+  [ "$env" = staging ] || continue
+  latest=$(gh run list --workflow=deploy-staging.yml --limit=1 --json status,databaseId,url \
+             --jq '.[0] | "\(.status) \(.url)"' 2>/dev/null || true)
+  case "$latest" in
+    completed*|"") ;;
+    *) die "a staging deploy is still running and will create the staging secret: ${latest#* }. Re-run when it has finished." ;;
+  esac
+done
+
+# --- store the secret --------------------------------------------------------
+
+say "Storing the secret"
+for env in "${ENVS[@]}"; do
+  name="activeagents-$env-$SECRET_SUFFIX"
+  if printf '%s\n' "${MISSING[@]+"${MISSING[@]}"}" | grep -qx "$env"; then
+    note "creating $name (labels as the secret-manager module sets them)"
+    run gcloud secrets create "$name" --project="$PROJECT" --replication-policy=automatic \
+      --labels="environment=$env,managed_by=terraform,project=activeagents,service=activeagents,secret_name=$SECRET_SUFFIX" \
+      --quiet
+  fi
+  if $DRY_RUN; then
+    note "would add a version to $name"
+  else
+    version=$(printf '%s' "$SECRET" | gcloud secrets versions add "$name" --project="$PROJECT" --data-file=- --format='value(name)')
+    note "added ${version##*/secrets/} to $name"
+  fi
+done
+unset SECRET
+
+# --- commit the site key -----------------------------------------------------
+
+say "Committing enable_turnstile and the site key for both environments"
+git fetch -q origin main
+WORKTREE=$(mktemp -d "${TMPDIR:-/tmp}/turnstile-keys.XXXXXX")
+cleanup() {
+  git worktree remove --force "$WORKTREE" >/dev/null 2>&1 || rm -rf "$WORKTREE"
+  $DRY_RUN && git branch -q -D "$BRANCH" >/dev/null 2>&1
+  return 0
+}
+trap cleanup EXIT
+git worktree add -q -B "$BRANCH" "$WORKTREE" origin/main
+
+CHANGED=()
+for env in "${ENVS[@]}"; do
+  file="terraform/environments/$env/security.auto.tfvars"
+  SITE_KEY="$SITE_KEY" perl -pi -e '
+    s/^#?\s*enable_turnstile\s*=.*$/enable_turnstile   = true/;
+    s/^#?\s*turnstile_site_key\s*=.*$/turnstile_site_key = "$ENV{SITE_KEY}"/;
+  ' "$WORKTREE/$file"
+  grep -q '^enable_turnstile   = true$' "$WORKTREE/$file" \
+    && grep -q "^turnstile_site_key = \"$SITE_KEY\"\$" "$WORKTREE/$file" \
+    || die "$file has no enable_turnstile / turnstile_site_key lines to set"
+  CHANGED+=("$file")
+
+  # A secret this script created is not in the environment's state; adopt it.
+  if printf '%s\n' "${MISSING[@]+"${MISSING[@]}"}" | grep -qx "$env"; then
+    imports="terraform/environments/$env/imports.tf"
+    if [ ! -f "$WORKTREE/$imports" ]; then
+      printf '%s\n' \
+        "# Adopts secrets that exist in Secret Manager but not in this environment's" \
+        "# state. Without these blocks, apply fails with a 409 on create. Once they" \
+        "# are in state, each block is a no-op." \
+        > "$WORKTREE/$imports"
+    fi
+    if ! grep -q "activeagents-$env-$SECRET_SUFFIX" "$WORKTREE/$imports"; then
+      printf '\nimport {\n  to = %s\n  id = "projects/${var.project_id}/secrets/activeagents-%s-%s"\n}\n' \
+        "$IMPORT_ADDRESS" "$env" "$SECRET_SUFFIX" >> "$WORKTREE/$imports"
+    fi
+    CHANGED+=("$imports")
+  fi
+done
+
+(
+  cd "$WORKTREE"
+  git add "${CHANGED[@]}"
+  git --no-pager diff --cached --stat
+  echo
+  git --no-pager diff --cached -- 'terraform/environments/*/imports.tf' | grep '^[+-][^+-]' || true
+  if $DRY_RUN; then
+    note "would commit on $BRANCH, push it and open a pull request against main"
+    exit 0
+  fi
+  adopted=""
+  if [ ${#MISSING[@]} -gt 0 ]; then
+    adopted=$'\n\n'"In ${MISSING[*]} the secret did not exist yet, so the script created it, and this change adopts it into that environment's state with an import block."
+  fi
+  git commit -q -F - <<EOF
+Turn Cloudflare Turnstile on for staging and production
+
+Sets enable_turnstile and the widget's site key in both environments'
+security.auto.tfvars. The secret key has a version in each environment's
+activeagents-<env>-turnstile-secret-key (added by bin/turnstile-keys from
+the operator's terminal, never committed).$adopted
+
+See docs/features/human-check.md.
+EOF
+  git push -q -u origin "$BRANCH"
+  gh pr create --base main --head "$BRANCH" \
+    --title "Turn Cloudflare Turnstile on for staging and production" \
+    --body "$(cat <<EOF
+Sets \`enable_turnstile = true\` and the Turnstile widget's site key in both environments' \`security.auto.tfvars\`. The secret key already has a version in each environment's \`activeagents-<env>-turnstile-secret-key\`, added by \`bin/turnstile-keys\` from the operator's terminal.
+
+After the merge the staging deploy applies it; production picks it up at its next deploy. Check https://activeagents.ai/registration/new renders the widget and that a signup still goes through.
+
+Docs: \`docs/features/human-check.md\`.
+EOF
+)"
+)
+
+if $DRY_RUN; then
+  say "Dry run finished; nothing was stored, created, committed or pushed."
+  exit 0
+fi
+
+say "Done"
+note "Staging deploys the change when the pull request merges; production at its next deploy."
+note "Then check https://activeagents.ai/registration/new shows the widget and a real signup goes through."

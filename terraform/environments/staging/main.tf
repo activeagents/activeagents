@@ -89,6 +89,10 @@ module "activeagents" {
   # Apex domain - point activeagents.ai to LB instead of Framer
   enable_apex_domain = var.enable_apex_domain
 
+  # Which load balancer the public hostnames resolve to: this one while
+  # public_lb_ip is null, production's once dns.tfvars names it
+  public_lb_ip = var.public_lb_ip
+
   # Framer website (during migration)
   framer_ips       = var.framer_ips
   framer_www_cname = var.framer_www_cname

@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.2].define(version: 2026_10_07_000002) do
+ActiveRecord::Schema[8.2].define(version: 2026_10_16_000001) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
 
@@ -606,6 +606,19 @@ ActiveRecord::Schema[8.2].define(version: 2026_10_07_000002) do
     t.index ["status", "expires_at"], name: "index_input_requests_on_status_and_expires_at"
     t.index ["subject_type", "subject_id"], name: "index_input_requests_on_subject_type_and_subject_id"
     t.index ["user_id"], name: "index_input_requests_on_user_id"
+  end
+
+  create_table "interaction_feedbacks", force: :cascade do |t|
+    t.text "comment"
+    t.datetime "created_at", null: false
+    t.string "feedback_id", limit: 128, null: false
+    t.string "rating", limit: 16, null: false
+    t.string "span_id", limit: 128
+    t.bigint "telemetry_trace_id", null: false
+    t.datetime "updated_at", null: false
+    t.string "user_reference", limit: 255
+    t.index ["telemetry_trace_id", "feedback_id"], name: "index_feedback_on_trace_and_feedback_id", unique: true
+    t.index ["telemetry_trace_id"], name: "index_interaction_feedbacks_on_telemetry_trace_id"
   end
 
   create_table "investor_documents", force: :cascade do |t|
@@ -1227,6 +1240,7 @@ ActiveRecord::Schema[8.2].define(version: 2026_10_07_000002) do
   add_foreign_key "document_access_logs", "investors"
   add_foreign_key "evaluation_runs", "evaluations"
   add_foreign_key "evaluations", "agents"
+  add_foreign_key "interaction_feedbacks", "active_agent_telemetry_traces", column: "telemetry_trace_id", on_delete: :cascade
   add_foreign_key "investor_documents", "accounts"
   add_foreign_key "investor_documents", "safe_agreements"
   add_foreign_key "investors", "accounts"
