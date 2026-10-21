@@ -127,6 +127,9 @@ ActionAgent.configure do |config|
     "cloud_run" => "CloudRunService"
   }
   config.sandbox_service = ENV.fetch("SANDBOX_BACKEND", "incus")
+  # A checkout of the browser sidecar for the :local backend, while the npm
+  # package is unpublished (bin/rails action_agent:browser:install runs npm ci in it).
+  config.browser_sidecar_path = ENV["ACTION_AGENT_BROWSER_SIDECAR_PATH"].presence
 
   # --- Claude Code --------------------------------------------------------
   # How Claude Code sessions in checkout sandboxes authenticate: with the
@@ -139,6 +142,14 @@ ActionAgent.configure do |config|
   # Claude Code and switches it on.
   config.claude_code_auth = ENV.fetch("CLAUDE_CODE_AUTH", "api_key")
   config.claude_code_hosted_login_enabled = ActiveModel::Type::Boolean.new.cast(ENV["CLAUDE_CODE_HOSTED_LOGIN_ENABLED"]) == true
+
+  # --- Codex --------------------------------------------------------------
+  # How Codex sessions authenticate: the workspace's OpenAI API key (api_key,
+  # the default) or, on a developer's own machine with the :local backend,
+  # that machine's Codex login (local_login). Hosted backends refuse
+  # local_login, so Terraform sets nothing for it. Guarded until the engine
+  # that knows codex_auth (1.9.3) is pinned.
+  config.codex_auth = ENV.fetch("CODEX_AUTH", "api_key") if config.respond_to?(:codex_auth=)
 end
 
 Rails.application.config.to_prepare do
