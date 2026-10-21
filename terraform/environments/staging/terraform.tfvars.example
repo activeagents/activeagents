@@ -14,12 +14,15 @@ stripe_expected_account_id  = "" # acct_...
 stripe_pro_monthly_price_id = "" # price_... for the $99/month Pro plan
 stripe_pro_annual_price_id  = "" # price_... for the $995/year Pro plan
 
-# The GitHub App, encryption key and recordings switches are committed in
-# github_app.auto.tfvars next to this file rather than set here, so CI applies
-# them too. Terraform loads *.auto.tfvars after terraform.tfvars, so the
-# committed values win. Turn each on only after the step for it in
-# docs/infrastructure/gcp-cicd-setup.md.
+# The GitHub App, Google sign-in, encryption key and recordings switches are
+# committed in github_app.auto.tfvars next to this file rather than set here,
+# so CI applies them too. Terraform loads *.auto.tfvars after terraform.tfvars,
+# so the committed values win. Turn each on only after the step for it in
+# docs/infrastructure/gcp-cicd-setup.md (Sign in with Google: docs/google-sign-in.md
+# and docs/releases/1.9.3-service-config.md). Both sign-in secrets of an
+# environment need a version before its flag goes on, or the revision fails to start.
 # enable_github_sign_in                = true
+# enable_google_sign_in                = true
 # enable_github_app                    = true
 # github_app_id                        = "123456"
 # github_app_slug                      = "activeagents-staging"
