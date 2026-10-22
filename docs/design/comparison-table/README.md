@@ -22,7 +22,7 @@ booted app. The figures are synthetic.
 
 | File | Shows |
 | --- | --- |
-| `01-scenario-suite.png` | Scenario run: pass pills in every result cell, two-line COST / TIME headers, the model comparison table under it |
+| `01-scenario-suite.png` | Scenario run: key-first step rows with the prompt under them, score · time · tokens pills per result, cost and time pills per scenario, the model comparison table under it |
 | `02-scenario-suite-dark.png` | Same, dark theme |
 | `03-scenario-expanded.png` | A scenario opened: each model's result card leads with a SCORE · TIME · TOKENS · COST strip |
 | `04-leaderboard.png` | Evaluations page model leaderboard, rates as pills on the pass thresholds |
