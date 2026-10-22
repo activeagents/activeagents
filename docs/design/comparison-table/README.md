@@ -22,7 +22,7 @@ booted app. The figures are synthetic.
 
 | File | Shows |
 | --- | --- |
-| `01-scenario-suite.png` | Scenario run: key-first step rows with the prompt under them, score · time · tokens pills per result, cost and time pills per scenario, the model comparison table under it |
+| `01-scenario-suite.png` | Scenario run at the steps level: key-first rows with the prompt under them, one score pill per model, cost and time pills per scenario, the model comparison table under it |
 | `02-scenario-suite-dark.png` | Same, dark theme |
 | `03-scenario-expanded.png` | A scenario opened: each model's result card leads with a SCORE · TIME · TOKENS · COST strip |
 | `04-leaderboard.png` | Evaluations page model leaderboard, rates as pills on the pass thresholds |
@@ -31,3 +31,5 @@ booted app. The figures are synthetic.
 | `07-metrics-dark.png` | Same, dark theme |
 | `08-home-top-agents.png` | Home overview: Top Agents as a sortable comparison table |
 | `09-models-panel-phone.png` | The model comparison at 400px: rows stack to labelled pills |
+| `10-scenario-tools-level.png` | The tools level: the row grows down, with tool calls, time, tokens and cost pills stacked per model |
+| `11-scenario-steps-phone.png` | The steps level at 400px: prompt and score pills only |
