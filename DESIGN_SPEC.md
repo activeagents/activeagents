@@ -367,7 +367,7 @@ Rules:
 |-------|--------|
 | ≥ 900px | Classic table: identity column auto-width, metric columns equal, pills right-aligned in cells with `min-width: 7ch`. |
 | 600–899px | Same table; header line 2 hides, pill padding drops to `6px 12px`. |
-| < 600px | Each row becomes a card: identity line on top, then the pills in a 4-column grid (`grid-template-columns: repeat(4, 1fr)`) that fills the row width. Headers collapse to one sticky two-line header row above the list, columns aligned with the pill grid. Nothing scrolls horizontally. |
+| < 600px | Each row becomes a card: identity line on top, then the pills in a wrapping grid (`repeat(auto-fill, minmax(96px, 1fr))`). The header row hides and every cell shows its column label (`data-label`, "COST · PER RUN") in 9px mono above its pill; text columns span the full width. Nothing scrolls horizontally. |
 
 ### Marketing vs product
 
@@ -383,15 +383,21 @@ The pattern is the same on both surfaces; only density differs.
 
 ### Implementation notes
 
-- Dashboard: `components/data/ComparisonTable.prompt.md` and
-  `components/data/ValuePill.prompt.md` in the design skill describe the
-  React API. Keep the colours in a `colors` object per the theme pattern
-  above; the rank band is a data attribute, not a Tailwind class.
+- Dashboard: `ComparisonTable`, `ValuePill` and `MetricStrip` in
+  `actionagent/frontend/components/dashboard/` (the activeagent repo), with
+  the banding and sort rules in `utils/comparison.mjs`. Every colour is a
+  token from `tokens.css`; the rank band is a `data-rank` attribute, not a
+  Tailwind class. Used by the run's model comparison table, the Evaluations
+  leaderboard, the home page's Top Agents, the scenario matrix's result
+  cells and group rows, each opened result's metric strip, and the Metrics
+  overview's signal deltas. `components/data/ComparisonTable.prompt.md` and
+  `components/data/ValuePill.prompt.md` in the design skill describe the API.
 - Lander: a static `<table class="comparison">` with the same data
   attributes. Sorting is a 30-line vanilla script, not a library.
 - Specimen: `docs/design/comparison-table/specimen.html` renders the pattern
-  in both themes with working sort and tercile banding. Open it in a
-  browser or run it through the Playwright harness to compare a change.
+  in both themes with working sort and tercile banding; `product/` beside it
+  has the dashboard shots. Open the specimen in a browser or run it through
+  the Playwright harness to compare a change.
 
 ---
 
