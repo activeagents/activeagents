@@ -1,0 +1,269 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Model Comparison Specimen</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500;700&display=swap">
+<style>
+/* Layout: one column, sticky two-line header, rows become cards under 600px.
+   Tokens mirror actionagent/frontend/tokens.css (Active Agent design system). */
+:root {
+  --color-accent: #FA343B;
+  --color-accent-ui: #ef4444;
+  --color-accent-ui-tint: #fef2f2;
+  --color-background: #f9fafb;
+  --color-surface: #ffffff;
+  --color-muted: #f3f4f6;
+  --color-hover: #f3f4f6;
+  --color-border: #e5e7eb;
+  --color-border-light: #f3f4f6;
+  --color-text-primary: #111827;
+  --color-text-secondary: #6b7280;
+  --color-text-muted: #9ca3af;
+  --color-text-cell: #4b5563;
+  --color-success-soft: #dcfce7; --color-success-text: #166534;
+  --color-warning-soft: #fef9c3; --color-warning-text: #854d0e;
+  --color-error-soft:   #fee2e2; --color-error-text:   #991b1b;
+  --font-text: "Inter Variable", Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  --font-mono: "JetBrains Mono", "SF Mono", "Fira Code", Menlo, Consolas, monospace;
+  --row-pad: 20px; --pill-pad: 10px 16px; --pill-size: 15px; --name-size: 17px; --row-border: var(--color-border);
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  color-scheme: dark;
+  --color-accent-ui-tint: rgba(239,68,68,0.15);
+  --color-background: #0f0f0f; --color-surface: #1a1a1a;
+  --color-muted: rgba(255,255,255,0.05); --color-hover: #252525;
+  --color-border: rgba(255,255,255,0.1); --color-border-light: rgba(255,255,255,0.05);
+  --color-text-primary: #ffffff; --color-text-secondary: rgba(255,255,255,0.6);
+  --color-text-muted: rgba(255,255,255,0.4); --color-text-cell: rgba(255,255,255,0.7);
+  --color-success-soft: rgba(22,163,74,0.15); --color-success-text: #4ade80;
+  --color-warning-soft: rgba(234,179,8,0.15); --color-warning-text: #facc15;
+  --color-error-soft:   rgba(220,38,38,0.15); --color-error-text:   #f87171;
+} }
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --color-accent-ui-tint: rgba(239,68,68,0.15);
+  --color-background: #0f0f0f; --color-surface: #1a1a1a;
+  --color-muted: rgba(255,255,255,0.05); --color-hover: #252525;
+  --color-border: rgba(255,255,255,0.1); --color-border-light: rgba(255,255,255,0.05);
+  --color-text-primary: #ffffff; --color-text-secondary: rgba(255,255,255,0.6);
+  --color-text-muted: rgba(255,255,255,0.4); --color-text-cell: rgba(255,255,255,0.7);
+  --color-success-soft: rgba(22,163,74,0.15); --color-success-text: #4ade80;
+  --color-warning-soft: rgba(234,179,8,0.15); --color-warning-text: #facc15;
+  --color-error-soft:   rgba(220,38,38,0.15); --color-error-text:   #f87171;
+}
+:root[data-density="product"] { --row-pad: 12px; --pill-pad: 6px 12px; --pill-size: 13px; --name-size: 14px; --row-border: var(--color-border-light); }
+
+* { box-sizing: border-box; }
+html, body { margin: 0; }
+body {
+  background: var(--color-background); color: var(--color-text-primary);
+  font-family: var(--font-text); font-size: 14px; line-height: 1.45;
+  padding-block: 24px 48px;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+}
+.page { max-width: 1008px; margin: 0 auto; display: grid; gap: 20px; min-width: 0; }
+.sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+
+.eyebrow { font-family: var(--font-mono); font-size: 11px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: var(--color-accent); background: var(--color-accent-ui-tint); border-radius: 9999px; padding: 4px 10px; display: inline-block; }
+.head { display: flex; flex-wrap: wrap; gap: 12px 24px; align-items: end; justify-content: space-between; }
+.head h1 { font-size: 24px; font-weight: 700; margin: 8px 0 4px; letter-spacing: -0.01em; text-wrap: balance; }
+.head p { margin: 0; color: var(--color-text-secondary); max-width: 60ch; }
+.controls { display: flex; gap: 8px; flex-wrap: wrap; }
+.seg { display: inline-flex; border: 1px solid var(--color-border); border-radius: 8px; overflow: hidden; background: var(--color-surface); }
+.seg button { font: 500 12px/1 var(--font-mono); padding: 8px 12px; border: 0; background: transparent; color: var(--color-text-secondary); cursor: pointer; }
+.seg button[aria-pressed="true"] { background: var(--color-accent-ui); color: #fff; }
+.seg button:focus-visible, th button:focus-visible { outline: 2px solid var(--color-accent-ui); outline-offset: -2px; }
+
+.card { background: var(--color-surface); border: 1px solid var(--color-border); border-radius: 12px; overflow: hidden; min-width: 0; }
+table.comparison { width: 100%; border-collapse: collapse; }
+thead th { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 2; background: var(--color-surface); border-bottom: 1px solid var(--color-border); padding: 12px 16px; text-align: center; vertical-align: bottom; }
+thead th:first-child { text-align: left; }
+th button { all: unset; cursor: pointer; display: inline-grid; gap: 3px; text-align: inherit; width: 100%; }
+.hl1 { font: 700 11px/1.1 var(--font-mono); letter-spacing: 0.05em; text-transform: uppercase; color: var(--color-text-primary); display: inline-flex; align-items: center; gap: 4px; justify-content: center; }
+th:first-child .hl1 { justify-content: start; }
+.hl2 { font: 500 11px/1.1 var(--font-mono); letter-spacing: 0.05em; text-transform: uppercase; color: var(--color-text-secondary); }
+.caret { font-size: 9px; color: var(--color-accent-ui); display: none; }
+th[aria-sort="ascending"] .caret.up, th[aria-sort="descending"] .caret.down { display: inline; }
+
+tbody tr { border-bottom: 1px solid var(--row-border); transition: background 0.15s ease; }
+tbody tr:last-child { border-bottom: 0; }
+tbody tr:hover { background: var(--color-hover); }
+td { padding: var(--row-pad) 16px; text-align: center; vertical-align: middle; }
+td.id { text-align: left; }
+.identity { display: flex; align-items: center; gap: 10px; min-width: 0; }
+.mark { width: 24px; height: 24px; border-radius: 50%; flex: none; display: grid; place-items: center; font: 700 11px/1 var(--font-mono); background: var(--color-text-primary); color: var(--color-surface); }
+.name { font-size: var(--name-size); font-weight: 600; letter-spacing: -0.01em; white-space: nowrap; }
+.variant { font-size: 13px; color: var(--color-text-secondary); margin-left: 8px; font-weight: 400; }
+
+.pill { display: inline-block; border-radius: 9999px; padding: var(--pill-pad); font: 700 var(--pill-size)/1.2 var(--font-mono); font-variant-numeric: tabular-nums; min-width: 7ch; text-align: center; white-space: nowrap; background: var(--color-muted); color: var(--color-text-cell); transition: background 0.15s ease, color 0.15s ease; }
+.pill[data-rank="good"] { background: var(--color-success-soft); color: var(--color-success-text); }
+.pill[data-rank="mid"]  { background: var(--color-warning-soft); color: var(--color-warning-text); }
+.pill[data-rank="poor"] { background: var(--color-error-soft);   color: var(--color-error-text); }
+
+.legend { display: flex; flex-wrap: wrap; gap: 8px 16px; font-size: 12px; color: var(--color-text-secondary); align-items: center; }
+.legend .pill { min-width: 0; padding: 3px 10px; font-size: 11px; }
+.note { font-size: 12px; color: var(--color-text-muted); margin: 0; }
+
+@media (max-width: 899px) {
+  .hl2 { display: none; }
+  :root { --pill-pad: 6px 12px; }
+}
+@media (max-width: 599px) {
+  table.comparison, table.comparison tbody { display: block; }
+  table.comparison thead { display: block; position: sticky; top: env(safe-area-inset-top, 0px); z-index: 2; }
+  table.comparison thead tr { display: grid; grid-template-columns: repeat(4, 1fr); background: var(--color-surface); border-bottom: 1px solid var(--color-border); }
+  thead th { position: static; border: 0; padding: 10px 4px; }
+  thead th:first-child { grid-column: 1 / -1; text-align: left; padding: 12px 16px 4px; }
+  .hl2 { display: block; }
+  tbody tr { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; padding: 14px 12px; }
+  tbody tr:hover { background: transparent; }
+  td { padding: 0; }
+  td.id { grid-column: 1 / -1; padding-bottom: 4px; }
+  .pill { display: block; min-width: 0; padding: 12px 4px; font-size: 15px; }
+  .name { white-space: normal; }
+}
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+</style>
+</head>
+<body>
+<div class="page">
+  <header class="head">
+    <div>
+      <span class="eyebrow">Design specimen</span>
+      <h1>Model comparison table</h1>
+      <p>Ranked data pattern from the Active Agent design spec. Tap a header to sort. Pills tint by rank within each column, so the shading is relative to the rows shown.</p>
+    </div>
+    <div class="controls">
+      <div class="seg" role="group" aria-label="Theme">
+        <button type="button" id="theme-system" data-theme-pick="system" aria-pressed="true">system</button>
+        <button type="button" id="theme-light" data-theme-pick="light" aria-pressed="false">light</button>
+        <button type="button" id="theme-dark" data-theme-pick="dark" aria-pressed="false">dark</button>
+      </div>
+      <div class="seg" role="group" aria-label="Density">
+        <button type="button" id="density-marketing" data-density-pick="marketing" aria-pressed="true">lander</button>
+        <button type="button" id="density-product" data-density-pick="product" aria-pressed="false">dashboard</button>
+      </div>
+    </div>
+  </header>
+
+  <div class="card">
+    <table class="comparison" id="table">
+      <thead>
+        <tr>
+          <th scope="col" aria-sort="none" data-key="name"><button type="button"><span class="hl1">Model <span class="caret up">▲</span><span class="caret down">▼</span></span><span class="hl2">TranslationAgent eval suite</span></button></th>
+          <th scope="col" aria-sort="descending" data-key="accuracy"><button type="button"><span class="hl1">Accuracy <span class="caret up">▲</span><span class="caret down">▼</span></span><span class="hl2">Task score</span></button></th>
+          <th scope="col" aria-sort="none" data-key="seconds"><button type="button"><span class="hl1">Speed <span class="caret up">▲</span><span class="caret down">▼</span></span><span class="hl2">Task time</span></button></th>
+          <th scope="col" aria-sort="none" data-key="tokens"><button type="button"><span class="hl1">Tokens <span class="caret up">▲</span><span class="caret down">▼</span></span><span class="hl2">Per run</span></button></th>
+          <th scope="col" aria-sort="none" data-key="cost"><button type="button"><span class="hl1">Cost <span class="caret up">▲</span><span class="caret down">▼</span></span><span class="hl2">Per run</span></button></th>
+        </tr>
+      </thead>
+      <tbody id="rows"></tbody>
+    </table>
+  </div>
+
+  <div class="legend">
+    <span class="pill" data-rank="good">top third</span>
+    <span class="pill" data-rank="mid">middle third</span>
+    <span class="pill" data-rank="poor">bottom third</span>
+    <span>Accuracy uses the fixed eval thresholds (≥ 0.85 good, 0.70–0.84 middle). Time, tokens and cost band by tercile, lower is better.</span>
+  </div>
+  <p class="note">Example figures from a seeded evaluation run. They illustrate the pattern and are not a published benchmark.</p>
+</div>
+
+<script>
+(function () {
+  var rows = [
+    { mark: 'A', name: 'Claude Opus 5.5',   variant: 'xhigh',  accuracy: 0.912, seconds: 3211, tokens: 27159917, cost: 10.53 },
+    { mark: 'A', name: 'Claude Opus 5.5',   variant: 'medium', accuracy: 0.861, seconds: 1711, tokens: 8901978,  cost: 3.84 },
+    { mark: 'A', name: 'Claude Sonnet 5.5', variant: 'high',   accuracy: 0.834, seconds: 1098, tokens: 6402311,  cost: 1.92 },
+    { mark: 'O', name: 'GPT-6 Astra',       variant: 'xhigh',  accuracy: 0.873, seconds: 1356, tokens: 1978796,  cost: 4.71 },
+    { mark: 'O', name: 'GPT-6 Astra',       variant: 'medium', accuracy: 0.790, seconds: 996,  tokens: 1313787,  cost: 3.08 },
+    { mark: 'G', name: 'Gemini 4 Argon',    variant: 'high',   accuracy: 0.848, seconds: 3184, tokens: 23426342, cost: 6.13 },
+    { mark: 'X', name: 'Grok 4.7',          variant: 'high',   accuracy: 0.721, seconds: 2339, tokens: 12631396, cost: 7.78 },
+    { mark: 'M', name: 'Muse Spark 1.3',    variant: 'max',    accuracy: 0.612, seconds: 2126, tokens: 15383759, cost: 3.12 }
+  ];
+  var columns = {
+    name:     { better: 'higher', band: 'none' },
+    accuracy: { better: 'higher', band: 'threshold', thresholds: [0.85, 0.70], format: function (v) { return (v * 100).toFixed(1) + '%'; } },
+    seconds:  { better: 'lower',  band: 'tercile', format: function (v) { return Math.floor(v / 60) + 'm ' + String(v % 60).padStart(2, '0') + 's'; } },
+    tokens:   { better: 'lower',  band: 'tercile', format: function (v) { return v.toLocaleString('en-US'); } },
+    cost:     { better: 'lower',  band: 'tercile', format: function (v) { return '$' + v.toFixed(2); } }
+  };
+  var rankWord = { good: 'best third', mid: 'middle third', poor: 'bottom third' };
+
+  // Rank every row for a column: terciles by the column's better direction, or fixed thresholds.
+  function rank(key) {
+    var col = columns[key], out = {};
+    if (col.band === 'threshold') {
+      rows.forEach(function (r, i) { out[i] = r[key] >= col.thresholds[0] ? 'good' : r[key] >= col.thresholds[1] ? 'mid' : 'poor'; });
+      return out;
+    }
+    var order = rows.map(function (r, i) { return i; }).sort(function (a, b) {
+      return col.better === 'higher' ? rows[b][key] - rows[a][key] : rows[a][key] - rows[b][key];
+    });
+    var third = Math.ceil(order.length / 3);
+    order.forEach(function (i, pos) { out[i] = pos < third ? 'good' : pos < third * 2 ? 'mid' : 'poor'; });
+    return out;
+  }
+
+  var sortKey = 'accuracy', sortDir = 'descending';
+  function betterDir(key) { return columns[key].better === 'higher' ? 'descending' : 'ascending'; }
+
+  function render() {
+    var ranks = {}; Object.keys(columns).forEach(function (k) { if (columns[k].band !== 'none') ranks[k] = rank(k); });
+    var order = rows.map(function (r, i) { return i; }).sort(function (a, b) {
+      var x = rows[a][sortKey], y = rows[b][sortKey];
+      var c = typeof x === 'string' ? x.localeCompare(y) : x - y;
+      return sortDir === 'ascending' ? c : -c;
+    });
+    var html = order.map(function (i) {
+      var r = rows[i];
+      var cells = ['accuracy', 'seconds', 'tokens', 'cost'].map(function (k) {
+        var rk = ranks[k][i];
+        return '<td><span class="pill" data-rank="' + rk + '">' + columns[k].format(r[k]) + '<span class="sr-only"> ' + rankWord[rk] + '</span></span></td>';
+      }).join('');
+      return '<tr><td class="id"><div class="identity"><span class="mark" aria-hidden="true">' + r.mark + '</span><span class="name">' + r.name + '<span class="variant">' + r.variant + '</span></span></div></td>' + cells + '</tr>';
+    }).join('');
+    document.getElementById('rows').innerHTML = html;
+    document.querySelectorAll('thead th').forEach(function (th) {
+      th.setAttribute('aria-sort', th.dataset.key === sortKey ? sortDir : 'none');
+    });
+  }
+
+  document.querySelectorAll('thead th button').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      var key = btn.parentNode.dataset.key;
+      if (key === sortKey) { sortDir = sortDir === 'ascending' ? 'descending' : 'ascending'; }
+      else { sortKey = key; sortDir = key === 'name' ? 'ascending' : betterDir(key); }
+      render();
+    });
+  });
+
+  function pressGroup(attr, value) {
+    document.querySelectorAll('[' + attr + ']').forEach(function (b) { b.setAttribute('aria-pressed', String(b.getAttribute(attr) === value)); });
+  }
+  document.querySelectorAll('[data-theme-pick]').forEach(function (b) {
+    b.addEventListener('click', function () {
+      var v = b.dataset.themePick;
+      if (v === 'system') document.documentElement.removeAttribute('data-theme'); else document.documentElement.setAttribute('data-theme', v);
+      pressGroup('data-theme-pick', v);
+    });
+  });
+  document.querySelectorAll('[data-density-pick]').forEach(function (b) {
+    b.addEventListener('click', function () {
+      var v = b.dataset.densityPick;
+      if (v === 'marketing') document.documentElement.removeAttribute('data-density'); else document.documentElement.setAttribute('data-density', v);
+      pressGroup('data-density-pick', v);
+      try { localStorage.setItem('specimen-density', v); } catch (e) {}
+    });
+  });
+  try { var d = localStorage.getItem('specimen-density'); if (d === 'product') document.getElementById('density-product').click(); } catch (e) {}
+  render();
+})();
+</script>
+</body>
+</html>
