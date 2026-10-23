@@ -184,7 +184,7 @@ variable "enable_cdn" {
 variable "enable_github_sign_in" {
   description = "Pass the GitHub App client ID and secret to the app, which turns on Sign in with GitHub"
   type        = bool
-  default     = false
+  default     = true
 }
 
 # Sign in with Google. Turn on only after both
@@ -192,7 +192,7 @@ variable "enable_github_sign_in" {
 variable "enable_google_sign_in" {
   description = "Pass the Google OAuth client ID and secret to the app, which turns on Sign in with Google"
   type        = bool
-  default     = false
+  default     = true
 }
 
 # GitHub App repository access. Turn on only after
