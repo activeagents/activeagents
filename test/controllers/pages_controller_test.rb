@@ -95,4 +95,23 @@ class PagesControllerTest < ActionDispatch::IntegrationTest
     assert_response :success
     assert_match "See your agents while you build", response.body
   end
+
+  test "the privacy policy and terms are served at the addresses the Google consent screen links to" do
+    get "/privacy"
+    assert_response :success
+    assert_select "h1", "Privacy Policy"
+    assert_match "Google API Services User Data Policy", response.body
+    assert_select "a[href=?]", "mailto:hello@activeagents.ai"
+
+    get "/terms"
+    assert_response :success
+    assert_select "h1", "Terms of Service"
+    assert_select "a[href=?]", "/privacy"
+  end
+
+  test "the footer links to the privacy policy and terms" do
+    get "/"
+    assert_select "footer a[href=?]", "/privacy", text: "Privacy Policy"
+    assert_select "footer a[href=?]", "/terms", text: "Terms of Service"
+  end
 end

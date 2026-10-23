@@ -1,0 +1,66 @@
+<%# The privacy policy. Linked from the footer and the Google consent screen
+    (https://activeagents.ai/privacy). Keep the Google-user-data section: it
+    is what Google's OAuth review reads. %>
+<% content_for :title, "Privacy Policy | Active Agent" %>
+<section class="lp-legal">
+  <h1>Privacy Policy</h1>
+  <p class="lp-legal-updated">Last updated October 23, 2026</p>
+
+  <p>This policy explains what Active Agent ("we", "us") collects when you use activeagents.ai, activeagent.dev and the hosted platform behind them (the "Service"), why we collect it, and what you can ask us to do with it. The open-source gems run inside your own application and send us nothing unless you configure them to.</p>
+
+  <h2>What we collect</h2>
+  <p><strong>Account details.</strong> When you create an account we store your email address, your name, and, if you give them, your company and role. If you sign up with a password we store a salted hash of it, never the password itself.</p>
+  <p><strong>Sign in with Google or GitHub.</strong> If you sign in with Google we receive your Google account's email address, name and profile picture through Google's sign-in service. If you sign in with GitHub we receive your GitHub username, display name and the email addresses on your GitHub account. We use this to create or sign in to your Active Agent account and to show who you are inside your workspace. We never post to your Google or GitHub accounts, and we do not read your Google data or your GitHub repositories as part of sign-in. You can disconnect either provider from Settings at any time.</p>
+  <p><strong>Traces and telemetry.</strong> The platform's purpose is to receive the traces your application sends it: which agent ran, which model it used, how long each step took, token counts, costs, tool calls and errors. Prompts, completions and tool arguments are included only when you turn on <code>capture_bodies</code> in your application's configuration; it is off by default. You decide what your application sends.</p>
+  <p><strong>Sandboxes and sessions.</strong> If you run agents in a hosted sandbox, we keep the session's transcript, the commands it ran and the files it produced so you can review them.</p>
+  <p><strong>Billing.</strong> Payments are processed by Stripe. Stripe collects your card details directly; we store only the Stripe customer and subscription identifiers, your plan, and your invoice history.</p>
+  <p><strong>Usage and device information.</strong> Like most services we log the pages you request, your IP address, browser type and the time of each request, and we use a session cookie to keep you signed in. We use Cloudflare Turnstile on the sign-up form to tell people from bots; it may set its own cookies according to Cloudflare's privacy policy.</p>
+  <p><strong>Email.</strong> We send transactional email (verification, password resets, invitations, billing) through Resend. The newsletter is separate and double opt-in: you only receive it after confirming your address, and every issue has an unsubscribe link.</p>
+
+  <h2>How we use it</h2>
+  <ul>
+    <li>To run the Service: signing you in, showing your traces, running your sandboxes, billing your workspace.</li>
+    <li>To support you when you write to us.</li>
+    <li>To keep the Service secure, including rate limiting and abuse prevention.</li>
+    <li>To understand how the Service is used, in aggregate, so we can improve it.</li>
+  </ul>
+  <p>We do not sell your data, and we do not use the contents of your traces, prompts or sandbox sessions to train AI models.</p>
+
+  <h2>Google user data</h2>
+  <p>Our use and transfer of information received from Google APIs adheres to the <a href="https://developers.google.com/terms/api-services-user-data-policy" target="_blank" rel="noopener">Google API Services User Data Policy</a>, including the Limited Use requirements. We use the email address, name and profile picture from Google sign-in only to create and sign in to your account and to identify you inside the Service. We do not share this information with third parties except as needed to run the Service, and we do not use it for advertising.</p>
+
+  <h2>Who else sees it</h2>
+  <p>We use a small number of providers to run the Service, each of which processes data only on our instructions:</p>
+  <ul>
+    <li>Google Cloud (hosting and databases, United States)</li>
+    <li>Stripe (payments)</li>
+    <li>Resend (email delivery)</li>
+    <li>Cloudflare (bot protection on sign-up)</li>
+    <li>Google and GitHub (sign-in, only if you choose them)</li>
+  </ul>
+  <p>People you invite to your workspace see the traces, agents and sandboxes in that workspace, and the names and email addresses of its members. We may also disclose information when the law requires it or to protect the Service and its users.</p>
+
+  <h2>How long we keep it</h2>
+  <p>Traces are kept for the retention period of your plan and are then deleted. Your account, workspace and billing records are kept while your account exists. When you delete your account we delete your personal data within 30 days, except for records we have to keep for tax or legal reasons.</p>
+
+  <h2>Your choices</h2>
+  <ul>
+    <li>Edit your name, company and role from Settings.</li>
+    <li>Connect or disconnect Google and GitHub from Settings.</li>
+    <li>Ask us for a copy of your data, a correction, or deletion of your account by writing to <a href="mailto:hello@activeagents.ai">hello@activeagents.ai</a>.</li>
+    <li>Unsubscribe from the newsletter with the link in any issue. Transactional email about your account continues while your account exists.</li>
+  </ul>
+  <p>If you are in the European Economic Area, the United Kingdom or another place with data-protection rights, you can exercise those rights through the same address, and you have the right to complain to your local supervisory authority.</p>
+
+  <h2>Security</h2>
+  <p>Data is encrypted in transit and at rest. Passwords are hashed. API keys are shown once and stored hashed. Access to production systems is limited to the people who operate the Service. No system is perfectly secure, and if we learn of a breach that affects you we will tell you.</p>
+
+  <h2>Children</h2>
+  <p>The Service is for businesses and developers and is not directed at children under 16. We do not knowingly collect personal data from them.</p>
+
+  <h2>Changes</h2>
+  <p>When we change this policy we update the date at the top and, for changes that matter, email account holders before they take effect.</p>
+
+  <h2>Contact</h2>
+  <p>Questions about this policy go to <a href="mailto:hello@activeagents.ai">hello@activeagents.ai</a>.</p>
+</section>
