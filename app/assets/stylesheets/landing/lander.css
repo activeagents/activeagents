@@ -1921,3 +1921,49 @@
 .lp-hero-links a:hover {
   color: var(--color-accent);
 }
+
+/* --------------------------------------------------------------------------
+   Legal pages (privacy, terms)
+   -------------------------------------------------------------------------- */
+
+.lp-legal {
+  max-width: 720px;
+  padding: 48px 0 64px;
+}
+
+.lp-legal h1 {
+  font-size: var(--font-size-xl);
+  line-height: var(--line-height-h2);
+  letter-spacing: var(--letter-spacing-h2);
+  margin-bottom: 4px;
+}
+
+.lp-legal h2 {
+  font-size: var(--font-size-l);
+  line-height: var(--line-height-h3);
+  letter-spacing: var(--letter-spacing-h3);
+  margin: 40px 0 8px;
+}
+
+.lp-legal p,
+.lp-legal li {
+  color: var(--color-text-secondary);
+  line-height: 1.6;
+}
+
+.lp-legal ul {
+  padding-left: 22px;
+}
+
+.lp-legal li {
+  margin: 6px 0;
+}
+
+.lp-legal .lp-legal-updated {
+  font-family: var(--font-mono);
+  font-size: var(--lp-mono-xs);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--color-text-tertiary);
+  margin: 0 0 28px;
+}

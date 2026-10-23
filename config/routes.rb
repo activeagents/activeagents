@@ -43,6 +43,8 @@ Rails.application.routes.draw do
   # Landing page
   root to: "pages#home"
   get "pricing", to: "pages#pricing"
+  get "privacy", to: "pages#privacy"
+  get "terms", to: "pages#terms"
 
   # The dashboard itself: agents, runs, conversations, evaluations, traces,
   # metrics, sandboxes and recordings all come from the actionagent gem's
