@@ -165,3 +165,28 @@ email is that address. Result: a fresh user (`signup_source` github,
 copy "You sign in with GitHub." Pass. The dev database keeps today's three
 test users (two Google sign-ups by Justin, this GitHub one); user 4 is
 gone.
+
+## Staging round trips (2026-10-23)
+
+Driven with Claude in Chrome against `staging.activeagents.ai` (deploy of
+`ee66a02`, #213; the #215 copy changes were not deployed yet). Staging
+keeps its old data, so the long-standing `jusbowen@gmail.com` user (id 7)
+was renamed to `jusbowen+old@gmail.com` with a `rails runner` on the
+`activeagents-staging-migrate` job to free the address.
+
+| Step | Result |
+| --- | --- |
+| Sign in with Google, address already a user | callback returned to `/session/new` with the existing-account notice (pre-#215 wording). Pass. |
+| Sign in with GitHub, address already a user | same notice, `JusBowen@gmail.com` as GitHub reports it (matching is case-insensitive). Pass. |
+| Sign up with Google, address free | user 375 created: verified, no password, `signup_source` google, one Google identity; landed on `/complete_profile` with names filled. Pass. The page said "You sign in with GitHub." (the bug #215 fixes). |
+| Sign up with GitHub, address free (375 renamed to `jusbowen+google@gmail.com` first) | user 376 created: verified, no password, `signup_source` github, identity `TonsOfFun`; landed on `/complete_profile`. Pass. |
+
+Not covered on staging: connect from Settings and disconnect (needs a
+password sign-in, which the session cannot type; covered locally). Google
+published-or-Testing is still unknown: every Google address used so far
+is on the test-user list.
+
+Staging now holds `jusbowen+old@gmail.com` (7, the original), 
+`jusbowen+google@gmail.com` (375) and `jusbowen@gmail.com` (376, GitHub,
+profile not completed). Rename or delete 375 and 376 before the next
+sign-up test.
