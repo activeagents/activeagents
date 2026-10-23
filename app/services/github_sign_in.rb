@@ -39,11 +39,11 @@ class GithubSignIn
 
   class << self
     def client_id
-      Rails.application.credentials.dig(:github_app, :client_id).presence || ENV["GITHUB_APP_CLIENT_ID"].presence
+      Rails.application.credentials.dig(:github_app, :client_id).presence || ENV["GITHUB_APP_CLIENT_ID"]&.strip.presence
     end
 
     def client_secret
-      Rails.application.credentials.dig(:github_app, :client_secret).presence || ENV["GITHUB_APP_CLIENT_SECRET"].presence
+      Rails.application.credentials.dig(:github_app, :client_secret).presence || ENV["GITHUB_APP_CLIENT_SECRET"]&.strip.presence
     end
 
     def configured?
