@@ -53,7 +53,7 @@ class GoogleSessionsController < ApplicationController
       redirect_to new_session_path, alert: "Your Google account's email address isn't verified. Verify it with Google, or sign up with your email."
     elsif User.exists?(email_address: google.email)
       session[:return_to_after_authenticating] = settings_url
-      redirect_to new_session_path, notice: "An account already uses #{google.email}. Sign in with your password, then connect Google from Settings."
+      redirect_to new_session_path, notice: "An account already uses #{google.email}. Sign in with your password, or reset it with Forgot your password?, then connect Google from Settings."
     else
       sign_up(google)
     end
