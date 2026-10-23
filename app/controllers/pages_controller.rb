@@ -26,6 +26,15 @@ class PagesController < ApplicationController
     redirect_to plans_path
   end
 
+  # The privacy policy and terms of service. Linked from the footer, the
+  # sign-up page and the Google sign-in consent screen, which requires both
+  # to exist at these addresses.
+  def privacy
+  end
+
+  def terms
+  end
+
   private
 
   # A signed-in person who opens the site's root wants their dashboard, not
