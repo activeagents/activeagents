@@ -21,6 +21,15 @@ class GoogleSignInTest < ActiveSupport::TestCase
     assert_not GoogleSignIn.configured?
   end
 
+  test "client id and secret from the environment are stripped of stray whitespace" do
+    ENV["GOOGLE_CLIENT_ID"] = "123456789-test.apps.googleusercontent.com\n"
+    ENV["GOOGLE_CLIENT_SECRET"] = " GOCSPX-test-client-secret\n"
+
+    assert_equal "123456789-test.apps.googleusercontent.com", GoogleSignIn.client_id
+    assert_equal "GOCSPX-test-client-secret", GoogleSignIn.client_secret
+    assert GoogleSignIn.configured?
+  end
+
   test "authorize_url asks Google for a code bound to the verifier's challenge and the state" do
     url = URI(GoogleSignIn.authorize_url(state: "abc", redirect_uri: CALLBACK_URL, code_verifier: "dBjftJeZ4CVP-mB92K27uhbUJU1p1r_wW1gFWFOEjXk"))
     query = Rack::Utils.parse_query(url.query)
