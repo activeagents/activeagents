@@ -190,3 +190,27 @@ Staging now holds `jusbowen+old@gmail.com` (7, the original),
 `jusbowen+google@gmail.com` (375) and `jusbowen@gmail.com` (376, GitHub,
 profile not completed). Rename or delete 375 and 376 before the next
 sign-up test.
+
+## Production round trips (2026-10-23)
+
+Driven with Claude in Chrome ("Justin's MacBook Pro (5)", signed in to
+Google as `justin@activeagents.ai` and to GitHub as `TonsOfFun`) against
+`activeagents.ai` after `Deploy to Production` run 40005470400 (image
+`643879e`, #216 and #217 merged). Production started empty on 2026-10-21,
+so there was no `jusbowen@gmail.com` user to rename: it held
+`justin@activeagents.ai` (1) and two `signup-a` addresses (2, 3).
+
+| Step | Result |
+| --- | --- |
+| Sign in with Google, `justin@activeagents.ai` already a user | first try: Google's "Error 401: invalid_client" page, a trailing newline in the client ID secret (`docs/issues/2026-10-23-production-google-client-id-newline.md`). After the fix: account chooser, back to `/session/new` with "An account already uses justin@activeagents.ai. Sign in with your password, or reset it with Forgot your password?, then connect Google from Settings." No identity created. Pass. |
+| Sign up with GitHub, `jusbowen@gmail.com` free | GitHub authorize page for ActiveAgents (production) (identity, email addresses read), back to `/complete_profile` with names filled and "You sign in with GitHub."; user 4 `jusbowen@gmail.com` created with one `github` identity. Profile submitted on the Free plan, landed on `/dashboard` in "Justin Bowen's Workspace". Pass. |
+
+Not covered in production: sign-up with Google on a free address (the
+only free Google address available, `jusbowen@gmail.com`, is now the
+GitHub user, so Google would show the existing-address notice), and the
+Settings connect and disconnect flows (covered locally). Google's app is
+published ("In production" on the Audience page), so addresses outside
+the test-user list can sign in.
+
+Production now holds `jusbowen@gmail.com` (4, GitHub, Free plan). Keep
+it or delete it as Justin prefers.

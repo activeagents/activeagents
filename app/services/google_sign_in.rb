@@ -43,11 +43,11 @@ class GoogleSignIn
 
   class << self
     def client_id
-      Rails.application.credentials.dig(:google_oauth, :client_id).presence || ENV["GOOGLE_CLIENT_ID"].presence
+      Rails.application.credentials.dig(:google_oauth, :client_id).presence || ENV["GOOGLE_CLIENT_ID"]&.strip.presence
     end
 
     def client_secret
-      Rails.application.credentials.dig(:google_oauth, :client_secret).presence || ENV["GOOGLE_CLIENT_SECRET"].presence
+      Rails.application.credentials.dig(:google_oauth, :client_secret).presence || ENV["GOOGLE_CLIENT_SECRET"]&.strip.presence
     end
 
     def configured?

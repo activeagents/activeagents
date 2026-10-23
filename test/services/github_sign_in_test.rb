@@ -19,6 +19,15 @@ class GithubSignInTest < ActiveSupport::TestCase
     assert_not GithubSignIn.configured?
   end
 
+  test "client id and secret from the environment are stripped of stray whitespace" do
+    ENV["GITHUB_APP_CLIENT_ID"] = "Iv23liTestClientId\n"
+    ENV["GITHUB_APP_CLIENT_SECRET"] = " test-client-secret\n"
+
+    assert_equal "Iv23liTestClientId", GithubSignIn.client_id
+    assert_equal "test-client-secret", GithubSignIn.client_secret
+    assert GithubSignIn.configured?
+  end
+
   test "authorize_url asks GitHub to send the person back with the state" do
     url = URI(GithubSignIn.authorize_url(state: "abc", redirect_uri: "https://app.example.com/auth/github/callback"))
     query = Rack::Utils.parse_query(url.query)
