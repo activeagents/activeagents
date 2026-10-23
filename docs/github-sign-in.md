@@ -7,7 +7,7 @@ People can sign up and sign in with GitHub, and a signed-in user can connect or 
 - An identity is keyed on GitHub's numeric user id (`user_identities.uid`), never on the login or email, which the person can change.
 - A GitHub account already connected to a user signs that user in, and returns them to the page that asked them to sign in.
 - A GitHub account that is not connected, whose verified primary email has no account here, creates one: a verified user named from the GitHub profile, a random password they never see (`users.password_set = false`), and an owned workspace. The person continues to profile completion and plan selection, as an email signup does after verifying, and the password there is optional.
-- A GitHub account that is not connected, whose email already has an account here, is never linked automatically. The person is sent to the password sign-in, then to Settings to connect GitHub. This holds whether or not that existing account's email is verified.
+- A GitHub account that is not connected, whose email already has an account here, is never linked automatically. The person is sent to the password sign-in, with a note that they can sign in or reset their password (they may never have set one); after signing in they land on Settings to connect GitHub. This holds whether or not that existing account's email is verified.
 - A GitHub account with no verified primary email cannot sign up.
 - Settings refuses to connect a GitHub account that another user has connected, and refuses to disconnect GitHub while it is the account's only way to sign in (no password chosen). **Email me a link to set a password** on the same page sends the signed-in user the password-reset email.
 

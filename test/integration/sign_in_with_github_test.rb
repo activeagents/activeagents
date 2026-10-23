@@ -45,6 +45,7 @@ class SignInWithGithubTest < ActionDispatch::IntegrationTest
     assert_response :success
     assert_select "input[name='user[first_name]'][value='Mona']"
     assert_select "input[name='user[password]'][required]", count: 0
+    assert_select "p", /You sign in with GitHub\./
 
     patch "/complete_profile", params: { user: { first_name: "Mona", last_name: "Octocat" }, plan_slug: "free" }
     assert_redirected_to "/dashboard"
@@ -86,7 +87,7 @@ class SignInWithGithubTest < ActionDispatch::IntegrationTest
       finish_github(state)
     end
     assert_redirected_to "/session/new"
-    assert_match "Sign in with your password, then connect GitHub from Settings", flash[:notice]
+    assert_match "Sign in with your password, or reset it with Forgot your password?, then connect GitHub from Settings", flash[:notice]
 
     sign_in_as(existing)
     assert_redirected_to "http://www.example.com/settings"

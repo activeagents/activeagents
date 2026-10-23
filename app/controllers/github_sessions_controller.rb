@@ -53,7 +53,7 @@ class GithubSessionsController < ApplicationController
       redirect_to new_session_path, alert: "Your GitHub account has no verified primary email address. Verify one on GitHub, or sign up with your email."
     elsif User.exists?(email_address: github.email)
       session[:return_to_after_authenticating] = settings_url
-      redirect_to new_session_path, notice: "An account already uses #{github.email}. Sign in with your password, then connect GitHub from Settings."
+      redirect_to new_session_path, notice: "An account already uses #{github.email}. Sign in with your password, or reset it with Forgot your password?, then connect GitHub from Settings."
     else
       sign_up(github)
     end
