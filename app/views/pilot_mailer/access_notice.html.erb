@@ -1,0 +1,30 @@
+<style>
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 40px 20px; }
+  .logo { font-size: 24px; font-weight: bold; color: #e74c3c; margin-bottom: 30px; }
+  h1 { font-size: 28px; margin-bottom: 20px; color: #1a1a1a; }
+  p { margin-bottom: 20px; color: #555; }
+  .button { display: inline-block; background: #e74c3c; color: white !important; padding: 14px 32px; border-radius: 8px; text-decoration: none; font-weight: 600; margin: 20px 0; }
+  .footer { margin-top: 40px; padding-top: 20px; border-top: 1px solid #eee; font-size: 14px; color: #888; }
+</style>
+
+<div class="logo">Active Agent</div>
+
+<h1><%= @account.name %>: complimentary Pro access <%= @event.action %></h1>
+
+<p>Review date: <strong><%= @event.details["review_on"] %></strong>. A review does not mean an automatic charge or expiration.
+<% if @event.details["expires_at"].present? %>
+Explicit expiration: <strong><%= @event.details["expires_at"] %></strong>.
+<% end %></p>
+
+<p>This changes complimentary access only. Your paid subscription, if any, continues unchanged. No automatic charge is created.</p>
+
+<p>If complimentary access ends and there is no active paid subscription, Free usage limits apply. The Pro trace retention window (14 days) continues for 14 days after the end date, so traces age out normally before Free's 3-day window applies. Nothing is deleted by this change.</p>
+
+<a href="<%= workspace_url %>" class="button">Review your workspace</a>
+
+<p>Reply if your retainer is continuing or you have questions about this change.</p>
+
+<div class="footer">
+  <p>Active Agent - The AI Framework for Ruby on Rails</p>
+  <p>&copy; <%= Date.current.year %> Active Agent. All rights reserved.</p>
+</div>

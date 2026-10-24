@@ -1,5 +1,6 @@
 class PilotMailer < ApplicationMailer
-  default from: -> { ENV.fetch("MAILER_FROM_ADDRESS", "ActiveAgents <hello@activeagents.ai>") }
+  default from: -> { ENV.fetch("MAILER_FROM_ADDRESS", "ActiveAgents <hello@activeagents.ai>") },
+    reply_to: -> { ENV.fetch("MAILER_REPLY_TO_ADDRESS", "hello@activeagents.ai") }
 
   def invitation(invitation, token)
     @invitation = invitation

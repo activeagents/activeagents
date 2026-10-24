@@ -179,3 +179,37 @@ applies them; then verification is triggered in Resend. Production sends
 as `hello@activeagents.ai` (#181); staging's From can move to the root
 domain once it is verified, which is what the live site sends with until
 the cutover. DMARC stays `p=none` for now.
+
+## Log
+
+- 2026-10-24: the staging pilot invitation to `justin.bowen@combinaut.com`
+  landed in Gmail's spam even after "Report not spam". It went out as
+  `noreply@staging.activeagents.ai`, the sender with the bot history.
+  Resend since Oct 10: `staging.activeagents.ai` 668 sent, 3 complaints,
+  30 failed, 7 bounced; `activeagents.ai` 5 sent, 0 complaints. The bot
+  burst ended 2026-10-21 17:43 UTC (#180); 5 messages in the three days
+  since. Authentication on `activeagents.ai` checked: Resend DKIM at
+  `resend._domainkey`, SPF + MX on `send.`, Google SPF at the apex,
+  DMARC `p=none` without reporting. One complaint-origin suppression
+  (a Comcast address, 2026-10-19).
+- 2026-10-24, done in this PR and in Chrome with Justin:
+  - Google Postmaster Tools: `activeagents.ai` added and verified under
+    `justin@activeagents.ai` (the existing `google-site-verification`
+    TXT covers it; no new record). Health reads "No issues"; reputation
+    and spam-rate charts need volume to show data.
+  - DMARC moves to `v=DMARC1; p=none; rua=mailto:dmarc@activeagents.ai; fo=1`
+    (`terraform/environments/staging/dns.tfvars`, applied by the staging
+    deploy on merge). Justin creates the `dmarc@activeagents.ai` group in
+    the Workspace admin console with "anyone on the web" allowed to post,
+    since the reports come from google.com, yahoo.com and others (the
+    assistant's click there was refused). Two weeks of reports, then
+    `p=quarantine; pct=100`, later `p=reject`.
+  - `PilotMailer` sends a `Reply-To` of `hello@activeagents.ai`
+    (`MAILER_REPLY_TO_ADDRESS` to override) and an HTML part for the
+    invitation and the access notice, in the verification email's style,
+    with the link spelled out under the button. Tracking stays off.
+- Still to do: send pilot invitations from production (`hello@activeagents.ai`),
+  never from staging; ask Google Workspace recipients (Combinaut) to
+  allowlist `activeagents.ai` under Gmail, Spam, phishing and malware,
+  approved senders; keep staging's sends to a handful a week or move
+  them off the organisation domain; check Postmaster Tools weekly.

@@ -1,0 +1,44 @@
+<%# Same look as user_mailer/email_verification.html.erb: a plain, branded
+    message with one button and the link spelled out underneath. %>
+<style>
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 40px 20px; }
+  .logo { font-size: 24px; font-weight: bold; color: #e74c3c; margin-bottom: 30px; }
+  h1 { font-size: 28px; margin-bottom: 20px; color: #1a1a1a; }
+  p { margin-bottom: 20px; color: #555; }
+  .button { display: inline-block; background: #e74c3c; color: white !important; padding: 14px 32px; border-radius: 8px; text-decoration: none; font-weight: 600; margin: 20px 0; }
+  .footer { margin-top: 40px; padding-top: 20px; border-top: 1px solid #eee; font-size: 14px; color: #888; }
+  .code { background: #f5f5f5; padding: 2px 8px; border-radius: 4px; font-family: monospace; }
+</style>
+
+<div class="logo">Active Agent</div>
+
+<h1>Your <%= @invitation.workspace_name %> workspace is ready</h1>
+
+<p>You're invited to own the <strong><%= @invitation.workspace_name %></strong> workspace on Active Agent.</p>
+
+<p>Pro is included during your pilot. No payment method is needed, and accepting does not create a paid subscription or an automatic future charge.</p>
+
+<p>Review date: <strong><%= @invitation.review_on %></strong> (a review is not an expiration or a charge).
+<% if @invitation.grant_expires_at %>
+Complimentary access expires on <strong><%= @invitation.grant_expires_at.to_date %></strong>.
+<% else %>
+No automatic expiration has been set.
+<% end %></p>
+
+<a href="<%= @accept_url %>" class="button">Accept invitation</a>
+
+<p>Or copy and paste this link into your browser:</p>
+<p class="code" style="word-break: break-all;"><%= @accept_url %></p>
+
+<p>The link expires in 7 days and can be accepted once. Opening it alone does not activate the workspace: you set a password (or sign in with your existing account) and accept explicitly.</p>
+
+<p>After activation, add provider credentials in your workspace and connect your first agent or trace. Never send credentials by email.</p>
+
+<p>If complimentary access ends, your account stays available. Any paid subscription continues; otherwise Free limits apply. The 14-day trace retention window continues for 14 days after access ends before Free's 3-day window applies. We send a notice when access changes.</p>
+
+<p>This is a transactional invitation, not a newsletter. If you weren't expecting it, ignore it or reply for help.</p>
+
+<div class="footer">
+  <p>Active Agent - The AI Framework for Ruby on Rails</p>
+  <p>&copy; <%= Date.current.year %> Active Agent. All rights reserved.</p>
+</div>
