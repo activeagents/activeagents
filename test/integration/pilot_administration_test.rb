@@ -82,7 +82,7 @@ class PilotAdministrationTest < ActionDispatch::IntegrationTest
     ActiveSupport::Notifications.subscribed(subscriber, "deliver.action_mailer") do
       token = deliver_invitation(invitation)
       assert_not_includes payloads.last[:mail], token
-      assert_includes ActionMailer::Base.deliveries.last.body.decoded, token
+      assert_includes ActionMailer::Base.deliveries.last.text_part.body.decoded, token
     end
   end
 end

@@ -65,11 +65,13 @@ mx_records = [
 # TXT records at apex domain
 txt_records = [
   "\"v=spf1 include:dc-aa8e722993._spfm.activeagents.ai ~all\"",
+  # Google site verification for justin@activeagents.ai: Search Console and,
+  # since 2026-10-24, Postmaster Tools (same token).
   "\"google-site-verification=fvyFSc0J2yyHZk4r2HLwNga4k4DeSJ_weFce2xRs44g\""
 ]
 
 # DMARC record
-dmarc_record = "v=DMARC1; p=none;"
+dmarc_record = "v=DMARC1; p=none; rua=mailto:dmarc@activeagents.ai; fo=1"
 
 # Additional TXT records for subdomains
 additional_txt_records = [
