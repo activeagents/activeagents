@@ -205,12 +205,13 @@ so there was no `jusbowen@gmail.com` user to rename: it held
 | Sign in with Google, `justin@activeagents.ai` already a user | first try: Google's "Error 401: invalid_client" page, a trailing newline in the client ID secret (`docs/issues/2026-10-23-production-google-client-id-newline.md`). After the fix: account chooser, back to `/session/new` with "An account already uses justin@activeagents.ai. Sign in with your password, or reset it with Forgot your password?, then connect Google from Settings." No identity created. Pass. |
 | Sign up with GitHub, `jusbowen@gmail.com` free | GitHub authorize page for ActiveAgents (production) (identity, email addresses read), back to `/complete_profile` with names filled and "You sign in with GitHub."; user 4 `jusbowen@gmail.com` created with one `github` identity. Profile submitted on the Free plan, landed on `/dashboard` in "Justin Bowen's Workspace". Pass. |
 
-| Sign up with Google, `justin@svsg.co` free (Justin, by hand, 2026-10-24) | an address outside the Google test-user list: no unverified-app warning, no consent wall, back to `/complete_profile` with the names filled from Google. Pass. Database check (verified, no password, one `google` identity) pending a fresh `gcloud auth login`. |
+| Sign up with Google, `justin@svsg.co` free (Justin, by hand, 2026-10-24) | an address outside the Google test-user list: no unverified-app warning, no consent wall, back to `/complete_profile` with the names filled from Google. Pass. Database: user 5, `email_verified` true, `signup_source` google, one `google` identity, a password set from the profile form. Pass. |
 
 Not covered in production: the Settings connect and disconnect flows
 (covered locally). Google's app is published ("In production" on the
 Audience page), and the svsg sign-up confirms addresses outside the
 test-user list get through without a warning.
 
-Production now holds `jusbowen@gmail.com` (4, GitHub, Free plan). Keep
-it or delete it as Justin prefers.
+Production now holds `jusbowen@gmail.com` (4, GitHub, Free plan) and
+`justin@svsg.co` (5, Google). User 6 is an outside sign-up from
+2026-10-24, the first since the providers went live.
