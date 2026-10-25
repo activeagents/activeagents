@@ -29,11 +29,12 @@ gem "inertia_rails"
 # Code or Codex); 1.8.0 added GitHub connections, checkout sandboxes and
 # Claude Code sessions; 1.7.0 added the evaluation report collector that
 # /v1/evaluations subclasses.
-# The 1.9.3 release (activeagent v1.9.3, 2026-10-21): the framework and the
+# The 1.9.4 release (activeagent v1.9.4, 2026-10-25): the framework and the
 # dashboard engine from RubyGems, with the browser sidecar at the same version.
-# 1.9.3 makes code sessions conversations (migration 028) and adds codex_auth.
-gem "activeagent", "1.9.3"
-gem "actionagent", "1.9.3"
+# 1.9.3 made code sessions conversations (migration 028) and added codex_auth;
+# 1.9.4 adds the user-menu links seam (no new migrations).
+gem "activeagent", "1.9.4"
+gem "actionagent", "1.9.4"
 # Solid Agent - Persistence and context management for ActiveAgent
 gem "solid_agent", github: "activeagents/solid_agent", branch: "main"
 # RubyLLM - model registry (token pricing data) and unified provider API
