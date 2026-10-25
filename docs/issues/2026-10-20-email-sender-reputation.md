@@ -213,3 +213,10 @@ the cutover. DMARC stays `p=none` for now.
   allowlist `activeagents.ai` under Gmail, Spam, phishing and malware,
   approved senders; keep staging's sends to a handful a week or move
   them off the organisation domain; check Postmaster Tools weekly.
+- 2026-10-25: Justin created the `dmarc@activeagents.ai` group, so #221
+  can merge and the staging deploy applies the DMARC `rua` record. He has
+  no admin access to the pilot client's Workspace and will ask for the
+  `activeagents.ai` allowlist; meanwhile he marked the staging invitation
+  "not spam" a second time from `justin@client.example`. CI on #221
+  caught one more test reading `body.decoded` on the now multipart access
+  notice (`test/services/pro_access_test.rb`); fixed to read the text part.
