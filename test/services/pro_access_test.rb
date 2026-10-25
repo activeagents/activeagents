@@ -82,6 +82,6 @@ class ProAccessTest < ActiveSupport::TestCase
       2.times { ProAccessNoticeJob.perform_now(event.id) }
     end
     assert event.reload.notified_at?
-    assert_includes ActionMailer::Base.deliveries.last.body.decoded, "No automatic charge"
+    assert_includes ActionMailer::Base.deliveries.last.text_part.body.decoded, "No automatic charge"
   end
 end

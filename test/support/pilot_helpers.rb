@@ -13,7 +13,8 @@ module PilotHelpers
     invitation.queue_delivery!(actor: admin)
     WorkspaceInvitationDeliveryJob.perform_now(invitation.id, invitation.reload.delivery_version)
     mail = ActionMailer::Base.deliveries.last
-    url = URI.extract(mail.body.decoded).find { |value| value.include?("workspace_invitation?") }
+    text = mail.multipart? ? mail.text_part.body.decoded : mail.body.decoded
+    url = URI.extract(text).find { |value| value.include?("workspace_invitation?") }
     URI.decode_www_form(URI(url).query).to_h.fetch("token")
   end
 
