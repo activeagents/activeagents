@@ -140,3 +140,17 @@ hosted activeagents.ai", with grant source `retainer_pilot`.
   Acceptance by Justin pending. The real invitation goes out from
   production, where `justin@activeagents.ai` (user 1) is the admin and
   mail leaves as `hello@activeagents.ai` with links on `activeagents.ai`.
+- 2026-10-25, rehearsal completed: Justin had signed in with Google as
+  `justin@client.example` first, which created a Free "Justin Bowen's
+  Workspace" and redirected to the dashboard after profile completion
+  without returning to the invitation (see
+  [2026-10-25-pilot-invitation-google-signin.md](2026-10-25-pilot-invitation-google-signin.md)).
+  Reopening the invitation link while signed in showed the single accept
+  button; accepting at 16:29:38 UTC created the "the pilot client" workspace
+  (ActiveAgent.PRO, "Complimentary pilot"), granted by `jusbowen@gmail.com`
+  with review 2027-01-22 and no expiration, marked invitation 1 Accepted,
+  and Resend delivered "the pilot client: Pro pilot access granted" at 16:29:48 UTC
+  (the first message with the HTML part and `Reply-To`). The flow works
+  end to end; the production invitation to Chris can go out from
+  `/admin/pilots` as `justin@activeagents.ai`, with the note "set a
+  password on the invitation page, or sign in first and reopen the link".
