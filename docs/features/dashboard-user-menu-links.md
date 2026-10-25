@@ -1,6 +1,6 @@
 # Host links in the dashboard's user menu
 
-Date: 2026-10-25 · Status: gem PR open, host side guarded until the gem pin moves
+Date: 2026-10-25 · Status: shipped in actionagent 1.9.4; host repin PR open
 
 ## Ask
 
@@ -32,6 +32,10 @@ reaches that layout.
 
 ## Follow-up
 
-- Release actionagent 1.9.4 with the gem PR and bump the host pin.
+- Done 2026-10-25: gem #633 merged, released as actionagent 1.9.4 (tag
+  `v1.9.4`, release PR #634); the host repin is branch `chore/repin-1.9.4`.
+  `bin/rails runner` on the repinned host resolves Workspace, Members,
+  Account settings, Platform admin for an admin and the first three for a
+  member.
 - Chrome check on staging after the deploy: avatar menu shows the four
   items for `justin@activeagents.ai`, three for a non-admin.
