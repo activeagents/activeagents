@@ -30,6 +30,22 @@ ActionAgent.configure do |config|
   # dashboard header's sign-out posts to this app's session.
   config.sign_in_path = "/session/new"
   config.sign_out_path = "/session"
+  # The header's avatar menu lists the host pages the dashboard has no route
+  # to: the workspace, its members, how the user signs in, and for platform
+  # admins the pilot administration. The seam arrives with actionagent 1.9.4
+  # (activeagent PR "Dashboard: host links in the user menu"); the guard
+  # keeps 1.9.3 booting until the pin moves.
+  if config.respond_to?(:user_menu_links=)
+    config.user_menu_links = lambda do |user, _owner|
+      links = [
+        { label: "Workspace", href: "/workspace" },
+        { label: "Members", href: "/workspace/members" },
+        { label: "Account settings", href: "/settings" }
+      ]
+      links << { label: "Platform admin", href: "/admin/pilots" } if user.respond_to?(:admin?) && user.admin? && user.email_verified?
+      links
+    end
+  end
   config.current_account_resolver = ->(_controller) { Current.account }
 
   # Every dashboard record is workspace-scoped, even when one user owns
