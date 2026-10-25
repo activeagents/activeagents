@@ -60,5 +60,7 @@ That is how the rehearsal was completed.
 ## Log
 
 - 2026-10-25: observed on staging (invitation 1, user created by Google
-  sign-up with a Free workspace). Documented before Chris's production
-  invitation goes out.
+  sign-up with a Free workspace). Justin: "already completed profile, but
+  it didn't show the invite cause it auto redirects to the dashboard".
+  Reopening the link while signed in completed the acceptance at
+  16:29 UTC. Documented before Chris's production invitation goes out.
