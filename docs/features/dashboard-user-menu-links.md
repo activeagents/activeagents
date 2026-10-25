@@ -1,6 +1,6 @@
 # Host links in the dashboard's user menu
 
-Date: 2026-10-25 · Status: shipped in actionagent 1.9.4; host repin PR open
+Date: 2026-10-25 · Status: shipped in actionagent 1.9.4, verified on staging 2026-10-25
 
 ## Ask
 
@@ -37,5 +37,6 @@ reaches that layout.
   `bin/rails runner` on the repinned host resolves Workspace, Members,
   Account settings, Platform admin for an admin and the first three for a
   member.
-- Chrome check on staging after the deploy: avatar menu shows the four
-  items for `justin@activeagents.ai`, three for a non-admin.
+- Done 2026-10-25: host #224 merged (`d82b39f`), staging deploy run
+  40224680364 green. Justin checked the avatar menu on staging: "works on
+  staging".
