@@ -1,6 +1,6 @@
 # Complimentary Pro pilot for the Combinaut workspace on activeagents.ai
 
-Date: 2026-10-20 · Environment: production (https://activeagents.ai) · Status: in progress, waiting for the admin sign-in
+Date: 2026-10-20 · Environment: production (https://activeagents.ai) · Status: invitation sent 2026-10-26, waiting for Chris to accept
 
 ## Ask
 
@@ -154,3 +154,33 @@ hosted activeagents.ai", with grant source `retainer_pilot`.
   end to end; the production invitation to Chris can go out from
   `/admin/pilots` as `justin@activeagents.ai`, with the note "set a
   password on the invitation page, or sign in first and reopen the link".
+- 2026-10-26 (production, activeagents.ai on main `395fc94` with 1.9.4):
+  Justin asked for Chrome open on `/admin/pilots` to send chris@combinaut.com
+  the invitation himself. The page redirected to `/dashboard`: the signed-in
+  user is `jusbowen@gmail.com` (production user 4, verified, not admin). The
+  production database still holds the 2026-10-20 admin `justin@activeagents.ai`
+  (user 1); 6 users, 6 workspaces, no grants, no pilot invitations. Promoted
+  user 4 to `admin = true` through `activeagents-production-migrate`
+  (`runner`, execution `…-nj9cz`; read-only listing was `…-wgd9t`). Revert with
+  `User.find(4).update!(admin: false)`. `/admin/pilots` then rendered; the
+  stale "Access denied" flash from the redirect shows once. The invitation
+  itself (recipient, workspace name, review date, reason, Send) is Justin's.
+- 2026-10-26: Justin also decided pilots run uncapped, so their real usage
+  informs the Pro team plan and pricing: host PR
+  [#228](https://github.com/activeagents/activeagents/pull/228),
+  [pilot-uncapped-runs.md](../features/pilot-uncapped-runs.md). Until it is
+  deployed, a new pilot grant carries the Pro cap of 10,000 runs a period.
+- 2026-10-26, 12:58 UTC-7: invitation draft prepared on production from
+  `/admin/pilots` (workspace "Combinaut", chris@combinaut.com, review
+  2027-01-24, no expiration, reason recorded on the row). Not sent yet; the
+  Send button is Justin's. Decision: the Pro cap stays for now (10,000 runs,
+  25,000 traces a month); PR #228 parked as a draft for later.
+- 2026-10-26, 20:43 UTC: Justin clicked "Send invitation". Resend shows the
+  message to chris@combinaut.com **delivered**, from "Active Agent"
+  <hello@activeagents.ai> (the verified root domain), subject "Your Combinaut
+  Pro workspace invitation", link on activeagents.ai, expiring 2026-11-02.
+  The admin row says "Invited by jusbowen@gmail.com": that is the inviting
+  user, not the sender. Next: Chris accepts, which creates the Combinaut
+  workspace with the Pro grant (source `retainer_pilot`, review 2027-01-24);
+  the admin page then shows the workspace under "Workspace access and
+  activation". If the mail is not seen, "Resend with new link" on the row.
