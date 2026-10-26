@@ -54,6 +54,7 @@
       <summary><%= account.name %> · <%= account.current_plan&.name || "Free" %> · <%= account.access_source.humanize %></summary>
       <p>Owner: <%= account.owner.email_address %> · Signup source: <%= account.owner.signup_source.presence || "existing account" %><br>
       Paying subscriber: <strong><%= account.paid_subscriber? ? "Yes" : "No" %></strong> · Pilot grant: <%= grant&.active? ? "Active" : "None / ended" %><br>
+      Runs this period: <%= account.agent_runs_this_period %> of <%= account.pilot_runs_uncapped? ? "unlimited (pilot)" : account.effective_agent_runs_limit %> · Traces this period: <%= account.telemetry_traces_this_period %> of <%= account.effective_trace_limit %><br>
       First trace: <%= account.telemetry_traces.minimum(:timestamp) || "Not yet" %> ·
       First evaluation: <%= ActionAgent::EvaluationRun.joins(evaluation: :agent).where(agents: { account_id: account.id }).minimum(:created_at) || "Not yet" %></p>
       <%= form_with scope: :grant, url: admin_pro_access_grants_path do |form| %>
