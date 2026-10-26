@@ -1,6 +1,6 @@
 # Complimentary Pro pilot for the pilot client workspace on activeagents.ai
 
-Date: 2026-10-20 · Environment: production (https://activeagents.ai) · Status: in progress, waiting for the admin sign-in
+Date: 2026-10-20 · Environment: production (https://activeagents.ai) · Status: invitation sent 2026-10-26, waiting for Chris to accept
 
 ## Ask
 
@@ -175,3 +175,12 @@ hosted activeagents.ai", with grant source `retainer_pilot`.
   2027-01-24, no expiration, reason recorded on the row). Not sent yet; the
   Send button is Justin's. Decision: the Pro cap stays for now (10,000 runs,
   25,000 traces a month); PR #228 parked as a draft for later.
+- 2026-10-26, 20:43 UTC: Justin clicked "Send invitation". Resend shows the
+  message to owner@client.example **delivered**, from "Active Agent"
+  <hello@activeagents.ai> (the verified root domain), subject "Your the pilot client
+  Pro workspace invitation", link on activeagents.ai, expiring 2026-11-02.
+  The admin row says "Invited by jusbowen@gmail.com": that is the inviting
+  user, not the sender. Next: Chris accepts, which creates the pilot client
+  workspace with the Pro grant (source `retainer_pilot`, review 2027-01-24);
+  the admin page then shows the workspace under "Workspace access and
+  activation". If the mail is not seen, "Resend with new link" on the row.
