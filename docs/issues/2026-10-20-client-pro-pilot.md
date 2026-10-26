@@ -154,3 +154,19 @@ hosted activeagents.ai", with grant source `retainer_pilot`.
   end to end; the production invitation to Chris can go out from
   `/admin/pilots` as `justin@activeagents.ai`, with the note "set a
   password on the invitation page, or sign in first and reopen the link".
+- 2026-10-26 (production, activeagents.ai on main `395fc94` with 1.9.4):
+  Justin asked for Chrome open on `/admin/pilots` to send owner@client.example
+  the invitation himself. The page redirected to `/dashboard`: the signed-in
+  user is `jusbowen@gmail.com` (production user 4, verified, not admin). The
+  production database still holds the 2026-10-20 admin `justin@activeagents.ai`
+  (user 1); 6 users, 6 workspaces, no grants, no pilot invitations. Promoted
+  user 4 to `admin = true` through `activeagents-production-migrate`
+  (`runner`, execution `…-nj9cz`; read-only listing was `…-wgd9t`). Revert with
+  `User.find(4).update!(admin: false)`. `/admin/pilots` then rendered; the
+  stale "Access denied" flash from the redirect shows once. The invitation
+  itself (recipient, workspace name, review date, reason, Send) is Justin's.
+- 2026-10-26: Justin also decided pilots run uncapped, so their real usage
+  informs the Pro team plan and pricing: host PR
+  [#228](https://github.com/activeagents/activeagents/pull/228),
+  [pilot-uncapped-runs.md](../features/pilot-uncapped-runs.md). Until it is
+  deployed, a new pilot grant carries the Pro cap of 10,000 runs a period.
