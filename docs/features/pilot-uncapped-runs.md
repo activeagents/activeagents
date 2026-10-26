@@ -1,6 +1,6 @@
 # Uncapped agent runs for complimentary Pro pilots
 
-Status: built 2026-10-26 on `feat/pilot-uncapped-runs` · Environment: all (host app, `Account` model)
+Status: built 2026-10-26 on `feat/pilot-uncapped-runs`, parked as draft PR #228 (Justin, 2026-10-26: "let's leave the cap in place for now and we can always modify for them later") · Environment: all (host app, `Account` model)
 
 ## Ask
 
@@ -51,3 +51,9 @@ revocation) plus the limit assertions in the existing grant test.
 ## Log
 
 - 2026-10-26: built, tests green locally (7 runs, 45 assertions), PR opened.
+- 2026-10-26, later: Justin chose to keep the Pro cap (10,000 runs, 25,000
+  traces a month) for the pilot client pilot and revisit once the team's usage is
+  visible. PR #228 is a draft, rebased when needed. Open question for that
+  revisit: 10,000 runs can produce more than 25,000 traces, so the trace
+  quota is the more likely ceiling and should be raised or uncapped with the
+  runs.

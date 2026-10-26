@@ -170,3 +170,8 @@ hosted activeagents.ai", with grant source `retainer_pilot`.
   [#228](https://github.com/activeagents/activeagents/pull/228),
   [pilot-uncapped-runs.md](../features/pilot-uncapped-runs.md). Until it is
   deployed, a new pilot grant carries the Pro cap of 10,000 runs a period.
+- 2026-10-26, 12:58 UTC-7: invitation draft prepared on production from
+  `/admin/pilots` (workspace "the pilot client", owner@client.example, review
+  2027-01-24, no expiration, reason recorded on the row). Not sent yet; the
+  Send button is Justin's. Decision: the Pro cap stays for now (10,000 runs,
+  25,000 traces a month); PR #228 parked as a draft for later.
