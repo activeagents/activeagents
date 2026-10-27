@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.2].define(version: 2026_10_21_000001) do
+ActiveRecord::Schema[8.2].define(version: 2026_10_27_000001) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
 
@@ -369,8 +369,8 @@ ActiveRecord::Schema[8.2].define(version: 2026_10_21_000001) do
     t.integer "output_tokens"
     t.bigint "previous_code_session_id"
     t.text "prompt", null: false
-    t.string "resume_session_id"
     t.text "result"
+    t.string "resume_session_id"
     t.string "runner", default: "claude_code", null: false
     t.string "runner_session_id"
     t.bigint "sandbox_session_id", null: false
@@ -583,6 +583,16 @@ ActiveRecord::Schema[8.2].define(version: 2026_10_21_000001) do
     t.index ["account_id"], name: "index_github_installations_on_account"
     t.index ["installation_id"], name: "index_github_installations_on_installation", unique: true
     t.index ["user_id"], name: "index_github_installations_on_user"
+  end
+
+  create_table "github_webhook_deliveries", force: :cascade do |t|
+    t.datetime "created_at", null: false
+    t.string "delivery_id", limit: 64, null: false
+    t.string "event", limit: 64, null: false
+    t.string "event_action", limit: 64
+    t.bigint "installation_id"
+    t.index ["created_at"], name: "index_webhook_deliveries_on_created_at"
+    t.index ["delivery_id"], name: "index_webhook_deliveries_on_delivery", unique: true
   end
 
   create_table "input_requests", force: :cascade do |t|
