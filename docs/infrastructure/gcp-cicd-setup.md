@@ -224,9 +224,11 @@ GitHub's Terraform provider cannot create Apps, so register them at <https://git
 
 - **Name**: `ActiveAgents (staging)` for staging, `ActiveAgents` for production.
 - **Homepage URL**: the environment's public URL.
-- **Callback URL**: the Sign in with GitHub callback, `https://<host>/auth/github/callback`, once for every host that serves the environment.
-- **Setup URL**: leave empty until the installation flow ships. Callback and setup URLs can be added later without registering again.
-- **Webhook**: generate the secret now so the registration does not change later, and leave **Active** unchecked until a receiver exists:
+- **Callback URLs**, in this order:
+  1. `https://<host>/dashboard/api/github_installations/callback`, the dashboard's installation callback. GitHub sends post-install and update returns to the **first** callback URL, so add this one first. GitHub keeps the URLs in the order they were added and won't save a reorder, so on an existing App delete the others and add them again in one save, or fall back to the link URL under step 5.
+  2. `https://<host>/auth/github/callback`, the Sign in with GitHub callback, once for every host that serves the environment (staging: `staging.activeagents.ai`; production: `activeagents.ai` and `www.activeagents.ai`).
+- **Request user authorization (OAuth) during installation** and **Redirect on update**: on. With the first on, GitHub disables the Setup URL and returns to the callback URL instead.
+- **Webhook**: generate the secret now so the registration does not change later. Leave **Active** unchecked until the engine's receiver (`https://<host>/dashboard/api/github_app/webhooks`, activeagents/activeagent#643) is deployed:
 
   ```bash
   WEBHOOK_SECRET=$(openssl rand -hex 32)
@@ -234,8 +236,10 @@ GitHub's Terraform provider cannot create Apps, so register them at <https://git
   ```
 
 - **Repository permissions**: Contents read and write, Pull requests read and write, Metadata read.
+- **Organization permissions**: Members read. Linking an installation in Settings → Integrations checks that the person is an admin of the organization the App is installed on (`GET /user/memberships/orgs/:org`), and GitHub answers that 403 without this permission. Engines before activeagents/activeagent#648 report that as "Only the account the App is installed on, or an admin of its organization, can link an installation". After adding it to an existing App, accept the new permission on each installation.
 - **Account permissions**: Email addresses read (`/user/emails` needs it).
 - Nothing else: no Workflows, Administration, Secrets or Actions permission.
+- **Logo**: upload `public/images/activeagent-logo.png` under **Display information**.
 - **Where can this GitHub App be installed?** Any account.
 
 After creating it, note the App ID, the client ID and the slug (the last part of `https://github.com/apps/<slug>`), generate a client secret, and generate a private key (a `.pem` download).
@@ -318,6 +322,8 @@ enable_active_record_encryption_keys = true
 
 `enable_recordings_storage = true` goes in the same file once the app stores recordings on GCS.
 
+If the deploy's `deploy` job fails the startup probe, a re-run of the workflow applies nothing: Terraform already recorded the new template in state, so the plan reports no changes. Roll a revision by hand instead (`gcloud run services update activeagents-<env> --region=us-central1 --update-labels=rollout=<reason>`); the next apply drops the label. This happened once on staging (2026-10-27) with a cold boot that never reached `=> Booting Puma`; the rolled revision booted normally.
+
 ### 5. Check
 
 Right after the deploy that turns on `enable_active_record_encryption_keys`:
@@ -328,6 +334,8 @@ Right after the deploy that turns on `enable_active_record_encryption_keys`:
 If either fails, set the flag back to `false` at once. The app then derives its keys again, but anything encrypted while the wrong keys were live stays unreadable.
 
 The `github_app_install_url` output of the environment shows where an account installs the App.
+
+Then link an installation from Dashboard → Settings → Integrations → **Install the GitHub App**. When the App is already installed on the chosen account, GitHub shows that installation's settings page and doesn't return to the dashboard. Open `https://<host>/dashboard/api/github_installations/callback?installation_id=<id>&setup_action=update` instead, where `<id>` is the number at the end of the installation's settings URL (`…/settings/installations/<id>`). The installation is linked to the workspace that is active in the dashboard, so switch workspaces first.
 
 ## Public signup protection: Cloud Armor and Turnstile
 
