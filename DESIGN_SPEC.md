@@ -81,6 +81,23 @@ These are reserved for specific semantic uses only (blue for info alerts, etc.).
 | Success    | `#16a34a`               | Same                     |
 | Warning    | `#eab308`               | Same                     |
 | Error      | `#dc2626` (distinct from accent) | Same            |
+| Info       | `#3b82f6`               | Same                     |
+
+### Semantic Tint Pairs
+
+Every semantic color has a **soft** fill and a **text** shade. Use the pair
+together for badges, value pills and inline alerts; never a solid semantic
+fill behind text.
+
+| Pair      | Light soft / text       | Dark soft / text                        |
+|-----------|-------------------------|-----------------------------------------|
+| Success   | `#dcfce7` / `#166534`   | `rgba(22,163,74,0.15)` / `#4ade80`      |
+| Warning   | `#fef9c3` / `#854d0e`   | `rgba(234,179,8,0.15)` / `#facc15`      |
+| Error     | `#fee2e2` / `#991b1b`   | `rgba(220,38,38,0.15)` / `#f87171`      |
+| Info      | `#dbeafe` / `#1e40af`   | `rgba(59,130,246,0.15)` / `#93c5fd`     |
+
+Tokens: `--color-{success,warning,error,info}-soft` and `-text` in
+`actionagent/frontend/tokens.css` (mirrored by `ActiveAgent::Evals::DesignTokens`).
 
 **Note**: For dark mode, do NOT use Tailwind's `gray-900`/`gray-950` - they have a blue tint. Use the hex values above.
 
@@ -244,18 +261,143 @@ Use Tailwind for **layout-only** properties that don't change between themes:
 
 ### Status Badges
 
-| State      | Classes                           |
-|-----------|----------------------------------|
-| Active    | `bg-green-100 text-green-800`    |
-| Trial     | `bg-blue-100 text-blue-800`     |
-| Warning   | `bg-yellow-100 text-yellow-800`  |
-| Error     | `bg-red-100 text-red-800`       |
-| Inactive  | `bg-gray-100 text-gray-500`     |
+Soft tint + strong text from the semantic tint pairs above. Pill shape
+(`rounded-full`) for states and values, 4px radius for mono identifiers.
+
+| State      | Tokens                                        | Legacy Tailwind                 |
+|-----------|-----------------------------------------------|---------------------------------|
+| Active    | `--color-success-soft` / `--color-success-text` | `bg-green-100 text-green-800` |
+| Trial     | `--color-info-soft` / `--color-info-text`       | `bg-blue-100 text-blue-800`   |
+| Warning   | `--color-warning-soft` / `--color-warning-text` | `bg-yellow-100 text-yellow-800` |
+| Error     | `--color-error-soft` / `--color-error-text`     | `bg-red-100 text-red-800`     |
+| Inactive  | `--color-muted` / `--color-text-cell`           | `bg-gray-100 text-gray-500`   |
+
+Prefer the tokens; the Tailwind column is for reading older components, and
+it has no dark-mode counterpart.
 
 ### Focus States
 - Input focus: `focus:ring-2 focus:ring-red-500 focus:border-transparent`
 - Button focus: Same ring treatment
 - Link focus: Underline + color shift
+
+---
+
+## Ranked Data & Comparison Tables
+
+Use this pattern whenever rows are **compared against each other**: model
+benchmarks, agent leaderboards, evaluation run comparisons, provider cost
+tables, plan matrices. It is the richer sibling of the dense `DataTable`
+(which stays the default for operational lists such as traces, runs and
+interactions, where rows are scanned, not ranked).
+
+Reference: the model table at rubyonrails.org/ai. The qualities to keep are
+clean row separation, sortable two-line headers, and a value pill in every
+numeric cell whose tint says at a glance whether that value is good, middling
+or poor relative to the other rows.
+
+```
+MODEL                       ACCURACY      SPEED ▲       TOKENS        COST
+                            TASK SCORE    TASK TIME     PER RUN       PER RUN
+──────────────────────────────────────────────────────────────────────────────
+(◎) Claude Opus 5.5  xhigh  ( 65.3% )    ( 53m 31s )  ( 27,159,917 ) ( $10.53 )
+(◎) GPT-6 Astra      xhigh  ( 62.3% )    ( 22m 36s )  (  1,978,796 ) (  $4.71 )
+──────────────────────────────────────────────────────────────────────────────
+```
+
+### Anatomy
+
+| Part | Spec |
+|------|------|
+| Identity cell | 24px provider/agent mark, name in `--font-text` 15px/600, then a variant chip (`xhigh`, `medium`, `v3`) in 13px `--color-text-secondary`, regular weight, 8px gap. The mark is a logo or glyph, never the mascot. |
+| Metric header | Two lines. Line 1: metric name, 11px mono uppercase, `letter-spacing: 0.05em`, `--color-text-primary`, weight 700. Line 2: unit or qualifier ("TASK SCORE", "PER RUN"), same size, `--color-text-secondary`, weight 500. |
+| Value pill | Full pill (`border-radius: 9999px`), `padding: 10px 16px` (compact tables: `6px 12px`), text centered, `--font-mono` 15px/700, `font-variant-numeric: tabular-nums`. Tinted by rank (below). Fills its column width on mobile; `min-width: 7ch` on desktop. |
+| Row | `padding-block: 16px`, hairline bottom border `--color-border` only. No zebra striping, no vertical rules, no outer card border on the table itself. Hover: `--color-hover` background. |
+| Sort indicator | A small solid caret after the active column's line-1 label: `▲` ascending, `▼` descending, 9px, `--color-accent-ui`. Only the active column shows a caret. |
+
+### Rank tints
+
+Pills reuse the existing semantic soft/text token pairs. No new colors.
+
+| Rank band | Background | Text | Meaning |
+|-----------|------------|------|---------|
+| Good | `--color-success-soft` | `--color-success-text` | Top third of the column |
+| Middle | `--color-warning-soft` | `--color-warning-text` | Middle third |
+| Poor | `--color-error-soft` | `--color-error-text` | Bottom third |
+| Unranked | `--color-muted` | `--color-text-cell` | Missing value, n/a, single row |
+
+Rules:
+1. **Rank within the column, per table.** Each column declares its direction
+   (`higher` is better for accuracy; `lower` is better for time, tokens, cost)
+   and rows are banded into terciles by that direction. A value's tint can
+   change when rows are added or filtered; that is correct, the tint is
+   relative.
+2. **Terciles by default, thresholds when the domain has them.** Eval scores
+   keep the fixed thresholds from the Evaluations view (≥ 0.85 good,
+   0.70–0.84 middle, < 0.70 poor). Cost, latency and token counts have no
+   absolute "good", so they band by tercile.
+3. **Never tint the identity cell.** Color lives in the pills only; the row
+   stays neutral so a poor row does not read as an error state.
+4. **Never rely on color alone.** The pill always carries the formatted
+   value, and the cell gets `data-rank="good|mid|poor"` plus a visually
+   hidden rank word for screen readers (`<span class="sr-only">best third</span>`).
+5. **Dark mode uses the dark soft/text pairs already in `tokens.css`**
+   (15% alpha fills, 400-weight tinted text). Do not hand-pick darker
+   pastels.
+
+### Sorting
+
+- Every metric header is a `<button>` inside the `<th>`; `<th>` carries
+  `aria-sort="ascending|descending|none"`.
+- First click on a column sorts by that column's **better** direction
+  (accuracy descending, cost ascending), second click flips it, so the first
+  tap always puts the strongest row on top.
+- The identity column sorts alphabetically; it is a valid sort but never the
+  default. Default sort is the table's headline metric (accuracy for model
+  tables, score for eval comparisons).
+- Sort is a pure client-side reorder with no row animation; rows re-render
+  in place. Sort state is reflected in the header caret only, not in a
+  separate "sorted by" line.
+- Persist the chosen column in the URL query (`?sort=cost&dir=asc`) on
+  product pages so a sorted view is linkable; on the lander, `localStorage`
+  is enough.
+
+### Responsive behaviour
+
+| Width | Layout |
+|-------|--------|
+| ≥ 900px | Classic table: identity column auto-width, metric columns equal, pills right-aligned in cells with `min-width: 7ch`. |
+| 600–899px | Same table; header line 2 hides, pill padding drops to `6px 12px`. |
+| < 600px | Each row becomes a card: identity line on top, then the pills in a wrapping grid (`repeat(auto-fill, minmax(96px, 1fr))`). The header row hides and every cell shows its column label (`data-label`, "COST · PER RUN") in 9px mono above its pill; text columns span the full width. Nothing scrolls horizontally. |
+
+### Marketing vs product
+
+The pattern is the same on both surfaces; only density differs.
+
+| Property | Lander | Dashboard |
+|----------|--------|-----------|
+| Row padding | 20px | 12px |
+| Pill padding | 10px 16px | 6px 12px |
+| Name size | 17px | 14px |
+| Pill text | 15px | 13px |
+| Row divider | `--color-border` | `--color-border-light` |
+
+### Implementation notes
+
+- Dashboard: `ComparisonTable`, `ValuePill` and `MetricStrip` in
+  `actionagent/frontend/components/dashboard/` (the activeagent repo), with
+  the banding and sort rules in `utils/comparison.mjs`. Every colour is a
+  token from `tokens.css`; the rank band is a `data-rank` attribute, not a
+  Tailwind class. Used by the run's model comparison table, the Evaluations
+  leaderboard, the home page's Top Agents, the scenario matrix's result
+  cells and group rows, each opened result's metric strip, and the Metrics
+  overview's signal deltas. `components/data/ComparisonTable.prompt.md` and
+  `components/data/ValuePill.prompt.md` in the design skill describe the API.
+- Lander: a static `<table class="comparison">` with the same data
+  attributes. Sorting is a 30-line vanilla script, not a library.
+- Specimen: `docs/design/comparison-table/specimen.html` renders the pattern
+  in both themes with working sort and tercile banding; `product/` beside it
+  has the dashboard shots. Open the specimen in a browser or run it through
+  the Playwright harness to compare a change.
 
 ---
 
@@ -512,3 +654,7 @@ No [items] yet
 **Filter/Period Controls**: Top-right placement with consistent styling:
 - `px-3 py-2 border border-gray-300 rounded-lg text-sm`
 - Focus ring: `focus:ring-2 focus:ring-red-500`
+
+**Ranked Lists**: Top Agents, model comparisons and eval run comparisons use
+the comparison table pattern (see *Ranked Data & Comparison Tables*): sortable
+two-line headers, rank-tinted value pills, hairline rows.
