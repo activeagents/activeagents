@@ -33,8 +33,12 @@ gem "inertia_rails"
 # dashboard engine from RubyGems, with the browser sidecar at the same version.
 # 1.9.3 made code sessions conversations (migration 028) and added codex_auth;
 # 1.9.4 adds the user-menu links seam (no new migrations).
-gem "activeagent", "1.9.4"
-gem "actionagent", "1.9.4"
+# 1.9.5 release candidate (docs/releases/1.9.5-rc.md): the engine's main at
+# 297de2f3327f, pinned from git for the staging test before the gems are cut.
+# It adds GitHub App webhooks (migration 029, copied as 20261027000001),
+# projects on App installations, the activeagent CLI and evaluation deep links.
+gem "activeagent", github: "activeagents/activeagent", ref: "297de2f3327fee2a9ecd9a6df44853364329b469"
+gem "actionagent", github: "activeagents/activeagent", ref: "297de2f3327fee2a9ecd9a6df44853364329b469"
 # Solid Agent - Persistence and context management for ActiveAgent
 gem "solid_agent", github: "activeagents/solid_agent", branch: "main"
 # RubyLLM - model registry (token pricing data) and unified provider API
