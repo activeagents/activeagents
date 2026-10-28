@@ -69,6 +69,12 @@ variable "disk_size_gb" {
   default     = 200
 }
 
+variable "running" {
+  description = "Desired power state of the host VM: true runs it, false stops it in place (desired_status TERMINATED). A stopped host keeps its disk, image, certificates and internal IP."
+  type        = bool
+  default     = true
+}
+
 variable "enable_gpu" {
   description = "Enable GPU support"
   type        = bool
@@ -362,6 +368,11 @@ resource "google_compute_instance" "incus_host" {
   # (instances.update). Unset means the provider's default, false, so a host
   # that does not serve the app plans no change.
   can_ip_forward = local.serves_app ? true : null
+
+  # The up/down switch (var.running). Stopping and starting are in-place
+  # updates, and so is a machine type change on a stopped host.
+  desired_status            = var.running ? "RUNNING" : "TERMINATED"
+  allow_stopping_for_update = true
 
   boot_disk {
     initialize_params {

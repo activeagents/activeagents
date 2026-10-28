@@ -1,0 +1,148 @@
+name: Deploy Sandbox Staging
+
+# Applies terraform/environments/sandbox-staging: the Incus host staging uses
+# as its sandbox backend, its network and its peering with the staging VPC.
+# Its settings come from the committed *.auto.tfvars in that directory, never
+# from -var flags, so an apply from here cannot drop them.
+#
+# The steps that run on the host itself (the egress ACL, the server
+# certificate, the app-runtime image) stay with the operator: see
+# docs/infrastructure/app-runtime.md (Connecting staging to its Incus host).
+
+on:
+  # A pull request gets the plan in its run summary; main and a dispatch with
+  # apply get the apply.
+  pull_request:
+    paths:
+      - "terraform/environments/sandbox-staging/**"
+      - "terraform/modules/incus-host/**"
+      - ".github/workflows/deploy-sandbox-staging.yml"
+  push:
+    branches: [main]
+    paths:
+      - "terraform/environments/sandbox-staging/**"
+      - "terraform/modules/incus-host/**"
+      - ".github/workflows/deploy-sandbox-staging.yml"
+  workflow_dispatch:
+    inputs:
+      apply:
+        description: Apply the plan (off plans only)
+        type: boolean
+        default: false
+      preflight:
+        description: Run incus:preflight from staging's Cloud Run afterwards
+        type: boolean
+        default: false
+
+concurrency:
+  group: sandbox-staging-deployment
+  cancel-in-progress: false
+
+env:
+  PLATFORM_PROJECT_ID: active-agents-platform
+  REGION: us-central1
+
+jobs:
+  terraform:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      id-token: write
+
+    environment:
+      name: sandbox-staging
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v3
+        with:
+          workload_identity_provider: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ secrets.GCP_SERVICE_ACCOUNT }}
+
+      - name: Set up Terraform
+        uses: hashicorp/setup-terraform@v4
+        with:
+          terraform_version: 1.10.0
+          terraform_wrapper: false
+
+      - name: Terraform Init
+        working-directory: terraform/environments/sandbox-staging
+        run: terraform init -input=false
+
+      - name: Terraform Plan
+        working-directory: terraform/environments/sandbox-staging
+        run: terraform plan -input=false -out=tfplan
+
+      # A new VM has new client credentials, no app-runtime image and no
+      # containers, and may get another internal IP, so the host steps of the
+      # runbook would all have to be repeated. That is an operator's decision,
+      # made from a terminal.
+      - name: Refuse a plan that replaces or destroys the host
+        working-directory: terraform/environments/sandbox-staging
+        run: |
+          terraform show -json tfplan > tfplan.json
+          REPLACED=$(jq -r '[.resource_changes[]? | select(.type == "google_compute_instance" and (.change.actions | index("delete"))) | .address] | join(", ")' tfplan.json)
+          {
+            echo "### Sandbox staging plan"
+            echo ""
+            echo '```'
+            jq -r '.resource_changes[]? | select(.change.actions != ["no-op"] and .change.actions != ["read"]) | "\(.change.actions | join("+"))\t\(.address)"' tfplan.json
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+          rm tfplan.json
+          if [ -n "$REPLACED" ]; then
+            echo "::error::The plan replaces or destroys $REPLACED. Apply it by hand after reading docs/infrastructure/app-runtime.md."
+            exit 1
+          fi
+
+      - name: Terraform Apply
+        if: ${{ github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && inputs.apply) }}
+        working-directory: terraform/environments/sandbox-staging
+        run: terraform apply -input=false -auto-approve tfplan
+
+  # The API half of "does staging reach its Incus host": the migrate job has
+  # the service's variables, secret mounts and VPC egress. The task aborts
+  # when it cannot connect, which fails the execution. The bridge is proven
+  # only by a checkout turning ready.
+  preflight:
+    if: ${{ github.event_name == 'workflow_dispatch' && inputs.preflight }}
+    needs: terraform
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      id-token: write
+
+    steps:
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v3
+        with:
+          workload_identity_provider: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ secrets.GCP_SERVICE_ACCOUNT }}
+
+      - name: Set up Cloud SDK
+        uses: google-github-actions/setup-gcloud@v3
+
+      - name: Run incus:preflight in the migrate job
+        run: |
+          gcloud run jobs execute activeagents-staging-migrate \
+            --project=${{ env.PLATFORM_PROJECT_ID }} --region=${{ env.REGION }} \
+            --args=incus:preflight --wait
+
+      - name: Read the preflight report
+        if: always()
+        run: |
+          {
+            echo "### Incus preflight"
+            echo ""
+            echo '```'
+            gcloud logging read \
+              'resource.type="cloud_run_job" AND resource.labels.job_name="activeagents-staging-migrate"' \
+              --project=${{ env.PLATFORM_PROJECT_ID }} --freshness=10m \
+              --limit=200 --order=asc --format="value(textPayload)"
+            echo '```'
+          } | tee -a "$GITHUB_STEP_SUMMARY"
