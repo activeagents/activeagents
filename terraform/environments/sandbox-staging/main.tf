@@ -108,6 +108,11 @@ resource "google_project_service" "secretmanager" {
   disable_on_destroy = false
 }
 
+resource "google_project_service" "vpcaccess" {
+  service            = "vpcaccess.googleapis.com"
+  disable_on_destroy = false
+}
+
 # -----------------------------------------------------------------------------
 # Network
 # -----------------------------------------------------------------------------
@@ -231,6 +236,8 @@ resource "google_vpc_access_connector" "sandbox" {
   machine_type  = "e2-micro"
   min_instances = 2
   max_instances = 3
+
+  depends_on = [google_project_service.vpcaccess]
 }
 
 # -----------------------------------------------------------------------------
