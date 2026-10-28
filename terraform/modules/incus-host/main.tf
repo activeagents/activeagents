@@ -351,6 +351,24 @@ resource "google_compute_firewall" "incus_health" {
   target_tags   = ["incus-host"]
 }
 
+# Operator SSH through Identity-Aware Proxy only (gcloud compute ssh
+# --tunnel-through-iap): the runbook's host steps (startup script re-run,
+# app-runtime image build, server certificate) need a shell, and nothing else
+# reaches port 22.
+resource "google_compute_firewall" "iap_ssh" {
+  name    = "incus-iap-ssh-${var.environment}"
+  network = var.network_id
+  project = var.project_id
+
+  allow {
+    protocol = "tcp"
+    ports    = ["22"]
+  }
+
+  source_ranges = ["35.235.240.0/20"] # IAP TCP forwarding
+  target_tags   = ["incus-host"]
+}
+
 # -----------------------------------------------------------------------------
 # Compute Instance
 # -----------------------------------------------------------------------------
@@ -430,14 +448,15 @@ resource "google_compute_instance" "incus_host" {
 
     # Add Zabbly repository for Incus
     mkdir -p /etc/apt/keyrings
-    curl -fsSL https://pkgs.zabbly.com/key.asc | gpg --dearmor -o /etc/apt/keyrings/zabbly.gpg
+    curl -fsSL https://pkgs.zabbly.com/key.asc | gpg --batch --yes --dearmor -o /etc/apt/keyrings/zabbly.gpg
 
     cat > /etc/apt/sources.list.d/zabbly-incus-stable.list << EOF
     deb [signed-by=/etc/apt/keyrings/zabbly.gpg] https://pkgs.zabbly.com/incus/stable $(lsb_release -cs) main
     EOF
 
     apt-get update
-    apt-get install -y incus incus-tools
+    # Zabbly ships the daemon and client as incus; incus-tools no longer exists.
+    apt-get install -y incus
 
     # Initialize Incus with preseed config
     cat << 'PRESEED' | incus admin init --preseed
@@ -519,7 +538,7 @@ resource "google_compute_instance" "incus_host" {
       -subj "/CN=activeagents-client"
 
     # Add client cert to Incus trust store
-    incus config trust add /etc/incus/certs/client.crt --name activeagents
+    incus config trust add-certificate /etc/incus/certs/client.crt --name activeagents
 
     # Publish the certs as new versions of the Terraform-managed secrets. A
     # fresh IAM grant can take minutes to apply, so retry before giving up.
@@ -664,10 +683,10 @@ output "server_cert_secret" {
 
 output "server_cert_command" {
   description = "Makes the running host's server certificate name its internal IP and publishes it, for a host whose startup script predates that step. Run it from the repository root."
-  value       = "gcloud compute ssh ${google_compute_instance.incus_host.name} --project=${var.project_id} --zone=${var.zone} --command=\"sudo env INCUS_SERVER_CERT_SECRET=${google_secret_manager_secret.server_cert.secret_id} INCUS_SECRET_PROJECT=${var.project_id} bash -s server-cert ${google_compute_instance.incus_host.network_interface[0].network_ip}\" < scripts/setup-incus-host.sh"
+  value       = "gcloud compute ssh ${google_compute_instance.incus_host.name} --project=${var.project_id} --zone=${var.zone} --tunnel-through-iap --command=\"sudo env INCUS_SERVER_CERT_SECRET=${google_secret_manager_secret.server_cert.secret_id} INCUS_SECRET_PROJECT=${var.project_id} bash -s server-cert ${google_compute_instance.incus_host.network_interface[0].network_ip}\" < scripts/setup-incus-host.sh"
 }
 
 output "egress_acl_command" {
   description = "Applies the sandbox egress ACL to the running host, which keeps the startup script it was created with. Run it from the repository root."
-  value       = "gcloud compute ssh ${google_compute_instance.incus_host.name} --project=${var.project_id} --zone=${var.zone} --command=\"sudo env SANDBOX_EGRESS_REJECT='${join(",", var.sandbox_egress_reject_ranges)}' bash -s egress-acl\" < scripts/setup-incus-host.sh"
+  value       = "gcloud compute ssh ${google_compute_instance.incus_host.name} --project=${var.project_id} --zone=${var.zone} --tunnel-through-iap --command=\"sudo env SANDBOX_EGRESS_REJECT='${join(",", var.sandbox_egress_reject_ranges)}' bash -s egress-acl\" < scripts/setup-incus-host.sh"
 }
