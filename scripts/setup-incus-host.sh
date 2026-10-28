@@ -89,7 +89,7 @@ install_incus() {
     ubuntu|debian)
       # Add Zabbly repository (recommended for latest Incus)
       if [[ ! -f /etc/apt/sources.list.d/zabbly-incus-stable.list ]]; then
-        curl -fsSL https://pkgs.zabbly.com/key.asc | gpg --dearmor -o /etc/apt/keyrings/zabbly.gpg
+        curl -fsSL https://pkgs.zabbly.com/key.asc | gpg --batch --yes --dearmor -o /etc/apt/keyrings/zabbly.gpg
 
         cat > /etc/apt/sources.list.d/zabbly-incus-stable.list << EOF
 deb [signed-by=/etc/apt/keyrings/zabbly.gpg] https://pkgs.zabbly.com/incus/stable $(lsb_release -cs) main

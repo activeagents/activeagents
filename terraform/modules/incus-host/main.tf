@@ -448,7 +448,7 @@ resource "google_compute_instance" "incus_host" {
 
     # Add Zabbly repository for Incus
     mkdir -p /etc/apt/keyrings
-    curl -fsSL https://pkgs.zabbly.com/key.asc | gpg --dearmor -o /etc/apt/keyrings/zabbly.gpg
+    curl -fsSL https://pkgs.zabbly.com/key.asc | gpg --batch --yes --dearmor -o /etc/apt/keyrings/zabbly.gpg
 
     cat > /etc/apt/sources.list.d/zabbly-incus-stable.list << EOF
     deb [signed-by=/etc/apt/keyrings/zabbly.gpg] https://pkgs.zabbly.com/incus/stable $(lsb_release -cs) main
@@ -538,7 +538,7 @@ resource "google_compute_instance" "incus_host" {
       -subj "/CN=activeagents-client"
 
     # Add client cert to Incus trust store
-    incus config trust add /etc/incus/certs/client.crt --name activeagents
+    incus config trust add-certificate /etc/incus/certs/client.crt --name activeagents
 
     # Publish the certs as new versions of the Terraform-managed secrets. A
     # fresh IAM grant can take minutes to apply, so retry before giving up.
