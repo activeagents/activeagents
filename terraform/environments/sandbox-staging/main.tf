@@ -20,9 +20,10 @@ terraform {
     }
   }
 
-  # Backend configuration - update for your setup
+  # The platform's state bucket, under its own prefix beside staging/ and
+  # production/.
   backend "gcs" {
-    bucket = "activeagents-terraform-state"
+    bucket = "active-agents-platform-terraform-state"
     prefix = "sandbox-staging"
   }
 }
@@ -76,6 +77,12 @@ variable "platform_egress_ranges" {
   description = "Source range of the staging platform's Cloud Run traffic: the subnet of its VPC connector (the vpc_connector_cidr output of terraform/environments/staging). While platform_network is set, only it reaches the Incus API and the containers' port 8080, and the host is given can_ip_forward."
   type        = list(string)
   default     = ["10.8.0.0/28"]
+}
+
+variable "host_running" {
+  description = "Whether the Incus host VM runs. false stops it (the disk, the app-runtime image, the certificates and the internal IP stay; only the ephemeral external IP changes) and true starts it again, each applied in place. This is the staging up/down switch: commit it in host.auto.tfvars. The staging platform keeps its Incus settings while the host is stopped; checkouts fail to connect until it is started."
+  type        = bool
+  default     = true
 }
 
 # -----------------------------------------------------------------------------
@@ -166,6 +173,8 @@ module "incus_host" {
   enable_gpu = false
 
   app_service_account = var.app_service_account
+
+  running = var.host_running
 
   # Serving the platform routes the container bridge to the host and admits
   # only the platform's Cloud Run range on 8443 and 8080.
