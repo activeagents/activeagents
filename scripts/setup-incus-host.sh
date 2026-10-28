@@ -97,7 +97,7 @@ EOF
       fi
 
       apt-get update
-      apt-get install -y incus incus-tools
+      apt-get install -y incus
       ;;
 
     fedora|rhel|centos|rocky|alma)
