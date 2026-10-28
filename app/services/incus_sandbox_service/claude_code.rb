@@ -30,7 +30,7 @@ class IncusSandboxService
     SESSION_FINISH_GRACE = 120
     HELPER_TIMEOUT = 60
     LOGIN_STATES = %w[starting awaiting_code submitted completed failed expired cancelled connected disconnected].freeze
-    AUTHORIZE_URL = %r{\Ahttps://(?:claude\.ai|platform\.claude\.com)/oauth/authorize\?[^\s]+\z}
+    AUTHORIZE_URL = %r{\Ahttps://(?:claude\.ai|claude\.com|platform\.claude\.com)/(?:cai/)?oauth/authorize\?[^\s]+\z}
     LOGIN_CODE = /\A[^\s\x00-\x1f\x7f]{1,2048}\z/
     CONTAINER_NAME = /\A#{IncusSandboxService::CONTAINER_PREFIX}-[A-Za-z0-9-]{1,60}\z/
     DISCONNECTED = { status: "disconnected", logged_in: false, auth_method: nil }.freeze

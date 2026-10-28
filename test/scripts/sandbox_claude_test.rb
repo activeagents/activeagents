@@ -21,7 +21,9 @@ class SandboxClaudeTest < ActiveSupport::TestCase
     args = sys.argv[1:]
     if args[:2] == ["auth", "login"]:
         print("Browser didn't open? Use the url below to sign in:")
-        print("https://claude.ai/oauth/authorize?code=true&client_id=fixture&state=synthetic")
+        # As Claude Code 2.1 prints it: an OSC 8 hyperlink whose text is the URL again.
+        url = "https://claude.com/cai/oauth/authorize?code=true&client_id=fixture&state=synthetic"
+        print("\\x1b]8;;" + url + "\\x07" + url + "\\x1b]8;;\\x07")
         print("Paste code here if prompted >", flush=True)
         code = sys.stdin.readline().strip()
         if code != "one-use-code":
@@ -192,7 +194,8 @@ class SandboxClaudeTest < ActiveSupport::TestCase
       assert_equal 0, exit_status
       assert_equal "starting", output["status"]
       status = eventually { (state = helper("login-status")[1])["status"] == "awaiting_code" && state }
-      assert_equal "https://claude.ai/oauth/authorize?code=true&client_id=fixture&state=synthetic", status["authorize_url"]
+      assert_equal "https://claude.com/cai/oauth/authorize?code=true&client_id=fixture&state=synthetic", status["authorize_url"],
+        "the URL is read once, without the hyperlink's terminator or its repeated text"
 
       exit_status, output = helper("login-code", extra: { "CLAUDE_LOGIN_CODE" => "one use code" })
       assert_equal 2, exit_status, "a code with whitespace is refused before it reaches the CLI"

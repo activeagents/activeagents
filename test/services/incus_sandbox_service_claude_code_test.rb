@@ -196,7 +196,8 @@ class IncusSandboxServiceClaudeCodeTest < ActiveSupport::TestCase
   end
 
   test "sign-in: the code travels once as exec environment, and status reports only a flow state and a Claude login" do
-    url = "https://claude.ai/oauth/authorize?code=true&client_id=fixture&state=synthetic"
+    # Claude Code 2.1 sends sign-ins to claude.com/cai/.
+    url = "https://claude.com/cai/oauth/authorize?code=true&client_id=fixture&state=synthetic"
     statuses = [
       %({"status":"awaiting_code","authorize_url":"#{url}","logged_in":false}),
       %({"status":"awaiting_code","authorize_url":"https://evil.example/oauth/authorize?client_id=x"}),
