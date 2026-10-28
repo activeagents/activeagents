@@ -71,7 +71,9 @@ MISE_DATA_DIR = "/opt/mise"
 
 SESSION_ID = re.compile(r"\A[0-9]{1,18}\Z")
 CODE = re.compile(r"\A[^\s\x00-\x1f\x7f]{1,2048}\Z")
-AUTHORIZE_URL = re.compile(r"https://(?:claude\.ai|platform\.claude\.com)/oauth/authorize\?[^\s\x1b]+")
+# The hosts Claude Code has printed its sign-in URL on: claude.ai and
+# platform.claude.com (2.0), claude.com/cai (2.1.308).
+AUTHORIZE_URL = re.compile(r"https://(?:claude\.ai|claude\.com|platform\.claude\.com)/(?:cai/)?oauth/authorize\?[^\s\x1b]+")
 ANSI = re.compile(r"\x1b\[[0-9;?]*[A-Za-z]")
 LABEL = re.compile(r"\A[A-Za-z0-9][A-Za-z0-9._ -]{0,63}\Z")
 # What Claude Code puts ahead of a /login in its precedence: none of them
