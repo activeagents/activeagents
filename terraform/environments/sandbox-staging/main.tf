@@ -20,9 +20,10 @@ terraform {
     }
   }
 
-  # Backend configuration - update for your setup
+  # The platform's state bucket, under its own prefix beside staging/ and
+  # production/.
   backend "gcs" {
-    bucket = "activeagents-terraform-state"
+    bucket = "active-agents-platform-terraform-state"
     prefix = "sandbox-staging"
   }
 }
@@ -78,6 +79,12 @@ variable "platform_egress_ranges" {
   default     = ["10.8.0.0/28"]
 }
 
+variable "host_running" {
+  description = "Whether the Incus host VM runs. false stops it (the disk, the app-runtime image, the certificates and the internal IP stay; only the ephemeral external IP changes) and true starts it again, each applied in place. This is the staging up/down switch: commit it in host.auto.tfvars. The staging platform keeps its Incus settings while the host is stopped; checkouts fail to connect until it is started."
+  type        = bool
+  default     = true
+}
+
 # -----------------------------------------------------------------------------
 # Provider
 # -----------------------------------------------------------------------------
@@ -98,6 +105,11 @@ resource "google_project_service" "compute" {
 
 resource "google_project_service" "secretmanager" {
   service            = "secretmanager.googleapis.com"
+  disable_on_destroy = false
+}
+
+resource "google_project_service" "vpcaccess" {
+  service            = "vpcaccess.googleapis.com"
   disable_on_destroy = false
 }
 
@@ -167,6 +179,8 @@ module "incus_host" {
 
   app_service_account = var.app_service_account
 
+  running = var.host_running
+
   # Serving the platform routes the container bridge to the host and admits
   # only the platform's Cloud Run range on 8443 and 8080.
   app_source_ranges = var.platform_network != "" ? var.platform_egress_ranges : []
@@ -222,6 +236,8 @@ resource "google_vpc_access_connector" "sandbox" {
   machine_type  = "e2-micro"
   min_instances = 2
   max_instances = 3
+
+  depends_on = [google_project_service.vpcaccess]
 }
 
 # -----------------------------------------------------------------------------
