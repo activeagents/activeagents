@@ -563,6 +563,22 @@ the startup script on a running host; to replay a fixed script on it, fetch
 `sudo bash`, removing `/etc/apt/keyrings/zabbly.gpg` first if the gpg step
 is to run again.
 
+Found by the first boot through it (2026-10-28, the 1.9.5 release
+candidate): the clone at `/opt/activeagents` belongs to the user who made
+it, so `sudo git fetch` there needs `sudo git config --global --add
+safe.directory /opt/activeagents` once. The built image carries whatever
+that checkout holds, so after a change to
+`docker/sandbox/app-runtime/sandbox-claude` (or anything else the Dockerfile
+copies) check out the branch and rebuild (`sudo
+scripts/build-app-runtime-image.sh`); a running sandbox gets the new relay
+with `incus file push --project agent-sandboxes --mode 0755 <file>
+<container>/usr/local/bin/sandbox-claude`. The build leaves
+`app-runtime-builder-<epoch>` containers behind, which sort before the
+sandboxes in `incus list`, so name a sandbox container explicitly
+(`sandbox-<first 8 of the session id>-…`). Claude Code 2.1 sends sandbox
+sign-ins to `claude.com/cai/oauth/authorize` and prints the link as a
+terminal hyperlink; relay and service read that form since the 1.9.5 RC.
+
 To turn everything off, set `enable_incus_backend` and the other switches back
 to their defaults in `incus.auto.tfvars` and merge; then apply sandbox-staging
 without `platform_network`, which removes the route, the bridge rule and the
