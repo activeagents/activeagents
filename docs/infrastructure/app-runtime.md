@@ -526,6 +526,43 @@ both.
    `claude_code_hosted_login_enabled = false` in step 6, and turn them on once
    the gate is passed.
 
+### Spinning the host up and down
+
+Since #234 the host is applied from CI, not from a terminal:
+
+- `terraform/environments/sandbox-staging/host.auto.tfvars` holds
+  `host_running`. `false` stops `incus-host-staging` in place
+  (`desired_status`), keeping the disk, the app-runtime image, the
+  certificates and the internal IP, so `incus.auto.tfvars` on the staging
+  side stays valid; only the ephemeral external IP changes. `true` starts it
+  again. Change it in a pull request: `deploy-sandbox-staging.yml` plans on
+  the pull request and applies on `main`, or from a branch with
+  `gh workflow run deploy-sandbox-staging.yml --ref <branch> -f apply=true`.
+  Add `-f preflight=true` to run `incus:preflight` from staging's migrate
+  job afterwards.
+- `platform.auto.tfvars` there holds `platform_network` and
+  `platform_egress_ranges`, so a push apply never drops the peering, the
+  bridge route or the firewall rules.
+- The workflow refuses a plan that replaces or destroys the host. A
+  recreation (new VM) is an operator's apply from a terminal, followed by
+  steps 3 and 4 above and a new `incus_api_url` if the internal IP changed.
+- While the host is stopped, staging keeps its Incus settings; checkouts
+  fail to connect and the project page shows the backend as unreachable
+  until it is started again.
+
+Found by the first apply (2026-10-27, #235): the host project needs
+`vpcaccess.googleapis.com` enabled (now in Terraform); Zabbly no longer
+ships `incus-tools`, so the startup script and `scripts/setup-incus-host.sh`
+install `incus` alone; Incus 7 trusts a certificate with
+`incus config trust add-certificate <file> --name <name>`; and port 22 is
+admitted only from Identity-Aware Proxy, so every `gcloud compute ssh` to
+the host takes `--tunnel-through-iap` (the module's `server_cert_command`
+and `egress_acl_command` outputs include it). The module ignores changes to
+the startup script on a running host; to replay a fixed script on it, fetch
+`startup-script` from the metadata server, patch it, and run it with
+`sudo bash`, removing `/etc/apt/keyrings/zabbly.gpg` first if the gpg step
+is to run again.
+
 To turn everything off, set `enable_incus_backend` and the other switches back
 to their defaults in `incus.auto.tfvars` and merge; then apply sandbox-staging
 without `platform_network`, which removes the route, the bridge rule and the
