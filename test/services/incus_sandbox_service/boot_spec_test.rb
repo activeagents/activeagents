@@ -168,7 +168,8 @@ class IncusSandboxService::BootSpecTest < ActiveSupport::TestCase
     toolchain = ->(boot) { boot.document["toolchain"]["services"] }
 
     postgres = build
-    assert_equal "postgresql:///shop_development_sandbox_3f2a9c1e", postgres.document.dig("env", "DATABASE_URL")
+    assert_equal "postgresql://sandbox@localhost/shop_development_sandbox_3f2a9c1e", postgres.document.dig("env", "DATABASE_URL"),
+      "names the image's role and host, so they win over a user and host database.yml hardcodes"
     assert_equal [ "postgresql" ], toolchain.call(postgres)
     assert_equal [ IncusSandboxService::RUNTIME_DIR ], postgres.document["directories"], "the manifest's directory, for the app to write"
 
@@ -179,6 +180,7 @@ class IncusSandboxService::BootSpecTest < ActiveSupport::TestCase
 
     mysql = build(files: checkout("config/database.yml": "development:\n  adapter: trilogy\n  database: shop\n"))
     assert_equal [ "mysql" ], toolchain.call(mysql)
+    assert_equal "trilogy://root@localhost/shop_sandbox_3f2a9c1e", mysql.document.dig("env", "DATABASE_URL")
   end
 
   test "a bundle that uses Redis gets a Redis server unless its env points elsewhere" do
