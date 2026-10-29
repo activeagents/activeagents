@@ -70,6 +70,14 @@ class IncusSandboxService
       "mysql2" => "mysql", "trilogy" => "mysql", "redis" => "redis"
     }.freeze
     SERVICE_URL_NAME = /\A(?:(?:[A-Z0-9_]+_)?DATABASE_URL|REDIS_URL)\z/
+    # The account each database server in the image trusts from inside the
+    # container, by URL scheme (docker/sandbox/app-runtime/provision.sh):
+    # PostgreSQL trusts the sandbox role on its socket and on localhost,
+    # MySQL's root has no password.
+    SERVER_USERS = {
+      "postgresql" => USER, "postgres" => USER, "postgis" => USER,
+      "mysql2" => "root", "trilogy" => "root"
+    }.freeze
     # A URL without a host reaches the server through its socket.
     LOCAL_HOSTS = [ "", "localhost", "127.0.0.1", "::1" ].freeze
 
@@ -332,12 +340,26 @@ class IncusSandboxService
           fallback_name: @repository.to_s.split("/").last
         )
         env = plan.env.transform_values do |url|
-          url.start_with?("sqlite3:") ? "sqlite3:#{DATA_DIR}/#{File.basename(url)}" : url
+          url.start_with?("sqlite3:") ? "sqlite3:#{DATA_DIR}/#{File.basename(url)}" : server_url(url)
         end
         [ env, plan.notes ]
       end
     rescue ArgumentError => e
       raise Refused, "Sandbox configuration failed: #{e.message}"
+    end
+
+    # The plan's server URLs name only the database (postgresql:///name),
+    # which leaves the user, host and password to database.yml, and a
+    # development entry often names a user of the developer's machine
+    # (username: user, host: localhost) that the image has no account for.
+    # Rails merges a URL over the entry, so naming the image's account and
+    # localhost in the URL is what makes them win.
+    def server_url(url)
+      scheme, rest = url.split(":///", 2)
+      user = SERVER_USERS[scheme]
+      return url unless rest && user
+
+      "#{scheme}://#{user}@localhost/#{rest}"
     end
 
     # The image's servers that +env+'s database and Redis URLs point at in
