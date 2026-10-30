@@ -124,12 +124,12 @@ GEM
   specs:
     action_text-trix (2.1.19)
       railties
-    actionagent (1.9.5)
+    actionagent (1.9.6)
       activeagent (>= 1.4, < 2)
       activerecord (>= 7.2, <= 9.0)
       railties (>= 7.2, <= 9.0)
       solid_agent (>= 0.1)
-    activeagent (1.9.5)
+    activeagent (1.9.6)
       actionpack (>= 7.2, <= 9.0)
       actionview (>= 7.2, <= 9.0)
       activeagents-telemetry (~> 0.1)
@@ -619,8 +619,8 @@ PLATFORMS
   x86_64-linux-musl
 
 DEPENDENCIES
-  actionagent (= 1.9.5)
-  activeagent (= 1.9.5)
+  actionagent (= 1.9.6)
+  activeagent (= 1.9.6)
   anthropic
   bcrypt (~> 3.1.7)
   bootsnap
