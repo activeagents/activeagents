@@ -156,9 +156,19 @@ class Account < ApplicationRecord
     agent_runs_this_period < limit
   end
 
+  # Complimentary pilots run uncapped: the pilot clients pay for the
+  # evaluation work itself, and their unthrottled usage is what tells us what
+  # a real Pro team consumes, which is the input to pricing. Paid plans and
+  # everything else keep the plan's cap; the trace quota stays at Pro.
   def effective_agent_runs_limit
+    return -1 if pilot_runs_uncapped?
+
     plan_slug = current_plan&.slug || "free"
     USAGE_LIMITS[plan_slug] || USAGE_LIMITS["free"]
+  end
+
+  def pilot_runs_uncapped?
+    access_source == "complimentary_pilot"
   end
 
   def usage_stats
