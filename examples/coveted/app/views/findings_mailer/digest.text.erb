@@ -1,0 +1,13 @@
+Coveted checked "<%= @hunt.title %>" and recorded <%= @findings.size %> new find<%= "s" unless @findings.size == 1 %>.
+
+<% if @run.summary.present? %><%= @run.summary %>
+
+<% end %><% @findings.each do |finding| %>* [<%= finding.match_score %>] <%= finding.title %>
+  <%= [ (finding.price_cents && "#{finding.price_cents / 100.0} #{finding.currency}"), finding.source, finding.condition, finding.size ].compact.join(" | ") %>
+  <%= finding.url %>
+  <%= finding.rationale %>
+<% if finding.red_flag_list.any? %>  Flags: <%= finding.red_flag_list.join("; ") %>
+<% end %>
+<% end %>
+See every find, keep the good ones and dismiss the rest:
+<%= hunt_url(@hunt) %>

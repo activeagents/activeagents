@@ -1,0 +1,27 @@
+<% page_title "Finds" %>
+<div class="page-head">
+  <div>
+    <h1>Finds</h1>
+    <p class="lede">Everything we've turned up across your wants, best matches first.</p>
+  </div>
+  <%= render "view_toggle", view: @view, path: ->(view) { findings_path(status: @status, view: view) } %>
+</div>
+
+<div class="tabs">
+  <% Finding::STATUSES.each do |status| %>
+    <%= link_to findings_path(status: status, view: @view), class: "tab #{'is-active' if status == @status}" do %>
+      <%= ApplicationHelper::STATUS_LABELS[status] %><span class="count"><%= @counts.fetch(status, 0) %></span>
+    <% end %>
+  <% end %>
+</div>
+
+<% if @findings.empty? %>
+  <div class="empty">
+    <span class="icon">&#9679;</span>
+    <p><%= { "new" => "Nothing new right now. We'll keep checking.", "saved" => "Nothing saved yet. Save a find to keep it here.", "dismissed" => "Nothing passed on yet." }[@status] %></p>
+  </div>
+<% elsif @view == "list" %>
+  <div class="panel"><%= render "collection", findings: @findings, view: @view, show_hunt: true %></div>
+<% else %>
+  <%= render "collection", findings: @findings, view: @view, show_hunt: true %>
+<% end %>
