@@ -31,7 +31,7 @@ class PlatformRakeTest < ActiveSupport::TestCase
   test "refuses to comp an account that already pays through Stripe" do
     user = create_user(email: "paying@example.com")
     account = create_account(owner: user)
-    customer = account.pay_customers.create!(processor: "stripe", processor_id: "cus_test", default: true)
+    customer = Pay::Stripe::Customer.create!(owner: account, processor: "stripe", processor_id: "cus_test", default: true)
     customer.subscriptions.create!(name: "default", processor_id: "sub_test", processor_plan: "price_test", status: "active")
 
     error = assert_raises(SystemExit) { bootstrap("EMAIL" => "paying@example.com", "PLAN" => "enterprise") }

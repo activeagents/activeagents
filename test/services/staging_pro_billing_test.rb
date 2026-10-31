@@ -14,9 +14,11 @@ class StagingProBillingTest < ActiveSupport::TestCase
       @reads = []
     end
 
-    def execute_request(method, path, params: {}, headers: {})
+    # Mirrors Stripe::StripeClient#raw_request: the request options carry the
+    # idempotency key, and the result answers to_hash like a StripeObject.
+    def raw_request(method, path, params: {}, opts: {})
       if method == :post
-        @writes << [ path, params, headers ]
+        @writes << [ path, params, opts ]
         if path == "/v1/products"
           data = params.merge(active: true, livemode: false)
           @products << data
@@ -44,7 +46,7 @@ class StagingProBillingTest < ActiveSupport::TestCase
           (products + prices).find { |record| path.end_with?("/#{record[:id]}") } || raise("Unexpected request #{path}")
         end
       end
-      [ Struct.new(:data).new(data), nil ]
+      data
     end
   end
 
@@ -77,7 +79,7 @@ class StagingProBillingTest < ActiveSupport::TestCase
     assert_equal 1, @stripe.products.size
     assert_equal [ 9900, 99_500 ], @stripe.prices.map { |price| price[:unit_amount] }
     assert_equal 3, @stripe.writes.size
-    assert @stripe.writes.all? { |_, _, headers| headers["Idempotency-Key"].present? }
+    assert @stripe.writes.all? { |_, _, opts| opts[:idempotency_key].present? }
     assert_equal false, first[:livemode]
     assert_equal 14, @plan.reload.trial_days
     assert_equal "price_unchanged", enterprise.reload.stripe_monthly_price_id
