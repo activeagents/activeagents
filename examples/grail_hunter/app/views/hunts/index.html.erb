@@ -1,29 +1,37 @@
-<% page_title "Hunts" %>
+<% page_title "My grails" %>
 <div class="page-head">
   <div>
-    <h1>Hunts</h1>
-    <p class="muted">What the agent is looking for on your behalf. <span class="mono small"><%= current_user.plan.name %>: <%= fee_label(current_user.plan) %>, up to <%= current_user.plan.frequency_label rescue Hunt::FREQUENCY_LABELS[current_user.plan.fastest_frequency].downcase %> schedules.</span></p>
+    <h1>My grails</h1>
+    <p class="lede">The pieces you're after, and the best thing we've found for each so far.</p>
   </div>
-  <%= link_to "+ New hunt", new_hunt_path, class: "btn btn-primary" %>
+  <div class="row">
+    <%= render "findings/view_toggle", view: @view, path: ->(view) { hunts_path(view: view) } %>
+    <%= link_to "Add a grail", new_hunt_path, class: "btn btn-primary" %>
+  </div>
 </div>
 
 <% if @hunts.empty? %>
   <div class="empty">
-    <span class="glyph">@</span>
-    <p>No hunts yet. Describe the piece you're after and the agent starts looking right away.</p>
-    <%= link_to "Create your first hunt", new_hunt_path, class: "btn btn-primary" %>
+    <span class="icon">&#9679;</span>
+    <h3>What are you hunting for?</h3>
+    <p>Describe the piece and we'll start looking straight away.</p>
+    <%= link_to "Add your first grail", new_hunt_path, class: "btn btn-primary" %>
+  </div>
+<% elsif @view == "gallery" %>
+  <div class="gallery">
+    <% @hunts.each do |hunt| %>
+      <%= render "hunt_card", hunt: hunt %>
+    <% end %>
   </div>
 <% else %>
   <div class="panel">
     <table class="data">
       <thead>
         <tr>
-          <th>Hunt</th>
-          <th>Status</th>
+          <th>Grail</th>
           <th>Schedule</th>
-          <th>Last run</th>
-          <th>Next run</th>
-          <th class="num">Findings</th>
+          <th>Last check</th>
+          <th class="num">Finds</th>
           <th class="num">New</th>
         </tr>
       </thead>
@@ -32,13 +40,20 @@
           <% findings = hunt.findings %>
           <tr>
             <td>
-              <div class="title"><%= link_to hunt.title, hunt %></div>
-              <div class="sub"><%= [ hunt.brand, hunt.category, (hunt.max_price_cents && "up to #{money(hunt.max_price_cents, hunt.currency)}") ].compact_blank.join(" | ") %></div>
+              <div class="hunt-cell">
+                <div class="thumbs">
+                  <% findings.sort_by { |f| -f.match_score.to_i }.first(3).each do |finding| %>
+                    <%= listing_image_tag finding, title: "#{finding.match_score}% #{finding.title}", class: "thumb" %>
+                  <% end %>
+                </div>
+                <div>
+                  <div class="title"><%= link_to hunt.title, hunt %></div>
+                  <div class="sub"><%= [ hunt.brand, (hunt.max_price_cents && "up to #{money(hunt.max_price_cents, hunt.currency)}") ].compact_blank.join(" | ") %></div>
+                </div>
+              </div>
             </td>
-            <td><%= status_badge hunt.status %></td>
-            <td class="mono"><%= hunt.frequency_label %></td>
-            <td class="mono dim"><%= time_ago hunt.last_run_at %></td>
-            <td class="mono dim"><%= hunt.next_run_at && hunt.active? ? "in #{time_ago_in_words(hunt.next_run_at)}" : "on demand" %></td>
+            <td><%= schedule_label hunt %></td>
+            <td class="dim"><%= time_ago hunt.last_run_at %></td>
             <td class="num"><%= findings.size %></td>
             <td class="num"><% fresh = findings.count(&:new?) %><%= fresh.positive? ? tag.span(fresh, class: "badge badge-accent") : "0" %></td>
           </tr>

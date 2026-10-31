@@ -8,6 +8,9 @@
   <% @findings.each do |finding| %>
     <tr style="border-bottom: 1px solid #e5e5e5;">
       <td style="vertical-align: top; color: #ef4444; font-weight: 600;"><%= finding.match_score %></td>
+      <% if finding.image_url.to_s.start_with?("http") %>
+        <td style="vertical-align: top; width: 96px;"><%= image_tag finding.image_url, alt: "", width: 96, style: "border-radius: 6px;" %></td>
+      <% end %>
       <td style="vertical-align: top;">
         <%= link_to finding.title, finding.url %><br>
         <span style="color: #737373;"><%= [ (finding.price_cents && "#{finding.price_cents / 100.0} #{finding.currency}"), finding.source, finding.condition, finding.size ].compact.join(" | ") %></span><br>

@@ -22,7 +22,7 @@ module Discovery
       overlap = @terms & words
       coverage = @terms.empty? ? 0.0 : overlap.size.to_f / @terms.size
       score = (coverage * 60).round
-      reasons << "matches #{overlap.size} of #{@terms.size} brief terms (#{overlap.first(5).join(', ')})" if overlap.any?
+      reasons << "matches #{overlap.size} of #{@terms.size} details from your brief (#{overlap.first(5).join(', ')})" if overlap.any?
 
       if @brand_terms.any?
         if (@brand_terms - words).empty?
@@ -76,7 +76,7 @@ module Discovery
       {
         match_score: score,
         verdict: verdict_for(score),
-        rationale: "Heuristic match (no model scored this): #{reasons.presence&.join(', ') || 'few brief terms matched'}.",
+        rationale: "#{(reasons.presence&.join(', ') || 'few details from your brief matched').upcase_first}.",
         red_flags: flags
       }
     end

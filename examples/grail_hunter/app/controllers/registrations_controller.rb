@@ -11,7 +11,7 @@ class RegistrationsController < ApplicationController
 
     if @user.save
       start_new_session_for @user
-      redirect_to hunts_path, notice: "Welcome to Grail Hunter. Tell the agent what you're after."
+      redirect_to hunts_path, notice: "Welcome to Grail Hunter. Tell us what you're after."
     else
       render :new, status: :unprocessable_entity
     end

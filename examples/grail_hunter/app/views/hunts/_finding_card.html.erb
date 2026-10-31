@@ -1,0 +1,30 @@
+<%# locals: (finding:, show_hunt: false) %>
+<article class="finding-card <%= finding.status %>">
+  <a class="finding-image" href="<%= finding.url %>" target="_blank" rel="noopener">
+    <%= listing_image_tag finding %>
+    <span class="score-chip" title="How well it matches your brief"><%= finding.match_score %>% match</span>
+    <%= verdict_badge finding %>
+  </a>
+  <div class="finding-body">
+    <div class="finding-price-row">
+      <span class="price"><%= money finding.price_cents, finding.currency %></span>
+      <span class="source-chip"><%= finding.source.presence || "marketplace" %></span>
+    </div>
+    <h3 class="finding-title"><%= link_to finding.title, finding.url, target: "_blank", rel: "noopener" %></h3>
+    <div class="finding-meta">
+      <%= [ finding.condition&.capitalize, (finding.size && "Size #{finding.size}"), (finding.listed_at && "Listed #{finding.listed_at.to_date.to_fs(:long)}") ].compact_blank.join(" | ") %>
+    </div>
+    <% if show_hunt %><div class="small dim">For <%= link_to finding.hunt.title, finding.hunt, class: "link" %></div><% end %>
+    <% if finding.rationale.present? %><p class="rationale clamp"><%= finding.rationale %></p><% end %>
+    <% if finding.red_flag_list.any? %><div class="flags">Watch out: <%= finding.red_flag_list.join("; ") %></div><% end %>
+    <% if (credit = image_credit(finding)) %>
+      <div class="credit dim">Photo: <% if credit[:source].present? %><%= link_to credit[:credit], credit[:source], target: "_blank", rel: "noopener" %><% else %><%= credit[:credit] %><% end %></div>
+    <% end %>
+    <div class="actions finding-actions">
+      <% unless finding.saved? %><%= button_to "Save", keep_finding_path(finding), method: :patch, class: "btn btn-small btn-secondary" %><% end %>
+      <% unless finding.dismissed? %><%= button_to "Pass", dismiss_finding_path(finding), method: :patch, class: "btn btn-small" %><% end %>
+      <% if finding.dismissed? || finding.saved? %><%= status_badge finding.status %><% end %>
+      <%= link_to "View listing", finding.url, target: "_blank", rel: "noopener", class: "btn btn-small btn-quiet" %>
+    </div>
+  </div>
+</article>

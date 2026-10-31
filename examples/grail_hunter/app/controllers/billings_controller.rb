@@ -11,12 +11,12 @@ class BillingsController < ApplicationController
     return redirect_to billing_path, alert: "That isn't a subscription plan." unless plan&.subscription?
 
     Billing.subscribe!(current_user, plan)
-    redirect_to billing_path, notice: "You're on the #{plan.name} plan: #{helpers.money(plan.monthly_cents)} a month, #{helpers.fee_label(plan)}."
+    redirect_to billing_path, notice: "You're on #{plan.name}: #{helpers.money(plan.monthly_cents)} a month, #{helpers.fee_label(plan)}."
   end
 
   def cancel
     Billing.cancel!(current_user)
     redirect_to billing_path, status: :see_other,
-                notice: "Subscription cancelled. You're back on pay as you go; scheduled hunts now run weekly at most."
+                notice: "Subscription cancelled. You're back on pay per check, and scheduled checks run weekly at most."
   end
 end

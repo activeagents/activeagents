@@ -13,11 +13,11 @@ class Hunt < ApplicationRecord
   }.freeze
 
   FREQUENCY_LABELS = {
-    "manual" => "On demand",
-    "weekly" => "Weekly",
-    "daily" => "Daily",
+    "manual" => "Only when I ask",
+    "weekly" => "Every week",
+    "daily" => "Every day",
     "every_6_hours" => "Every 6 hours",
-    "hourly" => "Hourly"
+    "hourly" => "Every hour"
   }.freeze
 
   STATUSES = %w[active paused].freeze

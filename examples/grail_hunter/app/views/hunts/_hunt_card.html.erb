@@ -1,0 +1,32 @@
+<%# locals: (hunt:) %>
+<% findings = hunt.findings.sort_by { |f| -f.match_score.to_i } %>
+<% best = findings.reject(&:dismissed?).first %>
+<% fresh = findings.count(&:new?) %>
+<article class="hunt-card <%= hunt.status %>">
+  <%= link_to hunt, class: "hunt-image" do %>
+    <% if best %><%= listing_image_tag best %><% else %><%= image_tag category_tile(hunt), alt: hunt.title, loading: "lazy" %><% end %>
+    <% if fresh.positive? %><span class="score-chip"><%= fresh %> new</span><% end %>
+    <span class="badge"><%= schedule_label hunt %></span>
+  <% end %>
+  <div class="finding-body">
+    <div class="finding-price-row">
+      <span class="price"><%= hunt.max_price_cents ? "Up to #{money(hunt.max_price_cents, hunt.currency)}" : "Any price" %></span>
+      <% if hunt.brand.present? %><span class="source-chip"><%= hunt.brand %></span><% end %>
+    </div>
+    <h3 class="finding-title"><%= link_to hunt.title, hunt %></h3>
+    <div class="finding-meta">
+      <%= [ hunt.size_list.presence&.then { |sizes| "Size #{sizes.join(' or ')}" }, (hunt.condition == "any" ? nil : hunt.condition.capitalize) ].compact_blank.join(" | ") %>
+    </div>
+    <% if best %>
+      <p class="rationale clamp">
+        <span class="verdict verdict-<%= best.verdict %>"><%= best.verdict_label %></span>:
+        <%= best.title %><% if best.price_cents %>, <%= money(best.price_cents, best.currency) %> on <%= best.source.to_s.capitalize %><% end %>
+      </p>
+    <% else %>
+      <p class="rationale">Nothing yet. We're on it.</p>
+    <% end %>
+    <div class="finding-meta dim">
+      <%= findings.size %> find<%= "s" unless findings.size == 1 %> | last check <%= time_ago hunt.last_run_at %>
+    </div>
+  </div>
+</article>

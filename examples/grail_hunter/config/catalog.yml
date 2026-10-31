@@ -13,6 +13,7 @@
   size: M
   brand: Patagonia
   category: clothing
+  image_url: /catalog/clothing.svg
   keywords: [patagonia, synchilla, snap-t, snap t, fleece, pullover, 90s, vintage, usa]
   description: "Original 90s Synchilla Snap-T in forest green with the navy nylon placket. Made in USA label, oval logo. Minor pilling, no holes. Pit to pit 23 in."
   listed_at: 2026-10-27
@@ -25,6 +26,7 @@
   size: L
   brand: Patagonia
   category: clothing
+  image_url: /catalog/clothing.svg
   keywords: [patagonia, synchilla, snap-t, fleece, navy, 2000s]
   description: "Patagonia Synchilla Snap-T pullover in navy. Made in Colombia. Good used condition. Measurements on request."
   listed_at: 2026-10-25
@@ -37,6 +39,7 @@
   size: Kids XL
   brand: Patagonia
   category: clothing
+  image_url: /catalog/clothing.svg
   keywords: [patagonia, synchilla, snap-t, fleece, kids, purple]
   description: "Kids Synchilla Snap-T, would fit an adult XS. Bright purple. Small bleach mark on the sleeve."
   listed_at: 2026-10-22
@@ -49,6 +52,7 @@
   size: M
   brand: Patagonia
   category: clothing
+  image_url: /catalog/clothing.svg
   keywords: [patagonia, retro-x, retro x, fleece, vest, 1998, 90s, vintage, deep pile]
   description: "First-generation Retro-X deep pile vest with the nylon windflap. Made in USA. Pile still full."
   listed_at: 2026-10-28
@@ -61,6 +65,7 @@
   size: M
   brand: Patagonia
   category: clothing
+  image_url: /catalog/clothing.svg
   keywords: [patagonia, baggies, shorts, black]
   description: "Patagonia Baggies 5 inch, black, worn a handful of times."
   listed_at: 2026-10-20
@@ -73,6 +78,7 @@
   size: M
   brand: Arc'teryx
   category: clothing
+  image_url: /catalog/clothing.svg
   keywords: [arcteryx, arc'teryx, alpha sv, gore-tex, pro shell, 2008, jacket, blaze, orange]
   description: "Alpha SV from the Pro Shell era in Blaze orange. Taped seams intact, pit zips work, one small patch repair on the left cuff."
   listed_at: 2026-10-26
@@ -85,6 +91,7 @@
   size: L
   brand: Supreme
   category: clothing
+  image_url: /catalog/clothing.svg
   keywords: [supreme, box logo, bogo, hoodie, hooded, sweatshirt, fw17, heather grey]
   description: "FW17 heather grey bogo. Worn twice, tags and bag included. Legit checked."
   listed_at: 2026-10-29
@@ -97,6 +104,7 @@
   size: US 10
   brand: Nike
   category: footwear
+  image_url: /catalog/footwear.svg
   keywords: [nike, sb, dunk, low, tiffany, diamond supply, 2005, aqua]
   description: "Original 2005 Diamond Dunk. Worn, sole yellowing, crocodile skin panels intact. No box, replacement laces."
   listed_at: 2026-10-24
@@ -109,6 +117,7 @@
   size: US 9.5
   brand: Nike
   category: footwear
+  image_url: /catalog/footwear.svg
   keywords: [nike, air jordan, jordan 1, chicago, 1985, og, original]
   description: "1985 Chicago with the original box. Midsoles cracked as expected for the age; a display pair."
   listed_at: 2026-10-18
@@ -121,6 +130,7 @@
   size: 42
   brand: Carhartt
   category: clothing
+  image_url: /catalog/clothing.svg
   keywords: [carhartt, detroit, jacket, 80s, vintage, duck, blanket lined, workwear]
   description: "Union-made 80s Detroit jacket in brown duck, blanket lined, Talon zip. Faded to a great colour. Chest 24 in flat."
   listed_at: 2026-10-23
@@ -133,6 +143,7 @@
   size: W32
   brand: Levi's
   category: clothing
+  image_url: /catalog/clothing.svg
   keywords: [levis, levi's, 501, 501xx, redline, selvedge, big e, 1960s, vintage, denim]
   description: "60s 501XX, Big E red tab, single stitch, hidden rivets gone. Honest wear, one small repair at the crotch. Measures 32 x 31."
   listed_at: 2026-10-21
@@ -145,6 +156,7 @@
   size: W33
   brand: Iron Heart
   category: clothing
+  image_url: /catalog/clothing.svg
   keywords: [iron heart, 634s, 21oz, selvedge, denim, japanese, raw]
   description: "Iron Heart 634S, one wash, around 6 months of wear with light fades."
   listed_at: 2026-10-19
@@ -157,6 +169,7 @@
   size: W32
   brand: Samurai Jeans
   category: clothing
+  image_url: /catalog/clothing.svg
   keywords: [samurai, s5000vx, 25oz, selvedge, denim, japanese]
   description: "Heavy Samurai S5000VX with strong honeycombs. No repairs."
   listed_at: 2026-10-17
@@ -169,6 +182,7 @@
   size: 41mm
   brand: Seiko
   category: watches
+  image_url: /catalog/watches.svg
   keywords: [seiko, 6139, 6139-6002, pogue, chronograph, automatic, 1972, vintage]
   description: "Yellow dial Pogue, correct Pepsi bezel, serviced 2025 with papers. Case lightly polished."
   listed_at: 2026-10-28
@@ -181,6 +195,7 @@
   size: 42mm
   brand: Omega
   category: watches
+  image_url: /catalog/watches.svg
   keywords: [omega, speedmaster, 145.022, moonwatch, 861, 1970, vintage, chronograph]
   description: "Stepped dial, DON bezel, unpolished case. Extract from the archives included."
   listed_at: 2026-10-26
@@ -193,6 +208,7 @@
   size: 36mm
   brand: Rolex
   category: watches
+  image_url: /catalog/watches.svg
   keywords: [rolex, datejust, 1601, 1972, sigma dial, jubilee, vintage]
   description: "Steel 1601 with a silver sigma dial and a stretched Jubilee. Serviced 2024."
   listed_at: 2026-10-15
@@ -205,6 +221,7 @@
   size: null
   brand: Leica
   category: cameras
+  image_url: /catalog/cameras.svg
   keywords: [leica, m6, m6 classic, rangefinder, 35mm, film, 1995, black chrome]
   description: "M6 Classic in black chrome, finder clear, meter accurate, shutter speeds verified. Box and strap."
   listed_at: 2026-10-27
@@ -217,6 +234,7 @@
   size: null
   brand: Leica
   category: cameras
+  image_url: /catalog/cameras.svg
   keywords: [leica, m6, replica, display, dummy, style]
   description: "Decorative camera body in the Leica M6 style. Not a working camera. Great for shelves and photo shoots."
   listed_at: 2026-10-10
@@ -229,6 +247,7 @@
   size: null
   brand: Contax
   category: cameras
+  image_url: /catalog/cameras.svg
   keywords: [contax, t2, point and shoot, zeiss, sonnar, 35mm, film, titanium]
   description: "Contax T2, champagne titanium, film tested last month. Small scuff on the baseplate."
   listed_at: 2026-10-24
@@ -241,6 +260,7 @@
   size: null
   brand: Yashica
   category: cameras
+  image_url: /catalog/cameras.svg
   keywords: [yashica, t4, t4 super, point and shoot, zeiss, tessar, 35mm, film]
   description: "T4 Super with the Super Scope waist finder. Flash works, battery door intact."
   listed_at: 2026-10-23
@@ -253,6 +273,7 @@
   size: null
   brand: Technics
   category: audio
+  image_url: /catalog/audio.svg
   keywords: [technics, sl-1200, sl1200, mk2, turntable, direct drive, dj]
   description: "SL-1200MK2 with new RCA leads, recapped, pitch fader calibrated. Dust cover included."
   listed_at: 2026-10-25
@@ -265,6 +286,7 @@
   size: null
   brand: Sony
   category: audio
+  image_url: /catalog/audio.svg
   keywords: [sony, walkman, tps-l2, 1979, cassette, vintage, guardians]
   description: "The original 1979 TPS-L2 in blue and silver. Belt replaced, plays both channels. MDR-3L2 headphones and leather case."
   listed_at: 2026-10-20
@@ -277,6 +299,7 @@
   size: null
   brand: Porter
   category: bags
+  image_url: /catalog/bags.svg
   keywords: [porter, yoshida, tanker, 3way, briefcase, japan, bag]
   description: "Porter Tanker 3way with the orange lining, all straps present. Light wear to the corners."
   listed_at: 2026-10-26
@@ -289,6 +312,7 @@
   size: null
   brand: Snow Peak
   category: outdoor
+  image_url: /catalog/outdoor.svg
   keywords: [snow peak, titanium, mug, 450, camping, japan]
   description: "New in box Snow Peak double wall titanium 450 mug."
   listed_at: 2026-10-27
@@ -301,6 +325,7 @@
   size: null
   brand: PFU
   category: keyboards
+  image_url: /catalog/keyboards.svg
   keywords: [hhkb, happy hacking, professional 2, pd-kb400b, topre, keyboard, 60%]
   description: "HHKB Pro 2 with blank keycaps, all keys register. Includes the original USB cable."
   listed_at: 2026-10-22
@@ -313,6 +338,7 @@
   size: null
   brand: IBM
   category: keyboards
+  image_url: /catalog/keyboards.svg
   keywords: [ibm, model m, 1391401, buckling spring, 1989, keyboard, vintage]
   description: "Bolt-modded 1989 Model M, retrobrighted, with a USB converter."
   listed_at: 2026-10-19
@@ -325,6 +351,7 @@
   size: null
   brand: Radiohead
   category: vinyl
+  image_url: /catalog/vinyl.svg
   keywords: [radiohead, ok computer, 1997, first pressing, uk, vinyl, parlophone, nodata]
   description: "Original 1997 UK 2LP, NODATA 02, matrix verified. Sleeve VG+, vinyl NM."
   listed_at: 2026-10-28
@@ -337,6 +364,7 @@
   size: null
   brand: Wilco
   category: vinyl
+  image_url: /catalog/vinyl.svg
   keywords: [wilco, yankee hotel foxtrot, 2002, first pressing, nonesuch, vinyl]
   description: "2002 Nonesuch first press, gatefold VG+, vinyl VG+."
   listed_at: 2026-10-16
@@ -349,6 +377,7 @@
   size: null
   brand: Heath Ceramics
   category: homeware
+  image_url: /catalog/homeware.svg
   keywords: [heath, heath ceramics, coupe, plates, 1960s, sausalito, sea and sand, vintage]
   description: "Six 1960s Heath coupe dinner plates in sea and sand, early stamp. One with a small chip on the foot."
   listed_at: 2026-10-21
@@ -361,6 +390,7 @@
   size: Cabin
   brand: Rimowa
   category: bags
+  image_url: /catalog/bags.svg
   keywords: [rimowa, topas, cabin, aluminium, 1990s, vintage, luggage]
   description: "Two-wheel Topas with the old Rimowa logo, dents and travel stickers. Locks work."
   listed_at: 2026-10-18
@@ -373,6 +403,7 @@
   size: L
   brand: Stussy
   category: clothing
+  image_url: /catalog/clothing.svg
   keywords: [stussy, tribe, 90s, tee, t-shirt, vintage, usa]
   description: "Single stitch 90s Stussy Tribe tee, black, faded print, no holes."
   listed_at: 2026-10-23
@@ -385,6 +416,7 @@
   size: 3
   brand: Number (N)ine
   category: clothing
+  image_url: /catalog/clothing.svg
   keywords: [number nine, number (n)ine, ss05, high streets, flannel, shirt, takahiro miyashita, archive]
   description: "SS05 flannel from The High Streets, size 3. Light wear, no flaws."
   listed_at: 2026-10-24
@@ -397,6 +429,7 @@
   size: US 9
   brand: Visvim
   category: footwear
+  image_url: /catalog/footwear.svg
   keywords: [visvim, fbt, elk, moccasin, 2010, suede, brown]
   description: "FBT Elk in brown suede, fringe intact, soles half worn. Box included."
   listed_at: 2026-10-22
@@ -409,6 +442,7 @@
   size: 2
   brand: Kapital
   category: clothing
+  image_url: /catalog/clothing.svg
   keywords: [kapital, century denim, kakashi, sashiko, jacket, japan]
   description: "Kapital Century Denim jacket with the sashiko stitching, size 2. Worn in, no repairs."
   listed_at: 2026-10-20
@@ -421,6 +455,7 @@
   size: null
   brand: Nintendo
   category: games
+  image_url: /catalog/games.svg
   keywords: [nintendo, game boy, gameboy, dmg-01, 1989, boxed, tetris, vintage]
   description: "Original grey Game Boy, boxed, with Tetris and the manual. Screen has no dead lines."
   listed_at: 2026-10-25
@@ -433,6 +468,7 @@
   size: null
   brand: Braun
   category: design
+  image_url: /catalog/design.svg
   keywords: [braun, sk4, dieter rams, gugelot, 1956, record player, radio, design]
   description: "Braun SK4 with the acrylic lid, radio works, turntable needs a belt."
   listed_at: 2026-10-14
@@ -445,6 +481,7 @@
   size: null
   brand: Herman Miller
   category: design
+  image_url: /catalog/design.svg
   keywords: [eames, dsw, shell chair, herman miller, 1960s, fiberglass, parchment, dowel]
   description: "1960s fiberglass DSW in parchment on a walnut dowel base, shock mounts replaced."
   listed_at: 2026-10-19

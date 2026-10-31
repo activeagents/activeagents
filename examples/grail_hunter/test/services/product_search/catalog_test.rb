@@ -27,6 +27,20 @@ class ProductSearch::CatalogTest < ActiveSupport::TestCase
     assert_empty @backend.search("")
   end
 
+  test "every sample listing has a picture: a credited photograph or a tile that ships with the app" do
+    @backend.listings.each do |listing|
+      image = listing.image_url.to_s
+      if image.start_with?("http")
+        credit = @backend.credit_for(image)
+        assert credit&.dig(:credit).present?, "#{listing.title}: a remote picture needs an image_credit"
+        assert_match %r{\Ahttps://}, credit[:source].to_s, "#{listing.title}: a remote picture needs an image_source page"
+      else
+        assert_match %r{\A/catalog/[\w/.-]+\.(svg|jpg|jpeg|png|webp)\z}, image, listing.title
+        assert File.exist?(Rails.root.join("public", image.delete_prefix("/"))), image
+      end
+    end
+  end
+
   test "fetches one listing by url" do
     listing = @backend.search("Leica M6 Classic").first
     assert_equal listing, @backend.fetch(listing.url)

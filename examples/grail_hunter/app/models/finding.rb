@@ -6,7 +6,8 @@ class Finding < ApplicationRecord
   STATUSES = %w[new saved dismissed].freeze
   SCORERS = %w[agent heuristic].freeze
 
-  # TUI-style glyphs, in the dashboard's style.
+  # What each verdict means, in the collector's words.
+  VERDICT_LABELS = { "grail" => "Exactly it", "strong" => "Strong match", "maybe" => "Worth a look", "pass" => "Not it" }.freeze
   GLYPHS = { "grail" => "[*]", "strong" => "[+]", "maybe" => "[?]", "pass" => "[-]" }.freeze
 
   belongs_to :hunt
@@ -44,6 +45,10 @@ class Finding < ApplicationRecord
 
   def glyph
     GLYPHS.fetch(verdict.to_s, "[ ]")
+  end
+
+  def verdict_label
+    VERDICT_LABELS.fetch(verdict.to_s, "Unrated")
   end
 
   def scored_by_agent?

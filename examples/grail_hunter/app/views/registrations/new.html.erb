@@ -1,18 +1,18 @@
 <% page_title "Create your account" %>
 <div class="form">
   <h1>Create your account</h1>
-  <p class="muted">Start on pay as you go: no subscription, a fee each time the agent hunts.</p>
+  <p class="muted">You start on pay per check: no subscription, and you only pay when we go looking.</p>
 
   <% if @user.errors.any? %>
     <div class="errors">
-      <strong>Couldn't create the account.</strong>
+      <strong>We couldn't create the account.</strong>
       <ul><% @user.errors.full_messages.each do |message| %><li><%= message %></li><% end %></ul>
     </div>
   <% end %>
 
   <%= form_with model: @user, url: registration_path do |form| %>
     <div class="field">
-      <%= form.label :name, "Name" %>
+      <%= form.label :name, "Your name" %>
       <%= form.text_field :name, autocomplete: "name" %>
     </div>
     <div class="field">
@@ -31,7 +31,7 @@
     </div>
     <div class="actions">
       <%= form.submit "Create account", class: "btn btn-primary" %>
-      <%= link_to "I have an account", new_session_path, class: "btn" %>
+      <%= link_to "I already have one", new_session_path, class: "btn" %>
     </div>
   <% end %>
 </div>

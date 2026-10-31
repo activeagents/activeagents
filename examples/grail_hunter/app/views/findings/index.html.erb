@@ -1,30 +1,27 @@
-<% page_title "Findings" %>
+<% page_title "Finds" %>
 <div class="page-head">
   <div>
-    <h1>Findings</h1>
-    <p class="muted">Everything the agent has recorded, across all your hunts.</p>
+    <h1>Finds</h1>
+    <p class="lede">Everything we've turned up across your grails, best matches first.</p>
   </div>
+  <%= render "view_toggle", view: @view, path: ->(view) { findings_path(status: @status, view: view) } %>
 </div>
 
 <div class="tabs">
   <% Finding::STATUSES.each do |status| %>
-    <%= link_to findings_path(status: status), class: "tab #{'is-active' if status == @status}" do %>
-      <%= status.humanize %><span class="count"><%= @counts.fetch(status, 0) %></span>
+    <%= link_to findings_path(status: status, view: @view), class: "tab #{'is-active' if status == @status}" do %>
+      <%= ApplicationHelper::STATUS_LABELS[status] %><span class="count"><%= @counts.fetch(status, 0) %></span>
     <% end %>
   <% end %>
 </div>
 
 <% if @findings.empty? %>
-  <div class="empty"><span class="glyph">[*]</span><p>No <%= @status %> findings.</p></div>
-<% else %>
-  <div class="panel">
-    <table class="data">
-      <thead><tr><th>Match</th><th>Listing</th><th>Verdict</th><th class="num">Price</th><th></th></tr></thead>
-      <tbody>
-        <% @findings.each do |finding| %>
-          <%= render "hunts/finding_row", finding: finding, show_hunt: true %>
-        <% end %>
-      </tbody>
-    </table>
+  <div class="empty">
+    <span class="icon">&#9679;</span>
+    <p><%= { "new" => "Nothing new right now. We'll keep checking.", "saved" => "Nothing saved yet. Save a find to keep it here.", "dismissed" => "Nothing passed on yet." }[@status] %></p>
   </div>
+<% elsif @view == "list" %>
+  <div class="panel"><%= render "collection", findings: @findings, view: @view, show_hunt: true %></div>
+<% else %>
+  <%= render "collection", findings: @findings, view: @view, show_hunt: true %>
 <% end %>

@@ -1,17 +1,17 @@
-<% page_title "Billing" %>
+<% page_title "Your plan" %>
 <div class="page-head">
   <div>
-    <h1>Billing</h1>
-    <p class="muted">A fee per hunt, or a subscription for a lower fee and more frequent hunts.</p>
+    <h1>Your plan</h1>
+    <p class="lede">Pay per check, or subscribe for cheaper checks and a hunter that looks every day.</p>
   </div>
 </div>
 
 <div class="stats">
   <div class="stat"><span class="label">Plan</span><div class="value" style="font-size: 1.1rem"><%= @plan.name %></div></div>
-  <div class="stat"><span class="label">Fee per hunt</span><div class="value"><%= money @plan.run_fee_cents %></div></div>
+  <div class="stat"><span class="label">Per check</span><div class="value"><%= @plan.free_runs? ? "Included" : money(@plan.run_fee_cents) %></div></div>
   <div class="stat"><span class="label">This month</span><div class="value"><%= money @month_to_date %></div></div>
   <% if current_user.subscription_renews_at %>
-    <div class="stat"><span class="label">Renews</span><div class="value" style="font-size: 1.1rem"><%= current_user.subscription_renews_at.to_date %></div></div>
+    <div class="stat"><span class="label">Renews</span><div class="value" style="font-size: 1.1rem"><%= current_user.subscription_renews_at.to_date.to_fs(:long) %></div></div>
   <% end %>
 </div>
 
@@ -22,21 +22,20 @@
 </div>
 
 <div class="panel">
-  <div class="panel-head"><h2>Charges</h2><span class="small dim">Each run's fee is fixed at the rate of the plan you were on when it was queued.</span></div>
+  <div class="panel-head"><h2>Your charges</h2><span class="small dim">Each check costs what your plan charged at the time you asked for it.</span></div>
   <% if @charges.empty? %>
-    <p class="dim">Nothing yet. Fees appear here as hunts run.</p>
+    <p class="dim">Nothing yet. Charges show up here as we check.</p>
   <% else %>
     <table class="data">
-      <thead><tr><th>When</th><th>Charge</th><th>Kind</th><th>Status</th><th class="num">Amount</th></tr></thead>
+      <thead><tr><th>When</th><th>What</th><th>Status</th><th class="num">Amount</th></tr></thead>
       <tbody>
         <% @charges.each do |charge| %>
           <tr>
-            <td class="mono dim nowrap"><%= charge.created_at.to_fs(:short) %></td>
+            <td class="dim nowrap"><%= charge.created_at.to_date.to_fs(:long) %></td>
             <td>
               <%= charge.description %>
-              <% if charge.discovery_run %><div class="sub"><%= link_to "Run ##{charge.discovery_run_id}", hunt_run_path(charge.discovery_run.hunt_id, charge.discovery_run), class: "link" %></div><% end %>
+              <% if charge.discovery_run %><div class="sub"><%= link_to "See the check", hunt_run_path(charge.discovery_run.hunt_id, charge.discovery_run), class: "link" %></div><% end %>
             </td>
-            <td class="mono"><%= charge.kind.humanize %></td>
             <td><%= status_badge charge.status %></td>
             <td class="num"><%= money charge.amount_cents, charge.currency %></td>
           </tr>

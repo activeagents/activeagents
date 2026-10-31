@@ -5,16 +5,17 @@ class FindingsController < ApplicationController
     @status = params[:status].to_s.presence_in(Finding::STATUSES) || "new"
     @counts = current_user.findings.group(:status).count
     @findings = current_user.findings.where(status: @status).by_score.includes(:hunt)
+    @view = params[:view].to_s.presence_in(%w[gallery list]) || "gallery"
   end
 
   def keep
     @finding.mark_saved!
-    redirect_back_or_to findings_path, notice: "Saved."
+    redirect_back_or_to findings_path, notice: "Saved to your finds."
   end
 
   def dismiss
     @finding.dismiss!
-    redirect_back_or_to findings_path, notice: "Dismissed. The agent won't show it again."
+    redirect_back_or_to findings_path, notice: "Passed. We won't show it again."
   end
 
   private

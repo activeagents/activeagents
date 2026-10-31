@@ -7,22 +7,22 @@
   <div class="price">
     <%= plan.subscription? ? money(plan.monthly_cents) : "$0" %> <small>/ month</small>
   </div>
-  <div class="mono small"><%= fee_label(plan) %></div>
+  <div class="muted"><%= plan.free_runs? ? "Checks are included" : "#{money(plan.run_fee_cents)} per check" %></div>
   <p class="muted small"><%= plan.tagline %></p>
   <ul>
     <% plan.features.each do |feature| %><li><%= feature %></li><% end %>
   </ul>
   <div class="cta">
     <% if !signed_in %>
-      <%= link_to "Get started", new_registration_path, class: "btn #{plan.subscription? ? 'btn-primary' : ''}" %>
+      <%= link_to "Start hunting", new_registration_path, class: "btn #{plan.subscription? ? 'btn-primary' : ''}" %>
     <% elsif current %>
       <% if plan.subscription? %>
-        <%= button_to "Cancel subscription", cancel_billing_path, method: :delete, class: "btn btn-small", data: { turbo_confirm: "Cancel the #{plan.name} plan? Scheduled hunts slow to weekly." } %>
+        <%= button_to "Cancel subscription", cancel_billing_path, method: :delete, class: "btn btn-small", data: { turbo_confirm: "Cancel #{plan.name}? Scheduled checks slow down to weekly." } %>
       <% end %>
     <% elsif plan.subscription? %>
-      <%= button_to "Subscribe to #{plan.name}", subscribe_billing_path(plan: plan.key), class: "btn btn-primary" %>
+      <%= button_to "Choose #{plan.name}", subscribe_billing_path(plan: plan.key), class: "btn btn-primary" %>
     <% else %>
-      <span class="dim small">Cancel your subscription to return here.</span>
+      <span class="dim small">Cancel your subscription to go back to pay per check.</span>
     <% end %>
   </div>
 </div>

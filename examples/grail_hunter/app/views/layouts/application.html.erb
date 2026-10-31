@@ -3,7 +3,7 @@
   <head>
     <title><%= content_for(:title) || "Grail Hunter" %></title>
     <meta name="viewport" content="width=device-width,initial-scale=1">
-    <meta name="color-scheme" content="dark light">
+    <meta name="color-scheme" content="light dark">
     <meta name="application-name" content="Grail Hunter">
     <%= csrf_meta_tags %>
     <%= csp_meta_tag %>
@@ -21,34 +21,34 @@
     <header class="topbar">
       <div class="container topbar-inner">
         <%= link_to root_path, class: "wordmark" do %>
-          <span class="glyph">[*]</span> Grail Hunter
+          <span class="mark">G</span> Grail Hunter
         <% end %>
 
         <nav class="nav">
           <% if authenticated? %>
-            <%= nav_link "Hunts", hunts_path, glyph: "@" %>
+            <%= nav_link "My grails", hunts_path %>
             <%= link_to findings_path, class: "nav-link #{'is-active' if request.path.start_with?(findings_path)}" do %>
-              <span class="glyph">[*]</span> Findings<% if (fresh = current_user.findings.fresh.count).positive? %><span class="count"><%= fresh %></span><% end %>
+              Finds<% if (fresh = current_user.findings.fresh.count).positive? %><span class="count"><%= fresh %></span><% end %>
             <% end %>
-            <%= nav_link "Billing", billing_path, glyph: "#" %>
+            <%= nav_link "Plan", billing_path %>
             <% if current_user.admin? %>
-              <a class="nav-link" href="/activeagents" data-turbo="false"><span class="glyph">-></span> Dashboard</a>
+              <a class="nav-link" href="/activeagents" data-turbo="false">Dashboard</a>
             <% end %>
           <% else %>
+            <%= link_to "How it works", root_path(anchor: "how"), class: "nav-link" %>
             <%= link_to "Pricing", root_path(anchor: "pricing"), class: "nav-link" %>
           <% end %>
         </nav>
 
         <% if authenticated? %>
           <div class="user">
-            <span class="mono small"><%= current_user.plan.name %></span>
             <span><%= current_user.display_name %></span>
-            <%= button_to "Sign out", session_path, method: :delete, class: "btn btn-small" %>
+            <%= button_to "Sign out", session_path, method: :delete, class: "btn btn-small btn-quiet" %>
           </div>
         <% else %>
           <div class="actions">
             <%= link_to "Sign in", new_session_path, class: "btn btn-small" %>
-            <%= link_to "Get started", new_registration_path, class: "btn btn-small btn-primary" %>
+            <%= link_to "Start hunting", new_registration_path, class: "btn btn-small btn-primary" %>
           </div>
         <% end %>
       </div>
@@ -60,8 +60,8 @@
       <%= yield %>
     </main>
 
-    <footer class="container footer dim mono">
-      Built on <a class="link" href="https://activeagents.ai">Active Agent</a>. Agents are controllers, hunts are jobs, every run is a trace.
+    <footer class="container footer">
+      Grail Hunter finds rare things for collectors. Built on <a class="link" href="https://activeagents.ai">Active Agent</a>.
     </footer>
   </body>
 </html>

@@ -15,6 +15,18 @@ module ProductSearch
         @listings ||= YAML.safe_load_file(@path, permitted_classes: [ Date ]).map { |row| build(row) }
       end
 
+      # Attribution for a catalog picture, by its image URL: the sample pictures
+      # are free-licensed photographs that ask to be credited.
+      # @return [Hash, nil] credit (text) and source (page URL)
+      def credit_for(image_url)
+        listings # ensure built
+        credits[image_url.to_s]
+      end
+
+      def self.credit_for(image_url)
+        (@default ||= new).credit_for(image_url)
+      end
+
       def search(query, max_price_cents: nil, limit: 10)
         terms = tokenize(query)
         return [] if terms.empty?
@@ -47,11 +59,18 @@ module ProductSearch
           image_url: row[:image_url],
           description: row[:description],
           listed_at: row[:listed_at]
-        ).tap { |listing| searchable[listing.url] = tokenize([ listing.title, listing.brand, Array(row[:keywords]).join(" "), listing.description ].join(" ")) }
+        ).tap do |listing|
+          searchable[listing.url] = tokenize([ listing.title, listing.brand, Array(row[:keywords]).join(" "), listing.description ].join(" "))
+          credits[listing.image_url.to_s] = { credit: row[:image_credit], source: row[:image_source] } if row[:image_credit].present?
+        end
       end
 
       def searchable
         @searchable ||= {}
+      end
+
+      def credits
+        @credits ||= {}
       end
 
       def score(listing, terms)

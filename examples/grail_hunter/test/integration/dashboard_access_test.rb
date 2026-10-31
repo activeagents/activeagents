@@ -9,6 +9,19 @@ class DashboardAccessTest < ActionDispatch::IntegrationTest
     assert_redirected_to "/session/new"
   end
 
+  test "admins see the developer details on a check" do
+    admin = create_user(email: "admin@example.com", admin: true)
+    sign_in_as admin
+    hunt = create_hunt(admin)
+    run = hunt.discovery_runs.create!(user: admin, fee_cents: 0)
+    Discovery::Pipeline.call(run)
+
+    get hunt_run_path(hunt, run)
+    assert_response :success
+    assert_match "Details for admins", response.body
+    assert_match "Persisted conversation", response.body
+  end
+
   test "collectors are kept out, admins get in" do
     sign_in_as create_user(email: "collector@example.com")
     get "/activeagents"

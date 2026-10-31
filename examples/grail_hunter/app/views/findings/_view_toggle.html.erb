@@ -1,0 +1,5 @@
+<%# locals: (view:, path:) %>
+<div class="view-toggle">
+  <%= link_to "Cards", path.call("gallery"), class: ("is-active" if view == "gallery") %>
+  <%= link_to "List", path.call("list"), class: ("is-active" if view == "list") %>
+</div>

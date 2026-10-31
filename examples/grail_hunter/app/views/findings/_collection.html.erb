@@ -1,0 +1,17 @@
+<%# locals: (findings:, view:, show_hunt: false) %>
+<% if view == "list" %>
+  <table class="data">
+    <thead><tr><th>Match</th><th>Listing</th><th>Verdict</th><th class="num">Price</th><th></th></tr></thead>
+    <tbody>
+      <% findings.each do |finding| %>
+        <%= render "hunts/finding_row", finding: finding, show_hunt: show_hunt %>
+      <% end %>
+    </tbody>
+  </table>
+<% else %>
+  <div class="gallery">
+    <% findings.each do |finding| %>
+      <%= render "hunts/finding_card", finding: finding, show_hunt: show_hunt %>
+    <% end %>
+  </div>
+<% end %>

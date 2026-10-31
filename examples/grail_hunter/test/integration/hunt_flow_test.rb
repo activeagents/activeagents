@@ -19,16 +19,30 @@ class HuntFlowTest < ActionDispatch::IntegrationTest
 
     get hunt_path(hunt)
     assert_response :success
-    assert_match "Agent running", response.body
+    assert_match "Checking now", response.body
 
     perform_enqueued_jobs(only: DiscoveryRunJob)
 
     get hunt_path(hunt)
     assert_response :success
-    assert_match "Completed", response.body
+    assert_match "Done", response.body
     finding = hunt.findings.by_score.first
     assert finding, "the run should have recorded findings"
     assert_match ERB::Util.html_escape(finding.title), response.body
+
+    # The gallery is the default: a card per finding with the listing's
+    # picture (the catalog's category tile here), marketplace and price.
+    assert_select ".finding-card", hunt.findings.count
+    assert_select ".finding-card img[src=?]", finding.image_url
+    assert_select ".finding-card img[data-image-fallback-src-value=?]", "/catalog/clothing.svg"
+    assert_select ".finding-card .source-chip", text: "grailed"
+    assert_select ".finding-card .score-chip", text: /\d+% match/
+    assert_select ".finding-card .price", text: "$128"
+
+    get hunt_path(hunt, view: "list")
+    assert_response :success
+    assert_select "table.data tr", minimum: 2
+    assert_select ".finding-card", 0
 
     patch keep_finding_path(finding)
     assert finding.reload.saved?
@@ -38,7 +52,8 @@ class HuntFlowTest < ActionDispatch::IntegrationTest
 
     get hunt_run_path(hunt, hunt.discovery_runs.last)
     assert_response :success
-    assert_match "Persisted conversation", response.body
+    assert_match "Finds from this check", response.body
+    assert_no_match "Persisted conversation", response.body, "transcripts are for admins"
   end
 
   test "a daily hunt needs a subscription" do
@@ -60,7 +75,7 @@ class HuntFlowTest < ActionDispatch::IntegrationTest
   test "signed-out visitors see the pitch and the plans" do
     get root_path
     assert_response :success
-    assert_match "Agents that hunt the rare stuff", response.body
+    assert_match "Found for you", response.body
     assert_match "Collector", response.body
   end
 end
