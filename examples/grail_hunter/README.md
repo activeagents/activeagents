@@ -164,7 +164,13 @@ config/recurring.yml     the scheduler
 ## Notes
 
 - `config/application.rb` requires `zeitwerk` before `Bundler.require`: actionagent 1.9.6
-  reads Zeitwerk's inflector while its engine class loads, and Rails 8.1 only requires
-  Zeitwerk once the autoloaders are set up.
+  reads Zeitwerk's inflector while its engine class loads, and Rails only requires
+  Zeitwerk once the autoloaders are set up, which this app (generated with
+  `--skip-action-cable`) reaches too late. Fixed upstream in
+  [activeagents/activeagent#661](https://github.com/activeagents/activeagent/pull/661);
+  drop the require once a release carries it.
+- The Solid Agent install migrations under `db/migrate` were edited from `jsonb` to
+  `json`: solid_agent 0.2.1 generates PostgreSQL-only column types. Fixed upstream in
+  [activeagents/solid_agent#12](https://github.com/activeagents/solid_agent/pull/12).
 - The sample catalog's listing URLs point at an example host. They are invented for the
   demo, not real listings.
