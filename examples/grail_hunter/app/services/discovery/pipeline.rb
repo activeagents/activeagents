@@ -108,9 +108,10 @@ module Discovery
       )
     end
 
-    # The agent is asked to finish with a JSON summary. A provider that
-    # ignores that (the mock answers in pig latin) still gets a summary: the
-    # message itself, so the run page always shows what the model said.
+    # The agent is asked to finish with a JSON summary. When it does not (the
+    # mock provider answers in pig latin, and a model can ignore the format),
+    # the summary is written from the check's results instead, so the
+    # collector never reads provider output that was not meant for them.
     def summary_from(response)
       message = response.message
       json = message.respond_to?(:parsed_json) ? safe_parsed_json(message) : nil
@@ -118,9 +119,7 @@ module Discovery
       if json.is_a?(Hash) && json[:summary].present?
         { summary: json[:summary].to_s, confidence: json[:confidence].to_s.presence_in(%w[high medium low]) }
       else
-        content = message&.content
-        content = content.map { |block| block.is_a?(Hash) ? block[:text] : block.to_s }.join("\n") if content.is_a?(Array)
-        { summary: content.to_s.squish.truncate(2000).presence || "The agent finished without a summary.", confidence: nil }
+        { summary: Summary.for(@run), confidence: nil }
       end
     end
 

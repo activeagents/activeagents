@@ -27,7 +27,8 @@ class Discovery::PipelineTest < ActiveSupport::TestCase
     assert run.findings.any? { |finding| finding.title.include?("Synchilla") }
     assert run.findings.all? { |finding| finding.match_score >= Discovery::Pipeline::MIN_HEURISTIC_SCORE }
     assert run.findings.all? { |finding| finding.scored_by == "heuristic" }
-    assert run.summary.present?
+    assert_match(/We looked at \d+ listings and kept/, run.summary)
+    assert_no_match(/way\b/, run.summary, "the mock's pig latin must never reach the collector")
     assert run.trace_id.present?
     assert run.input_tokens.positive?
     assert_equal "mock", run.provider
