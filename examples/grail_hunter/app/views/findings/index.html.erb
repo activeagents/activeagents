@@ -1,0 +1,30 @@
+<% page_title "Findings" %>
+<div class="page-head">
+  <div>
+    <h1>Findings</h1>
+    <p class="muted">Everything the agent has recorded, across all your hunts.</p>
+  </div>
+</div>
+
+<div class="tabs">
+  <% Finding::STATUSES.each do |status| %>
+    <%= link_to findings_path(status: status), class: "tab #{'is-active' if status == @status}" do %>
+      <%= status.humanize %><span class="count"><%= @counts.fetch(status, 0) %></span>
+    <% end %>
+  <% end %>
+</div>
+
+<% if @findings.empty? %>
+  <div class="empty"><span class="glyph">[*]</span><p>No <%= @status %> findings.</p></div>
+<% else %>
+  <div class="panel">
+    <table class="data">
+      <thead><tr><th>Match</th><th>Listing</th><th>Verdict</th><th class="num">Price</th><th></th></tr></thead>
+      <tbody>
+        <% @findings.each do |finding| %>
+          <%= render "hunts/finding_row", finding: finding, show_hunt: true %>
+        <% end %>
+      </tbody>
+    </table>
+  </div>
+<% end %>

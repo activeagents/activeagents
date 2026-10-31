@@ -1,0 +1,37 @@
+<% page_title "Create your account" %>
+<div class="form">
+  <h1>Create your account</h1>
+  <p class="muted">Start on pay as you go: no subscription, a fee each time the agent hunts.</p>
+
+  <% if @user.errors.any? %>
+    <div class="errors">
+      <strong>Couldn't create the account.</strong>
+      <ul><% @user.errors.full_messages.each do |message| %><li><%= message %></li><% end %></ul>
+    </div>
+  <% end %>
+
+  <%= form_with model: @user, url: registration_path do |form| %>
+    <div class="field">
+      <%= form.label :name, "Name" %>
+      <%= form.text_field :name, autocomplete: "name" %>
+    </div>
+    <div class="field">
+      <%= form.label :email_address, "Email" %>
+      <%= form.email_field :email_address, required: true, autocomplete: "username" %>
+    </div>
+    <div class="field-row">
+      <div class="field">
+        <%= form.label :password %>
+        <%= form.password_field :password, required: true, autocomplete: "new-password", maxlength: 72 %>
+      </div>
+      <div class="field">
+        <%= form.label :password_confirmation, "Confirm password" %>
+        <%= form.password_field :password_confirmation, required: true, autocomplete: "new-password", maxlength: 72 %>
+      </div>
+    </div>
+    <div class="actions">
+      <%= form.submit "Create account", class: "btn btn-primary" %>
+      <%= link_to "I have an account", new_session_path, class: "btn" %>
+    </div>
+  <% end %>
+</div>

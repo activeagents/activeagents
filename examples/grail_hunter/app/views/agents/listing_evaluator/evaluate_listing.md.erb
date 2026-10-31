@@ -1,0 +1,9 @@
+## The collector's brief
+
+<%= @brief %>
+
+## The listing
+
+<% @listing.each do |key, value| %>
+<%= key.to_s.humanize %>: <%= value %>
+<% end %>

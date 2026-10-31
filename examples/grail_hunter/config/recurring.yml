@@ -1,0 +1,18 @@
+# Solid Queue's recurring tasks. ScheduleHuntsJob finds every active hunt
+# whose next_run_at has passed and queues a discovery run for it; the hunt's
+# frequency (and so the plan the collector pays for) decides how often that
+# happens. In development the scheduler runs inside Puma (bin/dev sets
+# SOLID_QUEUE_IN_PUMA); in production run bin/jobs or the Puma plugin.
+development:
+  schedule_due_hunts:
+    class: ScheduleHuntsJob
+    schedule: every 5 minutes
+
+production:
+  schedule_due_hunts:
+    class: ScheduleHuntsJob
+    schedule: every 10 minutes
+
+  clear_solid_queue_finished_jobs:
+    command: "SolidQueue::Job.clear_finished_in_batches(sleep_between_batches: 0.3)"
+    schedule: every hour at minute 12

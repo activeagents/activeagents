@@ -1,0 +1,44 @@
+<% page_title "Agents that hunt the rare stuff" %>
+
+<section class="hero">
+  <span class="eyebrow">Agentic product discovery</span>
+  <h1>Agents that hunt the rare stuff.</h1>
+  <p class="lede">
+    Tell Grail Hunter the brand, the piece, your size and your budget. Its agents search the
+    marketplaces on a schedule, score what they find against your brief, and only surface
+    listings worth your attention.
+  </p>
+  <div class="actions">
+    <%= link_to "Start a hunt", new_registration_path, class: "btn btn-primary" %>
+    <%= link_to "Sign in", new_session_path, class: "btn" %>
+  </div>
+</section>
+
+<section class="steps">
+  <div class="card step">
+    <span class="glyph">@</span>
+    <h3>Write the brief</h3>
+    <p class="muted">A 90s Snap-T in M under $150. A Seiko Pogue, serviced. An M6, not a TTL. The agent reads it the way a dealer would.</p>
+  </div>
+  <div class="card step">
+    <span class="glyph">-></span>
+    <h3>The agent hunts</h3>
+    <p class="muted">It searches, inspects listings, scores each one against the brief and flags replicas, wrong sizes and suspicious prices.</p>
+  </div>
+  <div class="card step">
+    <span class="glyph">[*]</span>
+    <h3>Only the finds reach you</h3>
+    <p class="muted">A ranked list with the agent's reasoning, and a digest when something new turns up. Keep it or dismiss it; the agent remembers.</p>
+  </div>
+</section>
+
+<section id="pricing">
+  <span class="label">Pricing</span>
+  <h2>A fee per hunt, or a subscription for less per hunt and more often.</h2>
+  <p class="muted">Every plan runs the same agents. Subscribing lowers the fee the product takes per run and lets the agent check daily or hourly instead of weekly.</p>
+  <div class="plans">
+    <% @plans.each do |plan| %>
+      <%= render "billings/plan_card", plan: plan, current: false, signed_in: false %>
+    <% end %>
+  </div>
+</section>

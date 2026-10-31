@@ -1,0 +1,28 @@
+<%# locals: (plan:, current: false, signed_in: false) %>
+<div class="card plan <%= 'is-current' if current %>">
+  <div class="row spread">
+    <h3><%= plan.name %></h3>
+    <% if current %><span class="badge badge-accent">Your plan</span><% end %>
+  </div>
+  <div class="price">
+    <%= plan.subscription? ? money(plan.monthly_cents) : "$0" %> <small>/ month</small>
+  </div>
+  <div class="mono small"><%= fee_label(plan) %></div>
+  <p class="muted small"><%= plan.tagline %></p>
+  <ul>
+    <% plan.features.each do |feature| %><li><%= feature %></li><% end %>
+  </ul>
+  <div class="cta">
+    <% if !signed_in %>
+      <%= link_to "Get started", new_registration_path, class: "btn #{plan.subscription? ? 'btn-primary' : ''}" %>
+    <% elsif current %>
+      <% if plan.subscription? %>
+        <%= button_to "Cancel subscription", cancel_billing_path, method: :delete, class: "btn btn-small", data: { turbo_confirm: "Cancel the #{plan.name} plan? Scheduled hunts slow to weekly." } %>
+      <% end %>
+    <% elsif plan.subscription? %>
+      <%= button_to "Subscribe to #{plan.name}", subscribe_billing_path(plan: plan.key), class: "btn btn-primary" %>
+    <% else %>
+      <span class="dim small">Cancel your subscription to return here.</span>
+    <% end %>
+  </div>
+</div>

@@ -1,0 +1,22 @@
+<%# locals: (finding:, show_hunt: false) %>
+<tr>
+  <td style="width: 130px"><%= score_bar finding.match_score %></td>
+  <td>
+    <div class="title"><%= link_to finding.title, finding.url, target: "_blank", rel: "noopener" %></div>
+    <div class="sub">
+      <%= [ finding.source, finding.condition, (finding.size && "size #{finding.size}"), (finding.listed_at && "listed #{finding.listed_at.to_date}") ].compact_blank.join(" | ") %>
+      <% if show_hunt %> | <%= link_to finding.hunt.title, finding.hunt, class: "link" %><% end %>
+    </div>
+    <% if finding.rationale.present? %><div class="rationale"><%= finding.rationale %></div><% end %>
+    <% if finding.red_flag_list.any? %><div class="flags">[!] <%= finding.red_flag_list.join(" | ") %></div><% end %>
+  </td>
+  <td><%= verdict_badge finding %><% unless finding.scored_by_agent? %><div class="dim small mono">heuristic</div><% end %></td>
+  <td class="num"><%= money finding.price_cents, finding.currency %></td>
+  <td class="nowrap">
+    <div class="actions">
+      <% unless finding.saved? %><%= button_to "Keep", keep_finding_path(finding), method: :patch, class: "btn btn-small" %><% end %>
+      <% unless finding.dismissed? %><%= button_to "Dismiss", dismiss_finding_path(finding), method: :patch, class: "btn btn-small" %><% end %>
+      <% if finding.dismissed? || finding.saved? %><%= status_badge finding.status %><% end %>
+    </div>
+  </td>
+</tr>

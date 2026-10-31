@@ -1,0 +1,49 @@
+<% page_title "Hunts" %>
+<div class="page-head">
+  <div>
+    <h1>Hunts</h1>
+    <p class="muted">What the agent is looking for on your behalf. <span class="mono small"><%= current_user.plan.name %>: <%= fee_label(current_user.plan) %>, up to <%= current_user.plan.frequency_label rescue Hunt::FREQUENCY_LABELS[current_user.plan.fastest_frequency].downcase %> schedules.</span></p>
+  </div>
+  <%= link_to "+ New hunt", new_hunt_path, class: "btn btn-primary" %>
+</div>
+
+<% if @hunts.empty? %>
+  <div class="empty">
+    <span class="glyph">@</span>
+    <p>No hunts yet. Describe the piece you're after and the agent starts looking right away.</p>
+    <%= link_to "Create your first hunt", new_hunt_path, class: "btn btn-primary" %>
+  </div>
+<% else %>
+  <div class="panel">
+    <table class="data">
+      <thead>
+        <tr>
+          <th>Hunt</th>
+          <th>Status</th>
+          <th>Schedule</th>
+          <th>Last run</th>
+          <th>Next run</th>
+          <th class="num">Findings</th>
+          <th class="num">New</th>
+        </tr>
+      </thead>
+      <tbody>
+        <% @hunts.each do |hunt| %>
+          <% findings = hunt.findings %>
+          <tr>
+            <td>
+              <div class="title"><%= link_to hunt.title, hunt %></div>
+              <div class="sub"><%= [ hunt.brand, hunt.category, (hunt.max_price_cents && "up to #{money(hunt.max_price_cents, hunt.currency)}") ].compact_blank.join(" | ") %></div>
+            </td>
+            <td><%= status_badge hunt.status %></td>
+            <td class="mono"><%= hunt.frequency_label %></td>
+            <td class="mono dim"><%= time_ago hunt.last_run_at %></td>
+            <td class="mono dim"><%= hunt.next_run_at && hunt.active? ? "in #{time_ago_in_words(hunt.next_run_at)}" : "on demand" %></td>
+            <td class="num"><%= findings.size %></td>
+            <td class="num"><% fresh = findings.count(&:new?) %><%= fresh.positive? ? tag.span(fresh, class: "badge badge-accent") : "0" %></td>
+          </tr>
+        <% end %>
+      </tbody>
+    </table>
+  </div>
+<% end %>

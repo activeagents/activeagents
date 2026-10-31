@@ -1,0 +1,82 @@
+<%# locals: (hunt:) %>
+<% plan = current_user.plan %>
+<% if hunt.errors.any? %>
+  <div class="errors">
+    <strong>Couldn't save the hunt.</strong>
+    <ul><% hunt.errors.full_messages.each do |message| %><li><%= message %></li><% end %></ul>
+  </div>
+<% end %>
+
+<%= form_with model: hunt, class: "form" do |form| %>
+  <div class="field">
+    <%= form.label :title, "What are you looking for?" %>
+    <%= form.text_field :title, required: true, placeholder: "Patagonia Synchilla Snap-T, 90s, made in USA", autofocus: hunt.new_record? %>
+    <div class="hint">One line, the way you'd describe it to a dealer.</div>
+  </div>
+
+  <div class="field-row">
+    <div class="field">
+      <%= form.label :brand %>
+      <%= form.text_field :brand, placeholder: "Patagonia" %>
+    </div>
+    <div class="field">
+      <%= form.label :category %>
+      <%= form.select :category, Hunt::CATEGORIES.map { |category| [ category.humanize, category ] }, include_blank: "Any" %>
+    </div>
+  </div>
+
+  <div class="field">
+    <%= form.label :description, "Details for the agent" %>
+    <%= form.text_area :description, placeholder: "The original oval-logo Snap-T with the nylon placket. Forest green or navy ideally. No kids sizes, no later Colombia-made ones." %>
+    <div class="hint">What makes the real thing, what you'd pass on, what you'd accept instead.</div>
+  </div>
+
+  <div class="field-row">
+    <div class="field">
+      <%= form.label :keywords, "Keywords" %>
+      <%= form.text_field :keywords, placeholder: "synchilla, snap-t, fleece, 90s" %>
+      <div class="hint">Comma separated. Model names, eras, nicknames.</div>
+    </div>
+    <div class="field">
+      <%= form.label :sizes, "Sizes that fit" %>
+      <%= form.text_field :sizes, placeholder: "M, L" %>
+      <div class="hint">Comma separated. Leave blank for items without sizes.</div>
+    </div>
+  </div>
+
+  <div class="field-row">
+    <div class="field">
+      <%= form.label :max_price, "Budget, up to" %>
+      <div class="row">
+        <%= form.number_field :max_price, step: "0.01", min: 1, placeholder: "150", style: "flex: 1" %>
+        <%= form.select :currency, Hunt::CURRENCIES, {}, style: "width: 6.5em" %>
+      </div>
+    </div>
+    <div class="field">
+      <%= form.label :condition %>
+      <%= form.select :condition, Hunt::CONDITIONS.map { |condition| [ condition == "any" ? "Any condition" : condition.humanize, condition ] } %>
+    </div>
+  </div>
+
+  <div class="field">
+    <%= form.label :frequency, "How often should the agent look?" %>
+    <%= form.select :frequency,
+          options_for_select(
+            Hunt::FREQUENCY_LABELS.map { |key, label| [ plan.allows_frequency?(key) ? label : "#{label} (needs a subscription)", key ] },
+            selected: hunt.frequency,
+            disabled: Hunt::FREQUENCIES.keys.reject { |key| plan.allows_frequency?(key) }
+          ) %>
+    <div class="hint">
+      <%= plan.name %> includes <%= plan.frequencies.map { |key| Hunt::FREQUENCY_LABELS[key].downcase }.to_sentence %> hunts.
+      <% unless plan.allows_frequency?("hourly") %><%= link_to "Upgrade", billing_path, class: "link" %> for daily or hourly.<% end %>
+    </div>
+  </div>
+
+  <div class="actions">
+    <%= form.submit hunt.new_record? ? "Create hunt and run it now" : "Save hunt", class: "btn btn-primary" %>
+    <%= link_to "Cancel", hunt.new_record? ? hunts_path : hunt_path(hunt), class: "btn" %>
+    <% if hunt.new_record? %>
+      <span class="small muted"><%= plan.free_runs? ? "No per-run fee on your plan." : "Each run is #{money(plan.run_fee_cents)} on #{plan.name}." %></span>
+    <% end %>
+  </div>
+<% end %>

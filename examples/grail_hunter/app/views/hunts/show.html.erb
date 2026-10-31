@@ -1,0 +1,102 @@
+<% page_title @hunt.title %>
+<div class="stack" <% if @running %>data-controller="poll" data-poll-interval-value="3000"<% end %>>
+  <div class="page-head">
+    <div>
+      <p class="small"><%= link_to "<- All hunts", hunts_path, class: "muted" %></p>
+      <h1><%= @hunt.title %></h1>
+      <div class="row">
+        <%= status_badge @hunt.status %>
+        <span class="badge mono"><%= @hunt.frequency_label %></span>
+        <% if @hunt.scheduled? && @hunt.active? && @hunt.next_run_at %><span class="mono small dim">next run in <%= time_ago_in_words(@hunt.next_run_at) %></span><% end %>
+        <% if @running %><span class="badge badge-info">Agent running</span><% end %>
+      </div>
+    </div>
+    <div class="actions">
+      <% if @running %>
+        <span class="btn is-disabled">Running...</span>
+      <% else %>
+        <%= button_to current_user.plan.free_runs? ? "Run hunt now" : "Run hunt now (#{money(current_user.plan.run_fee_cents)})", run_hunt_path(@hunt), class: "btn btn-primary" %>
+      <% end %>
+      <%= button_to "Plan queries", plan_hunt_path(@hunt), class: "btn", title: "Ask the planner agent for search queries" %>
+      <% if @hunt.active? %>
+        <%= button_to "Pause", pause_hunt_path(@hunt), method: :patch, class: "btn" %>
+      <% else %>
+        <%= button_to "Resume", resume_hunt_path(@hunt), method: :patch, class: "btn" %>
+      <% end %>
+      <%= link_to "Edit", edit_hunt_path(@hunt), class: "btn" %>
+    </div>
+  </div>
+
+  <div class="stats">
+    <div class="stat"><span class="label">Findings</span><div class="value"><%= @findings.size %> <small><%= @findings.count(&:new?) %> new</small></div></div>
+    <div class="stat"><span class="label">Runs</span><div class="value"><%= @hunt.discovery_runs.size %></div></div>
+    <div class="stat"><span class="label">Last run</span><div class="value" style="font-size: 1rem"><%= time_ago @hunt.last_run_at %></div></div>
+    <div class="stat"><span class="label">Spent on this hunt</span><div class="value"><%= money @hunt.discovery_runs.joins(:charge).sum("charges.amount_cents") %></div></div>
+  </div>
+
+  <div class="panel">
+    <div class="panel-head"><h3>The brief the agent reads</h3><span class="mono small dim">app/views/agents/hunter/hunt.md.erb</span></div>
+    <pre class="brief"><%= @hunt.brief %></pre>
+    <% if @hunt.search_plan.present? %>
+      <h4 style="margin-top: 1rem">Search plan from the planner agent</h4>
+      <p class="mono small">Queries: <%= Array(@hunt.search_plan["queries"]).join(" ; ") %></p>
+      <% if Array(@hunt.search_plan["sources"]).any? %><p class="mono small">Sources: <%= Array(@hunt.search_plan["sources"]).join(", ") %></p><% end %>
+      <% if Array(@hunt.search_plan["negative_keywords"]).any? %><p class="mono small">Avoid: <%= Array(@hunt.search_plan["negative_keywords"]).join(", ") %></p><% end %>
+      <% if @hunt.search_plan["notes"].present? %><p class="muted small"><%= @hunt.search_plan["notes"] %></p><% end %>
+    <% else %>
+      <p class="small dim" style="margin-top: 0.75rem">Searching for: <span class="mono"><%= @hunt.search_queries.join(" ; ") %></span>. Press "Plan queries" to have the planner agent write better ones.</p>
+    <% end %>
+  </div>
+
+  <div class="panel">
+    <div class="panel-head"><h2>Findings</h2><span class="small dim">Ranked by the agent's match score</span></div>
+    <% if @findings.empty? %>
+      <div class="empty">
+        <span class="glyph">[*]</span>
+        <p><%= @running ? "The agent is working. This page refreshes on its own." : "Nothing recorded yet. Run the hunt." %></p>
+      </div>
+    <% else %>
+      <table class="data">
+        <thead><tr><th>Match</th><th>Listing</th><th>Verdict</th><th class="num">Price</th><th></th></tr></thead>
+        <tbody>
+          <% @findings.each do |finding| %>
+            <%= render "finding_row", finding: finding %>
+          <% end %>
+        </tbody>
+      </table>
+    <% end %>
+  </div>
+
+  <div class="panel">
+    <div class="panel-head"><h2>Runs</h2><span class="small dim">Every run is a trace on the dashboard</span></div>
+    <% if @runs.empty? %>
+      <p class="dim">No runs yet.</p>
+    <% else %>
+      <table class="data">
+        <thead><tr><th>Run</th><th>Status</th><th>Trigger</th><th class="num">Candidates</th><th class="num">New</th><th>Scored by</th><th class="num">Tokens</th><th class="num">Fee</th><th>Trace</th></tr></thead>
+        <tbody>
+          <% @runs.each do |run| %>
+            <tr>
+              <td>
+                <div class="title"><%= link_to "Run ##{run.id}", hunt_run_path(@hunt, run) %></div>
+                <div class="sub mono"><%= time_ago run.created_at %><% if run.duration %> | <%= duration_label run.duration %><% end %></div>
+              </td>
+              <td><%= status_badge run.status %></td>
+              <td class="mono"><%= run.trigger %></td>
+              <td class="num"><%= run.candidate_count %></td>
+              <td class="num"><%= run.new_findings_count %></td>
+              <td class="mono"><%= run.scored_by || "n/a" %></td>
+              <td class="num"><%= run.total_tokens %></td>
+              <td class="num"><%= money run.fee_cents %></td>
+              <td><%= trace_link run.trace_id %></td>
+            </tr>
+          <% end %>
+        </tbody>
+      </table>
+    <% end %>
+  </div>
+
+  <p class="small dim">
+    <%= button_to "Delete this hunt", hunt_path(@hunt), method: :delete, class: "btn btn-small", form: { style: "display:inline" }, data: { turbo_confirm: "Delete the hunt and all of its findings?" } %>
+  </p>
+</div>

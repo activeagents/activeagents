@@ -1,0 +1,28 @@
+# Hunt: <%= @hunt.title %>
+
+## The brief
+
+<%= @hunt.brief %>
+
+<% if @hunt.search_plan.present? %>
+## Search plan from an earlier planning pass
+
+Queries: <%= Array(@hunt.search_plan["queries"]).join("; ") %>
+<% if Array(@hunt.search_plan["negative_keywords"]).any? %>Avoid listings mentioning: <%= Array(@hunt.search_plan["negative_keywords"]).join(", ") %><% end %>
+<% if Array(@hunt.search_plan["sources"]).any? %>Marketplaces worth trying: <%= Array(@hunt.search_plan["sources"]).join(", ") %><% end %>
+<% if @hunt.search_plan["notes"].present? %>Notes: <%= @hunt.search_plan["notes"] %><% end %>
+
+<% end %>
+## Candidate listings (<%= @candidates.size %>)
+
+The search backend returned these for the queries <%= @hunt.search_queries.map { |query| "\"#{query}\"" }.join(", ") %>. Listings the collector has already been shown are left out.
+
+<% if @candidates.empty? %>
+No candidates came back. Start with `plan_queries`, then `search_products`.
+<% else %>
+<% @candidates.each_with_index do |listing, index| %>
+<%= index + 1 %>. <%= listing.to_prompt_line %>
+<% end %>
+<% end %>
+
+Evaluate the promising ones, search further where the candidates are thin, record the keepers with `record_finding`, and finish with the JSON summary.

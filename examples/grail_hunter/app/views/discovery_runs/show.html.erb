@@ -1,0 +1,71 @@
+<% page_title "Run ##{@run.id}" %>
+<div class="stack" <% if @run.in_progress? %>data-controller="poll" data-poll-interval-value="3000"<% end %>>
+  <div class="page-head">
+    <div>
+      <p class="small"><%= link_to "<- #{@hunt.title}", @hunt, class: "muted" %></p>
+      <h1>Run #<%= @run.id %></h1>
+      <div class="row">
+        <%= status_badge @run.status %>
+        <span class="badge mono"><%= @run.trigger %></span>
+        <% if @run.provider %><span class="badge mono"><%= [ @run.provider, @run.model ].compact.join(" / ") %></span><% end %>
+        <%= trace_link @run.trace_id %>
+      </div>
+    </div>
+  </div>
+
+  <div class="stats">
+    <div class="stat"><span class="label">Candidates</span><div class="value"><%= @run.candidate_count %></div></div>
+    <div class="stat"><span class="label">New findings</span><div class="value"><%= @run.new_findings_count %></div></div>
+    <div class="stat"><span class="label">Tokens</span><div class="value"><%= @run.input_tokens %> <small>in</small> <%= @run.output_tokens %> <small>out</small></div></div>
+    <div class="stat"><span class="label">Duration</span><div class="value"><%= duration_label @run.duration %></div></div>
+    <div class="stat"><span class="label">Fee</span><div class="value"><%= money @run.fee_cents %></div></div>
+  </div>
+
+  <div class="panel">
+    <div class="panel-head"><h3>What the agent said</h3><% if @run.confidence %><span class="badge mono">confidence: <%= @run.confidence %></span><% end %></div>
+    <% if @run.summary.present? %>
+      <div class="summary"><%= @run.summary %></div>
+    <% else %>
+      <p class="dim"><%= @run.in_progress? ? "Working. This page refreshes on its own." : "No summary." %></p>
+    <% end %>
+    <% if @run.error_message.present? %>
+      <p class="flags" style="margin-top: 0.75rem">[!] <%= @run.error_message %></p>
+    <% end %>
+    <% if @run.query_list.any? %>
+      <p class="small dim" style="margin-top: 0.75rem">Pre-fetched queries: <span class="mono"><%= @run.query_list.join(" ; ") %></span>. Scored by: <span class="mono"><%= @run.scored_by || "n/a" %></span>.</p>
+    <% end %>
+  </div>
+
+  <div class="panel">
+    <div class="panel-head"><h2>Findings from this run</h2></div>
+    <% if @findings.empty? %>
+      <p class="dim">None.</p>
+    <% else %>
+      <table class="data">
+        <thead><tr><th>Match</th><th>Listing</th><th>Verdict</th><th class="num">Price</th><th></th></tr></thead>
+        <tbody>
+          <% @findings.each do |finding| %>
+            <%= render "hunts/finding_row", finding: finding %>
+          <% end %>
+        </tbody>
+      </table>
+    <% end %>
+  </div>
+
+  <% @contexts.each do |context| %>
+    <div class="panel">
+      <div class="panel-head">
+        <h3>Persisted conversation (solid_agent)</h3>
+        <span class="mono small dim"><%= context.agent_name %>#<%= context.action_name %> | <%= context.messages.size %> messages | <%= context.generations.size %> generations | <%= context.total_tokens %> tokens</span>
+      </div>
+      <div class="transcript">
+        <% context.messages.order(:created_at).each do |message| %>
+          <div class="turn">
+            <span class="role <%= message.role %>"><%= { "user" => "@", "assistant" => ">", "tool" => "[]", "system" => "#" }.fetch(message.role.to_s, "?") %> <%= message.role %></span>
+            <div class="body"><%= message.content.to_s.truncate(3000) %></div>
+          </div>
+        <% end %>
+      </div>
+    </div>
+  <% end %>
+</div>

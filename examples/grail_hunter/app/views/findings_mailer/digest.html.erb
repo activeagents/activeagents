@@ -1,0 +1,21 @@
+<p>Grail Hunter checked <strong><%= @hunt.title %></strong> and recorded <%= @findings.size %> new find<%= "s" unless @findings.size == 1 %>.</p>
+
+<% if @run.summary.present? %>
+  <p><%= @run.summary %></p>
+<% end %>
+
+<table cellpadding="6" cellspacing="0" border="0" style="border-collapse: collapse; font-family: ui-monospace, Menlo, monospace; font-size: 13px;">
+  <% @findings.each do |finding| %>
+    <tr style="border-bottom: 1px solid #e5e5e5;">
+      <td style="vertical-align: top; color: #ef4444; font-weight: 600;"><%= finding.match_score %></td>
+      <td style="vertical-align: top;">
+        <%= link_to finding.title, finding.url %><br>
+        <span style="color: #737373;"><%= [ (finding.price_cents && "#{finding.price_cents / 100.0} #{finding.currency}"), finding.source, finding.condition, finding.size ].compact.join(" | ") %></span><br>
+        <%= finding.rationale %>
+        <% if finding.red_flag_list.any? %><br><span style="color: #b45309;">Flags: <%= finding.red_flag_list.join("; ") %></span><% end %>
+      </td>
+    </tr>
+  <% end %>
+</table>
+
+<p><%= link_to "Open the hunt", hunt_url(@hunt) %> to keep the good ones and dismiss the rest.</p>

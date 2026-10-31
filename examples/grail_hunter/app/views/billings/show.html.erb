@@ -1,0 +1,47 @@
+<% page_title "Billing" %>
+<div class="page-head">
+  <div>
+    <h1>Billing</h1>
+    <p class="muted">A fee per hunt, or a subscription for a lower fee and more frequent hunts.</p>
+  </div>
+</div>
+
+<div class="stats">
+  <div class="stat"><span class="label">Plan</span><div class="value" style="font-size: 1.1rem"><%= @plan.name %></div></div>
+  <div class="stat"><span class="label">Fee per hunt</span><div class="value"><%= money @plan.run_fee_cents %></div></div>
+  <div class="stat"><span class="label">This month</span><div class="value"><%= money @month_to_date %></div></div>
+  <% if current_user.subscription_renews_at %>
+    <div class="stat"><span class="label">Renews</span><div class="value" style="font-size: 1.1rem"><%= current_user.subscription_renews_at.to_date %></div></div>
+  <% end %>
+</div>
+
+<div class="plans">
+  <% @plans.each do |plan| %>
+    <%= render "plan_card", plan: plan, current: plan == @plan, signed_in: true %>
+  <% end %>
+</div>
+
+<div class="panel">
+  <div class="panel-head"><h2>Charges</h2><span class="small dim">Each run's fee is fixed at the rate of the plan you were on when it was queued.</span></div>
+  <% if @charges.empty? %>
+    <p class="dim">Nothing yet. Fees appear here as hunts run.</p>
+  <% else %>
+    <table class="data">
+      <thead><tr><th>When</th><th>Charge</th><th>Kind</th><th>Status</th><th class="num">Amount</th></tr></thead>
+      <tbody>
+        <% @charges.each do |charge| %>
+          <tr>
+            <td class="mono dim nowrap"><%= charge.created_at.to_fs(:short) %></td>
+            <td>
+              <%= charge.description %>
+              <% if charge.discovery_run %><div class="sub"><%= link_to "Run ##{charge.discovery_run_id}", hunt_run_path(charge.discovery_run.hunt_id, charge.discovery_run), class: "link" %></div><% end %>
+            </td>
+            <td class="mono"><%= charge.kind.humanize %></td>
+            <td><%= status_badge charge.status %></td>
+            <td class="num"><%= money charge.amount_cents, charge.currency %></td>
+          </tr>
+        <% end %>
+      </tbody>
+    </table>
+  <% end %>
+</div>

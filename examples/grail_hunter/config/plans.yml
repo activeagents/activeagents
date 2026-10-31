@@ -1,0 +1,45 @@
+# The three ways to pay for discovery. Plans are configuration, not rows:
+# app/models/plan.rb reads this file. Order matters: the first plan is the
+# default for a new account, and later plans are "higher".
+#
+# The product takes a fee per hunt the agent runs. A subscription lowers that
+# fee and unlocks more frequent scheduled hunts.
+pay_as_you_go:
+  name: Pay as you go
+  tagline: No subscription. A fee each time the agent hunts.
+  monthly_cents: 0
+  run_fee_cents: 199
+  frequencies: [manual, weekly]
+  max_active_hunts: 3
+  features:
+    - "Run a hunt whenever you like"
+    - "Weekly scheduled hunts"
+    - "Up to 3 active hunts"
+    - "Email digest of new finds"
+
+collector:
+  name: Collector
+  tagline: A lower fee per hunt, and the agent checks every day.
+  monthly_cents: 900
+  run_fee_cents: 49
+  frequencies: [manual, weekly, daily]
+  max_active_hunts: 10
+  features:
+    - "Daily scheduled hunts"
+    - "Up to 10 active hunts"
+    - "Agent-written search plans"
+    - "Email digest of new finds"
+
+hunter:
+  name: Hunter
+  tagline: No per-hunt fee. The agent checks every hour.
+  monthly_cents: 2900
+  run_fee_cents: 0
+  frequencies: [manual, weekly, daily, every_6_hours, hourly]
+  max_active_hunts: 50
+  features:
+    - "Hourly scheduled hunts"
+    - "Up to 50 active hunts"
+    - "No fee per hunt"
+    - "Agent-written search plans"
+    - "Email digest of new finds"

@@ -1,0 +1,5 @@
+#!/usr/bin/env ruby
+# Runs the web server with Solid Queue inside Puma, so discovery runs and the
+# scheduler that queues them execute without a second process.
+ENV["SOLID_QUEUE_IN_PUMA"] ||= "1"
+exec "./bin/rails", "server", *ARGV

@@ -1,0 +1,450 @@
+# Sample listings for the offline search backend (ProductSearch::Backends::Catalog).
+#
+# This is the backend the app uses when no search API key is set, so the demo
+# and the test suite work without a network. The listings are invented for the
+# demo and the URLs point at an example host; set SERPAPI_KEY or
+# BRAVE_SEARCH_API_KEY to search real marketplaces instead.
+- title: "Patagonia Synchilla Snap-T Pullover Fleece, 90s, Made in USA, Men's M"
+  url: https://listings.example.com/grailed/patagonia-synchilla-snap-t-90s-usa-m
+  source: grailed
+  price: 128.00
+  currency: USD
+  condition: used
+  size: M
+  brand: Patagonia
+  category: clothing
+  keywords: [patagonia, synchilla, snap-t, snap t, fleece, pullover, 90s, vintage, usa]
+  description: "Original 90s Synchilla Snap-T in forest green with the navy nylon placket. Made in USA label, oval logo. Minor pilling, no holes. Pit to pit 23 in."
+  listed_at: 2026-10-27
+- title: "Vintage Patagonia Synchilla Snap-T fleece, navy, early 2000s, size L"
+  url: https://listings.example.com/ebay/patagonia-synchilla-snap-t-2000s-navy-l
+  source: ebay
+  price: 65.00
+  currency: USD
+  condition: used
+  size: L
+  brand: Patagonia
+  category: clothing
+  keywords: [patagonia, synchilla, snap-t, fleece, navy, 2000s]
+  description: "Patagonia Synchilla Snap-T pullover in navy. Made in Colombia. Good used condition. Measurements on request."
+  listed_at: 2026-10-25
+- title: "Patagonia Synchilla Snap-T, kids XL (fits womens XS), purple"
+  url: https://listings.example.com/depop/patagonia-synchilla-kids-xl-purple
+  source: depop
+  price: 30.00
+  currency: USD
+  condition: used
+  size: Kids XL
+  brand: Patagonia
+  category: clothing
+  keywords: [patagonia, synchilla, snap-t, fleece, kids, purple]
+  description: "Kids Synchilla Snap-T, would fit an adult XS. Bright purple. Small bleach mark on the sleeve."
+  listed_at: 2026-10-22
+- title: "Patagonia Retro-X Fleece Vest, 1998, natural with navy windflap, M"
+  url: https://listings.example.com/grailed/patagonia-retro-x-vest-1998-natural-m
+  source: grailed
+  price: 210.00
+  currency: USD
+  condition: vintage
+  size: M
+  brand: Patagonia
+  category: clothing
+  keywords: [patagonia, retro-x, retro x, fleece, vest, 1998, 90s, vintage, deep pile]
+  description: "First-generation Retro-X deep pile vest with the nylon windflap. Made in USA. Pile still full."
+  listed_at: 2026-10-28
+- title: "Patagonia Baggies 5 inch shorts, 2019, black, M"
+  url: https://listings.example.com/poshmark/patagonia-baggies-5-black-m
+  source: poshmark
+  price: 45.00
+  currency: USD
+  condition: used
+  size: M
+  brand: Patagonia
+  category: clothing
+  keywords: [patagonia, baggies, shorts, black]
+  description: "Patagonia Baggies 5 inch, black, worn a handful of times."
+  listed_at: 2026-10-20
+- title: "Arc'teryx Alpha SV Jacket, 2008 Gore-Tex Pro Shell, Blaze, Men's M"
+  url: https://listings.example.com/grailed/arcteryx-alpha-sv-2008-blaze-m
+  source: grailed
+  price: 420.00
+  currency: USD
+  condition: used
+  size: M
+  brand: Arc'teryx
+  category: clothing
+  keywords: [arcteryx, arc'teryx, alpha sv, gore-tex, pro shell, 2008, jacket, blaze, orange]
+  description: "Alpha SV from the Pro Shell era in Blaze orange. Taped seams intact, pit zips work, one small patch repair on the left cuff."
+  listed_at: 2026-10-26
+- title: "Supreme Box Logo Hooded Sweatshirt FW17, Heather Grey, Large"
+  url: https://listings.example.com/grailed/supreme-box-logo-hoodie-fw17-heather-grey-l
+  source: grailed
+  price: 1250.00
+  currency: USD
+  condition: used
+  size: L
+  brand: Supreme
+  category: clothing
+  keywords: [supreme, box logo, bogo, hoodie, hooded, sweatshirt, fw17, heather grey]
+  description: "FW17 heather grey bogo. Worn twice, tags and bag included. Legit checked."
+  listed_at: 2026-10-29
+- title: "Nike SB Dunk Low 'Tiffany' 2005 Diamond Supply Co, US 10, no box"
+  url: https://listings.example.com/ebay/nike-sb-dunk-low-tiffany-2005-us10
+  source: ebay
+  price: 1900.00
+  currency: USD
+  condition: used
+  size: US 10
+  brand: Nike
+  category: footwear
+  keywords: [nike, sb, dunk, low, tiffany, diamond supply, 2005, aqua]
+  description: "Original 2005 Diamond Dunk. Worn, sole yellowing, crocodile skin panels intact. No box, replacement laces."
+  listed_at: 2026-10-24
+- title: "Air Jordan 1 Chicago 1985 original, US 9.5, boxed"
+  url: https://listings.example.com/stockx/air-jordan-1-chicago-1985-us9-5
+  source: stockx
+  price: 9500.00
+  currency: USD
+  condition: vintage
+  size: US 9.5
+  brand: Nike
+  category: footwear
+  keywords: [nike, air jordan, jordan 1, chicago, 1985, og, original]
+  description: "1985 Chicago with the original box. Midsoles cracked as expected for the age; a display pair."
+  listed_at: 2026-10-18
+- title: "Carhartt Detroit Jacket, 80s, blanket lined, brown duck, 42"
+  url: https://listings.example.com/etsy/carhartt-detroit-jacket-80s-brown-42
+  source: etsy
+  price: 185.00
+  currency: USD
+  condition: vintage
+  size: 42
+  brand: Carhartt
+  category: clothing
+  keywords: [carhartt, detroit, jacket, 80s, vintage, duck, blanket lined, workwear]
+  description: "Union-made 80s Detroit jacket in brown duck, blanket lined, Talon zip. Faded to a great colour. Chest 24 in flat."
+  listed_at: 2026-10-23
+- title: "Levi's 501XX Redline Selvedge, 1960s, Big E, W32 L31"
+  url: https://listings.example.com/ebay/levis-501xx-redline-selvedge-1960s-w32
+  source: ebay
+  price: 650.00
+  currency: USD
+  condition: vintage
+  size: W32
+  brand: Levi's
+  category: clothing
+  keywords: [levis, levi's, 501, 501xx, redline, selvedge, big e, 1960s, vintage, denim]
+  description: "60s 501XX, Big E red tab, single stitch, hidden rivets gone. Honest wear, one small repair at the crotch. Measures 32 x 31."
+  listed_at: 2026-10-21
+- title: "Iron Heart 634S 21oz Selvedge Denim, straight, W33"
+  url: https://listings.example.com/grailed/iron-heart-634s-21oz-w33
+  source: grailed
+  price: 240.00
+  currency: USD
+  condition: used
+  size: W33
+  brand: Iron Heart
+  category: clothing
+  keywords: [iron heart, 634s, 21oz, selvedge, denim, japanese, raw]
+  description: "Iron Heart 634S, one wash, around 6 months of wear with light fades."
+  listed_at: 2026-10-19
+- title: "Samurai Jeans S5000VX 25oz, W32, worn 1 year"
+  url: https://listings.example.com/grailed/samurai-s5000vx-25oz-w32
+  source: grailed
+  price: 280.00
+  currency: USD
+  condition: used
+  size: W32
+  brand: Samurai Jeans
+  category: clothing
+  keywords: [samurai, s5000vx, 25oz, selvedge, denim, japanese]
+  description: "Heavy Samurai S5000VX with strong honeycombs. No repairs."
+  listed_at: 2026-10-17
+- title: "Seiko 6139-6002 'Pogue' automatic chronograph, 1972, serviced"
+  url: https://listings.example.com/chrono24/seiko-6139-6002-pogue-1972
+  source: chrono24
+  price: 1150.00
+  currency: USD
+  condition: vintage
+  size: 41mm
+  brand: Seiko
+  category: watches
+  keywords: [seiko, 6139, 6139-6002, pogue, chronograph, automatic, 1972, vintage]
+  description: "Yellow dial Pogue, correct Pepsi bezel, serviced 2025 with papers. Case lightly polished."
+  listed_at: 2026-10-28
+- title: "Omega Speedmaster Professional 145.022-69 ST, 1970, 861 movement"
+  url: https://listings.example.com/chrono24/omega-speedmaster-145-022-1970
+  source: chrono24
+  price: 5800.00
+  currency: USD
+  condition: vintage
+  size: 42mm
+  brand: Omega
+  category: watches
+  keywords: [omega, speedmaster, 145.022, moonwatch, 861, 1970, vintage, chronograph]
+  description: "Stepped dial, DON bezel, unpolished case. Extract from the archives included."
+  listed_at: 2026-10-26
+- title: "Rolex Datejust 1601, 1972, silver sigma dial, Jubilee"
+  url: https://listings.example.com/chrono24/rolex-datejust-1601-1972
+  source: chrono24
+  price: 4900.00
+  currency: USD
+  condition: vintage
+  size: 36mm
+  brand: Rolex
+  category: watches
+  keywords: [rolex, datejust, 1601, 1972, sigma dial, jubilee, vintage]
+  description: "Steel 1601 with a silver sigma dial and a stretched Jubilee. Serviced 2024."
+  listed_at: 2026-10-15
+- title: "Leica M6 Classic, 1995, black chrome, 0.72 finder, boxed"
+  url: https://listings.example.com/ebay/leica-m6-classic-1995-black
+  source: ebay
+  price: 3200.00
+  currency: USD
+  condition: used
+  size: null
+  brand: Leica
+  category: cameras
+  keywords: [leica, m6, m6 classic, rangefinder, 35mm, film, 1995, black chrome]
+  description: "M6 Classic in black chrome, finder clear, meter accurate, shutter speeds verified. Box and strap."
+  listed_at: 2026-10-27
+- title: "Leica M6 style display body (replica, non-working)"
+  url: https://listings.example.com/aliexpress/leica-m6-style-replica-display
+  source: aliexpress
+  price: 120.00
+  currency: USD
+  condition: new
+  size: null
+  brand: Leica
+  category: cameras
+  keywords: [leica, m6, replica, display, dummy, style]
+  description: "Decorative camera body in the Leica M6 style. Not a working camera. Great for shelves and photo shoots."
+  listed_at: 2026-10-10
+- title: "Contax T2 titanium, 1993, Carl Zeiss Sonnar 38mm f/2.8, tested"
+  url: https://listings.example.com/ebay/contax-t2-titanium-1993
+  source: ebay
+  price: 1350.00
+  currency: USD
+  condition: used
+  size: null
+  brand: Contax
+  category: cameras
+  keywords: [contax, t2, point and shoot, zeiss, sonnar, 35mm, film, titanium]
+  description: "Contax T2, champagne titanium, film tested last month. Small scuff on the baseplate."
+  listed_at: 2026-10-24
+- title: "Yashica T4 Super, Zeiss Tessar 35mm f/3.5, working"
+  url: https://listings.example.com/mercari/yashica-t4-super
+  source: mercari
+  price: 420.00
+  currency: USD
+  condition: used
+  size: null
+  brand: Yashica
+  category: cameras
+  keywords: [yashica, t4, t4 super, point and shoot, zeiss, tessar, 35mm, film]
+  description: "T4 Super with the Super Scope waist finder. Flash works, battery door intact."
+  listed_at: 2026-10-23
+- title: "Technics SL-1200MK2 turntable, silver, fully serviced"
+  url: https://listings.example.com/reverb/technics-sl-1200mk2-silver-serviced
+  source: reverb
+  price: 650.00
+  currency: USD
+  condition: used
+  size: null
+  brand: Technics
+  category: audio
+  keywords: [technics, sl-1200, sl1200, mk2, turntable, direct drive, dj]
+  description: "SL-1200MK2 with new RCA leads, recapped, pitch fader calibrated. Dust cover included."
+  listed_at: 2026-10-25
+- title: "Sony Walkman TPS-L2, 1979, first Walkman, with case and headphones"
+  url: https://listings.example.com/ebay/sony-walkman-tps-l2-1979
+  source: ebay
+  price: 1100.00
+  currency: USD
+  condition: vintage
+  size: null
+  brand: Sony
+  category: audio
+  keywords: [sony, walkman, tps-l2, 1979, cassette, vintage, guardians]
+  description: "The original 1979 TPS-L2 in blue and silver. Belt replaced, plays both channels. MDR-3L2 headphones and leather case."
+  listed_at: 2026-10-20
+- title: "Porter Yoshida Tanker 3way briefcase, black, made in Japan"
+  url: https://listings.example.com/grailed/porter-yoshida-tanker-3way-black
+  source: grailed
+  price: 420.00
+  currency: USD
+  condition: used
+  size: null
+  brand: Porter
+  category: bags
+  keywords: [porter, yoshida, tanker, 3way, briefcase, japan, bag]
+  description: "Porter Tanker 3way with the orange lining, all straps present. Light wear to the corners."
+  listed_at: 2026-10-26
+- title: "Snow Peak titanium double wall 450 mug, new"
+  url: https://listings.example.com/ebay/snow-peak-titanium-450-mug
+  source: ebay
+  price: 38.00
+  currency: USD
+  condition: new
+  size: null
+  brand: Snow Peak
+  category: outdoor
+  keywords: [snow peak, titanium, mug, 450, camping, japan]
+  description: "New in box Snow Peak double wall titanium 450 mug."
+  listed_at: 2026-10-27
+- title: "HHKB Professional 2 PD-KB400B, black, Topre 45g"
+  url: https://listings.example.com/mercari/hhkb-professional-2-pd-kb400b
+  source: mercari
+  price: 260.00
+  currency: USD
+  condition: used
+  size: null
+  brand: PFU
+  category: keyboards
+  keywords: [hhkb, happy hacking, professional 2, pd-kb400b, topre, keyboard, 60%]
+  description: "HHKB Pro 2 with blank keycaps, all keys register. Includes the original USB cable."
+  listed_at: 2026-10-22
+- title: "IBM Model M 1391401, 1989, buckling spring, bolt-modded"
+  url: https://listings.example.com/ebay/ibm-model-m-1391401-1989
+  source: ebay
+  price: 180.00
+  currency: USD
+  condition: vintage
+  size: null
+  brand: IBM
+  category: keyboards
+  keywords: [ibm, model m, 1391401, buckling spring, 1989, keyboard, vintage]
+  description: "Bolt-modded 1989 Model M, retrobrighted, with a USB converter."
+  listed_at: 2026-10-19
+- title: "Radiohead OK Computer, 1997 UK first pressing, 2LP, Parlophone NODATA 02"
+  url: https://listings.example.com/discogs/radiohead-ok-computer-1997-uk-first
+  source: discogs
+  price: 320.00
+  currency: USD
+  condition: vintage
+  size: null
+  brand: Radiohead
+  category: vinyl
+  keywords: [radiohead, ok computer, 1997, first pressing, uk, vinyl, parlophone, nodata]
+  description: "Original 1997 UK 2LP, NODATA 02, matrix verified. Sleeve VG+, vinyl NM."
+  listed_at: 2026-10-28
+- title: "Wilco Yankee Hotel Foxtrot, 2002 Nonesuch first pressing 2LP"
+  url: https://listings.example.com/discogs/wilco-yankee-hotel-foxtrot-2002-first
+  source: discogs
+  price: 85.00
+  currency: USD
+  condition: used
+  size: null
+  brand: Wilco
+  category: vinyl
+  keywords: [wilco, yankee hotel foxtrot, 2002, first pressing, nonesuch, vinyl]
+  description: "2002 Nonesuch first press, gatefold VG+, vinyl VG+."
+  listed_at: 2026-10-16
+- title: "Heath Ceramics coupe dinner plates, 1960s, set of 6, sea and sand"
+  url: https://listings.example.com/etsy/heath-ceramics-coupe-plates-1960s-set-6
+  source: etsy
+  price: 190.00
+  currency: USD
+  condition: vintage
+  size: null
+  brand: Heath Ceramics
+  category: homeware
+  keywords: [heath, heath ceramics, coupe, plates, 1960s, sausalito, sea and sand, vintage]
+  description: "Six 1960s Heath coupe dinner plates in sea and sand, early stamp. One with a small chip on the foot."
+  listed_at: 2026-10-21
+- title: "Rimowa Topas cabin case, 1990s, aluminium, two-wheel"
+  url: https://listings.example.com/ebay/rimowa-topas-cabin-1990s-two-wheel
+  source: ebay
+  price: 450.00
+  currency: USD
+  condition: vintage
+  size: Cabin
+  brand: Rimowa
+  category: bags
+  keywords: [rimowa, topas, cabin, aluminium, 1990s, vintage, luggage]
+  description: "Two-wheel Topas with the old Rimowa logo, dents and travel stickers. Locks work."
+  listed_at: 2026-10-18
+- title: "Stussy 90s Tribe t-shirt, black, made in USA, L"
+  url: https://listings.example.com/grailed/stussy-90s-tribe-tee-black-l
+  source: grailed
+  price: 160.00
+  currency: USD
+  condition: vintage
+  size: L
+  brand: Stussy
+  category: clothing
+  keywords: [stussy, tribe, 90s, tee, t-shirt, vintage, usa]
+  description: "Single stitch 90s Stussy Tribe tee, black, faded print, no holes."
+  listed_at: 2026-10-23
+- title: "Number (N)ine SS05 'The High Streets' flannel shirt, size 3"
+  url: https://listings.example.com/grailed/number-nine-ss05-high-streets-flannel-3
+  source: grailed
+  price: 390.00
+  currency: USD
+  condition: used
+  size: 3
+  brand: Number (N)ine
+  category: clothing
+  keywords: [number nine, number (n)ine, ss05, high streets, flannel, shirt, takahiro miyashita, archive]
+  description: "SS05 flannel from The High Streets, size 3. Light wear, no flaws."
+  listed_at: 2026-10-24
+- title: "Visvim FBT Elk, 2010, brown suede, US 9"
+  url: https://listings.example.com/grailed/visvim-fbt-elk-2010-brown-us9
+  source: grailed
+  price: 480.00
+  currency: USD
+  condition: used
+  size: US 9
+  brand: Visvim
+  category: footwear
+  keywords: [visvim, fbt, elk, moccasin, 2010, suede, brown]
+  description: "FBT Elk in brown suede, fringe intact, soles half worn. Box included."
+  listed_at: 2026-10-22
+- title: "Kapital Century Denim 'Kakashi' jacket, size 2"
+  url: https://listings.example.com/grailed/kapital-century-denim-kakashi-jacket-2
+  source: grailed
+  price: 410.00
+  currency: USD
+  condition: used
+  size: 2
+  brand: Kapital
+  category: clothing
+  keywords: [kapital, century denim, kakashi, sashiko, jacket, japan]
+  description: "Kapital Century Denim jacket with the sashiko stitching, size 2. Worn in, no repairs."
+  listed_at: 2026-10-20
+- title: "Nintendo Game Boy DMG-01, 1989, boxed with Tetris"
+  url: https://listings.example.com/ebay/nintendo-game-boy-dmg-01-boxed-tetris
+  source: ebay
+  price: 220.00
+  currency: USD
+  condition: vintage
+  size: null
+  brand: Nintendo
+  category: games
+  keywords: [nintendo, game boy, gameboy, dmg-01, 1989, boxed, tetris, vintage]
+  description: "Original grey Game Boy, boxed, with Tetris and the manual. Screen has no dead lines."
+  listed_at: 2026-10-25
+- title: "Braun SK4 'Snow White's Coffin' record player, 1956, Rams and Gugelot"
+  url: https://listings.example.com/catawiki/braun-sk4-1956-rams
+  source: catawiki
+  price: 2400.00
+  currency: EUR
+  condition: vintage
+  size: null
+  brand: Braun
+  category: design
+  keywords: [braun, sk4, dieter rams, gugelot, 1956, record player, radio, design]
+  description: "Braun SK4 with the acrylic lid, radio works, turntable needs a belt."
+  listed_at: 2026-10-14
+- title: "Eames DSW shell chair, Herman Miller 1960s, parchment, dowel base"
+  url: https://listings.example.com/etsy/eames-dsw-shell-chair-1960s-parchment
+  source: etsy
+  price: 410.00
+  currency: USD
+  condition: vintage
+  size: null
+  brand: Herman Miller
+  category: design
+  keywords: [eames, dsw, shell chair, herman miller, 1960s, fiberglass, parchment, dowel]
+  description: "1960s fiberglass DSW in parchment on a walnut dowel base, shock mounts replaced."
+  listed_at: 2026-10-19
