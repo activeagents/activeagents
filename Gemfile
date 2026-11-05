@@ -50,7 +50,7 @@ gem "ragents", path: "ragents"
 # Anthropic Claude API client for Active Agent providers
 gem "anthropic"
 # OpenAI client, also used by the Ollama/OpenRouter providers (OpenAI-compatible APIs)
-gem "openai", "~> 0.75"
+gem "openai", "~> 0.114"
 # Resend email delivery service [https://resend.com/docs/send-with-ruby]
 gem "resend"
 
