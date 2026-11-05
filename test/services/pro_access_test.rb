@@ -34,7 +34,8 @@ class ProAccessTest < ActiveSupport::TestCase
   test "review dates do not expire access and grants use pro limits without paid status" do
     ProAccess.grant!(**@attributes.merge(review_on: Date.yesterday))
     assert_equal "pro", @account.current_plan.slug
-    assert_equal 10_000, @account.effective_agent_runs_limit
+    assert_equal(-1, @account.effective_agent_runs_limit)
+    assert @account.pilot_runs_uncapped?
     assert_equal 25_000, @account.effective_trace_limit
     assert_equal 14.days, @account.trace_retention
     assert_equal "complimentary_pilot", @account.access_source
@@ -43,6 +44,27 @@ class ProAccessTest < ActiveSupport::TestCase
     assert_equal 0, Pay::Subscription.count
     other = create_account(owner: @account.owner)
     assert_equal "free", other.current_plan.slug
+  end
+
+  test "pilot grants uncap agent runs while a paid plan keeps its cap" do
+    @account.update!(agent_runs_this_period: Account::USAGE_LIMITS["pro"] + 1, usage_period_start: Time.current)
+    assert_not @account.can_run_agent?
+
+    grant = ProAccess.grant!(**@attributes)
+    assert @account.can_run_agent?
+    assert_equal Float::INFINITY, @account.agent_runs_remaining
+    assert_equal(-1, @account.usage_stats[:runs_limit])
+
+    create_paid_subscription(@account)
+    assert_equal "subscription", @account.access_source
+    assert_equal 10_000, @account.effective_agent_runs_limit
+    assert_not @account.can_run_agent?
+
+    @account.pay_customers.destroy_all
+    ProAccess.revoke!(grant: grant, actor: @admin)
+    assert_equal "free", @account.reload.access_source
+    assert_equal 25, @account.effective_agent_runs_limit
+    assert_not @account.can_run_agent?
   end
 
   test "paid and trial subscriptions win over a grant and survive revocation" do
