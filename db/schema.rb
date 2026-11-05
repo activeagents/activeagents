@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.2].define(version: 2026_10_27_000001) do
+ActiveRecord::Schema[8.2].define(version: 2026_10_31_204508) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
 
@@ -707,6 +707,8 @@ ActiveRecord::Schema[8.2].define(version: 2026_10_27_000001) do
     t.string "stripe_account"
     t.bigint "subscription_id"
     t.datetime "updated_at", null: false
+    t.string "type"
+    t.jsonb "object"
     t.index ["customer_id", "processor_id"], name: "index_pay_charges_on_customer_id_and_processor_id", unique: true
     t.index ["subscription_id"], name: "index_pay_charges_on_subscription_id"
   end
@@ -722,6 +724,8 @@ ActiveRecord::Schema[8.2].define(version: 2026_10_27_000001) do
     t.string "processor_id"
     t.string "stripe_account"
     t.datetime "updated_at", null: false
+    t.string "type"
+    t.jsonb "object"
     t.index ["owner_type", "owner_id", "deleted_at"], name: "pay_customer_owner_index", unique: true
     t.index ["processor", "processor_id"], name: "index_pay_customers_on_processor_and_processor_id", unique: true
   end
@@ -735,6 +739,7 @@ ActiveRecord::Schema[8.2].define(version: 2026_10_27_000001) do
     t.string "processor", null: false
     t.string "processor_id"
     t.datetime "updated_at", null: false
+    t.string "type"
     t.index ["owner_type", "owner_id", "processor"], name: "index_pay_merchants_on_owner_type_and_owner_id_and_processor"
   end
 
@@ -745,8 +750,9 @@ ActiveRecord::Schema[8.2].define(version: 2026_10_27_000001) do
     t.boolean "default"
     t.string "processor_id", null: false
     t.string "stripe_account"
-    t.string "type"
+    t.string "payment_method_type"
     t.datetime "updated_at", null: false
+    t.string "type"
     t.index ["customer_id", "processor_id"], name: "index_pay_payment_methods_on_customer_id_and_processor_id", unique: true
   end
 
@@ -772,6 +778,8 @@ ActiveRecord::Schema[8.2].define(version: 2026_10_27_000001) do
     t.string "stripe_account"
     t.datetime "trial_ends_at", precision: nil
     t.datetime "updated_at", null: false
+    t.string "type"
+    t.jsonb "object"
     t.index ["customer_id", "processor_id"], name: "index_pay_subscriptions_on_customer_id_and_processor_id", unique: true
     t.index ["metered"], name: "index_pay_subscriptions_on_metered"
     t.index ["pause_starts_at"], name: "index_pay_subscriptions_on_pause_starts_at"
