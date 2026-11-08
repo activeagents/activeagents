@@ -260,3 +260,39 @@ resolves to one of the two proxies.
 - One-off commands: `activeagents-production-migrate`, as above.
 - Update the memory note and `docs/issues/2026-10-20-client-pro-pilot.md`:
   the pilot is granted on whichever database serves the domain.
+
+## Background jobs: the `-jobs` service
+
+Since 2026-11-07 Solid Queue does not run inside the web instances. Each
+environment has a second Cloud Run service, `activeagents-<env>-jobs`
+(`terraform/modules/cloud-run`), that runs the same image with
+`SOLID_QUEUE_IN_PUMA=true`: Puma answers Cloud Run's probes on `/up`, and
+the `solid_queue` Puma plugin runs the supervisor, the workers
+(`config/queue.yml`), the dispatcher and the scheduler
+(`config/recurring.yml`). The web service no longer gets that variable.
+
+Why a separate service: the web service bills per request, and Cloud Run
+throttles its CPU between requests. Trace ingest answers first and
+processes the traces in a job, so the processing ran on a throttled CPU,
+and the number of web instances followed HTTP load, not the queue. The jobs
+service keeps its CPU allocated (`cpu_idle = false`), takes no traffic
+(internal ingress, no invoker binding) and runs a fixed number of instances.
+
+Sizing, all in `terraform/environments/<env>` and applied by the deploy:
+
+- `jobs_instances` (production 1, staging 1): instances. Nothing routes
+  requests here, so request-based autoscaling has nothing to go on; raise
+  it when queue latency grows. `0` removes the service and puts Solid Queue
+  back into the web instances, which is the rollback.
+- `jobs_processes` (1): Solid Queue worker processes per instance
+  (`JOB_CONCURRENCY`), each with the threads `config/queue.yml` sets.
+- `jobs_cpu` / `jobs_memory`: default to the web service's.
+
+Every instance holds its own connection pools to the four databases, so
+count the jobs instances in the Cloud SQL connection budget along with the
+web instances.
+
+A Cloud Run worker pool (`google_cloud_run_v2_worker_pool`: no port, no
+probes, manual instance count) is the better fit for this. It needs the
+`google` provider at 6.x; this repository pins `~> 5.0`, and the upgrade is
+its own change.

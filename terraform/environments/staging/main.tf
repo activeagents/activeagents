@@ -35,6 +35,10 @@ module "activeagents" {
   cpu           = var.cpu    # 2 vCPUs for benchmark API and concurrent operations
   memory        = var.memory # 2Gi for Rails 8 + ActionCable
 
+  # Solid Queue in its own always-on instance, as on production. Staging's
+  # web instances scale to zero, so without it nothing ran jobs between visits.
+  jobs_instances = 1
+
   # Email configuration
   mailer_from_address = var.mailer_from_address
   app_host            = var.app_host

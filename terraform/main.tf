@@ -264,7 +264,9 @@ locals {
       RAILS_ENV                = "production"
       RAILS_LOG_TO_STDOUT      = "true"
       RAILS_SERVE_STATIC_FILES = "true"
-      SOLID_QUEUE_IN_PUMA      = "true"
+      # Solid Queue runs in the jobs service (modules/cloud-run), which sets
+      # SOLID_QUEUE_IN_PUMA itself; the web instances get it only when that
+      # service is off.
       # Migrations run via the dedicated Cloud Run migrate job; the web
       # container boots straight to the server (see bin/docker-entrypoint)
       SKIP_DB_PREPARE     = "true"
@@ -411,6 +413,12 @@ module "cloud_run" {
   max_instances = var.max_instances
   cpu           = var.cpu
   memory        = var.memory
+
+  # Background jobs, in their own always-on instances
+  jobs_instances = var.jobs_instances
+  jobs_processes = var.jobs_processes
+  jobs_cpu       = var.jobs_cpu
+  jobs_memory    = var.jobs_memory
 
   cloud_sql_connection = module.cloud_sql.connection_name
 

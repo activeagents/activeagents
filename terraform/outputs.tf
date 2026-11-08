@@ -10,6 +10,11 @@ output "cloud_run_service_name" {
   value       = module.cloud_run.service_name
 }
 
+output "cloud_run_jobs_service_name" {
+  description = "Name of the Cloud Run service running Solid Queue (null when jobs run in the web instances)"
+  value       = module.cloud_run.jobs_service_name
+}
+
 output "artifact_registry_url" {
   description = "URL for pushing Docker images"
   value       = "${var.region}-docker.pkg.dev/${var.project_id}/${google_artifact_registry_repository.activeagents.repository_id}"

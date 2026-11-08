@@ -40,6 +40,11 @@ module "activeagents" {
   cpu           = var.cpu
   memory        = var.memory
 
+  # Solid Queue runs in activeagents-production-jobs, not in the web
+  # instances, whose CPU is throttled between requests.
+  jobs_instances = var.jobs_instances
+  jobs_processes = var.jobs_processes
+
   # Email and links
   mailer_from_address = var.mailer_from_address
   app_host            = var.app_host
