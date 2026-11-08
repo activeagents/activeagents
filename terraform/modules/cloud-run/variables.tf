@@ -52,6 +52,35 @@ variable "memory" {
   default     = "512Mi"
 }
 
+variable "jobs_instances" {
+  description = "Instances of the background jobs service (activeagents-<env>-jobs), which runs Solid Queue with its CPU always allocated. 0 creates no jobs service and runs Solid Queue inside the web instances instead."
+  type        = number
+  default     = 1
+
+  validation {
+    condition     = var.jobs_instances >= 0 && floor(var.jobs_instances) == var.jobs_instances
+    error_message = "jobs_instances must be a whole number, 0 or more."
+  }
+}
+
+variable "jobs_processes" {
+  description = "Solid Queue worker processes per jobs instance (JOB_CONCURRENCY in config/queue.yml); each runs the configured threads"
+  type        = number
+  default     = 1
+}
+
+variable "jobs_cpu" {
+  description = "CPU of a jobs instance; null takes the web service's"
+  type        = string
+  default     = null
+}
+
+variable "jobs_memory" {
+  description = "Memory of a jobs instance; null takes the web service's"
+  type        = string
+  default     = null
+}
+
 variable "cloud_sql_connection" {
   description = "Cloud SQL connection name"
   type        = string

@@ -39,11 +39,10 @@ run "defaults_pass_nothing_new_to_cloud_run" {
       "RAILS_SERVE_STATIC_FILES",
       "RESEND_NEWSLETTER_AUDIENCE_ID",
       "SKIP_DB_PREPARE",
-      "SOLID_QUEUE_IN_PUMA",
       "STRIPE_EXPECTED_ACCOUNT_ID",
       "STRIPE_REQUIRE_TEST_MODE",
     ])
-    error_message = "With every flag off, Cloud Run must get only the plain variables it got before (staging adds its Stripe guard)."
+    error_message = "With every flag off, Cloud Run must get only the plain variables it got before (staging adds its Stripe guard); Solid Queue's switch is the module's."
   }
 
   assert {
@@ -880,4 +879,107 @@ run "pro_price_ids_must_be_stripe_price_ids" {
   }
 
   expect_failures = [var.stripe_pro_price_ids]
+}
+
+# -- Background jobs service ------------------------------------------------
+
+run "jobs_run_in_their_own_service_by_default" {
+  command = plan
+
+  module {
+    source = "./modules/cloud-run"
+  }
+
+  variables {
+    region               = "us-central1"
+    service_account      = "activeagents-staging@example-project.iam.gserviceaccount.com"
+    vpc_connector_id     = "projects/example-project/locations/us-central1/connectors/activeagents-staging"
+    cloud_sql_connection = "example-project:us-central1:activeagents-staging"
+    env_vars             = { RAILS_ENV = "production" }
+    cpu                  = "2"
+    memory               = "2Gi"
+  }
+
+  assert {
+    condition     = length(google_cloud_run_v2_service.jobs) == 1 && google_cloud_run_v2_service.jobs[0].name == "activeagents-staging-jobs"
+    error_message = "By default the module creates activeagents-<env>-jobs."
+  }
+
+  assert {
+    condition     = google_cloud_run_v2_service.jobs[0].ingress == "INGRESS_TRAFFIC_INTERNAL_ONLY"
+    error_message = "The jobs service takes no public traffic."
+  }
+
+  assert {
+    condition = (
+      google_cloud_run_v2_service.jobs[0].template[0].containers[0].resources[0].cpu_idle == false &&
+      google_cloud_run_v2_service.main.template[0].containers[0].resources[0].cpu_idle == true
+    )
+    error_message = "The jobs service keeps its CPU allocated; the web service keeps request-based billing."
+  }
+
+  assert {
+    condition = (
+      google_cloud_run_v2_service.jobs[0].template[0].scaling[0].min_instance_count == 1 &&
+      google_cloud_run_v2_service.jobs[0].template[0].scaling[0].max_instance_count == 1
+    )
+    error_message = "The jobs service runs a fixed count of instances."
+  }
+
+  assert {
+    condition = (
+      google_cloud_run_v2_service.jobs[0].template[0].containers[0].resources[0].limits["cpu"] == "2" &&
+      google_cloud_run_v2_service.jobs[0].template[0].containers[0].resources[0].limits["memory"] == "2Gi"
+    )
+    error_message = "Without jobs_cpu and jobs_memory the jobs service takes the web service's sizes."
+  }
+
+  assert {
+    condition = (
+      local.jobs_env_vars["SOLID_QUEUE_IN_PUMA"] == "true" &&
+      local.jobs_env_vars["JOB_CONCURRENCY"] == "1" &&
+      local.jobs_env_vars["RAILS_ENV"] == "production" &&
+      !contains(keys(local.web_env_vars), "SOLID_QUEUE_IN_PUMA")
+    )
+    error_message = "Solid Queue runs in the jobs service and not in the web instances."
+  }
+}
+
+run "jobs_instances_zero_puts_solid_queue_back_in_the_web_instances" {
+  command = plan
+
+  module {
+    source = "./modules/cloud-run"
+  }
+
+  variables {
+    region               = "us-central1"
+    service_account      = "activeagents-staging@example-project.iam.gserviceaccount.com"
+    vpc_connector_id     = "projects/example-project/locations/us-central1/connectors/activeagents-staging"
+    cloud_sql_connection = "example-project:us-central1:activeagents-staging"
+    jobs_instances       = 0
+  }
+
+  assert {
+    condition     = length(google_cloud_run_v2_service.jobs) == 0 && output.jobs_service_name == null
+    error_message = "With jobs_instances = 0 there is no jobs service."
+  }
+
+  assert {
+    condition     = local.web_env_vars["SOLID_QUEUE_IN_PUMA"] == "true"
+    error_message = "With no jobs service the web instances run Solid Queue, as before."
+  }
+}
+
+run "root_passes_the_jobs_sizing_through" {
+  command = plan
+
+  variables {
+    jobs_instances = 0
+  }
+
+  assert {
+    condition     = output.cloud_run_jobs_service_name == null
+    error_message = "jobs_instances = 0 at the root reaches the module."
+  }
 }

@@ -17,3 +17,8 @@ output "custom_domain_status" {
   description = "Custom domain mapping status"
   value       = var.domain != null ? google_cloud_run_domain_mapping.main[0].status : null
 }
+
+output "jobs_service_name" {
+  description = "Cloud Run service running Solid Queue; null when jobs run inside the web instances"
+  value       = local.jobs_enabled ? google_cloud_run_v2_service.jobs[0].name : null
+}

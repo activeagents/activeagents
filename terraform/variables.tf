@@ -86,6 +86,30 @@ variable "memory" {
   default     = "512Mi"
 }
 
+variable "jobs_instances" {
+  description = "Instances of the background jobs service (Solid Queue, CPU always allocated). 0 runs Solid Queue inside the web instances instead."
+  type        = number
+  default     = 1
+}
+
+variable "jobs_processes" {
+  description = "Solid Queue worker processes per jobs instance (JOB_CONCURRENCY)"
+  type        = number
+  default     = 1
+}
+
+variable "jobs_cpu" {
+  description = "CPU of a jobs instance; null takes the web service's"
+  type        = string
+  default     = null
+}
+
+variable "jobs_memory" {
+  description = "Memory of a jobs instance; null takes the web service's"
+  type        = string
+  default     = null
+}
+
 # Database configuration
 variable "database_tier" {
   description = "Cloud SQL machine tier"

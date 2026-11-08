@@ -74,7 +74,7 @@ variable "cpu" {
 variable "memory" {
   description = "Memory allocation for the main Cloud Run service"
   type        = string
-  default     = "2Gi" # Rails 8 + ActionCable + Solid Queue in Puma, as on staging
+  default     = "2Gi" # Rails 8 + ActionCable, as on staging
 }
 
 variable "min_instances" {
@@ -87,6 +87,18 @@ variable "max_instances" {
   description = "Maximum number of Cloud Run instances"
   type        = number
   default     = 20
+}
+
+variable "jobs_instances" {
+  description = "Instances of activeagents-production-jobs, the Solid Queue service with its CPU always allocated. Raise it when queue latency grows; 0 moves Solid Queue back into the web instances."
+  type        = number
+  default     = 1
+}
+
+variable "jobs_processes" {
+  description = "Solid Queue worker processes per jobs instance (JOB_CONCURRENCY); each runs 3 threads (config/queue.yml)"
+  type        = number
+  default     = 1
 }
 
 # -- Billing -----------------------------------------------------------------

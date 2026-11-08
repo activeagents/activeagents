@@ -31,9 +31,10 @@ resource "google_cloud_run_v2_service" "main" {
         startup_cpu_boost = true
       }
 
-      # Plain environment variables
+      # Plain environment variables. With no jobs service (jobs_instances = 0)
+      # the web instances run Solid Queue inside Puma, as they did before it.
       dynamic "env" {
-        for_each = var.env_vars
+        for_each = local.web_env_vars
         content {
           name  = env.key
           value = env.value
@@ -118,6 +119,169 @@ resource "google_cloud_run_v2_service" "main" {
 
     timeout                          = "300s"
     max_instance_request_concurrency = 80
+
+    labels = var.labels
+  }
+
+  traffic {
+    type    = "TRAFFIC_TARGET_ALLOCATION_TYPE_LATEST"
+    percent = 100
+  }
+
+  labels = var.labels
+
+  lifecycle {
+    ignore_changes = [
+      client,
+      client_version,
+    ]
+  }
+}
+
+# Background jobs: Solid Queue's supervisor, workers, dispatcher and scheduler
+# (config/queue.yml, config/recurring.yml), in a service of their own.
+#
+# The web service bills per request and has its CPU throttled between
+# requests (cpu_idle), which is exactly when an async job such as trace
+# processing runs; and its instance count follows HTTP load, not the queue.
+# This service keeps its CPU allocated the whole time, takes no traffic
+# (internal ingress, no invoker binding) and runs a fixed number of
+# instances, each the same image booting Puma with the solid_queue plugin
+# (SOLID_QUEUE_IN_PUMA): Puma answers Cloud Run's probes on /up, the plugin
+# runs the jobs. A Cloud Run worker pool is the better fit once the google
+# provider is on 6.x; on 5.x this is the shape that exists.
+#
+# jobs_instances = 0 removes the service and puts Solid Queue back in the
+# web instances.
+locals {
+  jobs_enabled = var.jobs_instances > 0
+  web_env_vars = local.jobs_enabled ? var.env_vars : merge(var.env_vars, { SOLID_QUEUE_IN_PUMA = "true" })
+  jobs_env_vars = merge(var.env_vars, {
+    SOLID_QUEUE_IN_PUMA = "true"
+    # Solid Queue worker processes per instance (config/queue.yml)
+    JOB_CONCURRENCY = tostring(var.jobs_processes)
+  })
+}
+
+resource "google_cloud_run_v2_service" "jobs" {
+  count    = local.jobs_enabled ? 1 : 0
+  project  = var.project_id
+  name     = "activeagents-${var.environment}-jobs"
+  location = var.region
+  ingress  = "INGRESS_TRAFFIC_INTERNAL_ONLY"
+
+  template {
+    service_account = var.service_account
+
+    # A fixed count: nothing routes requests here, so request-based
+    # autoscaling has nothing to go on. Size it by queue latency.
+    scaling {
+      min_instance_count = var.jobs_instances
+      max_instance_count = var.jobs_instances
+    }
+
+    vpc_access {
+      connector = var.vpc_connector_id
+      egress    = "PRIVATE_RANGES_ONLY"
+    }
+
+    containers {
+      image = var.image
+
+      resources {
+        limits = {
+          cpu    = coalesce(var.jobs_cpu, var.cpu)
+          memory = coalesce(var.jobs_memory, var.memory)
+        }
+        # CPU stays allocated between requests: the jobs run then
+        cpu_idle          = false
+        startup_cpu_boost = true
+      }
+
+      dynamic "env" {
+        for_each = local.jobs_env_vars
+        content {
+          name  = env.key
+          value = env.value
+        }
+      }
+
+      dynamic "env" {
+        for_each = var.secret_env_vars
+        content {
+          name = env.key
+          value_source {
+            secret_key_ref {
+              secret  = env.value
+              version = "latest"
+            }
+          }
+        }
+      }
+
+      ports {
+        container_port = 80
+      }
+
+      startup_probe {
+        http_get {
+          path = "/up"
+          port = 80
+        }
+        initial_delay_seconds = 5
+        timeout_seconds       = 3
+        period_seconds        = 5
+        failure_threshold     = 30
+      }
+
+      liveness_probe {
+        http_get {
+          path = "/up"
+          port = 80
+        }
+        timeout_seconds   = 3
+        period_seconds    = 30
+        failure_threshold = 3
+      }
+
+      volume_mounts {
+        name       = "cloudsql"
+        mount_path = "/cloudsql"
+      }
+
+      dynamic "volume_mounts" {
+        for_each = var.secret_volumes
+        content {
+          name       = volume_mounts.key
+          mount_path = volume_mounts.value.mount_path
+        }
+      }
+    }
+
+    volumes {
+      name = "cloudsql"
+      cloud_sql_instance {
+        instances = [var.cloud_sql_connection]
+      }
+    }
+
+    dynamic "volumes" {
+      for_each = var.secret_volumes
+      content {
+        name = volumes.key
+        secret {
+          secret = volumes.value.secret
+          items {
+            version = "latest"
+            path    = volumes.value.file
+          }
+        }
+      }
+    }
+
+    # Only Cloud Run's own probes reach Puma here
+    timeout                          = "300s"
+    max_instance_request_concurrency = 1
 
     labels = var.labels
   }
