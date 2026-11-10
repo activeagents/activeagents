@@ -6,8 +6,8 @@
     <span class="eyebrow lp-eyebrow"><span class="lp-dot"></span>Framework &middot; Dashboard &middot; Platform</span>
     <h1 class="balanced">Build AI in Rails.<br /><span class="lp-accent-line">See everything it does.</span></h1>
     <p class="paragraph l secondary balanced">
-      Agents are controllers, prompts are views, tools are methods. The dashboard mounts beside your
-      app, and the same telemetry points at activeagents.ai for production.
+      Agents are controllers, prompts are views, tools are methods. Mount the dashboard in your own
+      app with no limits, or point the same telemetry at activeagents.ai and let the platform run it.
     </p>
     <%= form_with url: registration_path, method: :post, id: "hero-signup", class: "lp-form lp-form-hero",
           data: { turbo: false, controller: "signup" } do |f| %>
@@ -27,11 +27,16 @@
       <p class="lp-form-response lp-mono" data-signup-target="response" data-response-class="lp-form-response lp-mono" aria-live="polite"></p>
     <% end %>
     <p class="lp-hero-links">
-      Free workspace, no credit card.
+      Free workspace on the platform, no credit card.
       <a href="https://docs.activeagents.ai/getting_started" target="_blank" rel="noopener noreferrer">Read the docs</a>
       <span class="lp-muted">&middot;</span>
       <a href="https://github.com/activeagents/activeagent" target="_blank" rel="noopener noreferrer">GitHub</a>
     </p>
+    <div class="lp-hero-or" aria-hidden="true">or</div>
+    <div class="lp-hero-selfhost">
+      <a class="button tertiary" href="https://docs.activeagents.ai/framework/self-hosted-observability" target="_blank" rel="noopener noreferrer">Self-host the dashboard</a>
+      <p class="lp-hero-selfhost-note">MIT licensed. No seat, trace or rate limits. Scale on your own infrastructure.</p>
+    </div>
     <div class="lp-install">
       <code><span class="lp-p">$</span> bundle add activeagent actionagent</code>
       <span class="lp-sep">&middot;</span>

@@ -1422,7 +1422,7 @@
 
 .lp-plans {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 12px;
   align-items: stretch;
 }
@@ -1920,6 +1920,44 @@
 
 .lp-hero-links a:hover {
   color: var(--color-accent);
+}
+
+/* The second way in: self-host the dashboard. An "or" rule separates it from
+   the platform signup above, so the two read as a choice, not a list. */
+.lp-hero-or {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  max-width: 520px;
+  margin-top: 6px;
+  font-family: var(--font-mono);
+  font-size: var(--lp-mono-xs);
+  color: var(--color-text-tertiary);
+}
+
+.lp-hero-or::before,
+.lp-hero-or::after {
+  content: "";
+  flex: 1;
+  height: 1px;
+  background: var(--color-border-level-2);
+}
+
+.lp-hero-selfhost {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 8px 14px;
+  max-width: 680px;
+}
+
+.lp-hero-selfhost-note {
+  margin: 0;
+  font-size: var(--font-size-s);
+  line-height: var(--line-height-paragraph-s);
+  color: var(--color-text-secondary);
 }
 
 /* --------------------------------------------------------------------------
