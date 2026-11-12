@@ -110,7 +110,7 @@ function PlansContent({ plans, current_plan, signed_in, email_verified, subscrib
             Choose your plan
           </h2>
           <p style={{ marginTop: '16px', fontSize: '20px', color: colors.textSecondary }}>
-            Start free, scale as you grow.
+            Start free on the platform and scale as you grow, or self-host the dashboard with no limits.
           </p>
         </div>
 
@@ -187,8 +187,82 @@ function PlansContent({ plans, current_plan, signed_in, email_verified, subscrib
           marginTop: '48px',
           display: 'grid',
           gap: '32px',
-          gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))'
+          gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))'
         }}>
+          {/* Self-hosting is not a plan in the database: the dashboard is MIT
+              licensed and runs in the customer's own app, so the card is
+              static and its button goes to the guide, not to checkout. */}
+          <div
+            data-testid="plan-card-self-hosted"
+            style={{
+              position: 'relative',
+              display: 'flex',
+              flexDirection: 'column',
+              borderRadius: '16px',
+              border: `1px solid ${colors.border}`,
+              backgroundColor: colors.cardBg,
+              padding: '32px'
+            }}
+          >
+            <div style={{ flex: 1 }}>
+              <h3 style={{ fontSize: '20px', fontWeight: '600', color: colors.textPrimary }}>Self-hosted</h3>
+
+              <div style={{ marginTop: '16px', display: 'flex', alignItems: 'baseline' }}>
+                <span style={{ fontSize: '36px', fontWeight: '800', color: colors.textPrimary }}>$0</span>
+                <span style={{ marginLeft: '8px', fontSize: '14px', fontWeight: '600', color: colors.textSecondary }}>
+                  your infrastructure
+                </span>
+              </div>
+
+              <p style={{ marginTop: '8px', fontSize: '14px', color: '#16a34a' }}>
+                MIT licensed, no limits
+              </p>
+
+              <ul style={{ marginTop: '24px', listStyle: 'none', padding: 0 }}>
+                {[
+                  'Unlimited team seats',
+                  'Unlimited workspaces',
+                  'Unlimited traces, no rate limits',
+                  'Retention is yours to set',
+                  'The same dashboard: traces, metrics, interactions, evaluations',
+                  'Agent builder, Run Agent workbench, MCP server',
+                  'Community support on GitHub and Discord',
+                ].map((item) => (
+                  <li key={item} style={{ display: 'flex', alignItems: 'flex-start', marginBottom: '16px' }}>
+                    <svg style={{ height: '20px', width: '20px', flexShrink: 0, color: '#22c55e' }} viewBox="0 0 20 20" fill="currentColor">
+                      <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                    </svg>
+                    <span style={{ marginLeft: '8px', fontSize: '14px', color: colors.textSecondary }}>{item}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+
+            <div style={{ marginTop: '32px' }}>
+              <a
+                href="https://docs.activeagents.ai/framework/self-hosted-observability"
+                target="_blank"
+                rel="noopener noreferrer"
+                style={{
+                  display: 'block',
+                  width: '100%',
+                  borderRadius: '6px',
+                  border: `1px solid ${colors.border}`,
+                  backgroundColor: colors.cardBg,
+                  padding: '12px 16px',
+                  textAlign: 'center',
+                  fontSize: '14px',
+                  fontWeight: '600',
+                  color: colors.textSecondary,
+                  textDecoration: 'none',
+                  boxSizing: 'border-box'
+                }}
+              >
+                Self-host guide
+              </a>
+            </div>
+          </div>
+
           {plans.map((plan) => (
             <div
               key={plan.id}
@@ -247,7 +321,9 @@ function PlansContent({ plans, current_plan, signed_in, email_verified, subscrib
                 <ul style={{ marginTop: '24px', listStyle: 'none', padding: 0 }}>
                   <li style={{ display: 'flex', alignItems: 'flex-start', marginBottom: '16px' }}>
                     <span style={{ fontSize: '14px', color: colors.textSecondary }}>
-                      {plan.included_seats} team seat{plan.included_seats !== 1 ? 's' : ''}
+                      {plan.included_seats === -1
+                        ? 'Unlimited team seats'
+                        : `${plan.included_seats} team seat${plan.included_seats !== 1 ? 's' : ''}`}
                     </span>
                   </li>
                   <li style={{ display: 'flex', alignItems: 'flex-start', marginBottom: '16px' }}>
