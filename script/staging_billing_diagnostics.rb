@@ -35,7 +35,7 @@ report[:key_accounts] = {}
   next unless key_mode.call(key) == "test"
   begin
     client = Stripe::StripeClient.new(key)
-    read = ->(path, params = {}) { client.execute_request(:get, path, params: params).first.data }
+    read = ->(path, params = {}) { client.raw_request(:get, path, params: params).to_hash }
     balance = read.call("/v1/balance")
     unless balance[:livemode] == false
       report[:key_accounts][source] = { error: "Stripe did not report livemode=false" }

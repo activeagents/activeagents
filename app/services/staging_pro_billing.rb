@@ -1,5 +1,6 @@
 # Pro catalog provisioning for staging only. This never creates subscriptions.
-# Pay 7.3 pins stripe-ruby 12, whose instance request API is execute_request.
+# stripe-ruby 13+ replaced StripeClient#execute_request with raw_request, which
+# returns a StripeObject; to_hash gives the same symbol-keyed data as before.
 class StagingProBilling
   class ConfigurationError < StandardError; end
 
@@ -79,8 +80,8 @@ class StagingProBilling
   private
 
   def request(method, path, params = {}, idempotency_key: nil)
-    headers = idempotency_key ? { "Idempotency-Key" => idempotency_key } : {}
-    @client.execute_request(method, path, params: params, headers: headers).first.data
+    opts = idempotency_key ? { idempotency_key: idempotency_key } : {}
+    @client.raw_request(method, path, params: params, opts: opts).to_hash
   rescue Stripe::StripeError => error
     # Error bodies can contain request data; keep credentials out of job logs.
     raise ConfigurationError, "Stripe request failed (#{error.class.name}, HTTP #{error.http_status})"

@@ -18,8 +18,10 @@ module PilotHelpers
     URI.decode_www_form(URI(url).query).to_h.fetch("token")
   end
 
+  # Pay 8+ stores each processor as an STI subclass; a bare Pay::Subscription
+  # has no paused?/active?, so build the rows through the Stripe classes.
   def create_paid_subscription(account, status: "active", trial_ends_at: nil, price: "price_pro")
-    customer = account.pay_customers.create!(processor: "stripe", processor_id: "cus_#{SecureRandom.hex(6)}")
+    customer = Pay::Stripe::Customer.create!(owner: account, processor: "stripe", processor_id: "cus_#{SecureRandom.hex(6)}")
     customer.subscriptions.create!(name: "default", processor_id: "sub_#{SecureRandom.hex(6)}",
       processor_plan: price, status: status, trial_ends_at: trial_ends_at)
   end
