@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.2].define(version: 2026_10_27_000001) do
+ActiveRecord::Schema[8.2].define(version: 2026_11_12_000005) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
 
@@ -344,6 +344,7 @@ ActiveRecord::Schema[8.2].define(version: 2026_10_27_000001) do
     t.bigint "scenario_set_id", null: false
     t.jsonb "tags", default: []
     t.datetime "updated_at", null: false
+    t.jsonb "metadata"
     t.index ["scenario_set_id", "key"], name: "index_catalog_scenarios_on_scenario_set_id_and_key", unique: true
   end
 
@@ -491,6 +492,8 @@ ActiveRecord::Schema[8.2].define(version: 2026_10_27_000001) do
     t.integer "status", default: 0, null: false
     t.jsonb "tool_calls", default: []
     t.datetime "updated_at", null: false
+    t.string "scoring_token"
+    t.datetime "scoring_expires_at"
     t.index ["evaluation_run_id", "model"], name: "index_evaluation_scenario_results_on_run_and_model"
     t.index ["evaluation_run_id"], name: "index_evaluation_scenario_results_on_run"
     t.index ["evaluation_scenario_id"], name: "index_evaluation_scenario_results_on_scenario"
@@ -682,6 +685,24 @@ ActiveRecord::Schema[8.2].define(version: 2026_10_27_000001) do
     t.index ["account_id"], name: "index_investors_on_account_id"
     t.index ["pulley_id"], name: "index_investors_on_pulley_id"
     t.index ["user_id"], name: "index_investors_on_user_id"
+  end
+
+  create_table "mcp_server_configs", force: :cascade do |t|
+    t.string "name", null: false
+    t.text "description"
+    t.string "url", limit: 2048, null: false
+    t.text "secret_headers"
+    t.boolean "enabled", default: true, null: false
+    t.datetime "last_tested_at"
+    t.string "last_test_status"
+    t.text "last_test_error"
+    t.jsonb "tool_names", default: []
+    t.bigint "account_id"
+    t.bigint "user_id"
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["account_id"], name: "index_mcp_server_configs_on_account"
+    t.index ["user_id"], name: "index_mcp_server_configs_on_user"
   end
 
   create_table "newsletter_subscriptions", force: :cascade do |t|
@@ -1057,6 +1078,8 @@ ActiveRecord::Schema[8.2].define(version: 2026_10_27_000001) do
     t.bigint "project_id"
     t.bigint "scenario_catalog_id", null: false
     t.datetime "updated_at", null: false
+    t.jsonb "criteria"
+    t.jsonb "pass"
     t.index ["agent_id"], name: "index_scenario_products_on_agent_id"
     t.index ["project_id"], name: "index_scenario_products_on_project_id"
     t.index ["scenario_catalog_id", "key"], name: "index_scenario_products_on_scenario_catalog_id_and_key", unique: true
@@ -1074,6 +1097,7 @@ ActiveRecord::Schema[8.2].define(version: 2026_10_27_000001) do
     t.integer "position"
     t.bigint "scenario_product_id", null: false
     t.datetime "updated_at", null: false
+    t.jsonb "pass"
     t.index ["evaluation_id"], name: "index_scenario_sets_on_evaluation_id"
     t.index ["scenario_product_id", "key"], name: "index_scenario_sets_on_scenario_product_id_and_key", unique: true
   end

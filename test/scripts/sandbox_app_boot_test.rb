@@ -64,6 +64,22 @@ class SandboxAppBootTest < ActiveSupport::TestCase
     }.merge(overrides.stringify_keys)
   end
 
+  # The script's own rule for a path root alone could have written: it and
+  # every directory up to / are root's, not group- or world-writable, and
+  # not symlinks.
+  def root_only?(path)
+    path = File.expand_path(path)
+    loop do
+      info = File.lstat(path)
+      return false if info.symlink? || info.uid != 0 || (info.mode & 0o022) != 0
+      parent = File.dirname(path)
+      return true if parent == path
+      path = parent
+    end
+  rescue SystemCallError
+    false
+  end
+
   def boot(document, *arguments, env: { "APP_SECRET" => SECRET })
     path = @root.join("boot", "spec.json")
     path.write(JSON.generate(document))
@@ -218,13 +234,19 @@ class SandboxAppBootTest < ActiveSupport::TestCase
     PYTHON
     spec_path = @root.join("boot", "spec.json")
     spec_path.write("{}")
+    # A file root owns, writable by root alone and not a symlink, in
+    # directories that are the same all the way up. Which one that is
+    # depends on the OS: Ubuntu 26.04's /usr/bin/env is a symlink into
+    # uutils coreutils, and macOS's /etc is a symlink to /private/etc.
+    roots_path = %w[/usr/bin/env /bin/sh /etc/passwd /etc/hosts].find { |path| root_only?(path) }
+    skip "no root-owned, root-only-writable file to check against on this host" unless roots_path
 
-    stdout, stderr, status = Open3.capture3("python3", "-B", "-c", check, SCRIPT, spec_path.to_s, "/usr/bin/env")
+    stdout, stderr, status = Open3.capture3("python3", "-B", "-c", check, SCRIPT, spec_path.to_s, roots_path)
 
     assert status.success?, stderr
     mine, roots = stdout.lines(chomp: true)
     assert_match(/\Arefused: #{Regexp.escape(spec_path.to_s)} must be root's, writable by root alone and not a symlink/, mine)
-    assert_equal "accepted", roots, "a file root owns, in directories only root can write"
+    assert_equal "accepted", roots, "a file root owns, in directories only root can write (#{roots_path})"
   end
 
   test "a resume needs a failed boot and a step the boot has" do
