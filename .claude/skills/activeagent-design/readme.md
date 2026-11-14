@@ -42,6 +42,7 @@ Design system for **Active Agent** (activeagents.ai) — a Rails framework for A
 - **Density**: compact — 8–12px cell padding, 20px card padding in product; 24px marketing.
 - **Buttons**: primary solid red; secondary red-tint bg + red text (marketing) or gray border (product); tertiary gray fill; 12px radius (m), compact 8px.
 - **Status badges**: soft tint bg + strong text (green/yellow/red/blue/gray), pill or 4px radius, 11–12px.
+- **Ranked data** (benchmarks, leaderboards, run comparisons): sortable two-line mono headers (metric / unit), accent caret on the active column only, hairline rows, no zebra, and every numeric cell a full value pill tinted by rank within its column (success / warning / error soft+text pairs for top / middle / bottom third; muted for n/a). Identity cell stays neutral. Rows stack to identity + 4-pill grid under 600px. Spec: `DESIGN_SPEC.md` "Ranked Data & Comparison Tables"; specimen: `docs/design/comparison-table/specimen.html`.
 - **Trace spans**: color-coded system — root gray, prompt blue, generate purple, LLM red, thinking amber, tool green, response teal.
 - **Focus**: 2px red ring on inputs/buttons.
 - **Charts**: red gradient bars, thin 2px sparkline polylines (red/green/gray), progress bars for provider breakdowns. Moderate chart usage: a few key charts per screen, tables carry the load.
@@ -59,7 +60,7 @@ Design system for **Active Agent** (activeagents.ai) — a Rails framework for A
 - `fonts/` — Inter Variable (woff2), JetBrains Mono (ttf)
 - `guidelines/` — foundation specimen cards (Design System tab)
 - `components/core/` — Button, Input, Select, Checkbox, Switch, Card, Badge, StatusBadge, Tabs, Tag
-- `components/data/` — StatCard, DataTable, SpanBar, ScoreBar, MonoLabel, ContextMeter (v2: deferred rows, source groups, sub-limit meters, freshness footer)
+- `components/data/` — StatCard, DataTable, ComparisonTable + ValuePill (ranked/benchmark tables), SpanBar, ScoreBar, MonoLabel, ContextMeter (v2: deferred rows, source groups, sub-limit meters, freshness footer)
 - `components/telemetry/` — the telemetry object family: ObjectRow (shared expandable shell) + AgentRow, InteractionRow, TraceRow, EvalRow. Object grammar: `@` agent · `<>` interaction · `->` trace · `=` eval · `#` context; every object = chevron · glyph chip · mono id · title · mono meta · indicators · status badge; nesting via `depth` (interaction event -> trace -> spans). Runtime copy for screens/cards: `ui_kits/dashboard/TelemetryObjects.jsx` (`window.AAKit.Telemetry`)
 - `components/feedback/` — Dialog, Toast, Tooltip, Spinner, EmptyState
 - `ui_kits/dashboard/` — product app screens (fleet, agent detail, traces, metrics, evals)
