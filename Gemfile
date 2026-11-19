@@ -29,7 +29,7 @@ gem "inertia_rails"
 # Code or Codex); 1.8.0 added GitHub connections, checkout sandboxes and
 # Claude Code sessions; 1.7.0 added the evaluation report collector that
 # /v1/evaluations subclasses.
-# The 1.9.8 release (activeagent v1.9.8, 2026-11-12): the framework and the
+# The 1.9.9 release (activeagent v1.9.9, 2026-11-18): the framework and the
 # dashboard engine from RubyGems, with the browser sidecar at the same version.
 # 1.9.3 made code sessions conversations (migration 028) and added codex_auth;
 # 1.9.4 added the user-menu links seam; 1.9.5 added GitHub App webhooks
@@ -40,9 +40,11 @@ gem "inertia_rails"
 # (migrations 030, 031, 032, copied as 20261112000001–3); 1.9.8 holds a run
 # to its catalog's pass bars and named criteria (migrations 034, 035, copied
 # as 20261112000004–5; 033 is unused), the empty agent list onboarding, and
-# ruby_llm 2.2 / anthropic 2.x compatibility (docs/releases/1.9.8-plan.md).
-gem "activeagent", "1.9.8"
-gem "actionagent", "1.9.8"
+# ruby_llm 2.2 / anthropic 2.x compatibility (docs/releases/1.9.8-plan.md);
+# 1.9.9 adds the schema tools presence filter and evaluation run and replay
+# claims (no migrations).
+gem "activeagent", "1.9.9"
+gem "actionagent", "1.9.9"
 # Solid Agent - Persistence and context management for ActiveAgent
 gem "solid_agent", github: "activeagents/solid_agent", branch: "main"
 # RubyLLM - model registry (token pricing data) and unified provider API
